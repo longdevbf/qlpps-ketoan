@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<title>Phê Duyệt — QLPPS</title>
+<link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
+<link rel="shortcut icon" href="/static/papasan.ico">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<style>
+:root{
+  --bg:#f3f6fb; --line:#e6ebf2; --text:#0f172a; --muted:#64748b;
+  --primary:#0084ff; --primary-d:#0066cc; --navy:#1a3c5e; --navy-d:#0c2340;
+  --success:#10b981; --warn:#f59e0b; --danger:#dc2626;
+  --amber-bg:#fef3c7; --amber-bd:#fcd34d; --amber-txt:#92400e;
+  --green-bg:#dcfce7; --green-bd:#86efac; --green-txt:#15803d;
+  --purple-bg:#f3e8ff; --purple-bd:#d8b4fe; --purple-txt:#6b21a8;
+  --blue-bg:#dbeafe; --blue-bd:#93c5fd; --blue-txt:#1e40af;
+  --rose-bg:#ffe4e6; --rose-bd:#fda4af; --rose-txt:#9f1239;
+  --cyan-bg:#cffafe; --cyan-bd:#67e8f9; --cyan-txt:#155e75;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:var(--bg);min-height:100vh;color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+/* ── Topbar ── */
+.topbar{height:54px;background:linear-gradient(90deg,var(--navy-d) 0%,var(--navy) 50%,var(--navy-d) 100%);color:#fff;padding:0 22px;display:flex;flex-wrap:wrap;align-items:center;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 4px 14px rgba(15,23,42,.18)}
+@media(max-width:640px){.topbar{padding:6px 10px;gap:8px;height:auto;min-height:48px}.topbar-logo,.topbar-sep{display:none}.topbar-user{display:none}.topbar-right{gap:8px}.topbar-btn{padding:6px 10px;font-size:11.5px}}
+.topbar-logo{font-size:15px;font-weight:800;letter-spacing:.3px;white-space:nowrap}
+.topbar-logo span{color:#7ec8e3}
+.topbar-sep{color:rgba(255,255,255,.3);font-size:18px}
+.topbar-title{font-size:14px;font-weight:700;white-space:nowrap}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:12.5px}
+.topbar-user{color:rgba(255,255,255,.85);font-weight:600}
+.topbar-btn{padding:6px 13px;border-radius:7px;border:none;cursor:pointer;font-size:12.5px;font-weight:600;transition:all .15s;text-decoration:none;display:inline-flex;align-items:center;gap:5px}
+.mt-btn-back{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.22)}
+.mt-btn-back:hover{background:rgba(255,255,255,.24);border-color:rgba(255,255,255,.4)}
+.mt-btn-logout{background:#c0392b;color:#fff}
+.mt-btn-logout:hover{background:#a93226}
+
+/* ── Hero (page header reimagined) — full-bleed background, content căn theo max-width 1200px ── */
+.page-header{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--primary) 100%);color:#fff;
+  width:100vw;margin-left:calc(50% - 50vw);
+  padding-top:30px;padding-bottom:56px;
+  padding-left:max(26px,calc((100vw - 1200px) / 2 + 18px));
+  padding-right:max(26px,calc((100vw - 1200px) / 2 + 18px));
+  position:relative;overflow:hidden;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+}
+.page-header::before{content:'';position:absolute;top:-40%;right:-10%;width:380px;height:380px;background:radial-gradient(circle,rgba(255,255,255,.1) 0%,transparent 70%);pointer-events:none;z-index:0}
+.page-header > *{position:relative;z-index:1}
+.page-header-icon{width:54px;height:54px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:26px;flex-shrink:0;position:relative;z-index:1}
+.page-header-text{position:relative;z-index:1}
+.page-header-text h4{margin:0;font-weight:800;color:#fff;font-size:24px;letter-spacing:-.4px}
+.page-header-text p{font-size:13px;color:rgba(255,255,255,.85);margin:4px 0 0}
+.btn-refresh{padding:9px 16px;background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;margin-left:auto;position:relative;z-index:1}
+.btn-refresh:hover{background:rgba(255,255,255,.28)}
+
+/* ── Page wrap ── */
+.page-wrap{max-width:1200px;margin:0 auto;padding:0 18px 30px;width:100%}
+.page-wrap > *:not(.page-header){position:relative;z-index:2}
+
+/* ── Stats bar (overlap hero) ── */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:-40px;margin-bottom:18px;position:relative;z-index:5}
+@media(max-width:700px){.stats-bar{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:420px){.stats-bar{grid-template-columns:1fr}}
+.stat-card{background:#fff;border-radius:14px;border:1px solid var(--line);padding:14px 16px;display:flex;align-items:center;gap:13px;cursor:pointer;transition:all .15s;box-shadow:0 4px 12px rgba(15,23,42,.06);position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line);border-radius:14px 0 0 14px}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(15,23,42,.1)}
+.stat-card.active{box-shadow:0 0 0 2px var(--primary),0 4px 12px rgba(15,23,42,.06)}
+.stat-card.active::before{background:var(--primary)}
+.stat-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.stat-icon.nghi{background:var(--amber-bg);color:var(--amber-txt)}
+.stat-icon.chi{background:var(--purple-bg);color:var(--purple-txt)}
+.stat-icon.lenh{background:var(--blue-bg);color:var(--blue-txt)}
+.stat-icon.ct{background:var(--green-bg);color:var(--green-txt)}
+.stat-num{font-size:22px;font-weight:800;color:var(--text);line-height:1}
+.stat-label{font-size:11px;color:var(--muted);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+
+/* ── Filter Tabs ── */
+.tabs-bar{background:#fff;border-radius:12px;border:1px solid var(--line);padding:6px;display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px;box-shadow:0 2px 6px rgba(15,23,42,.04)}
+.tab-btn{padding:9px 18px;border:0;background:transparent;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-radius:9px;transition:all .15s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-family:inherit}
+.tab-btn:hover{background:#f0f8ff;color:var(--primary)}
+.tab-btn.active{background:var(--primary);color:#fff;box-shadow:0 2px 6px rgba(0,132,255,.3)}
+
+/* ── Table ── */
+.tbl-wrap{background:#fff;border-radius:14px;border:1px solid var(--line);overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.04)}
+.tbl-scroll{overflow-x:auto}
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table thead th{background:#f8fafc;color:var(--muted);padding:11px 13px;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--line)}
+.data-table tbody tr{border-bottom:1px solid #f1f5f9;transition:background .15s}
+.data-table tbody tr:hover{background:#fafbfc}
+.data-table tbody td{padding:11px 13px;vertical-align:middle}
+.empty-row td{text-align:center;color:#94a3b8;padding:44px 0;font-size:13px}
+
+/* ── NV cell ── */
+.nv-cell{display:flex;align-items:center;gap:9px}
+.nv-ava{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4a90d9,#0084ff);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 4px rgba(0,132,255,.25)}
+
+/* ── Type badge ── */
+.type-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.type-nghi{background:var(--amber-bg);color:var(--amber-txt);border:1px solid var(--amber-bd)}
+.type-chi{background:var(--purple-bg);color:var(--purple-txt);border:1px solid var(--purple-bd)}
+.type-lenh{background:var(--blue-bg);color:var(--blue-txt);border:1px solid var(--blue-bd)}
+.type-ct{background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd)}
+
+/* ── Action btns ── */
+.btn-approve{padding:6px 13px;background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
+.btn-approve:hover{background:var(--success);color:#fff;border-color:var(--success);transform:translateY(-1px)}
+.btn-reject{padding:6px 13px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
+.btn-reject:hover{background:var(--danger);color:#fff;border-color:var(--danger);transform:translateY(-1px)}
+
+/* ── Card (shared) ── */
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:16px;box-shadow:0 2px 6px rgba(15,23,42,.04);overflow:hidden}
+.card-header{padding:16px 20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid transparent;transition:background .15s}
+.card-header:hover{background:#fafbfc}
+.card-header h3{font-size:15px;font-weight:700;color:var(--text);margin:0;display:flex;align-items:center;gap:9px}
+.card-toolbar{display:flex;align-items:center;gap:8px}
+.card-body{padding:0 20px 20px}
+.month-select{padding:7px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:12.5px;color:var(--text);background:#fff;font-family:inherit;cursor:pointer}
+.month-select:focus{outline:0;border-color:var(--primary);box-shadow:0 0 0 3px rgba(0,132,255,.13)}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:1060;display:none;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.show{display:flex}
+.modal-box{background:#fff;border-radius:16px;width:520px;max-width:96vw;box-shadow:0 20px 60px rgba(15,23,42,.3);overflow:hidden;animation:modalIn .25s ease-out}
+@keyframes modalIn{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.modal-header{background:linear-gradient(135deg,var(--navy) 0%,var(--primary) 100%);padding:18px 22px;display:flex;align-items:center;gap:10px}
+.modal-header h5{color:#fff;margin:0;font-weight:800;font-size:15.5px}
+.modal-body{padding:22px 24px}
+.modal-footer{padding:14px 24px;border-top:1px solid #f1f5f9;display:flex;gap:8px;justify-content:flex-end;background:#fafbfc}
+.modal-info-card{background:#f8fafc;border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-bottom:18px}
+.info-chip{background:var(--blue-bg);color:var(--blue-txt);border-radius:7px;padding:4px 11px;font-size:12px;font-weight:600;display:inline-block;margin:2px 4px 2px 0;border:1px solid var(--blue-bd)}
+.modal-textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:9px;font-size:13.5px;outline:none;resize:vertical;min-height:80px;font-family:inherit;transition:border-color .15s,box-shadow .15s}
+.modal-textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(0,132,255,.13)}
+.btn-modal-approve{background:var(--success);color:#fff;border:none;border-radius:9px;padding:10px 20px;font-weight:700;cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
+.btn-modal-approve:hover{background:#059669;transform:translateY(-1px)}
+.btn-modal-reject{background:var(--danger);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-weight:700;cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
+.btn-modal-reject:hover{background:#b91c1c;transform:translateY(-1px)}
+.btn-cancel-m{background:#fff;color:var(--text);border:1.5px solid var(--line);border-radius:9px;padding:10px 16px;font-weight:600;cursor:pointer;font-size:13px;font-family:inherit;transition:all .15s}
+.btn-cancel-m:hover{background:#f1f5f9;border-color:#94a3b8}
+
+/* ── Loading spinner ── */
+.loading-row td{text-align:center;padding:44px 0}
+.spinner{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Toast ── */
+.toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:13px 20px;border-radius:10px;font-size:13px;font-weight:600;color:#fff;box-shadow:0 6px 22px rgba(15,23,42,.25);opacity:0;transform:translateY(12px);transition:all .28s;pointer-events:none;max-width:340px;display:flex;align-items:center;gap:8px}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.success{background:var(--success)}
+.toast.error{background:var(--danger)}
+.toast.info{background:var(--primary)}
+.toast.warning{background:var(--warn)}
+
+/* ── Module-specific (ketoan) ── */
+@keyframes pd-spin{to{transform:rotate(360deg)}}
+
+/* ── Mobile: thu gọn topbar + modal DNTT xếp dọc ── */
+@media(max-width:600px){
+  .topbar{padding:0 12px;gap:8px}
+  .topbar-logo,.topbar-sep,.topbar-user{display:none}
+  .topbar-btn{padding:6px 10px}
+  .dntt-modal-foot{flex-direction:column;align-items:stretch}
+  .dntt-modal-foot > div{min-width:0}
+}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="topbar-logo">QLPPS <span>Papasan</span></div>
+  <div class="topbar-sep">|</div>
+  <div class="topbar-title"><i class="bi bi-clipboard-check"></i> Phê Duyệt</div>
+  <div class="topbar-right">
+    <span class="topbar-user"><i class="bi bi-person-circle"></i> {{ user.ho_ten if user else '' }}</span>
+    <a href="/" class="topbar-btn mt-btn-back"><i class="bi bi-house"></i> Trang chủ</a>
+    <a href="/logout" class="topbar-btn mt-btn-logout"><i class="bi bi-box-arrow-right"></i> Đăng xuất</a>
+  </div>
+</div>
+
+<div class="page-wrap">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="page-header-icon"><i class="bi bi-clipboard-check"></i></div>
+    <div class="page-header-text">
+      <h4>Phê Duyệt</h4>
+      <p>Tất cả mục chờ duyệt của nhân viên baogia</p>
+    </div>
+    <button class="btn-refresh" onclick="pdInit()"><i class="bi bi-arrow-clockwise"></i> Làm mới</button>
+  </div>
+
+  <!-- Stats bar -->
+  <div class="stats-bar">
+    <div class="stat-card" id="stat-all-card" onclick="pdSetFilter('')">
+      <div class="stat-icon nghi" style="background:#e8f0fe;color:#1a3c5e"><i class="bi bi-list-check"></i></div>
+      <div>
+        <div class="stat-num" id="pd-cnt-all">—</div>
+        <div class="stat-label">Tất cả chờ duyệt</div>
+      </div>
+    </div>
+    <div class="stat-card" id="stat-nghi-card" onclick="pdSetFilter('nghi_phep')">
+      <div class="stat-icon nghi"><i class="bi bi-calendar2-x"></i></div>
+      <div>
+        <div class="stat-num" id="pd-cnt-nghi">—</div>
+        <div class="stat-label">Nghỉ phép</div>
+      </div>
+    </div>
+    <div class="stat-card" id="stat-chi-card" onclick="pdSetFilter('duyet_chi')">
+      <div class="stat-icon chi"><i class="bi bi-cash-coin"></i></div>
+      <div>
+        <div class="stat-num" id="pd-cnt-chi">—</div>
+        <div class="stat-label">Duyệt chi</div>
+      </div>
+    </div>
+    <div class="stat-card" id="stat-lenh-card" onclick="pdSetFilter('lenh_di')">
+      <div class="stat-icon lenh"><i class="bi bi-geo-alt"></i></div>
+      <div>
+        <div class="stat-num" id="pd-cnt-lenh">—</div>
+        <div class="stat-label">Lệnh đi / Công trình</div>
+      </div>
+    </div>
+    <div class="stat-card" id="stat-coc-card" onclick="pdSetFilter('kt_coc')">
+      <div class="stat-icon" style="background:#fff8ef;color:#a04000"><i class="bi bi-cash-coin"></i></div>
+      <div>
+        <div class="stat-num" id="pd-cnt-coc" style="color:#a04000">—</div>
+        <div class="stat-label">Xác nhận cọc BG</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Tabs -->
+  <div class="tabs-bar">
+    <button class="tab-btn active" id="pd-tab-all"  onclick="pdSetFilter('')"><i class="bi bi-grid-3x3-gap"></i> Tất cả</button>
+    <button class="tab-btn" id="pd-tab-nghi"         onclick="pdSetFilter('nghi_phep')"><i class="bi bi-calendar2-x"></i> Nghỉ phép</button>
+    <button class="tab-btn" id="pd-tab-chi"          onclick="pdSetFilter('duyet_chi')"><i class="bi bi-cash-coin"></i> Duyệt chi</button>
+    <button class="tab-btn" id="pd-tab-lenh"         onclick="pdSetFilter('lenh_di')"><i class="bi bi-geo-alt"></i> Lệnh đi</button>
+    <button class="tab-btn" id="pd-tab-ct"           onclick="pdSetFilter('cong_trinh')"><i class="bi bi-building"></i> Công trình</button>
+    <button class="tab-btn" id="pd-tab-coc"          onclick="pdSetFilter('kt_coc')" style="border-color:#f0a040">
+      <i class="bi bi-cash-coin" style="color:#a04000"></i>
+      <span style="color:#a04000">Xác nhận cọc</span>
+      <span id="pd-tab-coc-cnt" style="background:#a04000;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;display:none">0</span>
+    </button>
+    <button class="tab-btn" id="pd-tab-dntt"         onclick="pdSetFilter('de_nghi_tt')" style="border-color:#0891b2">
+      <i class="bi bi-receipt" style="color:#0891b2"></i>
+      <span style="color:#0891b2">Đề Nghị TT</span>
+      <span id="pd-tab-dntt-cnt" style="background:#0891b2;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;display:none">0</span>
+    </button>
+    <button class="tab-btn" id="pd-tab-history"      onclick="pdSetFilter('history')" style="border-color:#16a34a">
+      <i class="bi bi-clock-history" style="color:#16a34a"></i>
+      <span style="color:#16a34a">Đã duyệt</span>
+      <span id="pd-tab-history-cnt" style="background:#16a34a;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;display:none">0</span>
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="tbl-wrap">
+    <div class="tbl-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Nhân viên</th>
+            <th>Loại</th>
+            <th>Nội dung</th>
+            <th>Ngày</th>
+            <th>Chi tiết</th>
+            <th style="text-align:center">Hành động</th>
+          </tr>
+        </thead>
+        <tbody id="pd-tbody">
+          <tr class="loading-row">
+            <td colspan="6">
+              <div class="spinner"></div>
+              <div style="color:#94a3b8;font-size:13px">Đang tải dữ liệu...</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Pagination -->
+    <div class="pagination" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#f8fafc;border-top:1px solid var(--line);font-size:13px">
+      <div>
+        Hiển thị <select id="pd-pgsize" onchange="pdSetPageSize(this.value)" style="padding:4px 8px;border:1px solid var(--line);border-radius:6px;font-family:inherit;font-size:13px">
+          <option value="10">10</option><option value="20" selected>20</option>
+          <option value="50">50</option><option value="100">100</option>
+        </select> /tổng <span id="pd-total">0</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn-sm" onclick="pdPrevPage()" style="padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;font-size:12.5px">‹ Trước</button>
+        <span>Trang <span id="pd-curpage">1</span>/<span id="pd-totpage">1</span></span>
+        <button class="btn-sm" onclick="pdNextPage()" style="padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;font-size:12.5px">Sau ›</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Đề Nghị TT (hiện khi tab de_nghi_tt active) — KT phê duyệt cấp 1 ── -->
+  <div id="dntt-section" style="display:none">
+    <!-- Sub-tab filter theo trạng thái (KT cần xem cả đã duyệt/đã từ chối/CEO duyệt cuối) -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding:6px;background:#fff;border:1px solid #e5e7eb;border-radius:8px">
+      <button class="dntt-subtab active" data-status="cho_duyet" onclick="dnttSetSub('cho_duyet')" style="padding:6px 12px;border:0;background:#0891b2;color:#fff;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer">
+        ⏳ Chờ KT duyệt <span class="dntt-sub-cnt" data-cnt="cho_duyet" style="margin-left:4px;background:rgba(255,255,255,.3);padding:1px 6px;border-radius:8px;font-size:11px">0</span>
+      </button>
+      <button class="dntt-subtab" data-status="kt_duyet" onclick="dnttSetSub('kt_duyet')" style="padding:6px 12px;border:0;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer">
+        ✓ KT đã duyệt (chờ CEO) <span class="dntt-sub-cnt" data-cnt="kt_duyet" style="margin-left:4px;background:#cbd5e1;padding:1px 6px;border-radius:8px;font-size:11px">0</span>
+      </button>
+      <button class="dntt-subtab" data-status="duyet" onclick="dnttSetSub('duyet')" style="padding:6px 12px;border:0;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer">
+        ✅ CEO đã duyệt cuối <span class="dntt-sub-cnt" data-cnt="duyet" style="margin-left:4px;background:#cbd5e1;padding:1px 6px;border-radius:8px;font-size:11px">0</span>
+      </button>
+      <button class="dntt-subtab" data-status="kt_tu_choi" onclick="dnttSetSub('kt_tu_choi')" style="padding:6px 12px;border:0;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer">
+        ✗ KT từ chối <span class="dntt-sub-cnt" data-cnt="kt_tu_choi" style="margin-left:4px;background:#cbd5e1;padding:1px 6px;border-radius:8px;font-size:11px">0</span>
+      </button>
+      <button class="dntt-subtab" data-status="tu_choi" onclick="dnttSetSub('tu_choi')" style="padding:6px 12px;border:0;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer">
+        ✗ CEO từ chối <span class="dntt-sub-cnt" data-cnt="tu_choi" style="margin-left:4px;background:#cbd5e1;padding:1px 6px;border-radius:8px;font-size:11px">0</span>
+      </button>
+      <button class="dntt-subtab" data-status="" onclick="dnttSetSub('')" style="padding:6px 12px;border:0;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer">
+        📋 Tất cả <span class="dntt-sub-cnt" data-cnt="all" style="margin-left:4px;background:#cbd5e1;padding:1px 6px;border-radius:8px;font-size:11px">0</span>
+      </button>
+    </div>
+    <div class="tbl-wrap">
+      <div class="tbl-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Ngày ĐN</th>
+              <th>Mã đơn</th>
+              <th>ĐVVC</th>
+              <th style="text-align:right">Số tiền</th>
+              <th>Lý do</th>
+              <th>Người tạo</th>
+              <th style="text-align:center">Trạng thái</th>
+              <th style="text-align:center;min-width:200px">Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="dntt-tbody">
+            <tr class="loading-row"><td colspan="9"><div class="spinner"></div><div style="color:#94a3b8;font-size:13px">Đang tải...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:#64748b;padding:8px 12px;background:#ecfeff;border-left:3px solid #0891b2;border-radius:4px">
+      <i class="bi bi-info-circle"></i> Kế Toán duyệt cấp 1. Sau khi duyệt, đề nghị sẽ chuyển cho CEO duyệt cuối ở app <b>Sale Admin</b>. CEO duyệt xong sẽ tự động tạo Sổ Quỹ chi + Chi phí phải trả ĐVVC.
+    </div>
+  </div>
+
+  <!-- ── Modal chi tiết DNTT ── -->
+  <div id="dntt-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;overflow-y:auto;padding:24px 16px">
+    <div style="background:#fff;border-radius:12px;max-width:680px;margin:0 auto;padding:0;box-shadow:0 8px 40px rgba(0,0,0,.18)">
+      <div style="padding:18px 24px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:16px;font-weight:700;color:#0a2340">📋 Chi tiết Đề Nghị Thanh Toán</div>
+        <button onclick="closeDnttModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#6b7280;line-height:1">×</button>
+      </div>
+      <div id="dntt-modal-body" style="padding:20px 24px">
+        <div style="text-align:center;color:#94a3b8;padding:32px">Đang tải...</div>
+      </div>
+      <div class="dntt-modal-foot" style="padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;gap:10px;align-items:flex-end">
+        <div style="flex:1">
+          <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px">Ghi chú của Kế Toán (tùy chọn)</label>
+          <textarea id="dntt-modal-note" rows="2" placeholder="Nhập ghi chú nếu cần..." style="width:100%;padding:8px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:13px;resize:vertical;box-sizing:border-box"></textarea>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;min-width:130px">
+          <button id="dntt-modal-approve-btn" class="btn-approve" style="width:100%" onclick="dnttModalSubmit('approve')"><i class="bi bi-check-circle"></i> Duyệt</button>
+          <button id="dntt-modal-reject-btn" class="btn-reject" style="width:100%" onclick="dnttModalPromptReject()"><i class="bi bi-x-circle"></i> Từ chối</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Đã duyệt (lịch sử mọi loại đã hoàn tất) ── -->
+  <div id="history-section" style="display:none">
+    <div style="margin:8px 0 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label style="font-size:13px;font-weight:600;color:#475569">Tháng:</label>
+      <select id="hist-thang" onchange="loadHistory()" style="padding:6px 10px;border:1.5px solid #d0dcea;border-radius:7px;font-size:13px;font-weight:600;color:#1a3c5e;background:#fff"></select>
+      <label style="font-size:13px;font-weight:600;color:#475569;margin-left:12px">Loại:</label>
+      <select id="hist-loai" onchange="renderHistory()" style="padding:6px 10px;border:1.5px solid #d0dcea;border-radius:7px;font-size:13px;font-weight:600;color:#1a3c5e;background:#fff">
+        <option value="">Tất cả</option>
+        <option value="nghi_phep">Nghỉ phép</option>
+        <option value="duyet_chi">Duyệt chi</option>
+        <option value="lenh_di">Lệnh đi</option>
+        <option value="cong_trinh">Công trình</option>
+      </select>
+      <label style="font-size:13px;font-weight:600;color:#475569;margin-left:12px">Trạng thái:</label>
+      <select id="hist-status" onchange="renderHistory()" style="padding:6px 10px;border:1.5px solid #d0dcea;border-radius:7px;font-size:13px;font-weight:600;color:#1a3c5e;background:#fff">
+        <option value="">Tất cả</option>
+        <option value="da_duyet">Đã duyệt</option>
+        <option value="tu_choi">Từ chối</option>
+      </select>
+      <span style="margin-left:auto;font-size:12px;color:#64748b" id="hist-count"></span>
+    </div>
+    <div class="tbl-wrap">
+      <div class="tbl-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Nhân viên</th>
+              <th>Loại</th>
+              <th>Nội dung</th>
+              <th>Ngày</th>
+              <th>Trạng thái</th>
+              <th>Người duyệt</th>
+              <th style="text-align:center">Chi tiết</th>
+            </tr>
+          </thead>
+          <tbody id="hist-tbody">
+            <tr class="loading-row"><td colspan="7"><div class="spinner"></div><div style="color:#94a3b8;font-size:13px">Đang tải...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Xác nhận cọc BG (hiện khi tab kt_coc active) ── -->
+  <div id="kt-coc-section" style="display:none">
+    <div class="tbl-wrap">
+      <div class="tbl-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Số BG</th>
+              <th>Khách hàng</th>
+              <th>NV KD</th>
+              <th>Tổng đơn</th>
+              <th>Thông tin cọc</th>
+              <th>Manager duyệt</th>
+              <th style="text-align:center;min-width:160px">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody id="kt-coc-tbody">
+            <tr class="loading-row"><td colspan="7"><div class="spinner"></div><div style="color:#94a3b8;font-size:13px">Đang tải...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Lệnh không check-in ─────────────────────────────────────── -->
+  <div class="card" style="margin-top:20px">
+    <div class="card-header" style="cursor:pointer" onclick="toggleKhongCheckin(this)">
+      <h3 style="display:flex;align-items:center;gap:8px">
+        <i class="bi bi-exclamation-triangle-fill" style="color:#f59e0b"></i>
+        Lệnh không check-in
+        <span id="kci-count" style="background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:20px;padding:1px 10px;font-size:12px;font-weight:700">—</span>
+      </h3>
+      <div style="font-size:11px;color:#64748b;flex:1">Lệnh đi đã duyệt nhưng nhân viên không check-in tại địa điểm</div>
+      <div class="card-toolbar">
+        <select class="month-select" id="kci-thang" onchange="loadKhongCheckin(this.value)" onclick="event.stopPropagation()"></select>
+        <i class="bi bi-chevron-down" id="kci-chevron" style="color:#64748b;font-size:14px;margin-left:8px"></i>
+      </div>
+    </div>
+    <div id="kci-body" class="card-body" style="display:none">
+      <div class="tbl-wrap">
+        <div class="tbl-scroll">
+          <table class="data-table">
+            <thead><tr><th>Nhân viên</th><th>Ngày</th><th>Địa điểm</th><th>Loại</th><th>Duyệt bởi</th></tr></thead>
+            <tbody id="kci-tbody"><tr class="empty-row"><td colspan="5">Đang tải...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal Phê Duyệt -->
+<div class="modal-overlay" id="pd-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <i class="bi bi-clipboard-check" style="color:#7ec8e3;font-size:18px"></i>
+      <h5 id="pd-modal-title">Phê duyệt</h5>
+    </div>
+    <div class="modal-body">
+      <div class="modal-info-card">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <div class="nv-ava" id="pd-modal-ava" style="width:40px;height:40px;font-size:14px">N</div>
+          <div>
+            <div style="font-weight:700;color:#1a3c5e;font-size:14px" id="pd-modal-nv">Nhân viên</div>
+            <div style="font-size:12px;color:#64748b" id="pd-modal-sub"></div>
+          </div>
+        </div>
+        <div id="pd-modal-chips" style="margin-bottom:8px"></div>
+        <div style="font-size:13px;color:#374151" id="pd-modal-detail"></div>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Nhận xét <span style="font-weight:400;color:#94a3b8">(tùy chọn)</span></div>
+      <textarea class="modal-textarea" id="pd-modal-nhanxet" placeholder="Nhập nhận xét duyệt / từ chối..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel-m" onclick="closePdModal()">Hủy</button>
+      <button class="btn-modal-reject" onclick="doPdReview(false)"><i class="bi bi-x-circle"></i> Từ chối</button>
+      <button class="btn-modal-approve" onclick="doPdReview(true)"><i class="bi bi-check-circle"></i> Duyệt</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<!-- Modal KT xác nhận cọc -->
+<div class="modal-overlay" id="kt-coc-modal" onclick="if(event.target===this)closeKtModal()">
+  <div class="modal-box">
+    <div class="modal-header" id="kt-modal-hdr">
+      <i class="bi bi-cash-coin" style="font-size:18px"></i>
+      <h5 id="kt-modal-title">Xác nhận cọc</h5>
+    </div>
+    <div class="modal-body">
+      <div id="kt-modal-info" style="margin-bottom:12px;font-size:13px;color:#374151;line-height:1.6"></div>
+      <div id="kt-modal-tk-wrap" style="margin-bottom:12px;display:none">
+        <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">💰 Tiền cọc thực về tài khoản</label>
+        <select id="kt-modal-tk" style="width:100%;padding:8px 12px;border:1.5px solid #d0dcea;border-radius:8px;font-size:13px;outline:none;background:#fff">
+          <option value="Tiền Mặt">Tiền Mặt</option>
+          <option value="ACB Hộ Kinh Doanh">ACB — Hộ Kinh Doanh</option>
+          <option value="BIDV - Công ty">BIDV — Công ty</option>
+          <option value="VPB">VPB</option>
+        </select>
+        <div id="kt-modal-tk-hint" style="font-size:11.5px;color:#b45309;margin-top:5px;display:none">
+          ⚠️ Đơn này chưa ghi rõ tài khoản — vui lòng chọn đúng nơi tiền thực về để lên sổ quỹ.
+        </div>
+      </div>
+      <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Ghi chú <span style="color:#aaa;font-weight:400">(tuỳ chọn)</span></label>
+      <textarea id="kt-modal-note" rows="3" style="width:100%;padding:8px 12px;border:1.5px solid #d0dcea;border-radius:8px;font-size:13px;outline:none;resize:vertical" placeholder="Nhập lý do nếu cần..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-sm" style="background:#f1f5f9;color:#374151;border:1.5px solid #d0dcea" onclick="closeKtModal()">Huỷ</button>
+      <button class="btn btn-sm" id="kt-modal-confirm-btn" onclick="confirmKtAction()">Xác nhận</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+// ── API helper — dùng cookie HttpOnly, không cần đọc token qua JS ──────────────
+async function api(method, path, body){
+  const opts = {method, headers:{'Content-Type':'application/json'}, credentials:'include'};
+  if(body !== undefined && method !== 'GET') opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  if(r.status === 401){ window.location.href='/login'; return; }
+  if(!r.ok){ const e=await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail||r.statusText); }
+  return r.json();
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function showToast(msg, type='info'){
+  const wrap = document.getElementById('toast-wrap');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icon = type==='success'?'check-circle':type==='error'?'exclamation-triangle':type==='warning'?'exclamation-circle':'info-circle';
+  t.innerHTML = `<i class="bi bi-${icon}"></i> ${msg}`;
+  wrap.appendChild(t);
+  setTimeout(()=>t.classList.add('show'), 30);
+  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); }, 3500);
+}
+
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function fmtDate(s){
+  if(!s) return '—';
+  const p = String(s).slice(0,10).split('-');
+  return p[2]+'/'+p[1]+'/'+p[0];
+}
+
+function fmtMoney(n){
+  if(!n) return '0';
+  return Number(n).toLocaleString('vi-VN');
+}
+
+function initials(name){
+  return (name||'?').trim().split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,2);
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let _pdAllItems = [];
+// Pagination state
+let _pdPage = 1, _pdPageSize = 20, _pdAllRows = [];
+function pdSetPageSize(v){ _pdPageSize = parseInt(v) || 20; _pdPage = 1; pdRenderPage(); }
+function pdPrevPage(){ if(_pdPage > 1){ _pdPage--; pdRenderPage(); } }
+function pdNextPage(){ const tot = Math.max(1, Math.ceil(_pdAllRows.length / _pdPageSize)); if(_pdPage < tot){ _pdPage++; pdRenderPage(); } }
+let _pdFilter   = '';
+let _pdReviewItem = null;
+
+const _pdLoaiLabels = {
+  nghi_phep:  '<span class="type-badge type-nghi"><i class="bi bi-calendar2-x"></i> Nghỉ phép</span>',
+  duyet_chi:  '<span class="type-badge type-chi"><i class="bi bi-cash-coin"></i> Duyệt chi</span>',
+  lenh_di:    '<span class="type-badge type-lenh"><i class="bi bi-geo-alt"></i> Lệnh đi</span>',
+  cong_trinh: '<span class="type-badge type-ct"><i class="bi bi-building"></i> Công trình</span>',
+  de_nghi_tt: '<span class="type-badge" style="background:#cffafe;color:#0e7490;border:1px solid #67e8f9"><i class="bi bi-receipt"></i> Đề Nghị TT</span>',
+  ncc_de_xuat:'<span class="type-badge" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d"><i class="bi bi-receipt-cutoff"></i> Trả NCC</span>',
+};
+
+const _nghiLabel = {nghi_phep:'Nghỉ phép',nghi_bu:'Nghỉ bù',nghi_khong_luong:'Không lương',nghi_om:'Nghỉ ốm',viec_rieng:'Việc riêng',nghi_le:'Nghỉ lễ'};
+
+// ── Load tất cả nguồn song song ───────────────────────────────────────────────
+async function pdInit(){
+  const tbody = document.getElementById('pd-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = `<tr class="loading-row"><td colspan="6"><div class="spinner"></div><div style="color:#94a3b8;font-size:13px">Đang tải dữ liệu...</div></td></tr>`;
+
+  const [nghiRes, chiRes, lenhRes, ctRes, dnttRes, nccRes] = await Promise.allSettled([
+    api('GET', '/api/xin-nghi?trang_thai=cho_duyet'),
+    api('GET', '/api/duyet-chi/queue/me'),
+    api('GET', '/api/lenh-di-do/cho-duyet'),
+    api('GET', '/api/cong-trinh/admin?status_filter=cho_duyet'),
+    api('GET', '/api/de-nghi-tt?trang_thai=cho_duyet'),
+    api('GET', '/api/ncc-de-xuat?trang_thai=cho_duyet'),
+  ]);
+
+  const nghi = nghiRes.status==='fulfilled' ? nghiRes.value : [];
+  const chi  = chiRes.status==='fulfilled'  ? chiRes.value  : [];
+  const lenh = lenhRes.status==='fulfilled' ? lenhRes.value : [];
+  const ct   = ctRes.status==='fulfilled'   ? ctRes.value   : [];
+  const dntt = dnttRes.status==='fulfilled' ? dnttRes.value : [];
+  const ncc  = nccRes.status==='fulfilled'  ? nccRes.value  : [];
+
+  // Chuẩn hoá về format chung
+  _pdAllItems = [
+    ...nghi.map(r=>({
+      loai: 'nghi_phep', id: r.id,
+      ho_ten: r.ho_ten || r.username,
+      noi_dung: (_nghiLabel[r.loai_nghi]||r.loai_nghi) + ' — ' + (r.so_ngay||'') + ' ngày',
+      ngay: r.ngay_bat_dau,
+      chi_tiet: r.ly_do||'—',
+      _raw: r,
+    })),
+    ...chi.map(r=>({
+      loai: 'duyet_chi', id: r.id,
+      ho_ten: r.ho_ten || r.username,
+      noi_dung: '[' + (r.app_name||'?').toUpperCase() + '] ' + (r.tieu_de||'—'),
+      ngay: r.ngay_de_xuat,
+      chi_tiet: fmtMoney(r.so_tien) + ' đ',
+      _raw: r,
+    })),
+    ...dntt.map(r=>({
+      loai: 'de_nghi_tt', id: r.id,
+      ho_ten: r.nguoi_tao_ten || r.nguoi_tao || '—',
+      noi_dung: '[SALEADMIN] ' + (r.ly_do||r.ma_don||'—') + (r.don_vi_vc?' — '+r.don_vi_vc:''),
+      ngay: r.ngay_de_nghi,
+      chi_tiet: fmtMoney(r.so_tien) + ' đ',
+      _raw: r,
+    })),
+    ...lenh.map(r=>({
+      loai: 'lenh_di', id: r.id,
+      ho_ten: r.ma_nv || r.ho_ten,
+      noi_dung: r.dia_diem||'—',
+      ngay: r.ngay,
+      chi_tiet: ({do_nha:'Đo nhà',cong_trinh:'CT',gap_ncc:'Gặp NCC',quay_chup:'Quay chụp',hop_tac:'Họp/Đối tác',khac:'Khác'}[r.loai_di]||r.loai_di||'—'),
+      _raw: r,
+    })),
+    ...ct.map(r=>({
+      loai: 'cong_trinh', id: r.id,
+      ho_ten: r.ma_nv || r.ho_ten,
+      noi_dung: r.dia_diem || r.dia_diem_text||'—',
+      ngay: r.ngay_bat_dau,
+      chi_tiet: r.ngay_bat_dau + (r.ngay_ket_thuc && r.ngay_ket_thuc!==r.ngay_bat_dau ? ' → '+r.ngay_ket_thuc : ''),
+      _raw: r,
+    })),
+    ...ncc.map(r=>({
+      loai: 'ncc_de_xuat', id: r.id,
+      ho_ten: r.nguoi_tao_ten || r.nguoi_tao || '—',
+      noi_dung: '[MUAHANG] Trả NCC: ' + (r.ncc_name||r.ncc_id||'—'),
+      ngay: r.ngay || (r.created_at ? String(r.created_at).slice(0,10) : ''),
+      chi_tiet: fmtMoney(r.so_tien) + ' đ',
+      _raw: r,
+    })),
+  ].sort((a,b)=>(a.ngay||'')>(b.ngay||'')?1:-1);
+
+  // Update counts
+  document.getElementById('pd-cnt-all').textContent  = _pdAllItems.length;
+  document.getElementById('pd-cnt-nghi').textContent = nghi.length;
+  document.getElementById('pd-cnt-chi').textContent  = chi.length;
+  document.getElementById('pd-cnt-lenh').textContent = lenh.length + ct.length;
+
+  pdRender();
+
+  // Prefetch KT-duyệt-cọc (04/07 fix): stat card + tab badge phải hiện số ngay
+  // khi user vào trang, không đợi user click sang tab "Xác nhận cọc" mới load
+  // → nếu không, kế toán không biết có đơn baogia đang chờ xác nhận.
+  try { loadKtCoc(); } catch(_) {}
+}
+
+// ── Render bảng ───────────────────────────────────────────────────────────────
+function pdRender(){
+  const items = _pdFilter
+    ? _pdAllItems.filter(r=>r.loai===_pdFilter || (_pdFilter==='lenh_di' && r.loai==='cong_trinh'))
+    : _pdAllItems;
+  _pdAllRows = items;
+  _pdPage = 1;
+  pdRenderPage();
+}
+
+function pdRenderPage(){
+  const tbody = document.getElementById('pd-tbody');
+  if(!tbody) return;
+
+  const total = _pdAllRows.length;
+  const totPage = Math.max(1, Math.ceil(total / _pdPageSize));
+  if(_pdPage > totPage) _pdPage = totPage;
+  const start = (_pdPage - 1) * _pdPageSize;
+  const slice = _pdAllRows.slice(start, start + _pdPageSize);
+
+  const elTotal = document.getElementById('pd-total');
+  const elCur   = document.getElementById('pd-curpage');
+  const elTot   = document.getElementById('pd-totpage');
+  if(elTotal) elTotal.textContent = total;
+  if(elCur)   elCur.textContent   = _pdPage;
+  if(elTot)   elTot.textContent   = totPage;
+
+  if(!total){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6"><i class="bi bi-check2-circle" style="font-size:28px;color:#a3d9bc"></i><br>Không có mục nào chờ duyệt</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = slice.map((r,idx)=>{
+    const ngayFmt = r.ngay ? String(r.ngay).slice(8,10)+'/'+String(r.ngay).slice(5,7) : '—';
+    const loaiBadge = _pdLoaiLabels[r.loai] || `<span class="type-badge">${escHtml(r.loai)}</span>`;
+    const avIni = initials(r.ho_ten);
+    const globalIdx = _pdAllItems.indexOf(r);
+    return `<tr>
+      <td>
+        <div class="nv-cell">
+          <div class="nv-ava">${avIni}</div>
+          <div style="font-weight:700;font-size:13px">${escHtml(r.ho_ten||'—')}</div>
+        </div>
+      </td>
+      <td>${loaiBadge}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${escHtml(r.noi_dung||'—')}</b></td>
+      <td style="white-space:nowrap">${ngayFmt}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#64748b;font-size:12px">${escHtml(r.chi_tiet||'—')}</td>
+      <td style="text-align:center;white-space:nowrap">
+        <button class="btn-approve" onclick="openPdModal(${globalIdx})"><i class="bi bi-clipboard-check"></i> Xét duyệt</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Re-attach with correct indices after render
+  // Re-render with item index from filtered list
+  tbody.innerHTML = items.map((r,idx)=>{
+    const ngayFmt = r.ngay ? String(r.ngay).slice(8,10)+'/'+String(r.ngay).slice(5,7) : '—';
+    const loaiBadge = _pdLoaiLabels[r.loai] || `<span class="type-badge">${escHtml(r.loai)}</span>`;
+    const avIni = initials(r.ho_ten);
+
+    // Badge "cấp trên đã duyệt" cho item duyet_chi (multi-level)
+    let priorBadge = '';
+    if(r.loai === 'duyet_chi' && r._raw){
+      const hist = r._raw.approval_history || [];
+      const approvers = hist.filter(h=>h.action==='approve');
+      if(approvers.length){
+        const lvlLbl = {manager:'Quản lý', ketoan:'Kế Toán', ceo:'CEO'};
+        const txt = approvers.map(h=>{
+          const who = h.ho_ten||h.username||'?';
+          return `✓ ${lvlLbl[h.level]||h.level} <b>${escHtml(who)}</b> đã duyệt`;
+        }).join(' · ');
+        priorBadge = `<div style="margin-top:4px;font-size:11px;color:#065f46;background:#d1fae5;padding:2px 7px;border-radius:4px;display:inline-block">${txt}</div>`;
+      }
+    }
+
+    return `<tr style="cursor:pointer" onclick="openPdModalByRef('${escHtml(r.loai)}',${typeof r.id === 'string' ? `'${r.id}'` : r.id})">
+      <td>
+        <div class="nv-cell">
+          <div class="nv-ava">${avIni}</div>
+          <div style="font-weight:700;font-size:13px">${escHtml(r.ho_ten||'—')}</div>
+        </div>
+      </td>
+      <td>${loaiBadge}</td>
+      <td style="max-width:240px"><b>${escHtml(r.noi_dung||'—')}</b>${priorBadge}</td>
+      <td style="white-space:nowrap">${ngayFmt}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#64748b;font-size:12px">${escHtml(r.chi_tiet||'—')}</td>
+      <td style="text-align:center;white-space:nowrap" onclick="event.stopPropagation()">
+        <button class="btn-approve" onclick="openPdModalByRef('${escHtml(r.loai)}',${typeof r.id === 'string' ? `'${r.id}'` : r.id})"><i class="bi bi-clipboard-check"></i> Xét duyệt</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Filter ─────────────────────────────────────────────────────────────────────
+function pdSetFilter(loai){
+  _pdFilter = loai;
+  const isKtCoc   = loai === 'kt_coc';
+  const isDntt    = loai === 'de_nghi_tt';
+  const isHistory = loai === 'history';
+  // Tab buttons
+  ['all','nghi','chi','lenh','ct','coc','dntt','history'].forEach(k=>{
+    document.getElementById('pd-tab-'+k)?.classList.remove('active');
+  });
+  const tabMap = {'':'all','nghi_phep':'nghi','duyet_chi':'chi','lenh_di':'lenh','cong_trinh':'ct','kt_coc':'coc','de_nghi_tt':'dntt','history':'history'};
+  document.getElementById('pd-tab-'+(tabMap[loai]||'all'))?.classList.add('active');
+  // Stat cards
+  ['all','nghi','chi','lenh','coc'].forEach(k=>{
+    document.getElementById('stat-'+k+'-card')?.classList.remove('active');
+  });
+  const statMap = {'':'all','nghi_phep':'nghi','duyet_chi':'chi','lenh_di':'lenh','cong_trinh':'lenh','kt_coc':'coc'};
+  document.getElementById('stat-'+(statMap[loai]||'all')+'-card')?.classList.add('active');
+  // Toggle sections
+  const mainTbl = document.querySelector('.tbl-wrap');
+  const ktSec   = document.getElementById('kt-coc-section');
+  const dnttSec = document.getElementById('dntt-section');
+  const histSec = document.getElementById('history-section');
+  const all     = [mainTbl, ktSec, dnttSec, histSec];
+  all.forEach(el => { if(el) el.style.display = 'none'; });
+  if(isKtCoc){
+    if(ktSec) ktSec.style.display = '';
+    loadKtCoc();
+  } else if(isDntt){
+    if(dnttSec) dnttSec.style.display = '';
+    loadDNTT();
+  } else if(isHistory){
+    if(histSec) histSec.style.display = '';
+    _histPopulateMonths();
+    loadHistory();
+  } else {
+    if(mainTbl) mainTbl.style.display = '';
+    pdRender();
+  }
+}
+
+// ── Lịch sử đã duyệt ─────────────────────────────────────────────────────────
+let _pdHistoryItems = [];
+
+function _histThisMonth(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function _histPopulateMonths(){
+  const sel = document.getElementById('hist-thang');
+  if(!sel || sel.options.length > 1) return;
+  const now = new Date();
+  let y = now.getFullYear(), m = now.getMonth()+1;
+  for(let i=0; i<12; i++){
+    const val = `${y}-${String(m).padStart(2,'0')}`;
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = `Tháng ${m}/${y}`;
+    sel.appendChild(opt);
+    m--; if(m<1){ m=12; y--; }
+  }
+  sel.value = _histThisMonth();
+}
+
+async function loadHistory(){
+  const tbody = document.getElementById('hist-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="7"><div class="spinner"></div><div style="color:#94a3b8;font-size:13px">Đang tải...</div></td></tr>';
+
+  const thang = document.getElementById('hist-thang')?.value || _histThisMonth();
+
+  // Gọi 4 endpoint song song, lấy mọi item KHÔNG còn ở trạng thái cho_duyet
+  // (= da_duyet hoặc tu_choi). Backend filter trang_thai tách biệt nên gộp 2 query mỗi loại.
+  async function fetchTwo(url){
+    const [a, b] = await Promise.allSettled([
+      api('GET', url+'da_duyet'),
+      api('GET', url+'tu_choi'),
+    ]);
+    const arrA = a.status==='fulfilled' ? a.value : [];
+    const arrB = b.status==='fulfilled' ? b.value : [];
+    return [...arrA, ...arrB];
+  }
+
+  const [nghi, chi, lenh, ct] = await Promise.all([
+    fetchTwo('/api/xin-nghi?trang_thai='),
+    fetchTwo('/api/duyet-chi?trang_thai='),
+    fetchTwo('/api/lenh-di-do/admin?thang='+thang+'&status_filter='),
+    fetchTwo('/api/cong-trinh/admin?status_filter='),
+  ]);
+
+  // Chuẩn hoá về format chung
+  const _nghiLbl = _nghiLabel;
+  _pdHistoryItems = [
+    ...nghi.map(r=>({
+      loai:'nghi_phep', id:r.id,
+      ho_ten: r.ho_ten || r.username,
+      noi_dung: (_nghiLbl[r.loai_nghi]||r.loai_nghi) + ' — ' + (r.so_ngay||'') + ' ngày',
+      ngay: r.ngay_bat_dau || r.created_at,
+      trang_thai: r.trang_thai,
+      nguoi_duyet: r.ho_ten_nguoi_duyet || r.nguoi_duyet || '—',
+      ngay_duyet: r.ngay_duyet,
+      _raw: r,
+    })),
+    ...chi.map(r=>({
+      loai:'duyet_chi', id:r.id,
+      ho_ten: r.ho_ten || r.username,
+      noi_dung: r.tieu_de || '—',
+      ngay: r.ngay_de_xuat || r.created_at,
+      trang_thai: r.trang_thai,
+      nguoi_duyet: r.ho_ten_nguoi_duyet || r.nguoi_duyet || '—',
+      ngay_duyet: r.ngay_duyet,
+      _raw: r,
+    })),
+    ...lenh.map(r=>({
+      loai:'lenh_di', id:r.id,
+      ho_ten: r.ma_nv || r.ho_ten,
+      noi_dung: r.dia_diem || '—',
+      ngay: r.ngay,
+      trang_thai: r.status,
+      nguoi_duyet: r.approved_by || '—',
+      ngay_duyet: r.approved_at,
+      _raw: r,
+    })),
+    ...ct.map(r=>({
+      loai:'cong_trinh', id:r.id,
+      ho_ten: r.ma_nv || r.ho_ten,
+      noi_dung: r.dia_diem || r.dia_diem_text || '—',
+      ngay: r.ngay_bat_dau || r.created_at,
+      trang_thai: r.status,
+      nguoi_duyet: r.approved_by || '—',
+      ngay_duyet: r.approved_at,
+      _raw: r,
+    })),
+  ].filter(r=>{
+    // Chỉ giữ item kết thúc + trong tháng được chọn
+    if(!['da_duyet','tu_choi'].includes(r.trang_thai)) return false;
+    if(!r.ngay) return true;
+    return String(r.ngay).slice(0,7) === thang;
+  }).sort((a,b)=>(String(b.ngay_duyet||'')>String(a.ngay_duyet||'')?1:-1));
+
+  document.getElementById('pd-tab-history-cnt').textContent = _pdHistoryItems.length;
+  document.getElementById('pd-tab-history-cnt').style.display = _pdHistoryItems.length ? '' : 'none';
+  renderHistory();
+}
+
+function renderHistory(){
+  const tbody = document.getElementById('hist-tbody');
+  if(!tbody) return;
+  const loaiF   = document.getElementById('hist-loai').value;
+  const statusF = document.getElementById('hist-status').value;
+  const items = _pdHistoryItems.filter(r=>{
+    if(loaiF && r.loai !== loaiF) return false;
+    if(statusF && r.trang_thai !== statusF) return false;
+    return true;
+  });
+  document.getElementById('hist-count').textContent = `${items.length} mục`;
+  if(!items.length){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7"><i class="bi bi-inbox" style="font-size:28px;color:#94a3b8"></i><br>Không có lịch sử phù hợp</td></tr>';
+    return;
+  }
+  const _statLbl = {
+    da_duyet:'<span style="background:#d1fae5;color:#065f46;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700">✓ Đã duyệt</span>',
+    tu_choi: '<span style="background:#fee2e2;color:#991b1b;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700">✗ Từ chối</span>',
+  };
+  tbody.innerHTML = items.map(r=>{
+    const ngayFmt   = r.ngay      ? String(r.ngay).slice(8,10)+'/'+String(r.ngay).slice(5,7)      : '—';
+    const ngayDuyet = r.ngay_duyet
+      ? String(r.ngay_duyet).slice(8,10)+'/'+String(r.ngay_duyet).slice(5,7)+' '+String(r.ngay_duyet).slice(11,16)
+      : '';
+    const loaiBadge = _pdLoaiLabels[r.loai] || `<span class="type-badge">${escHtml(r.loai)}</span>`;
+    return `<tr>
+      <td><div class="nv-cell"><div class="nv-ava">${initials(r.ho_ten)}</div><div style="font-weight:700;font-size:13px">${escHtml(r.ho_ten||'—')}</div></div></td>
+      <td>${loaiBadge}</td>
+      <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${escHtml(r.noi_dung||'—')}</b></td>
+      <td style="white-space:nowrap">${ngayFmt}</td>
+      <td>${_statLbl[r.trang_thai] || escHtml(r.trang_thai)}</td>
+      <td style="font-size:12px"><b>${escHtml(r.nguoi_duyet||'—')}</b>${ngayDuyet?`<div style="color:#94a3b8;font-size:11px">${ngayDuyet}</div>`:''}</td>
+      <td style="text-align:center"><button class="btn btn-sec" style="padding:4px 10px;font-size:11px" onclick="openHistoryDetail('${escHtml(r.loai)}',${r.id})"><i class="bi bi-eye"></i></button></td>
+    </tr>`;
+  }).join('');
+}
+
+// Modal xem chi tiết approval_history
+function openHistoryDetail(loai, id){
+  const item = _pdHistoryItems.find(r=>r.loai===loai && r.id===id);
+  if(!item) return;
+  const r = item._raw;
+  const hist = r.approval_history || [];
+  const lvlLabel = {manager:'Manager', ketoan:'Kế Toán', ceo:'CEO'};
+  let timelineHtml = '';
+  if(hist.length){
+    timelineHtml = '<div style="margin-top:12px"><b style="color:#1a3c5e">Lịch sử phê duyệt:</b><ol style="margin:8px 0 0 18px;padding:0;font-size:12.5px">';
+    timelineHtml += hist.map(h=>{
+      const ts = h.at ? String(h.at).slice(0,16).replace('T',' ') : '';
+      const actCol = h.action==='approve' ? '#16a34a' : (h.action==='reject' ? '#dc2626' : '#64748b');
+      const actLbl = h.action==='approve' ? '✓ Duyệt' : (h.action==='reject' ? '✗ Từ chối' : h.action);
+      return `<li style="margin-bottom:6px">
+        <b style="color:${actCol}">${actLbl}</b> cấp <b>${lvlLabel[h.level]||h.level}</b>
+        — bởi <b>${escHtml(h.ho_ten||h.username||'?')}</b> · ${ts}
+        ${h.comment?`<div style="color:#475569;background:#f8fafc;padding:5px 9px;border-radius:5px;margin-top:3px;font-style:italic">"${escHtml(h.comment)}"</div>`:''}
+      </li>`;
+    }).join('');
+    timelineHtml += '</ol></div>';
+  }
+  alert((item.noi_dung||'') + '\n\nNV: ' + (item.ho_ten||'') + '\nTrạng thái: ' + (item.trang_thai==='da_duyet'?'Đã duyệt':'Từ chối') + '\nNgười duyệt cuối: ' + (item.nguoi_duyet||'—'));
+  // TODO: replace alert with proper modal — keep simple for now
+  if(hist.length){
+    const lines = hist.map(h=>`• ${h.action==='approve'?'✓':'✗'} ${lvlLabel[h.level]||h.level}: ${h.ho_ten||h.username} ${h.comment?'— '+h.comment:''}`).join('\n');
+    alert('LỊCH SỬ PHÊ DUYỆT:\n\n' + lines);
+  }
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function openPdModalByRef(loai, id){
+  // DNTT route sang modal riêng đã có sẵn (rich detail + attachments)
+  if(loai === 'de_nghi_tt'){
+    openDnttModal(String(id));
+    return;
+  }
+  const item = _pdAllItems.find(r=>r.loai===loai && String(r.id)===String(id));
+  if(!item){ showToast('Không tìm thấy mục này', 'error'); return; }
+  _pdReviewItem = item;
+
+  const titleMap = {
+    nghi_phep: '<i class="bi bi-calendar2-x"></i> Xét duyệt Nghỉ phép',
+    duyet_chi: '<i class="bi bi-cash-coin"></i> Xét duyệt Chi phí',
+    lenh_di:   '<i class="bi bi-geo-alt"></i> Xét duyệt Lệnh đi',
+    cong_trinh:'<i class="bi bi-building"></i> Xét duyệt Công trình',
+  };
+  document.getElementById('pd-modal-title').innerHTML = titleMap[loai] || 'Xét duyệt';
+  document.getElementById('pd-modal-ava').textContent = initials(item.ho_ten);
+  document.getElementById('pd-modal-nv').textContent = item.ho_ten || '—';
+  document.getElementById('pd-modal-sub').textContent = item.ngay ? 'Ngày: ' + fmtDate(item.ngay) : '';
+
+  // Chips và chi tiết theo loại
+  const raw = item._raw || {};
+  let chips = '';
+  let detail = '';
+
+  // Helper: render 1 dòng key:value (skip nếu rỗng)
+  const row = (k, v, opts = {}) => {
+    if(v === null || v === undefined || v === '') return '';
+    const color = opts.color || '#374151';
+    return `<div style="margin-bottom:6px;display:flex;gap:8px;align-items:flex-start"><span style="color:#6b7280;min-width:110px;font-size:12px">${k}</span><span style="color:${color};flex:1;word-break:break-word">${v}</span></div>`;
+  };
+
+  if(loai === 'nghi_phep'){
+    chips += `<span class="info-chip">${_nghiLabel[raw.loai_nghi]||raw.loai_nghi}</span>`;
+    chips += `<span class="info-chip">${fmtDate(raw.ngay_bat_dau)} → ${fmtDate(raw.ngay_ket_thuc)}</span>`;
+    chips += `<span class="info-chip">${raw.so_ngay||'?'} ngày</span>`;
+    detail = row('📝 Lý do', escHtml(raw.ly_do||'—'))
+           + row('📒 Ghi chú', raw.ghi_chu ? escHtml(raw.ghi_chu) : '')
+           + row('🆔 ID', `<code>${raw.id}</code>`)
+           + row('🕐 Tạo lúc', raw.created_at ? new Date(raw.created_at).toLocaleString('vi-VN') : '');
+  } else if(loai === 'duyet_chi'){
+    const appBadge = raw.app_name ? `<span class="info-chip" style="background:#dbeafe;color:#1e40af">📂 ${escHtml(raw.app_name.toUpperCase())}</span>` : '';
+    chips += appBadge;
+    chips += `<span class="info-chip">${escHtml(raw.tieu_de||'—')}</span>`;
+    chips += `<span class="info-chip" style="background:#f3e8ff;color:#5b21b6;font-weight:700">${fmtMoney(raw.so_tien)} đ</span>`;
+    if(raw.loai_chi) chips += `<span class="info-chip">${escHtml(raw.loai_chi)}</span>`;
+    detail = row('🏷️ Tiêu đề', `<b>${escHtml(raw.tieu_de||'—')}</b>`)
+           + row('💰 Số tiền', `<b style="color:#5b21b6;font-size:15px">${fmtMoney(raw.so_tien)} đ</b>`)
+           + row('🎯 Mục đích', escHtml(raw.muc_dich||'—'))
+           + row('📂 App nguồn', `<code>${escHtml(raw.app_name||'?')}</code>`)
+           + row('📋 Loại chi', escHtml(raw.loai_chi||'—'))
+           + row('🏢 Phòng ban', escHtml(raw.phong_ban||'—'))
+           + row('👤 Người đề xuất', `${escHtml(raw.ho_ten||raw.username||'?')} <span style="color:#9ca3af">(${escHtml(raw.username||'?')})</span>`)
+           + row('📅 Ngày đề xuất', fmtDate(raw.ngay_de_xuat))
+           + row('⏰ Hạn TT', raw.han_thanh_toan ? fmtDate(raw.han_thanh_toan) : '')
+           + row('📒 Ghi chú', raw.ghi_chu ? escHtml(raw.ghi_chu) : '')
+           + row('📎 Chứng từ', raw.chung_tu_url ? `<a href="${escHtml(raw.chung_tu_url)}" target="_blank" style="color:#0369a1;text-decoration:underline">Xem file đính kèm ↗</a>` : '<span style="color:#9ca3af">không có</span>')
+           + row('🔄 Cấp duyệt hiện tại', `<span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px;font-weight:600">${escHtml(raw.approval_level||'?')}</span>`)
+           + row('📊 Trạng thái', `<span style="background:#f1f5f9;color:#475569;padding:1px 6px;border-radius:4px">${escHtml(raw.trang_thai||'?')}</span>`);
+    // Lịch sử duyệt
+    const hist = raw.approval_history || [];
+    if(hist.length){
+      const lvlLbl = {manager:'Quản lý', ketoan:'Kế Toán', ceo:'CEO'};
+      const actLbl = {approve:'✓ Duyệt', reject:'✗ Từ chối', migrated_to_ketoan:'→ Chuyển KT', migrated_to_ceo:'→ Chuyển CEO'};
+      const histHtml = hist.map(h => {
+        const who = h.ho_ten || h.username || '?';
+        const ts = h.at ? new Date(h.at).toLocaleString('vi-VN') : '';
+        const cm = h.comment ? `<div style="color:#475569;font-size:12px;margin-top:2px;font-style:italic">${escHtml(h.comment)}</div>` : '';
+        return `<div style="padding:6px 10px;background:#f8fafc;border-left:3px solid #0891b2;border-radius:4px;margin-bottom:4px;font-size:12px">
+          <b>${actLbl[h.action]||h.action}</b> · ${lvlLbl[h.level]||h.level} · <b>${escHtml(who)}</b> · ${ts}${cm}</div>`;
+      }).join('');
+      detail += row('📜 Lịch sử', `<div style="margin-top:4px">${histHtml}</div>`);
+    }
+  } else if(loai === 'lenh_di'){
+    const loaiDiLabel = {do_nha:'Đo nhà',cong_trinh:'CT',gap_ncc:'Gặp NCC',quay_chup:'Quay chụp',hop_tac:'Họp/Đối tác',khac:'Khác'};
+    chips += `<span class="info-chip">${escHtml(loaiDiLabel[raw.loai_di]||raw.loai_di||'—')}</span>`;
+    chips += `<span class="info-chip">${escHtml(raw.dia_diem||'—')}</span>`;
+    if(raw.lat_diem && raw.lng_diem){
+      chips += `<a href="https://www.google.com/maps?q=${raw.lat_diem},${raw.lng_diem}" target="_blank"
+        style="display:inline-block;background:#e0f2fe;color:#0369a1;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none;margin:2px 4px 2px 0">
+        <i class="bi bi-map"></i> Xem Maps</a>`;
+    }
+    detail = row('📍 Địa chỉ', escHtml(raw.dia_chi||'—'))
+           + row('📅 Ngày', fmtDate(raw.ngay))
+           + row('🎯 Mục đích', escHtml(raw.muc_dich||raw.ly_do||'—'))
+           + row('📒 Ghi chú', raw.ghi_chu ? escHtml(raw.ghi_chu) : '')
+           + row('🆔 ID', `<code>${raw.id}</code>`);
+  } else if(loai === 'cong_trinh'){
+    chips += `<span class="info-chip">${fmtDate(raw.ngay_bat_dau)}</span>`;
+    if(raw.ngay_ket_thuc && raw.ngay_ket_thuc !== raw.ngay_bat_dau){
+      chips += `<span class="info-chip">→ ${fmtDate(raw.ngay_ket_thuc)}</span>`;
+    }
+    chips += `<span class="info-chip">${escHtml(raw.dia_diem||raw.dia_diem_text||'—')}</span>`;
+    detail = row('📍 Địa điểm', escHtml(raw.dia_diem||raw.dia_diem_text||'—'))
+           + row('📅 Bắt đầu', fmtDate(raw.ngay_bat_dau))
+           + row('📅 Kết thúc', raw.ngay_ket_thuc ? fmtDate(raw.ngay_ket_thuc) : '')
+           + row('📝 Lý do', escHtml(raw.ly_do||'—'))
+           + row('📒 Ghi chú', raw.ghi_chu ? escHtml(raw.ghi_chu) : '');
+  } else if(loai === 'ncc_de_xuat'){
+    chips += `<span class="info-chip">${escHtml(raw.ncc_name||raw.ncc_id||'—')}</span>`;
+    chips += `<span class="info-chip" style="background:#fef3c7;color:#92400e">${fmtMoney(raw.so_tien)} đ</span>`;
+    if(raw.ngay) chips += `<span class="info-chip">${fmtDate(raw.ngay)}</span>`;
+    detail = row('🏢 Nhà cung cấp', escHtml(raw.ncc_name||raw.ncc_id||'—'))
+           + row('💰 Số tiền', `<b style="color:#92400e">${fmtMoney(raw.so_tien)} đ</b>`)
+           + (raw.so_tien_giam ? row('💸 Giảm', fmtMoney(raw.so_tien_giam) + ' đ') : '')
+           + row('📅 Ngày đề xuất', fmtDate(raw.ngay))
+           + (raw.ref_order_id ? row('📦 Đơn liên quan', `<code>${escHtml(raw.ref_order_id)}</code>`) : '')
+           + row('📝 Mô tả', escHtml(raw.mo_ta||raw.ghi_chu||'—'))
+           + row('👤 Người tạo', escHtml(raw.nguoi_tao_ten || raw.nguoi_tao || '—'))
+           + row('🆔 ID', `<code>${escHtml(raw.id)}</code>`);
+  }
+
+  document.getElementById('pd-modal-chips').innerHTML = chips;
+  document.getElementById('pd-modal-detail').innerHTML = detail;
+  document.getElementById('pd-modal-nhanxet').value = '';
+  document.getElementById('pd-modal').classList.add('show');
+}
+
+function closePdModal(){
+  document.getElementById('pd-modal').classList.remove('show');
+  _pdReviewItem = null;
+}
+
+async function doPdReview(isApprove){
+  if(!_pdReviewItem) return;
+  const nhanXet = document.getElementById('pd-modal-nhanxet').value.trim();
+  const statusVal = isApprove ? 'da_duyet' : 'tu_choi';
+  const {loai, id} = _pdReviewItem;
+
+  try {
+    if(loai === 'nghi_phep'){
+      await api('PUT', `/api/xin-nghi/${id}/duyet`, {trang_thai: statusVal, nhan_xet_duyet: nhanXet});
+    } else if(loai === 'duyet_chi'){
+      await api('PUT', `/api/duyet-chi/${id}/duyet`, {trang_thai: statusVal, nhan_xet_duyet: nhanXet});
+    } else if(loai === 'lenh_di'){
+      await api('PATCH', `/api/lenh-di-do/${id}/duyet`, {status: statusVal, note_duyet: nhanXet||null});
+    } else if(loai === 'cong_trinh'){
+      await api('PATCH', `/api/cong-trinh/${id}/duyet`, {status: statusVal, note_duyet: nhanXet||null});
+    } else if(loai === 'ncc_de_xuat'){
+      const url = isApprove ? `/api/ncc-de-xuat/${id}/kt-approve` : `/api/ncc-de-xuat/${id}/kt-reject`;
+      await api('POST', url, {ghi_chu: nhanXet||''});
+    }
+    closePdModal();
+    showToast(isApprove ? 'Đã duyệt thành công' : 'Đã từ chối', 'success');
+    await pdInit();
+  } catch(e){
+    showToast('Lỗi: ' + e.message, 'error');
+  }
+}
+
+// ── Lệnh không check-in ───────────────────────────────────────────────────────
+const _loaiLblKci = {do_nha:'Thăm/Đo nhà',cong_trinh:'Kiểm tra CT',gap_ncc:'Gặp NCC',quay_chup:'Quay chụp',hop_tac:'Họp/Đối tác',khac:'Khác'};
+function _kciThisMonth(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function _kciPopulateMonths(){
+  const sel=document.getElementById('kci-thang'); if(!sel||sel.options.length>1) return;
+  const now=new Date(); let y=now.getFullYear(), m=now.getMonth()+1;
+  for(let i=0;i<6;i++){ const v=`${y}-${String(m).padStart(2,'0')}`;
+    const o=document.createElement('option'); o.value=v; o.textContent=`Tháng ${m}/${y}`;
+    if(i===0) o.selected=true; sel.appendChild(o); m--; if(m<1){m=12;y--;} }
+}
+async function loadKhongCheckin(thang){
+  const tbody=document.getElementById('kci-tbody'); if(!tbody) return;
+  if(!thang) thang=_kciThisMonth();
+  tbody.innerHTML='<tr class="empty-row"><td colspan="5">Đang tải...</td></tr>';
+  try{
+    const list=await api('GET','/api/lenh-di-do/khong-checkin?thang='+thang);
+    const cnt=document.getElementById('kci-count'); if(cnt) cnt.textContent=list.length||'0';
+    if(!list.length){ tbody.innerHTML='<tr class="empty-row"><td colspan="5"><i class="bi bi-check-circle" style="color:#27ae60"></i> Không có lệnh nào bị bỏ lỡ</td></tr>'; return; }
+    const _esc=s=>{const d=document.createElement('div');d.textContent=s;return d.innerHTML;};
+    tbody.innerHTML=list.map(r=>`<tr>
+      <td><b>${_esc(r.ho_ten||r.ma_nv||'—')}</b>${r.ho_ten&&r.ma_nv?`<div style="font-size:10px;color:#94a3b8;font-weight:400">${_esc(r.ma_nv)}</div>`:''}</td><td style="white-space:nowrap">${r.ngay||'—'}</td>
+      <td><b>${_esc(r.dia_diem||'—')}</b></td><td>${_loaiLblKci[r.loai_di]||r.loai_di||'—'}</td>
+      <td style="font-size:11px;color:#64748b">${_esc(r.approved_by_name||r.approved_by||'—')}</td></tr>`).join('');
+  }catch(e){ tbody.innerHTML=`<tr class="empty-row"><td colspan="5" style="color:#c62828">Lỗi: ${e.message}</td></tr>`; }
+}
+function toggleKhongCheckin(header){
+  const body=document.getElementById('kci-body'); const chev=document.getElementById('kci-chevron');
+  const open=body.style.display==='block'; body.style.display=open?'none':'block';
+  if(chev) chev.className=open?'bi bi-chevron-down':'bi bi-chevron-up';
+  if(!open){ _kciPopulateMonths(); loadKhongCheckin(); }
+}
+
+// ── Close modal on overlay click ──────────────────────────────────────────────
+document.getElementById('pd-modal').addEventListener('click', function(e){
+  if(e.target===this) closePdModal();
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+pdInit();
+(async()=>{ try{ const l=await api('GET','/api/lenh-di-do/khong-checkin?thang='+_kciThisMonth()); const c=document.getElementById('kci-count'); if(c) c.textContent=l.length||'0'; }catch(e){} })();
+
+// ══════════════════════════════════════════
+// KT Xác Nhận Cọc Báo Giá
+// ══════════════════════════════════════════
+let _ktCocData = [];
+let _ktCurQid  = null;
+let _ktAction  = null;
+
+function fmtVnd(n){ return n ? Number(n).toLocaleString('vi-VN')+'đ' : '—'; }
+function fmtDate2(s){ if(!s)return'—'; const p=String(s).slice(0,10).split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
+
+async function loadKtCoc(){
+  const tbody = document.getElementById('kt-coc-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="7"><div class="spinner"></div><div style="color:#94a3b8;font-size:13px">Đang tải...</div></td></tr>';
+  try {
+    const r = await fetch('/api/kt-duyet/list');
+    _ktCocData = await r.json();
+    // Cập nhật badge trên tab
+    const waitCnt = _ktCocData.filter(x=>x.duyet_status==='kt_pending').length;
+    const el = document.getElementById('pd-tab-coc-cnt');
+    if(el){ el.textContent=waitCnt; el.style.display=waitCnt?'':'none'; }
+    document.getElementById('pd-cnt-coc').textContent = waitCnt || '—';
+    renderKtCoc();
+  } catch(e){
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#c62828;padding:32px">Lỗi: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+function renderKtCoc(){
+  const tbody = document.getElementById('kt-coc-tbody');
+  if(!tbody) return;
+  if(!_ktCocData.length){
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="7" style="text-align:center;color:#94a3b8;padding:32px"><i class="bi bi-inbox"></i> Không có đơn nào chờ xác nhận</td></tr>';
+    return;
+  }
+  tbody.innerHTML = _ktCocData.map(q => {
+    const badge = q.duyet_status==='kt_pending'
+      ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc"><i class="bi bi-hourglass-split"></i>Chờ KT</span>'
+      : '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:#fff3cd;color:#a04000;border:1px solid #f0a040"><i class="bi bi-cash-coin"></i>Chưa Về Tiền</span>';
+    const cocHtml = q.coc_so_tien
+      ? `<div style="background:#fff8ef;border:1.5px solid #f0a040;border-radius:8px;padding:7px 10px;font-size:12px">
+           <div style="font-weight:800;color:#a04000;font-size:13px">${fmtVnd(q.coc_so_tien)}</div>
+           <div style="color:#888;margin-top:2px">${fmtDate2(q.coc_ngay)}${q.coc_hinh_thuc==='tien_mat'?' · Tiền mặt':q.coc_hinh_thuc==='chuyen_khoan'?' · Chuyển khoản':''}${q.coc_ngan_hang?' · <b style="color:#0369a1">'+escHtml(q.coc_ngan_hang)+'</b>':(q.coc_hinh_thuc==='chuyen_khoan'?' · <b style="color:#c2410c">⚠ chưa rõ TK</b>':'')}
+           ${q.coc_ghi_chu?'<br><em>'+escHtml(q.coc_ghi_chu)+'</em>':''}</div></div>`
+      : '<span style="color:#e67e22;font-size:12px;font-weight:600"><i class="bi bi-exclamation-triangle"></i> Chưa ghi cọc</span>';
+    const ktNote = q.kt_ghi_chu
+      ? `<div style="font-size:11px;color:#a04000;margin-top:3px"><i class="bi bi-info-circle"></i> ${escHtml(q.kt_ghi_chu)}</div>` : '';
+    return `<tr>
+      <td><a href="https://baogia.qlpps.com/quote/${q.id}" target="_blank" style="font-weight:700;color:#1a3c5e;text-decoration:none">${escHtml(q.quote_number)}</a></td>
+      <td><strong>${escHtml(q.customer_name||'—')}</strong><div style="font-size:11px;color:#888">${escHtml(q.customer_phone||'')}</div></td>
+      <td>${escHtml(q.salesperson||'—')}</td>
+      <td style="font-weight:700;color:#1a3c5e;white-space:nowrap">${fmtVnd(q.tong_don)}</td>
+      <td>${cocHtml}</td>
+      <td>
+        ${badge}
+        ${q.duyet_boi?`<div style="font-size:11px;color:#aaa;margin-top:2px">${escHtml(q.duyet_boi)} · ${String(q.duyet_luc||'').slice(0,16)}</div>`:''}
+        ${ktNote}
+      </td>
+      <td style="text-align:center">
+        <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+          <button class="btn-approve" onclick="openKtModal(${q.id},'approved','${escHtml(q.quote_number)}','${escHtml(q.customer_name||'')}','${fmtVnd(q.coc_so_tien)}')">
+            <i class="bi bi-check2"></i> Xác nhận
+          </button>
+          <button class="btn-reject" onclick="openKtModal(${q.id},'rejected','${escHtml(q.quote_number)}','${escHtml(q.customer_name||'')}','${fmtVnd(q.coc_so_tien)}')">
+            <i class="bi bi-x"></i> Chưa Về Tiền
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openKtModal(qid, action, qnum, cust, cocAmt){
+  _ktCurQid = qid; _ktAction = action;
+  document.getElementById('kt-modal-note').value = '';
+  const hdr = document.getElementById('kt-modal-hdr');
+  const btn = document.getElementById('kt-modal-confirm-btn');
+  if(action==='approved'){
+    hdr.style.cssText = 'background:#d1f0e0;padding:14px 20px;border-radius:14px 14px 0 0;display:flex;align-items:center;gap:10px';
+    document.getElementById('kt-modal-title').textContent = 'Xác nhận đã nhận cọc';
+    btn.className='btn btn-sm'; btn.style.cssText='background:#27ae60;color:#fff;border:none';
+    btn.innerHTML='<i class="bi bi-check2"></i> Xác nhận';
+    const _qKt = (typeof _ktCocData !== 'undefined' ? _ktCocData : []).find(x => String(x.id) === String(qid)) || {};
+    const _tkNhan = _qKt.coc_ngan_hang || (_qKt.coc_hinh_thuc === 'tien_mat' ? 'Tiền Mặt' : '');
+    document.getElementById('kt-modal-info').innerHTML =
+      `Đơn <strong>${escHtml(qnum)}</strong> — ${escHtml(cust)}<br>
+       Tiền cọc: <strong style="color:#a04000">${cocAmt}</strong> · Hình thức: <strong>${_qKt.coc_hinh_thuc==='tien_mat'?'Tiền mặt':_qKt.coc_hinh_thuc==='chuyen_khoan'?'Chuyển khoản':'—'}</strong><br>
+       <span style="font-size:12px;color:#555">Đơn sẽ được duyệt hoàn tất và lên <strong>Mua Hàng</strong> ngay.</span>`;
+    // Ô chọn TK thực nhận cọc → book đúng sổ quỹ. Mặc định theo coc_ngan_hang;
+    // nếu trống thì suy theo hình thức (tiền mặt→Tiền Mặt, CK→ACB) + cảnh báo KT chọn.
+    const _tkWrap = document.getElementById('kt-modal-tk-wrap');
+    const _tkSel  = document.getElementById('kt-modal-tk');
+    const _tkHint = document.getElementById('kt-modal-tk-hint');
+    if (_tkWrap && _tkSel) {
+      _tkWrap.style.display = '';
+      const _known = (_tkNhan || '').trim();
+      const _default = _known || (_qKt.coc_hinh_thuc === 'chuyen_khoan' ? 'ACB Hộ Kinh Doanh' : 'Tiền Mặt');
+      // Chọn option khớp; nếu TK lạ (không có trong list) thì thêm tạm để không mất.
+      if (![..._tkSel.options].some(o => o.value === _default)) {
+        _tkSel.add(new Option(_default, _default), 0);
+      }
+      _tkSel.value = _default;
+      if (_tkHint) _tkHint.style.display = _known ? 'none' : '';
+    }
+  } else {
+    const _w = document.getElementById('kt-modal-tk-wrap'); if (_w) _w.style.display = 'none';
+    hdr.style.cssText = 'background:#fdecea;padding:14px 20px;border-radius:14px 14px 0 0;display:flex;align-items:center;gap:10px';
+    document.getElementById('kt-modal-title').textContent = 'Chưa nhận được tiền cọc';
+    btn.className='btn btn-sm'; btn.style.cssText='background:#e74c3c;color:#fff;border:none';
+    btn.innerHTML='<i class="bi bi-x"></i> Chưa Về Tiền';
+    document.getElementById('kt-modal-info').innerHTML =
+      `Đơn <strong>${escHtml(qnum)}</strong> — ${escHtml(cust)}<br>
+       <span style="font-size:12px;color:#555">KD và Manager sẽ thấy trạng thái <strong>"Chưa Về Tiền"</strong>. Vui lòng nhập lý do bên dưới.</span>`;
+  }
+  document.getElementById('kt-coc-modal').classList.add('show');
+}
+
+function closeKtModal(){
+  document.getElementById('kt-coc-modal').classList.remove('show');
+  _ktCurQid = null; _ktAction = null;
+}
+
+async function confirmKtAction(){
+  if(!_ktCurQid) return;
+  const doneId  = _ktCurQid;   // lưu trước khi closeKtModal() reset về null
+  const doneAct = _ktAction;
+  const btn  = document.getElementById('kt-modal-confirm-btn');
+  const note = document.getElementById('kt-modal-note').value.trim();
+  const origHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:pd-spin .6s linear infinite;vertical-align:middle"></span> Đang xử lý...';
+  try {
+    // Khi duyệt (approved) gửi kèm TK thực nhận cọc để sổ quỹ book đúng.
+    const _tk = (doneAct === 'approved')
+      ? (document.getElementById('kt-modal-tk')?.value || null) : null;
+    const r = await fetch(`/api/kt-duyet/${doneId}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action: doneAct, kt_ghi_chu: note||null, tai_khoan: _tk}),
+      credentials:'include',
+    });
+    const d = await r.json();
+    if(r.ok){
+      closeKtModal();
+      const msg = doneAct==='approved' ? '✓ Đã xác nhận — đơn lên Mua Hàng' : '! Đánh dấu Chưa Về Tiền';
+      showToast(msg, 'success');
+      // Xóa đơn khỏi danh sách ngay lập tức
+      _ktCocData = _ktCocData.filter(x=>x.id !== doneId);
+      renderKtCoc();
+      const waitCnt = _ktCocData.filter(x=>x.duyet_status==='kt_pending').length;
+      const el = document.getElementById('pd-tab-coc-cnt');
+      if(el){ el.textContent=waitCnt; el.style.display=waitCnt?'':'none'; }
+      document.getElementById('pd-cnt-coc').textContent = waitCnt || '—';
+    } else {
+      showToast('Lỗi: '+(d.detail||d.error||`HTTP ${r.status}`),'error');
+      btn.disabled = false; btn.innerHTML = origHtml;
+    }
+  } catch(e){
+    showToast('Lỗi kết nối: '+e.message,'error');
+    btn.disabled = false; btn.innerHTML = origHtml;
+  }
+}
+
+// ══════════════════════════════════════════
+// Đề Nghị TT (saleadmin) — KT phê duyệt cấp 1
+// ══════════════════════════════════════════
+let _dnttData = [];       // toàn bộ DNTT (mọi trạng thái)
+let _dnttSubFilter = 'cho_duyet';  // default: chờ KT duyệt
+
+const _DNTT_STATUS_BADGE = {
+  'cho_duyet':  '<span style="background:#fef3c7;color:#92400e;border:1px solid #fbbf24;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600">⏳ Chờ KT</span>',
+  'kt_duyet':   '<span style="background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600">✓ KT duyệt (chờ CEO)</span>',
+  'duyet':      '<span style="background:#dcfce7;color:#166534;border:1px solid #86efac;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600">✅ CEO duyệt</span>',
+  'kt_tu_choi': '<span style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600">✗ KT từ chối</span>',
+  'tu_choi':    '<span style="background:#fce7f3;color:#9d174d;border:1px solid #f9a8d4;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600">✗ CEO từ chối</span>',
+};
+
+async function loadDNTT(){
+  const tbody = document.getElementById('dntt-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="9"><div class="spinner"></div><div style="color:#94a3b8;font-size:13px">Đang tải...</div></td></tr>';
+  try {
+    // Fetch TẤT CẢ — sub-tab filter client-side để KT theo dõi mọi trạng thái
+    const r = await fetch('/api/de-nghi-tt', {credentials:'include'});
+    if(!r.ok){
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#c62828;padding:32px">Lỗi: ${r.status} ${escHtml(await r.text())}</td></tr>`;
+      return;
+    }
+    _dnttData = await r.json();
+    updateDnttBadge();
+    renderDNTT();
+  } catch(e){
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#c62828;padding:32px">Lỗi mạng: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+function dnttSetSub(status){
+  _dnttSubFilter = status;
+  // Highlight button đang chọn
+  document.querySelectorAll('.dntt-subtab').forEach(b => {
+    const isActive = (b.dataset.status || '') === status;
+    b.style.background = isActive ? '#0891b2' : '#f1f5f9';
+    b.style.color      = isActive ? '#fff' : '#475569';
+    const cnt = b.querySelector('.dntt-sub-cnt');
+    if(cnt) cnt.style.background = isActive ? 'rgba(255,255,255,.3)' : '#cbd5e1';
+  });
+  renderDNTT();
+}
+
+function updateDnttBadge(){
+  // Tab badge ở navbar — chỉ đếm "cho_duyet" (đơn cần KT xử lý)
+  const el = document.getElementById('pd-tab-dntt-cnt');
+  const nPending = _dnttData.filter(x => x.trang_thai === 'cho_duyet').length;
+  if(el){ el.textContent = nPending; el.style.display = nPending ? '' : 'none'; }
+  // Counts trên từng sub-tab
+  const cnts = {cho_duyet:0, kt_duyet:0, duyet:0, kt_tu_choi:0, tu_choi:0, all:_dnttData.length};
+  _dnttData.forEach(x => { if(cnts[x.trang_thai] !== undefined) cnts[x.trang_thai]++; });
+  document.querySelectorAll('.dntt-sub-cnt').forEach(el => {
+    const k = el.dataset.cnt;
+    el.textContent = cnts[k] || 0;
+  });
+}
+
+function renderDNTT(){
+  const tbody = document.getElementById('dntt-tbody');
+  if(!tbody) return;
+  // Filter theo sub-tab (rỗng = tất cả)
+  const list = _dnttSubFilter
+    ? _dnttData.filter(x => x.trang_thai === _dnttSubFilter)
+    : _dnttData;
+  if(!list.length){
+    const lbl = _dnttSubFilter ? `trạng thái "${_dnttSubFilter}"` : 'nào';
+    tbody.innerHTML = `<tr class="loading-row"><td colspan="9" style="text-align:center;color:#94a3b8;padding:32px"><i class="bi bi-inbox"></i> Không có đề nghị ${lbl}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(r => {
+    const isPending = r.trang_thai === 'cho_duyet';
+    const badge = _DNTT_STATUS_BADGE[r.trang_thai] || `<span style="color:#94a3b8;font-size:11px">${escHtml(r.trang_thai||'?')}</span>`;
+    // Hành động: chỉ pending mới có duyệt/từ chối; còn lại chỉ Xem
+    const actionHtml = isPending
+      ? `<button class="btn-approve" onclick="openDnttModal('${escHtml(r.id)}','approve')"><i class="bi bi-check-circle"></i> Duyệt</button>
+         <button class="btn-reject"  onclick="openDnttModal('${escHtml(r.id)}','reject')"><i class="bi bi-x-circle"></i> Từ chối</button>`
+      : `<button class="btn-approve" style="background:#64748b" onclick="openDnttModal('${escHtml(r.id)}')"><i class="bi bi-eye"></i> Xem</button>`;
+    return `<tr style="cursor:pointer" onclick="openDnttModal('${escHtml(r.id)}')">
+      <td><b>${escHtml(r.id)}</b></td>
+      <td style="white-space:nowrap">${fmtDate2(r.ngay_de_nghi)}</td>
+      <td>${escHtml(r.ma_don||'')}</td>
+      <td>${escHtml(r.don_vi_vc||'')}</td>
+      <td style="text-align:right;font-weight:600;color:#0a2340">${fmtVnd(r.so_tien)}</td>
+      <td style="max-width:200px;font-size:12px;color:#64748b">${escHtml(r.ly_do||'—')}</td>
+      <td style="font-size:12px">
+        <div>${escHtml(r.nguoi_tao_ten || r.nguoi_tao || '—')}</div>
+        ${r.nguoi_tao_ten && r.nguoi_tao ? `<div style="color:#9ca3af;font-size:10px">${escHtml(r.nguoi_tao)}</div>` : ''}
+      </td>
+      <td style="text-align:center">${badge}</td>
+      <td style="text-align:center;white-space:nowrap" onclick="event.stopPropagation()">${actionHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+let _dnttModalId = null;
+let _dnttModalAction = null;
+
+async function openDnttModal(id, action){
+  _dnttModalId = id;
+  _dnttModalAction = action || null;
+  const modal = document.getElementById('dntt-modal');
+  const body  = document.getElementById('dntt-modal-body');
+  const note  = document.getElementById('dntt-modal-note');
+  note.value  = '';
+  modal.style.display = '';
+  body.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">⏳ Đang tải...</div>';
+
+  try {
+    const r = await fetch(`/api/de-nghi-tt/${id}/detail`, {credentials:'include'});
+    if(!r.ok){ body.innerHTML = `<div style="color:red;padding:20px">Lỗi: ${r.status}</div>`; return; }
+    const d = await r.json();
+    const fmtSize = (b) => b ? (b>1024*1024 ? (b/1024/1024).toFixed(1)+'MB' : (b/1024).toFixed(0)+'KB') : '';
+    const loaiIcon = {'invoice':'🧾','unc':'📄','photo':'🖼️','other':'📎'};
+    const atts = (d.attachments||[]);
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;font-size:13px">
+        <div><span style="color:#6b7280">Mã:</span> <b>${escHtml(d.id)}</b></div>
+        <div><span style="color:#6b7280">Ngày đề nghị:</span> <b>${fmtDate2(d.ngay_de_nghi)}</b></div>
+        <div><span style="color:#6b7280">Mã đơn:</span> <b>${escHtml(d.ma_don||'—')}</b></div>
+        <div><span style="color:#6b7280">ĐVVC:</span> <b>${escHtml(d.don_vi_vc||'—')}</b></div>
+        <div><span style="color:#6b7280">Số tiền:</span> <b style="color:#0891b2;font-size:15px">${fmtVnd(d.so_tien)}</b></div>
+        <div><span style="color:#6b7280">Ngày giao:</span> <b>${d.ngay_giao ? fmtDate2(d.ngay_giao) : '—'}</b></div>
+        <div><span style="color:#6b7280">Người tạo:</span> <b>${escHtml(d.nguoi_tao_ten||d.nguoi_tao||'—')}</b></div>
+        <div><span style="color:#6b7280">Trạng thái:</span> <b>${escHtml(d.trang_thai||'—')}</b></div>
+      </div>
+      ${d.ly_do ? `<div style="margin-top:14px;padding:10px 14px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:6px;font-size:13px"><b>Lý do:</b> ${escHtml(d.ly_do)}</div>` : ''}
+      ${d.ghi_chu ? `<div style="margin-top:10px;padding:10px 14px;background:#f0f9ff;border-left:3px solid #0891b2;border-radius:6px;font-size:13px"><b>Ghi chú:</b> ${escHtml(d.ghi_chu)}</div>` : ''}
+      ${atts.length ? `
+        <div style="margin-top:14px">
+          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px">📎 Chứng từ đính kèm (${atts.length})</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            ${atts.map(a=>`
+              <a href="${escHtml(a.url)}" target="_blank" rel="noopener"
+                 style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;text-decoration:none;color:#1e40af;font-size:13px">
+                <span style="font-size:18px">${loaiIcon[a.loai]||'📎'}</span>
+                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(a.filename)}</span>
+                ${a.size ? `<span style="font-size:11px;color:#94a3b8">${fmtSize(a.size)}</span>` : ''}
+                <span style="font-size:11px;color:#6b7280">↗ Xem</span>
+              </a>`).join('')}
+          </div>
+        </div>` : '<div style="margin-top:10px;font-size:12px;color:#94a3b8">📎 Không có chứng từ đính kèm</div>'}
+    `;
+    // Ẩn nút Duyệt/Từ chối nếu đơn không còn ở cho_duyet (đã KT hoặc CEO xử lý)
+    const isPending = (d.trang_thai || '') === 'cho_duyet';
+    const approveBtn = document.getElementById('dntt-modal-approve-btn');
+    const rejectBtn  = document.getElementById('dntt-modal-reject-btn');
+    if(approveBtn) approveBtn.style.display = isPending ? '' : 'none';
+    if(rejectBtn)  rejectBtn.style.display  = isPending ? '' : 'none';
+    const noteEl = document.getElementById('dntt-modal-note');
+    if(noteEl){
+      noteEl.disabled = !isPending;
+      noteEl.placeholder = isPending ? noteEl.placeholder : 'Đơn đã xử lý — chỉ xem';
+    }
+    // Highlight nút nếu có action được chọn sẵn
+    if(isPending && action === 'reject') noteEl?.focus();
+  } catch(e) {
+    body.innerHTML = `<div style="color:red;padding:20px">Lỗi: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function closeDnttModal(){
+  document.getElementById('dntt-modal').style.display = 'none';
+  _dnttModalId = null;
+  _dnttModalAction = null;
+}
+
+async function dnttModalSubmit(action){
+  if(!_dnttModalId) return;
+  const note = document.getElementById('dntt-modal-note').value.trim();
+  const id = _dnttModalId;
+  try {
+    const r = await fetch(`/api/de-nghi-tt/${id}/kt-approve`, {
+      method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({kt_ghi_chu: note || null}),
+    });
+    if(!r.ok){ showToast(`Lỗi: ${r.status}`, 'error'); return; }
+    showToast('✓ Đã duyệt — chuyển CEO duyệt cuối', 'success');
+    // Đổi trạng thái tại chỗ thay vì xoá → KT vẫn xem lại trong tab "KT đã duyệt"
+    const idx = _dnttData.findIndex(x => x.id === id);
+    if(idx >= 0){
+      const updated = await r.json().catch(() => null);
+      if(updated && updated.id) _dnttData[idx] = updated;
+      else _dnttData[idx].trang_thai = 'kt_duyet';
+    }
+    closeDnttModal(); updateDnttBadge(); renderDNTT();
+  } catch(e){ showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+async function dnttModalPromptReject(){
+  if(!_dnttModalId) return;
+  const note = document.getElementById('dntt-modal-note').value.trim();
+  if(!note){ showToast('Vui lòng nhập lý do từ chối vào ô ghi chú', 'error'); document.getElementById('dntt-modal-note').focus(); return; }
+  const id = _dnttModalId;
+  try {
+    const r = await fetch(`/api/de-nghi-tt/${id}/kt-reject`, {
+      method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ly_do: note}),
+    });
+    if(!r.ok){ showToast(`Lỗi: ${r.status}`, 'error'); return; }
+    showToast('✗ Đã từ chối', 'success');
+    // Đổi trạng thái tại chỗ → KT vẫn xem lại trong tab "KT từ chối"
+    const idx = _dnttData.findIndex(x => x.id === id);
+    if(idx >= 0){
+      const updated = await r.json().catch(() => null);
+      if(updated && updated.id) _dnttData[idx] = updated;
+      else _dnttData[idx].trang_thai = 'kt_tu_choi';
+    }
+    closeDnttModal(); updateDnttBadge(); renderDNTT();
+  } catch(e){ showToast('Lỗi: ' + e.message, 'error'); }
+}
+
+// Đóng modal khi click ngoài
+document.getElementById('dntt-modal').addEventListener('click', function(e){
+  if(e.target === this) closeDnttModal();
+});
+
+// Auto-load badge khi vào trang (không cần active tab)
+(async () => {
+  try {
+    const r = await fetch('/api/de-nghi-tt?trang_thai=cho_duyet', {credentials:'include'});
+    if(r.ok){
+      _dnttData = await r.json();
+      updateDnttBadge();
+    }
+  } catch(_) {}
+})();
+
+// Load KT count on page load (để hiện badge)
+(async()=>{
+  try{
+    const r = await fetch('/api/kt-duyet/list');
+    const data = await r.json();
+    const cnt = data.filter(x=>x.duyet_status==='kt_pending').length;
+    document.getElementById('pd-cnt-coc').textContent = cnt || '—';
+    const el = document.getElementById('pd-tab-coc-cnt');
+    if(el){ el.textContent=cnt; el.style.display=cnt?'':'none'; }
+  }catch(_){}
+})();
+</script>
+</body>
+</html>

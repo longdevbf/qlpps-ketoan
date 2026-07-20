@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Duyệt Đề Xuất Trả NCC — Kế Toán</title>
+<link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
+<link rel="shortcut icon" href="/static/papasan.ico">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--blue:#1a3a6e;--blue2:#2255a4;--blue3:#e8f0fe;--green:#1a6e4b;--red:#c0392b;--orange:#e67e22;--gray:#f5f6fa;--border:#e0e4ef;--text:#2c3e50;--text2:#7f8c8d}
+body{font-family:'Segoe UI',sans-serif;background:var(--gray);color:var(--text);min-height:100vh}
+
+/* Layout — same as index.html ketoan */
+.layout{display:flex;min-height:100vh}
+.sidebar{width:220px;background:linear-gradient(180deg,#0a2340 0%,#1a3a6e 100%);color:#fff;flex-shrink:0;display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100}
+.main{margin-left:220px;flex:1;display:flex;flex-direction:column}
+.sb-logo{padding:20px 16px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sb-logo .brand{font-size:18px;font-weight:900;letter-spacing:2px}
+.sb-logo .sub{font-size:11px;opacity:.6;margin-top:2px}
+.sb-user{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.1);font-size:12px;opacity:.8}
+.sb-nav{flex:1;overflow-y:auto;padding:8px 0}
+.nav-section{font-size:10px;font-weight:700;letter-spacing:1px;opacity:.5;padding:12px 16px 4px;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;font-size:13px;opacity:.8;transition:all .2s;border-left:3px solid transparent;text-decoration:none;color:inherit}
+.nav-item:hover{background:rgba(255,255,255,.08);opacity:1}
+.nav-item.active{background:rgba(255,255,255,.12);opacity:1;border-left-color:#64b5f6}
+.nav-item .icon{font-size:16px;width:20px;text-align:center}
+.sb-bottom{padding:12px 16px;border-top:1px solid rgba(255,255,255,.1)}
+.btn-logout{width:100%;padding:8px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:7px;cursor:pointer;font-size:12px;transition:background .2s}
+.btn-logout:hover{background:rgba(255,255,255,.2)}
+
+/* Topbar — same as index.html */
+.topbar{background:#fff;border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-title{font-size:16px;font-weight:700;color:var(--blue)}
+.topbar-right{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--text2)}
+
+/* Content area */
+.content{padding:20px 24px}
+
+/* Summary cards */
+.summary{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.stat{background:#fff;padding:14px 20px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);min-width:140px;cursor:pointer;transition:all .15s;border:1.5px solid transparent}
+.stat:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,0,0,.1)}
+.stat.active{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue)}
+.stat .label{color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.3px;font-weight:600}
+.stat .value{font-size:22px;font-weight:800;color:var(--blue);margin-top:4px}
+.stat.cho_duyet .value{color:#d97706}
+.stat.kt_duyet .value{color:#0891b2}
+.stat.duyet .value{color:var(--green)}
+.stat.kt_tu_choi .value, .stat.tu_choi .value{color:var(--red)}
+
+/* Card + table */
+.card{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden}
+.card-header{padding:14px 20px;border-bottom:1px solid var(--border);font-weight:700;color:var(--blue);font-size:14px;display:flex;align-items:center;gap:10px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid #f1f3f5;font-size:13px;vertical-align:top}
+th{background:#f8fafc;color:#374151;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid var(--border)}
+tr:hover td{background:#fafbfc}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
+.b-cho_duyet{background:#fef3c7;color:#92400e}
+.b-kt_duyet{background:#cffafe;color:#155e75}
+.b-duyet{background:#d1fae5;color:#065f46}
+.b-kt_tu_choi,.b-tu_choi{background:#fee2e2;color:#991b1b}
+.money{font-variant-numeric:tabular-nums;color:var(--blue);font-weight:700;text-align:right;white-space:nowrap}
+.btn{display:inline-block;padding:6px 12px;border-radius:6px;border:none;font-size:12px;cursor:pointer;font-weight:600;margin-right:4px;transition:all .15s}
+.btn-ok{background:var(--green);color:#fff}
+.btn-ok:hover{background:#155e3a}
+.btn-no{background:var(--red);color:#fff}
+.btn-no:hover{background:#a02818}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.empty{padding:60px 20px;text-align:center;color:var(--text2);font-style:italic}
+.ghi-chu-cell{max-width:220px;color:var(--text2);font-size:12px;line-height:1.4}
+
+/* Modal */
+.modal{display:none;position:fixed;inset:0;background:rgba(10,35,64,.55);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.modal.open{display:flex}
+.modal-box{background:#fff;border-radius:10px;max-width:500px;width:100%;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-box h3{margin-bottom:12px;color:var(--blue);font-size:16px}
+.modal-box .info{background:var(--blue3);padding:10px 12px;border-radius:6px;margin-bottom:14px;font-size:13px;line-height:1.5}
+.modal-box textarea{width:100%;padding:10px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;min-height:80px;resize:vertical}
+.modal-box textarea:focus{outline:none;border-color:var(--blue)}
+.modal-box .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.btn-cancel{background:#e5e7eb;color:#374151}
+.btn-cancel:hover{background:#d4d8df}
+
+/* Hamburger button (hidden on desktop, shown on mobile) */
+.hamburger-btn{display:none;background:transparent;border:none;color:var(--blue);font-size:22px;cursor:pointer;padding:4px 8px;margin-right:8px;line-height:1}
+.hamburger-btn:hover{opacity:.7}
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99}
+.sidebar-backdrop.open{display:block}
+
+/* Mobile */
+@media (max-width:992px){
+  /* Sidebar drawer */
+  .sidebar{transform:translateX(-100%);transition:transform .3s ease;width:240px;box-shadow:0 0 24px rgba(0,0,0,.3)}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0}
+  .hamburger-btn{display:inline-flex;align-items:center;justify-content:center}
+  .topbar{padding:0 12px;height:auto;min-height:56px;flex-wrap:wrap;gap:4px 0}
+  .topbar-title{font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topbar-right{font-size:11px;flex-basis:100%}
+  .content{padding:14px}
+  .summary{gap:8px}
+  .stat{min-width:120px;flex:1 1 45%;padding:12px 14px}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .table-scroll table{min-width:900px}
+  table{font-size:12px}
+  th{padding:8px 8px;font-size:10px}
+  td{padding:7px 8px}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+  <div class="sb-logo">
+    <div class="brand">💰 PAPASAN</div>
+    <div class="sub">Kế Toán Nội Bộ</div>
+  </div>
+  <div class="sb-user" style="display:flex;align-items:center;gap:10px;padding:12px 16px">
+    <div style="width:36px;height:36px;border-radius:50%;background:#1a3c5e;color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      {{ (user.ho_ten or user.username or 'U')[0]|upper }}
+    </div>
+    <div>
+      <strong style="display:block;font-size:12px">{{ user.ho_ten }}</strong>
+      <span style="font-size:10px;opacity:.65">{{ user.vai_tro }}</span>
+    </div>
+  </div>
+  <nav class="sb-nav">
+    <div class="nav-section">Tổng Quan</div>
+    <a class="nav-item" href="/app"><span class="icon">📊</span> Dashboard</a>
+
+    <div class="nav-section">Quản Lý</div>
+    <a class="nav-item" href="/app#cong-no"><span class="icon">📋</span> Công Nợ</a>
+    <a class="nav-item" href="/app#cong-no-ncc"><span class="icon">🏭</span> Công Nợ NCC</a>
+    <a class="nav-item active" href="/duyet-ncc"><span class="icon">✅</span> Duyệt ĐX Trả NCC</a>
+    <a class="nav-item" href="/app#so-quy"><span class="icon">🏦</span> Sổ Quỹ</a>
+
+    <div class="nav-section">Đào Tạo</div>
+    <a class="nav-item" href="/dao-tao"><span class="icon">📚</span> Đào Tạo</a>
+    <a class="nav-item" href="/xin-nghi"><span class="icon">📅</span> Xin Nghỉ</a>
+    <a class="nav-item" href="/duyet-chi"><span class="icon">💰</span> Duyệt Chi</a>
+    <a class="nav-item" href="/giao-viec"><span class="icon">📋</span> Giao Việc</a>
+    <a class="nav-item" href="/cham-cong"><span class="icon">⏰</span> Chấm Công</a>
+    {% if user and user._is_mgr %}<a class="nav-item" href="/phe-duyet"><span class="icon">✅</span> Phê Duyệt</a>{% endif %}
+  </nav>
+  <div class="sb-bottom">
+    <button class="btn-logout" onclick="location.href='/logout'">🚪 Đăng xuất</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <button class="hamburger-btn" type="button" aria-label="Menu" onclick="document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebar-backdrop').classList.toggle('open')">&#9776;</button>
+    <div class="topbar-title">✅ Duyệt Đề Xuất Trả NCC</div>
+    <div class="topbar-right">Kế Toán duyệt cấp 1 — CEO duyệt cấp 2 (ở app Mua Hàng)</div>
+  </div>
+  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="document.getElementById('sidebar').classList.remove('open');this.classList.remove('open')"></div>
+
+  <div class="content">
+
+    <div class="summary" id="summary">
+      <div class="stat active" data-filter=""><div class="label">Tất cả</div><div class="value" id="cnt-all">—</div></div>
+      <div class="stat cho_duyet" data-filter="cho_duyet"><div class="label">Chờ KT duyệt</div><div class="value" id="cnt-cho_duyet">—</div></div>
+      <div class="stat kt_duyet" data-filter="kt_duyet"><div class="label">Đã KT duyệt, chờ CEO</div><div class="value" id="cnt-kt_duyet">—</div></div>
+      <div class="stat duyet" data-filter="duyet"><div class="label">CEO đã duyệt</div><div class="value" id="cnt-duyet">—</div></div>
+      <div class="stat kt_tu_choi" data-filter="kt_tu_choi"><div class="label">KT từ chối</div><div class="value" id="cnt-kt_tu_choi">—</div></div>
+      <div class="stat tu_choi" data-filter="tu_choi"><div class="label">CEO từ chối</div><div class="value" id="cnt-tu_choi">—</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Danh sách <span id="filter-label" style="color:var(--text2);font-weight:400;font-size:12px"></span></div>
+      <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Mã</th>
+            <th>Ngày</th>
+            <th>Nhà cung cấp</th>
+            <th>Số tiền</th>
+            <th>Mô tả</th>
+            <th>Người đề xuất</th>
+            <th>Trạng thái</th>
+            <th>KT duyệt</th>
+            <th>CEO duyệt</th>
+            <th style="text-align:center">Hành động</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="10" class="empty">Đang tải…</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div><!-- /layout -->
+
+<!-- Modal duyệt -->
+<div class="modal" id="modal-approve">
+  <div class="modal-box">
+    <h3>✅ Kế Toán Duyệt</h3>
+    <div class="info" id="approve-info"></div>
+    <label style="display:block;margin-bottom:6px;font-size:12px;color:#374151;font-weight:600">Ghi chú (tùy chọn)</label>
+    <textarea id="approve-note" placeholder="VD: Đã đối chiếu công nợ, hợp lệ"></textarea>
+    <div class="actions">
+      <button class="btn btn-cancel" onclick="closeModals()">Hủy</button>
+      <button class="btn btn-ok" id="approve-submit">Duyệt</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal từ chối -->
+<div class="modal" id="modal-reject">
+  <div class="modal-box">
+    <h3>❌ Kế Toán Từ Chối</h3>
+    <div class="info" id="reject-info"></div>
+    <label style="display:block;margin-bottom:6px;font-size:12px;color:#374151;font-weight:600">Lý do <span style="color:var(--red)">*</span></label>
+    <textarea id="reject-reason" placeholder="VD: Số tiền không khớp công nợ NCC" required></textarea>
+    <div class="actions">
+      <button class="btn btn-cancel" onclick="closeModals()">Hủy</button>
+      <button class="btn btn-no" id="reject-submit">Từ chối</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentFilter = '';
+let allRows = [];
+let actionId = null;
+
+const STATUS_LABEL = {
+  cho_duyet: 'Chờ KT',
+  kt_duyet: 'Chờ CEO',
+  duyet: 'Hoàn tất',
+  kt_tu_choi: 'KT từ chối',
+  tu_choi: 'CEO từ chối',
+};
+
+function fmtVnd(n){
+  if(n == null) return '—';
+  return Number(n).toLocaleString('vi-VN') + 'đ';
+}
+function fmtDate(s){
+  if(!s) return '—';
+  return s.slice(0,10).split('-').reverse().join('/');
+}
+function fmtDt(s){
+  if(!s) return '—';
+  const d = new Date(s);
+  return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
+}
+function esc(s){
+  return String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+}
+
+async function loadSummary(){
+  try{
+    const r = await fetch('/api/ncc-de-xuat/summary', {credentials:'include'});
+    if(!r.ok) return;
+    const data = await r.json();
+    let total = 0;
+    ['cho_duyet','kt_duyet','duyet','kt_tu_choi','tu_choi'].forEach(k => {
+      const n = data[k] || 0;
+      document.getElementById('cnt-'+k).textContent = n;
+      total += n;
+    });
+    document.getElementById('cnt-all').textContent = total;
+  }catch(e){console.error(e)}
+}
+
+async function loadList(){
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '<tr><td colspan="10" class="empty">Đang tải…</td></tr>';
+  try{
+    const url = currentFilter ? `/api/ncc-de-xuat?trang_thai=${currentFilter}` : '/api/ncc-de-xuat';
+    const r = await fetch(url, {credentials:'include'});
+    if(!r.ok){
+      tbody.innerHTML = `<tr><td colspan="10" class="empty">Lỗi: ${r.status} ${esc(await r.text())}</td></tr>`;
+      return;
+    }
+    allRows = await r.json();
+    render();
+  }catch(e){
+    tbody.innerHTML = `<tr><td colspan="10" class="empty">Lỗi mạng: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+function render(){
+  const tbody = document.getElementById('tbody');
+  if(allRows.length === 0){
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">Không có đề xuất nào.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = allRows.map(r => {
+    const canAct = r.trang_thai === 'cho_duyet';
+    const actions = canAct
+      ? `<button class="btn btn-ok" onclick="openApprove('${esc(r.id)}')">Duyệt</button>
+         <button class="btn btn-no" onclick="openReject('${esc(r.id)}')">Từ chối</button>`
+      : `<span style="color:#9ca3af;font-size:11px">—</span>`;
+    const kt = r.kt_duyet_boi
+      ? `<div>${esc(r.kt_duyet_boi_ten || r.kt_duyet_boi)}</div><div style="color:#9ca3af;font-size:11px">${fmtDt(r.kt_duyet_luc)}</div>${r.kt_ghi_chu ? `<div class="ghi-chu-cell">${esc(r.kt_ghi_chu)}</div>` : ''}`
+      : '—';
+    const ceo = r.nguoi_duyet
+      ? `<div>${esc(r.nguoi_duyet_ten || r.nguoi_duyet)}</div><div style="color:#9ca3af;font-size:11px">${fmtDt(r.ngay_duyet)}</div>`
+      : '—';
+    return `<tr>
+      <td><b>${esc(r.id)}</b></td>
+      <td>${fmtDate(r.ngay)}</td>
+      <td>${esc(r.ncc_name || r.ncc_id || '')}</td>
+      <td class="money">${fmtVnd(r.so_tien)}</td>
+      <td class="ghi-chu-cell">${esc(r.mo_ta||'')}</td>
+      <td>${esc(r.nguoi_tao_ten || r.nguoi_tao || '')}</td>
+      <td><span class="badge b-${r.trang_thai}">${STATUS_LABEL[r.trang_thai]||r.trang_thai}</span></td>
+      <td>${kt}</td>
+      <td>${ceo}</td>
+      <td style="text-align:center">${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function openApprove(id){
+  const r = allRows.find(x => x.id === id);
+  if(!r) return;
+  actionId = id;
+  document.getElementById('approve-info').innerHTML =
+    `<b>${esc(id)}</b> — NCC ${esc(r.ncc_name||r.ncc_id||'')} — <b class="money">${fmtVnd(r.so_tien)}</b><br>Mô tả: ${esc(r.mo_ta||'—')}`;
+  document.getElementById('approve-note').value = '';
+  document.getElementById('modal-approve').classList.add('open');
+}
+
+function openReject(id){
+  const r = allRows.find(x => x.id === id);
+  if(!r) return;
+  actionId = id;
+  document.getElementById('reject-info').innerHTML =
+    `<b>${esc(id)}</b> — NCC ${esc(r.ncc_name||r.ncc_id||'')} — <b class="money">${fmtVnd(r.so_tien)}</b>`;
+  document.getElementById('reject-reason').value = '';
+  document.getElementById('modal-reject').classList.add('open');
+}
+
+function closeModals(){
+  document.querySelectorAll('.modal').forEach(m => m.classList.remove('open'));
+  actionId = null;
+}
+
+async function submitApprove(){
+  if(!actionId) return;
+  const btn = document.getElementById('approve-submit');
+  btn.disabled = true;
+  try{
+    const r = await fetch(`/api/ncc-de-xuat/${encodeURIComponent(actionId)}/kt-approve`, {
+      method:'POST',
+      credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({kt_ghi_chu: document.getElementById('approve-note').value || null}),
+    });
+    if(!r.ok){
+      alert('Lỗi: ' + r.status + ' ' + await r.text());
+      return;
+    }
+    closeModals();
+    await Promise.all([loadSummary(), loadList()]);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function submitReject(){
+  if(!actionId) return;
+  const reason = document.getElementById('reject-reason').value.trim();
+  if(!reason){ alert('Vui lòng nhập lý do từ chối'); return; }
+  const btn = document.getElementById('reject-submit');
+  btn.disabled = true;
+  try{
+    const r = await fetch(`/api/ncc-de-xuat/${encodeURIComponent(actionId)}/kt-reject`, {
+      method:'POST',
+      credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ly_do: reason}),
+    });
+    if(!r.ok){
+      alert('Lỗi: ' + r.status + ' ' + await r.text());
+      return;
+    }
+    closeModals();
+    await Promise.all([loadSummary(), loadList()]);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+// Filter buttons
+document.querySelectorAll('.stat').forEach(s => {
+  s.addEventListener('click', () => {
+    document.querySelectorAll('.stat').forEach(x => x.classList.remove('active'));
+    s.classList.add('active');
+    currentFilter = s.dataset.filter;
+    document.getElementById('filter-label').textContent =
+      currentFilter ? `(lọc: ${STATUS_LABEL[currentFilter] || currentFilter})` : '(tất cả)';
+    loadList();
+  });
+});
+
+document.getElementById('approve-submit').addEventListener('click', submitApprove);
+document.getElementById('reject-submit').addEventListener('click', submitReject);
+
+document.querySelectorAll('.modal').forEach(m => {
+  m.addEventListener('click', e => { if(e.target === m) closeModals(); });
+});
+
+loadSummary();
+loadList();
+</script>
+
+</body>
+</html>

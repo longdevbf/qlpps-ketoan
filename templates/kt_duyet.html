@@ -1,0 +1,362 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<title>Xác Nhận Cọc — Kế Toán</title>
+<link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
+<link rel="shortcut icon" href="/static/papasan.ico">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;min-height:100vh;color:#1f2937}
+.topbar{background:#1a3c5e;color:#fff;padding:0 20px;height:52px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.topbar-logo{font-size:15px;font-weight:800;white-space:nowrap}
+.topbar-logo span{color:#7ec8e3}
+.topbar-sep{color:rgba(255,255,255,.3);font-size:18px}
+.topbar-title{font-size:14px;font-weight:700}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px}
+.topbar-user{color:rgba(255,255,255,.85);font-weight:600}
+.topbar-btn{padding:5px 12px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:all .15s}
+.btn-back{background:rgba(255,255,255,.12);color:#fff}.btn-back:hover{background:rgba(255,255,255,.22)}
+.btn-logout{background:#c0392b;color:#fff}.btn-logout:hover{background:#a93226}
+.page-wrap{max-width:1200px;margin:0 auto;padding:20px 16px}
+.page-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.ph-icon{width:44px;height:44px;background:#1a3c5e;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0}
+.ph-title{font-weight:800;color:#1a3c5e;font-size:20px}
+.ph-sub{font-size:12px;color:#64748b;margin-top:2px}
+/* Stats */
+.stats-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.stat-card{background:#fff;border-radius:8px;padding:10px 16px;border:1px solid #e0e4ec;flex:1;min-width:100px;text-align:center}
+.stat-num{font-size:22px;font-weight:800;line-height:1}
+.stat-lbl{font-size:11px;color:#888;margin-top:2px}
+.stat-wait .stat-num{color:#0369a1}
+.stat-done .stat-num{color:#27ae60}
+.stat-kvt  .stat-num{color:#a04000}
+/* Tabs */
+.tabs{display:flex;gap:0;border-bottom:2px solid #d0dcea;margin-bottom:14px}
+.tab{padding:8px 18px;border:none;background:none;font-size:13px;font-weight:600;color:#888;cursor:pointer;border-bottom:3px solid transparent;border-radius:6px 6px 0 0;transition:all .18s;display:flex;align-items:center;gap:6px}
+.tab:hover{background:#f0f5ff;color:#1a3c5e}
+.tab.active{color:#1a3c5e;border-bottom-color:#1a3c5e;background:#e8f0fe}
+.tab-cnt{background:#1a3c5e;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700}
+.tab.active .tab-cnt{background:#fff;color:#1a3c5e;border:1px solid #1a3c5e}
+.tab-cnt.warn{background:#0369a1}.tab-cnt.kvt{background:#a04000}
+/* Card */
+.card{background:#fff;border-radius:12px;border:1.5px solid #dde4f0;overflow:hidden;margin-bottom:16px}
+.card-header{background:#f5f8ff;padding:11px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #dde4f0}
+.card-header h3{font-size:14px;font-weight:700;color:#1a3c5e;margin:0}
+/* Table */
+.tbl-wrap{overflow-x:auto}
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table thead th{background:#1a3c5e;color:#fff;padding:9px 10px;font-weight:600;white-space:nowrap;text-align:left}
+.data-table tbody tr{border-bottom:1px solid #f0f4f8}
+.data-table tbody tr:hover td{background:#f5f8ff}
+.data-table tbody td{padding:8px 10px;vertical-align:middle}
+.empty-row td{text-align:center;color:#94a3b8;padding:32px 0;font-size:13px}
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.b-wait{background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc}
+.b-done{background:#d1f0e0;color:#0a5e30;border:1px solid #a3d9bc}
+.b-kvt{background:#fff3cd;color:#a04000;border:1px solid #f0a040}
+/* Buttons */
+.btn{padding:6px 14px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:5px;transition:all .15s}
+.btn-approve{background:#27ae60;color:#fff}.btn-approve:hover{background:#1e8449}
+.btn-reject{background:#e74c3c;color:#fff}.btn-reject:hover{background:#c0392b}
+.btn-sm{padding:4px 10px;font-size:11px}
+/* Cọc info box */
+.coc-box{background:#fff8ef;border:1.5px solid #f0a040;border-radius:8px;padding:9px 12px;font-size:12px}
+.coc-box .coc-label{font-size:10px;font-weight:700;color:#a04000;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.coc-val{font-weight:700;color:#a04000;font-size:14px}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1060;display:none;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.show{display:flex}
+.modal-box{background:#fff;border-radius:14px;width:440px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)}
+.modal-header{padding:14px 20px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center}
+.modal-header.approve{background:#d1f0e0}
+.modal-header.reject{background:#fdecea}
+.modal-header h6{margin:0;font-size:14px;font-weight:700}
+.modal-close{background:none;border:none;font-size:18px;cursor:pointer;line-height:1;padding:0}
+.modal-body{padding:16px 20px}
+.modal-footer{padding:12px 20px;border-top:1px solid #f0f4f8;display:flex;justify-content:flex-end;gap:8px}
+.form-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px}
+.form-input{width:100%;padding:8px 12px;border:1.5px solid #d0dcea;border-radius:8px;font-size:13px;outline:none;background:#f8fafc;font-family:inherit}
+.form-input:focus{border-color:#1a3c5e;background:#fff}
+/* Toast */
+.toast-wrap{position:fixed;bottom:22px;right:22px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.2);opacity:0;transform:translateY(12px);transition:all .28s;pointer-events:none;max-width:320px}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{background:#2e7d32}.toast.err{background:#c62828}.toast.info{background:#1a3c5e}
+/* Mobile */
+@media(max-width:600px){
+  .topbar-logo,.topbar-sep{display:none}
+  .topbar-user{display:none}
+  .page-wrap{padding:12px 10px}
+  .data-table th:nth-child(3),.data-table td:nth-child(3){display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">QLPPS <span>Papasan</span></div>
+  <div class="topbar-sep">|</div>
+  <div class="topbar-title"><i class="bi bi-cash-coin"></i> Xác Nhận Cọc</div>
+  <div class="topbar-right">
+    <span class="topbar-user"><i class="bi bi-person-circle"></i> {{ user.ho_ten if user else '' }}</span>
+    <a href="/" class="topbar-btn btn-back"><i class="bi bi-house"></i> Trang chủ</a>
+    <a href="/logout" class="topbar-btn btn-logout"><i class="bi bi-box-arrow-right"></i> Đăng xuất</a>
+  </div>
+</div>
+
+<div class="page-wrap">
+  <div class="page-header">
+    <div class="ph-icon"><i class="bi bi-cash-coin"></i></div>
+    <div>
+      <div class="ph-title">Xác Nhận Cọc Đơn Hàng</div>
+      <div class="ph-sub">Duyệt để đơn lên Mua Hàng · Từ chối khi chưa nhận được tiền cọc</div>
+    </div>
+    <button class="btn" style="margin-left:auto;background:#e8f0fe;color:#1a3c5e;border:1px solid #c5d5ea" onclick="loadData()">
+      <i class="bi bi-arrow-clockwise"></i> Làm mới
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-card stat-wait"><div class="stat-num" id="cnt-wait">—</div><div class="stat-lbl">Chờ xác nhận</div></div>
+    <div class="stat-card stat-kvt"><div class="stat-num" id="cnt-kvt">—</div><div class="stat-lbl">Chưa Về Tiền</div></div>
+    <div class="stat-card stat-done"><div class="stat-num" id="cnt-done">—</div><div class="stat-lbl">Đã xác nhận hôm nay</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" id="tab-wait" onclick="switchTab('kt_pending',this)">
+      <i class="bi bi-hourglass-split"></i> Chờ xác nhận
+      <span class="tab-cnt warn" id="tcnt-wait">0</span>
+    </button>
+    <button class="tab" id="tab-kvt" onclick="switchTab('kt_rejected',this)">
+      <i class="bi bi-cash-coin"></i> Chưa Về Tiền
+      <span class="tab-cnt kvt" id="tcnt-kvt">0</span>
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="tbl-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Số BG</th>
+            <th>Khách hàng</th>
+            <th>SĐT</th>
+            <th>NV KD</th>
+            <th>Tổng đơn</th>
+            <th style="text-align:right" title="Chênh lệch giá NV bán so với giá hệ thống theo công thức (mức đơn giá, trước CK/VAT). Dương = bán cao hơn; Âm = bán thấp hơn hệ thống.">Chênh giá</th>
+            <th>Thông tin cọc</th>
+            <th>Manager duyệt</th>
+            <th style="text-align:center;min-width:160px">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody id="kt-tbody">
+          <tr class="empty-row"><td colspan="9"><i class="bi bi-hourglass-split"></i> Đang tải...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal xác nhận / từ chối -->
+<div class="modal-overlay" id="modal-kt" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="modal-header" id="modal-hdr">
+      <h6 id="modal-title">Xác nhận</h6>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="modal-info" style="margin-bottom:12px;font-size:13px"></div>
+      <label class="form-label">Ghi chú <span style="color:#aaa;font-weight:400">(tuỳ chọn)</span></label>
+      <textarea id="modal-note" class="form-input" rows="3" placeholder="Nhập lý do nếu có..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" style="background:#f1f5f9;color:#374151;border:1.5px solid #d0dcea" onclick="closeModal()">Huỷ</button>
+      <button class="btn" id="btn-confirm" onclick="confirmKT()">Xác nhận</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+let _data = [];
+let _curTab = 'kt_pending';
+let _curQid = null;
+let _curAction = null;
+
+function showToast(msg, type='info'){
+  const wrap = document.getElementById('toast-wrap');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(()=>t.classList.add('show'),30);
+  setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),300);},3500);
+}
+
+function fmt(n){ return n ? Number(n).toLocaleString('vi-VN')+'đ' : '—'; }
+function fmtChenh(q){
+  const d = Number(q.gia_chenh)||0;
+  if(Math.abs(d) < 1) return '<span style="color:#9ca3af">—</span>';
+  const up = d>0, color = up?'#1e7e34':'#c0392b', sign = up?'+':'−';
+  return `<span style="color:${color};font-weight:700" title="${q.gia_chenh_n||0} SP bán khác giá hệ thống">${sign}${fmt(Math.abs(d))}</span>`;
+}
+function fmtDate(s){ if(!s)return'—'; const p=String(s).slice(0,10).split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function loadData(){
+  const tbody = document.getElementById('kt-tbody');
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="9"><i class="bi bi-hourglass-split"></i> Đang tải...</td></tr>';
+  try {
+    const r = await fetch('/api/kt-duyet/list');
+    _data = await r.json();
+    updateCounts();
+    renderTable();
+  } catch(e){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="9" style="color:#c62828">Lỗi tải dữ liệu: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+function updateCounts(){
+  const wait = _data.filter(d=>d.duyet_status==='kt_pending').length;
+  const kvt  = _data.filter(d=>d.duyet_status==='kt_rejected').length;
+  document.getElementById('cnt-wait').textContent = wait;
+  document.getElementById('cnt-kvt').textContent  = kvt;
+  document.getElementById('cnt-done').textContent = '—';
+  document.getElementById('tcnt-wait').textContent = wait;
+  document.getElementById('tcnt-kvt').textContent  = kvt;
+}
+
+function switchTab(tab, btn){
+  _curTab = tab;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+function renderTable(){
+  const tbody = document.getElementById('kt-tbody');
+  const list = _data.filter(d=>d.duyet_status===_curTab);
+  if(!list.length){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="9"><i class="bi bi-inbox"></i> Không có đơn nào</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(q => {
+    const cocHtml = q.coc_so_tien
+      ? `<div class="coc-box">
+           <div class="coc-label">Đã cọc</div>
+           <div class="coc-val">${fmt(q.coc_so_tien)}</div>
+           <div style="font-size:11px;color:#888;margin-top:2px">
+             ${fmtDate(q.coc_ngay)}
+             ${q.coc_hinh_thuc==='tien_mat'?' · Tiền mặt':q.coc_hinh_thuc==='chuyen_khoan'?' · Chuyển khoản':''}
+             ${q.coc_ngan_hang?` · <b style="color:#0369a1">${esc(q.coc_ngan_hang)}</b>`:''}
+             ${q.coc_ghi_chu?`<br><i>${esc(q.coc_ghi_chu)}</i>`:''}
+           </div>
+         </div>`
+      : '<span style="color:#e67e22;font-size:12px;font-weight:600"><i class="bi bi-exclamation-triangle"></i> Chưa ghi cọc</span>';
+
+    const kvtNote = q.duyet_status==='kt_rejected' && q.kt_ghi_chu
+      ? `<div style="font-size:11px;color:#a04000;margin-top:4px"><i class="bi bi-info-circle"></i> ${esc(q.kt_ghi_chu)}</div>` : '';
+
+    const badge = q.duyet_status==='kt_pending'
+      ? '<span class="badge b-wait"><i class="bi bi-hourglass-split"></i>Chờ KT</span>'
+      : '<span class="badge b-kvt"><i class="bi bi-cash-coin"></i>Chưa Về Tiền</span>';
+
+    return `<tr>
+      <td><a href="https://baogia.qlpps.com/quote/${q.id}" target="_blank" style="font-weight:700;color:#1a3c5e;text-decoration:none">${esc(q.quote_number)}</a></td>
+      <td><strong>${esc(q.customer_name)}</strong></td>
+      <td>${esc(q.customer_phone||'—')}</td>
+      <td>${esc(q.salesperson||'—')}</td>
+      <td class="text-end" style="font-weight:700;color:#1a3c5e;white-space:nowrap">${fmt(q.tong_don)}</td>
+      <td class="text-end" style="white-space:nowrap">${fmtChenh(q)}</td>
+      <td>${cocHtml}</td>
+      <td>
+        ${badge}
+        ${q.duyet_boi?`<div style="font-size:11px;color:#aaa;margin-top:2px">${esc(q.duyet_boi)} · ${(q.duyet_luc||'').slice(0,16)}</div>`:''}
+        ${kvtNote}
+      </td>
+      <td style="text-align:center">
+        <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+          <button class="btn btn-sm btn-approve" onclick="openModal(${q.id},'approved','${esc(q.quote_number)}','${esc(q.customer_name)}')">
+            <i class="bi bi-check2"></i> Xác nhận
+          </button>
+          <button class="btn btn-sm btn-reject" onclick="openModal(${q.id},'rejected','${esc(q.quote_number)}','${esc(q.customer_name)}')">
+            <i class="bi bi-x"></i> Chưa Về Tiền
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openModal(qid, action, qnum, cust){
+  _curQid = qid;
+  _curAction = action;
+  document.getElementById('modal-note').value = '';
+  const hdr = document.getElementById('modal-hdr');
+  const btn = document.getElementById('btn-confirm');
+  if(action==='approved'){
+    hdr.className='modal-header approve';
+    document.getElementById('modal-title').textContent = 'Xác nhận đã nhận cọc';
+    btn.className='btn btn-approve';
+    btn.innerHTML='<i class="bi bi-check2"></i> Xác nhận';
+    document.getElementById('modal-info').innerHTML =
+      `Đơn <strong>${esc(qnum)}</strong> — ${esc(cust)}<br>
+       <span style="font-size:12px;color:#555">Đơn sẽ được duyệt và lên Mua Hàng ngay sau khi xác nhận.</span>`;
+  } else {
+    hdr.className='modal-header reject';
+    document.getElementById('modal-title').textContent = 'Chưa nhận được tiền cọc';
+    btn.className='btn btn-reject';
+    btn.innerHTML='<i class="bi bi-x"></i> Chưa Về Tiền';
+    document.getElementById('modal-info').innerHTML =
+      `Đơn <strong>${esc(qnum)}</strong> — ${esc(cust)}<br>
+       <span style="font-size:12px;color:#555">KD và Manager sẽ thấy trạng thái "Chưa Về Tiền".</span>`;
+  }
+  document.getElementById('modal-kt').classList.add('show');
+}
+
+function closeModal(){
+  document.getElementById('modal-kt').classList.remove('show');
+  _curQid = null; _curAction = null;
+}
+
+async function confirmKT(){
+  if(!_curQid) return;
+  const btn = document.getElementById('btn-confirm');
+  const note = document.getElementById('modal-note').value.trim();
+  btn.disabled = true;
+  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.5);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite"></span>';
+  try {
+    const r = await fetch(`/api/kt-duyet/${_curQid}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action: _curAction, kt_ghi_chu: note||null})
+    });
+    const d = await r.json();
+    if(r.ok){
+      closeModal();
+      const msg = _curAction==='approved' ? '✓ Đã xác nhận — đơn lên Mua Hàng' : '! Đã đánh dấu Chưa Về Tiền';
+      showToast(msg, _curAction==='approved'?'ok':'info');
+      _data = _data.filter(x=>x.id!==_curQid);
+      updateCounts();
+      renderTable();
+    } else {
+      showToast('Lỗi: '+(d.detail||d.error||`HTTP ${r.status}`),'err');
+    }
+  } catch(e){ showToast('Lỗi kết nối: '+e.message,'err'); }
+  finally{ btn.disabled=false; }
+}
+
+loadData();
+</script>
+<style>
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</body>
+</html>

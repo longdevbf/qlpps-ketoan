@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hỗ trợ · IT Queue · Papasan</title>
+<link rel="stylesheet" href="/support/static/support.css">
+<script>
+  window.__SUPPORT__ = {
+    user: {
+      username: {{ (user.username or "") | tojson }},
+      ho_ten: {{ (user.ho_ten or user.username or "") | tojson }},
+      role: {{ (user.role or "") | tojson }},
+      phong_ban: {{ (user.phong_ban or "") | tojson }}
+    },
+    app_source: {{ app_source | tojson }},
+    is_cn: {{ (1 if is_cn else 0) }},
+    initial_view: {{ initial_view | tojson }},
+    initial_tid: {{ initial_tid | int }}
+  };
+</script>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+    <symbol id="i-chev-r" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></symbol>
+    <symbol id="i-chev-d" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-paper" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+    <symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-act" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></symbol>
+    <symbol id="i-bug" viewBox="0 0 24 24"><rect x="8" y="6" width="8" height="14" rx="4"/><path d="M12 2v4"/><path d="M8 6l-2-2"/><path d="M16 6l2-2"/><path d="M8 13H4"/><path d="M20 13h-4"/><path d="M6 20l2-2"/><path d="M18 20l-2-2"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+    <symbol id="i-dl" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+    <symbol id="i-ext" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></symbol>
+    <symbol id="i-reply" viewBox="0 0 24 24"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></symbol>
+    <symbol id="i-thumb" viewBox="0 0 24 24"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></symbol>
+    <symbol id="i-branch" viewBox="0 0 24 24"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+    <symbol id="i-arrow-r" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 12l-6.1 3.2L12 21l-1.9-5.8L4 12l6.1-3.2L12 3z"/></symbol>
+    <symbol id="i-drag" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+    <symbol id="i-check-c" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></symbol>
+  </defs>
+</svg>
+
+<header class="top-strip">
+  <div class="top-inner">
+    <div class="top-left">
+      <a class="brand" href="/support">
+        <img class="brand-logo" src="/support/static/logo.png" alt="Papasan" onerror="this.style.display='none';" />
+        <span class="brand-sep">/</span>
+        <span class="brand-text">IT Queue</span>
+      </a>
+    </div>
+    <div class="top-center">
+      <div class="search-wrap">
+        <svg class="i i-16"><use href="#i-search"/></svg>
+        <input placeholder="Tìm ticket, app, người dùng..." id="topSearch" />
+        <span class="kbd">⌘K</span>
+      </div>
+    </div>
+    <div class="top-right">
+      <button class="icon-btn" title="Về app cũ" onclick="history.length > 1 ? history.back() : (location.href='/')"><svg class="i"><use href="#i-arrow-r"/></svg></button>
+      <div class="avatar-menu-wrap" id="avatarMenu">
+        <button class="top-avatar" id="avatarBtn" title="{{ user.username }}">{{ ((user.ho_ten or user.username or "?")[:1])|upper }}</button>
+        <div class="avatar-menu" role="menu">
+          <div class="am-head">
+            <span class="av av-md av-b">{{ ((user.ho_ten or user.username or "?")[:1])|upper }}</span>
+            <div class="am-who">
+              <strong>{{ user.username }}</strong>
+              <span>{{ user.ho_ten or user.username }}</span>
+            </div>
+          </div>
+          <a class="am-item" href="/ho-so-ca-nhan"><svg class="i i-16"><use href="#i-user"/></svg><span class="lbl">Hồ sơ cá nhân</span></a>
+          <div class="am-sep"></div>
+          <a class="am-item highlight" href="/support/new"><svg class="i i-16"><use href="#i-msg"/></svg><span class="lbl">🛟 Tạo ticket mới</span></a>
+          <a class="am-item" href="/support"><svg class="i i-16"><use href="#i-msg"/></svg><span class="lbl">Ticket của tôi</span></a>
+          <div class="am-sep"></div>
+          <a class="am-item" href="/logout"><svg class="i i-16"><use href="#i-x"/></svg><span class="lbl">Đăng xuất</span></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="sub-nav" aria-label="Ticket views">
+  <div class="sub-inner">
+    <button class="sub-tab" role="tab" data-tab="mine" aria-current="page"><svg class="i i-16"><use href="#i-msg"/></svg> Của tôi <span class="count" id="tabMineCount">·</span></button>
+    <button class="sub-tab" role="tab" data-tab="raise"><svg class="i i-16"><use href="#i-plus"/></svg> Tạo mới</button>
+    <button class="sub-tab" role="tab" data-tab="detail" style="display:none;"><svg class="i i-16"><use href="#i-msg"/></svg> Chi tiết</button>
+  </div>
+</nav>
+
+<main class="main-wrap">
+
+<!-- MINE VIEW -->
+<section class="view active" id="view-mine" role="tabpanel">
+  <div class="welcome-hero" id="welcomeHero">
+    <div class="hero-glow"></div><div class="hero-glow g2"></div>
+    <div class="hero-particles">
+      <span class="particle p1"></span><span class="particle p2"></span><span class="particle p3"></span>
+      <span class="particle p4"></span><span class="particle p5"></span><span class="particle p6"></span><span class="particle p7"></span>
+    </div>
+    <div class="hero-left">
+      <div class="hero-eyebrow"><span class="wave-hand">👋</span><span>Chào <span id="heroName">bạn</span>!</span></div>
+      <h2 class="hero-title" id="heroTitle">Đang tải…</h2>
+      <p class="hero-sub" id="heroSub">Danh sách ticket bạn đã gửi cho phòng Công Nghệ.</p>
+      <div class="hero-stats" id="heroStats"></div>
+      <div class="hero-actions">
+        <button class="btn btn-primary btn-confetti" onclick="location.href='/support/new'"><svg class="i i-14"><use href="#i-plus"/></svg> Tạo ticket mới</button>
+      </div>
+    </div>
+    <div class="hero-right">
+      <svg class="mascot-svg" viewBox="0 0 260 220">
+        <defs>
+          <linearGradient id="gRB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#F0F5FF"/><stop offset="50%" stop-color="#DBEAFE"/><stop offset="100%" stop-color="#93C5FD"/></linearGradient>
+          <linearGradient id="gW" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#60A5FA"/><stop offset="100%" stop-color="#1E40AF"/></linearGradient>
+          <linearGradient id="gFl" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FCD34D"/><stop offset="50%" stop-color="#F59E0B"/><stop offset="100%" stop-color="#EF4444"/></linearGradient>
+          <linearGradient id="gC" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#E0E7FF"/></linearGradient>
+          <radialGradient id="gP" cx="30%" cy="30%"><stop offset="0%" stop-color="#FCE7F3"/><stop offset="70%" stop-color="#F472B6"/><stop offset="100%" stop-color="#BE185D"/></radialGradient>
+        </defs>
+        <g class="m-cloud-1" opacity="0.7"><ellipse cx="40" cy="170" rx="24" ry="10" fill="url(#gC)"/><ellipse cx="55" cy="165" rx="16" ry="8" fill="url(#gC)"/></g>
+        <g class="m-cloud-2" opacity="0.6"><ellipse cx="220" cy="180" rx="20" ry="8" fill="url(#gC)"/><ellipse cx="208" cy="176" rx="14" ry="7" fill="url(#gC)"/></g>
+        <g class="m-orbit-1"><circle cx="220" cy="60" r="14" fill="url(#gP)" opacity="0.85"/><ellipse cx="220" cy="60" rx="22" ry="6" fill="none" stroke="#F472B6" stroke-width="1.5" opacity="0.6" transform="rotate(-20 220 60)"/></g>
+        <g class="rocket-group" transform="translate(130, 105)">
+          <g class="flame-1"><path d="M-12 42 Q-8 60 0 68 Q8 60 12 42 Z" fill="url(#gFl)"/></g>
+          <g class="flame-2"><path d="M-6 42 Q-3 54 0 58 Q3 54 6 42 Z" fill="#FCD34D"/></g>
+          <path d="M-22 22 L-34 44 L-22 42 Z" fill="#EF4444"/><path d="M22 22 L34 44 L22 42 Z" fill="#EF4444"/>
+          <path d="M0 -46 Q-24 -20 -24 24 L-24 42 L24 42 L24 24 Q24 -20 0 -46 Z" fill="url(#gRB)" stroke="#2563EB" stroke-width="2.5"/>
+          <circle cx="0" cy="-5" r="12" fill="url(#gW)" stroke="#1E40AF" stroke-width="2.5"/>
+        </g>
+        <path class="m-star m-star-1" d="M60 30 l2 -6 l2 6 l6 2 l-6 2 l-2 6 l-2 -6 l-6 -2 z" fill="#F59E0B"/>
+        <path class="m-star m-star-2" d="M195 40 l2 -5 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 z" fill="#22C55E"/>
+        <path class="m-star m-star-3" d="M25 100 l2 -5 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 z" fill="#EC4899"/>
+      </svg>
+    </div>
+    <button class="hero-dismiss" title="Ẩn"><svg class="i i-14"><use href="#i-x"/></svg></button>
+  </div>
+
+  <div class="view-head">
+    <div><h1>Yêu cầu hỗ trợ của tôi</h1><p>Danh sách ticket bạn đã gửi cho phòng Công Nghệ. Chỉ bạn và đội CN xem được — chuông sẽ kêu khi có phản hồi.</p></div>
+    <div class="view-actions"><button class="btn btn-primary btn-confetti" onclick="location.href='/support/new'"><svg class="i i-14"><use href="#i-plus"/></svg> Tạo ticket mới</button></div>
+  </div>
+
+  <div class="filter-row" id="filterRow"></div>
+
+  <div class="t-table" id="mineTable">
+    <div class="t-row head">
+      <div class="stripe"></div>
+      <div class="col-id">ID</div>
+      <div class="col-title">TIÊU ĐỀ</div>
+      <div class="col-status">TRẠNG THÁI</div>
+      <div class="col-app">APP</div>
+      <div class="col-time">CẬP NHẬT</div>
+    </div>
+  </div>
+</section>
+
+<!-- RAISE VIEW -->
+<section class="view" id="view-raise" role="tabpanel">
+  <div class="view-head"><div><h1>Gửi yêu cầu cho phòng Công Nghệ</h1><p>Bug, feature request, câu hỏi vận hành — càng cụ thể càng xử lý nhanh. SLA phản hồi tính theo mức ưu tiên bạn chọn.</p></div></div>
+  <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--primary-50);border:1px solid var(--primary-200);border-radius:var(--r-md);margin-bottom:20px;font-size:13px;color:var(--primary-700);">
+    <svg class="i i-14"><use href="#i-branch"/></svg>
+    <span>Bạn đang gửi từ app <strong>{{ app_source }}.qlpps.com</strong></span>
+  </div>
+  <div class="raise-grid">
+    <div class="card">
+      <div class="card-h"><div class="h-title"><svg class="i i-14"><use href="#i-plus"/></svg><span>Chi tiết yêu cầu</span></div></div>
+      <div class="card-b">
+        <div class="field">
+          <div class="field-label">Loại yêu cầu <span class="req">*</span></div>
+          <div class="chip-row" data-radio="loai">
+            <label class="chip-radio active" data-val="bug"><svg class="i i-14"><use href="#i-bug"/></svg><span>Bug</span></label>
+            <label class="chip-radio" data-val="feature"><svg class="i i-14"><use href="#i-sparkle"/></svg><span>Tính năng mới</span></label>
+            <label class="chip-radio" data-val="nang_cap"><svg class="i i-14"><use href="#i-arrow-r"/></svg><span>Nâng cấp</span></label>
+            <label class="chip-radio" data-val="cach_dung"><svg class="i i-14"><use href="#i-msg"/></svg><span>Câu hỏi cách dùng</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-label">Ưu tiên <span class="hint">SLA tự tính theo mức bạn chọn</span></div>
+          <div class="chip-row" data-radio="pri">
+            <label class="chip-radio p-thap" data-val="thap"><span class="pri-dot"></span><span>Thấp</span></label>
+            <label class="chip-radio p-vua active" data-val="vua"><span class="pri-dot"></span><span>Vừa</span></label>
+            <label class="chip-radio p-cao" data-val="cao"><span class="pri-dot"></span><span>Cao</span></label>
+            <label class="chip-radio p-khan" data-val="khan"><span class="pri-dot"></span><span>Khẩn — dừng công việc</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-label">Tiêu đề <span class="req">*</span> <span class="hint">một dòng ngắn</span></div>
+          <input class="input" id="tieude" placeholder="VD: Không đăng nhập được sau khi đổi mật khẩu">
+        </div>
+        <div class="field">
+          <div class="field-label">Mô tả chi tiết <span class="hint">Bước tái hiện, kỳ vọng, thực tế</span></div>
+          <textarea class="textarea" id="mota" placeholder="Bước 1: ...&#10;Bước 2: ...&#10;Kỳ vọng: ...&#10;Thực tế: ..."></textarea>
+        </div>
+        <div class="field">
+          <div class="field-label">Ảnh đính kèm <span class="hint">Nhiều ảnh được — max 20MB/ảnh</span></div>
+          <div class="drop" id="attachZone">
+            <div class="drop-head">
+              <div class="drop-hint"><strong>Kéo-thả ảnh vào đây</strong><span>hoặc bấm chọn từ máy · JPG / PNG / GIF / WebP</span></div>
+              <button class="btn btn-sm attach-btn" type="button"><svg class="i i-14"><use href="#i-paper"/></svg> Chọn ảnh</button>
+            </div>
+            <div class="thumb-grid" id="thumbGrid"><button class="thumb add" type="button">＋</button></div>
+            <div class="drop-meta"><span>0 ảnh · <span class="dim">0 MB / 80 MB</span></span><span><svg class="i i-14"><use href="#i-drag"/></svg> Kéo để sắp thứ tự</span></div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+          <span style="color:var(--text-3);font-size:12px;"><span class="kbd">⌘</span> <span class="kbd">↵</span> để gửi</span>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="location.href='/support'">Hủy</button>
+            <button class="btn btn-primary btn-sm" id="submitBtn"><svg class="i i-14"><use href="#i-check"/></svg> Gửi cho phòng CN</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="tips-block"><h4><svg class="i i-14"><use href="#i-flag"/></svg> Ticket đi đâu?</h4><p>Vào Service Desk của phòng Công Nghệ (itque.qlpps.com). Team CN nhận chuông ngay.</p></div>
+      <div class="tips-block"><h4><svg class="i i-14"><use href="#i-clock"/></svg> Chọn ưu tiên</h4><ul class="tips-list">
+        <li><span class="k">Khẩn</span> Cả team/khách hàng dừng lại chờ. SLA 30 phút.</li>
+        <li><span class="k">Cao</span> Ảnh hưởng công việc. SLA 2 giờ.</li>
+        <li><span class="k">Vừa</span> Bug thường / feature. SLA 1 ngày.</li>
+        <li><span class="k">Thấp</span> Ý tưởng, cải tiến. Không có SLA.</li>
+      </ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- DETAIL VIEW -->
+<section class="view" id="view-detail" role="tabpanel">
+  <div class="t-head">
+    <div class="t-head-top">
+      <nav class="breadcrumb"><a href="/support">IT Queue</a><svg class="i i-14"><use href="#i-chev-r"/></svg><a href="/support">Ticket của tôi</a><svg class="i i-14"><use href="#i-chev-r"/></svg><span class="curr mono" id="detailTicketId">…</span></nav>
+      <div class="t-actions" id="detailActions"></div>
+    </div>
+    <h1 class="t-title" id="detailTitle">Đang tải…</h1>
+    <div class="t-meta">
+      <div class="t-badges" id="detailBadges"></div>
+      <div class="t-people" id="detailPeople"></div>
+    </div>
+  </div>
+  <div class="stepper">
+    <div class="rail-track"></div>
+    <div class="rail-fill" id="railFill" style="width:0;"></div>
+    <ol class="steps" id="mainSteps">
+      <li class="step" data-idx="0"><div class="s-node">1</div><div class="s-label">Mới</div><div class="s-time"></div></li>
+      <li class="step" data-idx="1"><div class="s-node">2</div><div class="s-label">Tiếp nhận</div><div class="s-time"></div></li>
+      <li class="step" data-idx="2"><div class="s-node">3</div><div class="s-label">Đang xử lý</div><div class="s-time"></div></li>
+      <li class="step" data-idx="3"><div class="s-node">4</div><div class="s-label">Chờ phản hồi</div><div class="s-time"></div></li>
+      <li class="step" data-idx="4"><div class="s-node">5</div><div class="s-label">Đã xử lý</div><div class="s-time"></div></li>
+    </ol>
+  </div>
+  <div id="bugFlowWrap" style="display:none;">
+    <div class="card">
+      <div class="card-h"><div class="h-title"><svg class="i i-16"><use href="#i-bug"/></svg> Trạng thái Bug <span class="count" id="bugFlowCount">0/5</span></div>
+        <div class="h-actions"><button class="btn btn-ghost btn-sm" id="btnBugAdvance" style="display:none;">Đẩy bước tiếp <svg class="i i-14"><use href="#i-arrow-r"/></svg></button></div>
+      </div>
+      <div class="card-b">
+        <div class="bug-stepper">
+          <div class="brail-track"></div>
+          <div class="brail-fill" id="brailFill" style="width:0;"></div>
+          <ol class="bsteps" id="bugSteps">
+            <li class="bstep" data-idx="0" data-val="da_tai_hien"><div class="b-node">1</div><div class="b-label">Đã tái hiện</div></li>
+            <li class="bstep" data-idx="1" data-val="dang_debug"><div class="b-node">2</div><div class="b-label">Đang debug</div></li>
+            <li class="bstep" data-idx="2" data-val="da_fix"><div class="b-node">3</div><div class="b-label">Đã fix</div></li>
+            <li class="bstep" data-idx="3" data-val="da_deploy"><div class="b-node">4</div><div class="b-label">Đã deploy</div></li>
+            <li class="bstep" data-idx="4" data-val="qa_verified"><div class="b-node">5</div><div class="b-label">QA verified</div></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="main-grid">
+    <div class="col-main">
+      <article class="card">
+        <div class="card-h"><div class="h-title"><svg class="i i-16"><use href="#i-file"/></svg> Mô tả</div></div>
+        <div class="card-b prose" id="detailDesc"><em class="dim">Đang tải…</em></div>
+      </article>
+      <article class="card" id="attachCard" style="display:none;">
+        <div class="card-h"><div class="h-title"><svg class="i i-16"><use href="#i-paper"/></svg> Ảnh đính kèm <span class="count" id="attachCount">0</span></div></div>
+        <div class="card-b"><div class="attach-grid" id="detailAttach"></div></div>
+      </article>
+      <article class="card">
+        <div class="card-h"><div class="h-title"><svg class="i i-16"><use href="#i-act"/></svg> Hoạt động</div></div>
+        <div class="card-b"><div class="timeline" id="detailTimeline"></div></div>
+      </article>
+      <article class="card">
+        <div class="card-h"><div class="h-title"><svg class="i i-16"><use href="#i-msg"/></svg> Bình luận <span class="count" id="commentCount">0</span></div></div>
+        <div class="card-b comments">
+          <div id="commentList"></div>
+          <div class="composer">
+            <div class="av av-md av-b">{{ ((user.ho_ten or user.username or "?")[:1])|upper }}</div>
+            <div class="composer-body">
+              <textarea class="composer-input" id="commentInput" placeholder="Viết bình luận... Ctrl+↵ để gửi"></textarea>
+              <div class="composer-foot">
+                {% if is_cn %}<label class="internal-toggle"><input type="checkbox" id="cmtInternal"><svg class="i i-14"><use href="#i-eye"/></svg> Ghi chú nội bộ</label>{% else %}<span></span>{% endif %}
+                <div class="composer-actions"><button class="btn btn-primary btn-sm" id="btnSendComment">Gửi</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+    <aside class="col-side">
+      <div class="card side-card">
+        <section class="side-sec"><div class="sec-h"><svg class="i i-14"><use href="#i-flag"/></svg><span>Trạng thái</span></div><div class="sec-b" id="sideStatus"></div></section>
+        <section class="side-sec"><div class="sec-h"><svg class="i i-14"><use href="#i-users"/></svg><span>Con người</span></div><div class="sec-b" id="sidePeople"></div></section>
+        <section class="side-sec"><div class="sec-h"><svg class="i i-14"><use href="#i-clock"/></svg><span>SLA &amp; Thời gian</span></div><div class="sec-b" id="sideSla"></div></section>
+        <section class="side-sec"><div class="sec-h"><svg class="i i-14"><use href="#i-tag"/></svg><span>Chi tiết</span></div><div class="sec-b" id="sideDetails"></div></section>
+        <section class="side-sec"><div class="sec-h"><svg class="i i-14"><use href="#i-link"/></svg><span>Liên quan</span></div><div class="sec-b" id="sideRelated" style="gap:2px;"></div></section>
+      </div>
+    </aside>
+  </div>
+</section>
+
+</main>
+
+<div class="toast" id="toast" style="display:none;">
+  <svg class="i i-16"><use href="#i-check-c"/></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<div class="float-help" id="floatHelp" title="Chat với đội IT">
+  <div class="fh-avatar"><svg class="i i-16"><use href="#i-msg"/></svg></div>
+  <div class="fh-txt"><strong>Cần hỗ trợ gấp?</strong><span>Chat trực tiếp với team CN</span></div>
+</div>
+
+<!-- ═══ LIGHTBOX (image viewer modal) ═══ -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="lb-backdrop" id="lbBackdrop"></div>
+  <button class="lb-close" id="lbClose" title="Đóng (Esc)" aria-label="Đóng">
+    <svg class="i i-16"><use href="#i-x"/></svg>
+  </button>
+  <button class="lb-nav lb-prev" id="lbPrev" title="Ảnh trước (←)" aria-label="Ảnh trước">
+    <svg class="i" style="transform:rotate(180deg);"><use href="#i-chev-r"/></svg>
+  </button>
+  <div class="lb-stage" id="lbStage">
+    <img class="lb-img" id="lbImg" alt="" />
+    <div class="lb-loading" id="lbLoading">Đang tải…</div>
+  </div>
+  <button class="lb-nav lb-next" id="lbNext" title="Ảnh sau (→)" aria-label="Ảnh sau">
+    <svg class="i"><use href="#i-chev-r"/></svg>
+  </button>
+  <div class="lb-info">
+    <div class="lb-name" id="lbName"></div>
+    <div class="lb-meta">
+      <span class="lb-counter" id="lbCounter"></span>
+      <a class="lb-download" id="lbDownload" href="#" download target="_blank">
+        <svg class="i i-14"><use href="#i-dl"/></svg> Tải xuống
+      </a>
+      <a class="lb-open" id="lbOpen" href="#" target="_blank">
+        <svg class="i i-14"><use href="#i-ext"/></svg> Mở tab mới
+      </a>
+    </div>
+  </div>
+</div>
+
+<script src="/support/static/support.js"></script>
+</body>
+</html>
