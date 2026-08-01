@@ -1,4 +1,3 @@
-{% extends "_base.html" if false else "_blank_base.html" if false else "" %}
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -8,57 +7,49 @@
 <link rel="icon" href="/static/icon/favicon.ico">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#f5f7fa;color:#222;font-size:14px}
-  .topbar{background:linear-gradient(90deg,#0a2340,#1a3a6e);color:#fff;padding:14px 24px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 6px rgba(0,0,0,.1)}
-  .topbar h1{font-size:18px;font-weight:600}
-  .topbar a{color:#cde0ff;text-decoration:none;font-size:13px}
-  .topbar a:hover{color:#fff;text-decoration:underline}
-  .topbar .spacer{flex:1}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--brand-soft);color:var(--text-1);font-size:14px}
   .container{max-width:1400px;margin:24px auto;padding:0 16px}
   .summary{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
   .stat{background:#fff;padding:14px 20px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);min-width:140px;cursor:pointer;transition:all .15s}
   .stat:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,0,0,.1)}
-  .stat.active{outline:2px solid #1a3a6e}
-  .stat .label{color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:.3px}
-  .stat .value{font-size:24px;font-weight:700;color:#0a2340;margin-top:4px}
-  .stat.cho_duyet .value{color:#d97706}
-  .stat.kt_duyet .value{color:#0891b2}
-  .stat.duyet .value{color:#059669}
+  .stat.active{outline:2px solid var(--brand-hover)}
+  .stat .label{color:var(--text-2);font-size:12px;text-transform:uppercase;letter-spacing:.3px}
+  .stat .value{font-size:22px;font-weight:700;color:var(--brand-hover);margin-top:4px}
+  .stat.cho_duyet .value{color:var(--warning)}
+  .stat.kt_duyet .value{color:var(--info)}
+  .stat.duyet .value{color:var(--success)}
   .stat.kt_tu_choi .value, .stat.tu_choi .value{color:#dc2626}
   .card{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden}
-  .card-header{padding:16px 20px;border-bottom:1px solid #e5e7eb;font-weight:600;display:flex;align-items:center;gap:10px}
+  .card-header{padding:16px 20px;border-bottom:1px solid var(--border);font-weight:600;display:flex;align-items:center;gap:10px}
   table{width:100%;border-collapse:collapse}
-  th,td{padding:12px 14px;text-align:left;border-bottom:1px solid #f1f3f5;font-size:13px;vertical-align:top}
-  th{background:#f8fafc;color:#374151;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.3px}
-  tr:hover td{background:#fafbfc}
+  th,td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--bg-page);font-size:13px;vertical-align:top}
+  th{background:var(--bg-page);color:var(--text-2);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.3px}
+  tr:hover td{background:var(--bg-page)}
   .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
   .b-cho_duyet{background:#fef3c7;color:#92400e}
-  .b-kt_duyet{background:#cffafe;color:#155e75}
-  .b-duyet{background:#d1fae5;color:#065f46}
+  .b-kt_duyet{background:var(--info-soft);color:var(--info-fg)}
+  .b-duyet{background:var(--success-soft);color:var(--success-fg)}
   .b-kt_tu_choi,.b-tu_choi{background:#fee2e2;color:#991b1b}
-  .money{font-variant-numeric:tabular-nums;color:#0a2340;font-weight:600;text-align:right}
+  .money{font-variant-numeric:tabular-nums;color:var(--brand-hover);font-weight:600;text-align:right}
   .btn{display:inline-block;padding:6px 12px;border-radius:6px;border:none;font-size:12px;cursor:pointer;font-weight:500;margin-right:4px;transition:all .15s}
-  .btn-ok{background:#059669;color:#fff}
-  .btn-ok:hover{background:#047857}
+  .btn-ok{background:var(--success);color:#fff}
+  .btn-ok:hover{background:var(--success-fg)}
   .btn-no{background:#dc2626;color:#fff}
-  .btn-no:hover{background:#b91c1c}
+  .btn-no:hover{background:var(--danger)}
   .btn:disabled{opacity:.5;cursor:not-allowed}
-  .empty{padding:60px 20px;text-align:center;color:#6b7280;font-style:italic}
+  .empty{padding:60px 20px;text-align:center;color:var(--text-2);font-style:italic}
   .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;padding:16px}
   .modal.open{display:flex}
   .modal-box{background:#fff;border-radius:10px;max-width:500px;width:100%;padding:20px}
-  .modal-box h3{margin-bottom:12px;color:#0a2340}
-  .modal-box .info{background:#f3f4f6;padding:10px;border-radius:6px;margin-bottom:14px;font-size:13px}
-  .modal-box textarea{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;font-family:inherit;font-size:13px;min-height:80px;resize:vertical}
+  .modal-box h3{margin-bottom:12px;color:var(--brand-hover)}
+  .modal-box .info{background:var(--bg-page);padding:10px;border-radius:6px;margin-bottom:14px;font-size:13px}
+  .modal-box textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;min-height:80px;resize:vertical}
   .modal-box .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
-  .btn-cancel{background:#e5e7eb;color:#374151}
-  .ghi-chu-cell{max-width:200px;color:#6b7280;font-size:12px;line-height:1.4}
+  .btn-cancel{background:var(--border);color:var(--text-2)}
+  .ghi-chu-cell{max-width:200px;color:var(--text-2);font-size:12px;line-height:1.4}
   .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
   @media (max-width:768px){
     body{overflow-x:hidden}
-    .topbar{padding:12px 14px;flex-wrap:wrap;gap:6px 12px}
-    .topbar h1{font-size:16px}
-    .topbar h1 + span{display:none}
     .container{margin:14px auto;padding:0 12px}
     .summary{gap:8px}
     .stat{min-width:120px;flex:1 1 45%;padding:12px 14px}
@@ -69,15 +60,8 @@
 </style>
 </head>
 <body>
+{% include "_header.html" %}
 
-<div class="topbar">
-  <h1>📝 Duyệt Đề Nghị Thanh Toán</h1>
-  <span style="opacity:.7;font-size:12px">Kế Toán phê duyệt cấp 1 — CEO duyệt cấp 2 (ở app Sale Admin)</span>
-  <div class="spacer"></div>
-  <a href="/app">← Về Kế Toán</a>
-  <span style="opacity:.7">|</span>
-  <a href="/logout">Đăng xuất</a>
-</div>
 
 <div class="container">
 
@@ -91,7 +75,7 @@
   </div>
 
   <div class="card">
-    <div class="card-header">Danh sách <span id="filter-label" style="color:#6b7280;font-weight:400;font-size:13px"></span></div>
+    <div class="card-header">Danh sách <span id="filter-label" style="color:var(--text-2);font-weight:500;font-size:13px"></span></div>
     <div class="table-scroll">
     <table>
       <thead>
@@ -120,9 +104,9 @@
 <!-- Modal duyệt -->
 <div class="modal" id="modal-approve">
   <div class="modal-box">
-    <h3>✅ Kế Toán Duyệt</h3>
+    <h3>Kế Toán Duyệt</h3>
     <div class="info" id="approve-info"></div>
-    <label style="display:block;margin-bottom:6px;font-size:12px;color:#374151">Ghi chú (tùy chọn)</label>
+    <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--text-2)">Ghi chú (tùy chọn)</label>
     <textarea id="approve-note" placeholder="VD: Đã đối chiếu chứng từ, hợp lệ"></textarea>
     <div class="actions">
       <button class="btn btn-cancel" onclick="closeModals()">Hủy</button>
@@ -134,9 +118,9 @@
 <!-- Modal từ chối -->
 <div class="modal" id="modal-reject">
   <div class="modal-box">
-    <h3>❌ Kế Toán Từ Chối</h3>
+    <h3>Kế Toán Từ Chối</h3>
     <div class="info" id="reject-info"></div>
-    <label style="display:block;margin-bottom:6px;font-size:12px;color:#374151">Lý do <span style="color:#dc2626">*</span></label>
+    <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--text-2)">Lý do <span style="color:#dc2626">*</span></label>
     <textarea id="reject-reason" placeholder="VD: Số tiền không khớp chứng từ" required></textarea>
     <div class="actions">
       <button class="btn btn-cancel" onclick="closeModals()">Hủy</button>
@@ -218,12 +202,12 @@ function render(){
     const actions = canAct
       ? `<button class="btn btn-ok" onclick="openApprove('${r.id}')">Duyệt</button>
          <button class="btn btn-no" onclick="openReject('${r.id}')">Từ chối</button>`
-      : `<span style="color:#9ca3af;font-size:11px">—</span>`;
+      : `<span style="color:var(--text-3);font-size:11px">—</span>`;
     const kt = r.kt_duyet_boi
-      ? `<div>${esc(r.kt_duyet_boi)}</div><div style="color:#9ca3af;font-size:11px">${fmtDt(r.kt_duyet_luc)}</div>${r.kt_ghi_chu ? `<div class="ghi-chu-cell">${esc(r.kt_ghi_chu)}</div>` : ''}`
+      ? `<div>${esc(r.kt_duyet_boi)}</div><div style="color:var(--text-3);font-size:11px">${fmtDt(r.kt_duyet_luc)}</div>${r.kt_ghi_chu ? `<div class="ghi-chu-cell">${esc(r.kt_ghi_chu)}</div>` : ''}`
       : '—';
     const ceo = r.nguoi_duyet
-      ? `<div>${esc(r.nguoi_duyet)}</div><div style="color:#9ca3af;font-size:11px">${fmtDt(r.ngay_duyet)}</div>`
+      ? `<div>${esc(r.nguoi_duyet)}</div><div style="color:var(--text-3);font-size:11px">${fmtDt(r.ngay_duyet)}</div>`
       : '—';
     return `<tr>
       <td><b>${esc(r.id)}</b></td>
