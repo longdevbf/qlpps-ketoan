@@ -1,0 +1,244 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   components.css — COMPONENT DÙNG CHUNG
+   Nạp SAU base.css, TRƯỚC CSS riêng của trang.
+   ───────────────────────────────────────────────────────────────────────────
+   BA LUẬT CỨNG — vi phạm là hỏng nhiều trang cùng lúc:
+
+   1. KHÔNG BAO GIỜ dùng selector phần tử trần (`table`, `th`, `input`,
+      `button`, `a`, `h1`…). Chỉ được `.table th`, `.field input`.
+      Lý do: 5 template đang style thẳng `table/th/td` không scope
+      (dao_tao 18 selector, products 15, index 11, ncc_de_xuat 6, de_nghi_tt 5).
+      Nếu file này cũng viết `table{…}` thì hai bên cùng độ đặc hiệu (0,0,1)
+      và THỨ TỰ NẠP quyết định — CSS riêng trang nạp sau nên nó thắng, còn
+      rule ở đây im lặng vô tác dụng. Cực khó truy.
+      Lệnh chặn, chạy MỖI LẦN sửa file này:
+        grep -nE '^\s*(table|thead|tbody|tr|th|td|input|select|button|a|h[1-6]|p|ul|li)\s*[,{]' static/css/components.css
+      Phải ra RỖNG.
+
+   2. KHÔNG BAO GIỜ sửa file này để chữa MỘT trang.
+      Trang cần khác đi → thêm biến thể trong static/css/pages/<trang>.css.
+      Vi phạm luật này là quay lại đúng tình trạng cũ "sửa chỗ này hỏng chỗ
+      kia", chỉ khác là giờ hỏng 14 trang thay vì 1.
+
+   3. MỖI TÊN CLASS MỘT NGHĨA trong toàn hệ:
+        .show   = lớp phủ / hộp thoại đang hiện
+        .active = tab hoặc mục đang chọn
+        .open   = DÀNH RIÊNG _header.html (.ab-dd.open, .ab-user.open,
+                  .ab-drawer.open). Không dùng ở đâu khác.
+
+   ⚠️ Va tên đã biết trong repo, phải xử lý khi chuyển từng trang:
+      .modal  hiện mang HAI nghĩa trái ngược —
+        hộp trắng ở dao_tao/ho_so_ca_nhan/index/products  (4 file — ĐÚNG chuẩn dưới)
+        lớp phủ  ở de_nghi_tt/ncc_de_xuat                 (2 file — phải đổi tên)
+      Lớp phủ còn 2 tên khác: .modal-overlay (9 file) và .modal-bg (2 file).
+      Chuẩn ở đây: .modal-overlay = lớp phủ · .modal = hộp trắng.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ═══ NÚT ════════════════════════════════════════════════════════════════
+   Thay 49 tên class nút và 8 định nghĩa `.btn` gốc khác nhau.
+   Giá trị lấy trung vị của 8 định nghĩa đang có.                          */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--gap-1);
+  padding:8px 16px;
+  border:1px solid transparent;border-radius:var(--radius-sm);
+  font-family:inherit;font-size:13px;font-weight:600;line-height:1.2;
+  white-space:nowrap;text-decoration:none;cursor:pointer;
+  transition:background .15s,border-color .15s,color .15s;
+}
+.btn:disabled,.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn:focus-visible{outline:none;box-shadow:var(--focus-ring)}
+
+.btn-primary{background:var(--brand);color:var(--text-on-brand)}
+.btn-primary:hover:not(:disabled){background:var(--brand-hover)}
+
+.btn-outline{background:var(--bg-card);border-color:var(--border);color:var(--text-2)}
+.btn-outline:hover:not(:disabled){background:var(--bg-page);color:var(--brand)}
+
+/* Nút chữ thuần — không nền, không viền. Dùng cho hành động phụ trong bảng. */
+.btn-ghost{background:none;color:var(--text-2)}
+.btn-ghost:hover:not(:disabled){color:var(--brand)}
+
+/* Màu trạng thái KHÔNG nhuộm theo thương hiệu — người dùng sẽ bấm nhầm. */
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover:not(:disabled){background:var(--danger-fg)}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover:not(:disabled){background:var(--success-fg)}
+
+.btn-sm{padding:6px 12px;font-size:12px}
+
+/* ═══ Ô NHẬP ═════════════════════════════════════════════════════════════
+   Thay 13 kiểu đang có (4 bo góc, 2 độ dày viền, 8 giá trị padding).
+   Viền 1px là MỨC DUY NHẤT của hệ — bỏ hết 1.5px và 2px đang rải rác.     */
+.field{display:flex;flex-direction:column;gap:var(--gap-1);margin-bottom:12px}
+.field > label{font-size:12px;font-weight:600;color:var(--text-2)}
+
+.field input,.field select,.field textarea,
+.input,.select,.textarea{
+  width:100%;
+  padding:8px 12px;
+  border:1px solid var(--border);border-radius:var(--radius-xs);
+  background:var(--bg-card);color:var(--text-1);
+  font-family:inherit;font-size:13px;
+  outline:none;transition:border-color .15s,box-shadow .15s;
+}
+.field input:focus,.field select:focus,.field textarea:focus,
+.input:focus,.select:focus,.textarea:focus{
+  border-color:var(--brand);box-shadow:var(--focus-ring);
+}
+.field textarea,.textarea{resize:vertical;min-height:80px}
+
+/* ═══ THẺ ════════════════════════════════════════════════════════════════ */
+.card{
+  background:var(--bg-card);
+  border:1px solid var(--border);border-radius:var(--radius);
+  margin-bottom:var(--gap);overflow:hidden;
+}
+.card-head{
+  padding:14px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;
+  font-size:13px;font-weight:700;color:var(--text-1);
+}
+.card-head-actions{margin-left:auto;display:flex;align-items:center;gap:var(--gap-2)}
+.card-body{padding:16px 18px}
+.card-body--flush{padding:0}   /* khi ruột là bảng, để bảng chạm mép thẻ */
+
+/* ═══ BẢNG ═══════════════════════════════════════════════════════════════
+   LUÔN scope qua .table — xem luật 1 ở đầu file.                          */
+.table-wrap{
+  background:var(--bg-card);
+  border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;margin-bottom:var(--gap);
+}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+.table{width:100%;border-collapse:collapse;font-size:13px}
+.table thead th{
+  background:var(--bg-page);color:var(--text-3);
+  padding:11px 13px;text-align:left;white-space:nowrap;
+  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+  border-bottom:1px solid var(--border);
+}
+.table tbody tr{border-bottom:1px solid var(--bg-page);transition:background .12s}
+.table tbody tr:last-child{border-bottom:none}
+.table tbody tr:hover{background:var(--bg-page)}
+.table tbody td{padding:11px 13px;vertical-align:middle;color:var(--text-2)}
+.table .num{text-align:right;font-variant-numeric:tabular-nums}
+.table .act{text-align:right;white-space:nowrap}
+
+/* ═══ THẺ SỐ LIỆU ════════════════════════════════════════════════════════ */
+.stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:var(--gap)}
+.stat-card{
+  flex:1;min-width:140px;
+  background:var(--bg-card);
+  border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;
+}
+.stat-num{font-size:22px;font-weight:800;line-height:1;color:var(--text-1)}
+.stat-label{
+  font-size:11px;font-weight:600;color:var(--text-3);margin-top:4px;
+  text-transform:uppercase;letter-spacing:.4px;
+}
+
+/* ═══ TAB TRONG THÂN TRANG — dạng subnav số 2 được phép ══════════════════
+   Mục đang chọn: màu brand + gạch chân 2px. KHÔNG dùng nút bo tròn có nền. */
+.tab-nav{
+  display:flex;gap:var(--gap-1);flex-wrap:wrap;
+  border-bottom:1px solid var(--border);margin-bottom:var(--gap);
+}
+.tab-btn{
+  padding:9px 16px;background:none;border:none;
+  border-bottom:2px solid transparent;margin-bottom:-1px;
+  font-family:inherit;font-size:13px;font-weight:600;color:var(--text-3);
+  cursor:pointer;white-space:nowrap;transition:color .15s,border-color .15s;
+}
+.tab-btn:hover{color:var(--brand)}
+.tab-btn.active{color:var(--brand);border-bottom-color:var(--brand)}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* ═══ BADGE ══════════════════════════════════════════════════════════════ */
+.badge{
+  display:inline-flex;align-items:center;gap:var(--gap-1);
+  padding:3px 9px;border-radius:var(--radius-pill);
+  font-size:11px;font-weight:700;white-space:nowrap;
+}
+.badge-ok{background:var(--success-soft);color:var(--success-fg)}
+.badge-warn{background:var(--warning-soft);color:var(--warning-fg)}
+.badge-danger{background:var(--danger-soft);color:var(--danger-fg)}
+.badge-info{background:var(--info-soft);color:var(--info-fg)}
+.badge-muted{background:var(--bg-page);color:var(--text-3)}
+
+/* ═══ MODAL ══════════════════════════════════════════════════════════════
+   .modal-overlay = lớp phủ toàn màn · .modal = hộp trắng. Xem va tên ở đầu file.
+   Lớp mở là .show (10 file đang dùng, thắng .open của 3 file).             */
+.modal-overlay{
+  display:none;position:fixed;inset:0;z-index:1000;
+  background:rgba(15,38,64,.42);
+  align-items:center;justify-content:center;padding:var(--gap);
+}
+.modal-overlay.show{display:flex}
+.modal{
+  background:var(--bg-card);border-radius:var(--radius);
+  width:520px;max-width:100%;max-height:88vh;
+  display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:var(--shadow-lg);
+}
+.modal--wide{width:800px}
+.modal-head{
+  padding:16px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;
+  font-size:14px;font-weight:700;color:var(--text-1);
+}
+.modal-close{
+  margin-left:auto;background:none;border:none;cursor:pointer;
+  color:var(--text-3);font-size:22px;line-height:1;padding:0 4px;
+}
+.modal-close:hover{color:var(--brand)}
+.modal-body{padding:18px 20px;overflow-y:auto;flex:1}
+.modal-foot{
+  padding:14px 20px;border-top:1px solid var(--border);
+  display:flex;gap:var(--gap-2);justify-content:flex-end;flex-wrap:wrap;
+}
+
+/* ═══ TOAST — thay 12 bản cài đặt độc lập ════════════════════════════════ */
+.toast-wrap{
+  position:fixed;right:20px;bottom:20px;z-index:2000;
+  display:flex;flex-direction:column;gap:var(--gap-2);
+}
+.toast{
+  padding:11px 18px;border-radius:var(--radius-sm);
+  background:var(--text-1);color:#fff;
+  font-size:13px;font-weight:600;
+  box-shadow:var(--shadow-md);
+  opacity:0;transform:translateY(12px);transition:opacity .2s,transform .2s;
+}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast-success{background:var(--success)}
+.toast-error{background:var(--danger)}
+.toast-warning{background:var(--warning);color:var(--warning-fg)}
+.toast-info{background:var(--info)}
+
+/* ═══ TRẠNG THÁI RỖNG ════════════════════════════════════════════════════ */
+.empty-state{
+  text-align:center;padding:48px 20px;
+  color:var(--text-3);font-size:13px;
+}
+
+/* ═══ TOOLBAR — hàng nút/bộ lọc trên đầu bảng ═══════════════════════════ */
+.toolbar{
+  display:flex;align-items:center;gap:var(--gap-2);flex-wrap:wrap;
+  margin-bottom:var(--gap);
+}
+.toolbar-spacer{margin-left:auto}
+
+@media(max-width:768px){
+  .stats-bar{gap:var(--gap-2)}
+  .stat-card{min-width:calc(50% - var(--gap-2))}
+  .modal-foot{flex-direction:column-reverse}
+  .modal-foot .btn{width:100%}
+  .toolbar{gap:var(--gap-1)}
+}
+@media(max-width:480px){
+  .stat-card{min-width:100%}
+  .toast-wrap{right:12px;left:12px;bottom:12px}
+}
