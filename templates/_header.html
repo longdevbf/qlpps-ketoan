@@ -1,0 +1,507 @@
+{# ═══════════════════════════════════════════════════════════════════════════
+   HEADER DÙNG CHUNG — nguồn duy nhất cho MỌI trang.
+   Dùng: thay toàn bộ khối header cũ của trang bằng {% include "_header.html" %}
+   đặt ngay sau <body>. KHÔNG thêm logo / nút quay lại / tiêu đề trang vào
+   header nữa — header phải giống hệt nhau ở mọi trang, đổi trang không đổi
+   header. Muốn hiện tên trang thì đặt trong phần nội dung bên dưới.
+
+   Bố cục / class `ab-*` / CSS / JS: CHÉP NGUYÊN từ qlpps-marketing.
+   Chỉ 3 thứ khác bản gốc — xem `.claude/rules/design-system.md`:
+     1. `.ab-logo-sub` = "Kế Toán" (marketing ghi "Marketing")
+     2. Danh sách nav = module thật của app kế toán
+     3. Gate quyền dùng `user._is_mgr` (app này KHÔNG có `nav_perms` như marketing)
+
+   Context (route render qua pages.py đã có sẵn):
+     • user — dict từ shared.templates.user_ctx(): ho_ten, phong_ban, role,
+              _is_mgr, _is_kt… Thiếu context → hiện đủ; route vẫn tự chặn.
+
+   Nav CHỈ trỏ tới trang có URL thật. Các mục nghiệp vụ trong SPA (`/app`) điều
+   hướng bằng `showPage()` — hàm đó đọc `event.currentTarget` và KHÔNG đọc
+   `location.hash`, nên không deep-link được từ ngoài vào. Vì vậy toàn bộ SPA
+   gom về MỘT mục "Kế Toán" → `/app`.
+
+   Class đều mang tiền tố `ab-` (appbar) để không dính CSS riêng của trang.
+   ═══════════════════════════════════════════════════════════════════════════ #}
+{% set _path = request.url.path if request else '' %}
+{% set _role = ((user.vai_tro if (user and user.vai_tro is defined) else (user.role if user else '')) or '')|lower %}
+{% set _mgr  = (user._is_mgr if (user and user._is_mgr is defined) else False) %}
+<link rel="stylesheet" href="/static/css/theme.css">
+<style>
+/* ─── Khung header ─────────────────────────────────────────────────────── */
+:root{--ab-h:56px}
+body{padding-top:var(--ab-h) !important}
+.appbar{position:fixed;top:0;left:0;right:0;min-height:56px;z-index:190;
+        background:#fff;border-bottom:1px solid #DFD2C6;box-shadow:0 1px 10px rgba(15,38,64,.07);
+        display:flex;align-items:center;padding:0 24px;gap:0;
+        font-family:'Segoe UI',sans-serif;color:#D23C0E}
+.appbar *{box-sizing:border-box}
+
+/* ─── Logo ─────────────────────────────────────────────────────────────── */
+.ab-logo{display:flex;align-items:center;gap:8px;flex-shrink:0;height:38px;
+         padding-right:20px;margin-right:10px;border-right:1px solid #DFD2C6;text-decoration:none}
+.ab-logo img{height:30px;width:auto;object-fit:contain;display:block}
+.ab-logo-txt{font-size:15px;font-weight:900;letter-spacing:1px;color:#D23C0E;text-transform:uppercase}
+.ab-logo-sub{font-size:11px;font-weight:600;color:#D23C0E;letter-spacing:.5px;white-space:nowrap}
+
+/* ─── Nav ──────────────────────────────────────────────────────────────── */
+.ab-nav{display:flex;align-items:center;gap:2px;min-width:0}
+/* Nav dạng CHỮ THUẦN — không nền, không viền. Trạng thái phân biệt bằng
+   màu + độ đậm chữ, không dùng khối/đường kẻ. */
+.ab-pill{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;padding:7px 12px;
+         background:none;border:none;border-radius:6px;color:#54483F;
+         font-size:13px;font-weight:500;line-height:1.2;letter-spacing:.1px;
+         font-family:inherit;white-space:nowrap;text-decoration:none;cursor:pointer;
+         transition:color .15s}
+.ab-pill:hover{background:none;color:#D23C0E;text-decoration:none}
+.ab-pill.active{background:none;color:#BF370D;font-weight:700}
+.ab-dd{position:relative;display:flex;flex-shrink:0}
+.ab-caret{font-size:9px;opacity:.6;margin-left:1px;transition:transform .18s}
+.ab-dd.open>.ab-pill{background:none;color:#BF370D}
+.ab-dd.open .ab-caret{transform:rotate(180deg)}
+.ab-menu{position:absolute;top:calc(100% + 6px);left:0;min-width:238px;background:#fff;
+         border:1px solid #DFD2C6;border-radius:12px;padding:4px 0;
+         box-shadow:0 10px 32px rgba(15,38,64,.16);display:none;z-index:20}
+.ab-dd.open .ab-menu{display:block}
+/* Cầu nối trong suốt phủ khoảng hở giữa nút và menu — không có nó thì chuột
+   đi từ nút xuống menu sẽ rơi vào vùng trống và menu tự đóng. */
+.ab-dd::after,.ab-user::after{content:'';position:absolute;left:0;right:0;top:100%;height:8px}
+.ab-mtitle{font-size:10px;font-weight:700;color:#736659;letter-spacing:.8px;padding:10px 15px 5px;text-transform:uppercase}
+.ab-item{display:flex;align-items:center;padding:9px 15px;font-size:13px;font-weight:500;
+         color:#54483F;text-decoration:none;white-space:nowrap;transition:background .12s;
+         border:none;background:none;width:100%;text-align:left;cursor:pointer;font-family:inherit}
+.ab-item:hover{background:#FDEEE8;color:#D23C0E;text-decoration:none}
+/* Trang SPA đang mở. Cùng quy ước với .ab-pill.active: chỉ đổi màu + độ đậm,
+   KHÔNG tô nền — nền dành riêng cho hover. */
+.ab-item.ab-item-active{color:#BF370D;font-weight:700}
+.ab-div{height:1px;background:#FBF8F5;margin:4px 0}
+
+/* ─── Khối phải: chuông + user ─────────────────────────────────────────── */
+.ab-right{margin-left:auto;padding-left:16px;border-left:1px solid #DFD2C6;
+          display:flex;align-items:center;gap:4px;flex-shrink:0}
+.ab-bell{margin-right:8px;color:#D23C0E;display:flex;align-items:center}
+.ab-user{position:relative}
+.ab-userbtn{display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 12px;border-radius:9px;
+            border:1px solid transparent;transition:background .15s;user-select:none}
+.ab-userbtn:hover{background:#FBF8F5;border-color:#DFD2C6}
+.ab-avatar{width:30px;height:30px;border-radius:50%;background:#D23C0E;color:#fff;overflow:hidden;
+           display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+.ab-avatar img{width:100%;height:100%;object-fit:cover;display:none}
+.ab-uinfo{display:flex;flex-direction:column;line-height:1.2}
+.ab-uname{font-size:12px;font-weight:700;color:#D23C0E;white-space:nowrap}
+.ab-urole{font-size:10px;font-weight:500;color:#736659;white-space:nowrap}
+.ab-chev{color:#736659;font-size:11px;margin-left:2px;transition:transform .2s}
+.ab-user.open .ab-chev{transform:rotate(180deg)}
+.ab-umenu{position:absolute;top:calc(100% + 10px);right:0;width:260px;background:#fff;
+          border:1px solid #DFD2C6;border-radius:12px;overflow:hidden;display:none;z-index:20;
+          box-shadow:0 10px 32px rgba(15,38,64,.16)}
+.ab-user.open .ab-umenu{display:block}
+.ab-uhead{background:#FBF8F5;border-bottom:1px solid #FBF8F5;padding:16px;display:flex;align-items:center;gap:12px}
+.ab-uhead .ab-avatar{width:42px;height:42px;font-size:16px;cursor:pointer;position:relative}
+.ab-uhead-name{font-size:14px;font-weight:700;color:#D23C0E}
+.ab-uhead-role{font-size:11px;color:#736659;margin-top:2px}
+.ab-cam{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.45);color:#fff;
+        font-size:8px;text-align:center;padding:2px 0;pointer-events:none}
+.ab-logout{color:#dc2626}
+.ab-logout:hover{background:#FEE2E2;color:#991B1B}
+
+/* ─── Hamburger + drawer (mobile) ──────────────────────────────────────── */
+.ab-burger{display:none;background:none;border:none;color:#54483F;font-size:22px;
+           line-height:1;padding:6px 10px;border-radius:6px;cursor:pointer;margin-right:6px;
+           transition:color .15s}
+.ab-burger:hover{color:#D23C0E}
+.ab-backdrop{display:none;position:fixed;inset:0;background:rgba(15,38,64,.42);z-index:1998;opacity:0;transition:opacity .2s}
+.ab-backdrop.open{display:block;opacity:1}
+.ab-drawer{position:fixed;top:0;left:0;bottom:0;width:280px;max-width:82vw;background:#fff;color:#D23C0E;
+           z-index:1999;transform:translateX(-100%);transition:transform .25s ease;
+           box-shadow:4px 0 24px rgba(15,38,64,.18);display:flex;flex-direction:column;overflow-y:auto;
+           font-family:'Segoe UI',sans-serif}
+.ab-drawer.open{transform:translateX(0)}
+.ab-dhead{padding:14px 16px;border-bottom:1px solid #FBF8F5;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.ab-dtitle{font-size:14px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#D23C0E}
+.ab-dclose{background:transparent;border:0;color:#736659;font-size:22px;cursor:pointer;padding:0 6px;line-height:1}
+.ab-dlist{padding:10px;display:flex;flex-direction:column;gap:6px}
+.ab-dlist .ab-pill{display:flex;width:100%;justify-content:flex-start;padding:11px 14px;font-size:14px;
+                   background:#FBF8F5;border:1px solid #DFD2C6;color:#54483F}
+.ab-dlist .ab-pill.active{background:#FDEEE8;border-color:#D23C0E;color:#BF370D}
+.ab-dgroup{display:flex;flex-direction:column;gap:6px}
+.ab-dgroup>.ab-pill{justify-content:space-between}
+.ab-dsub{display:none;flex-direction:column;gap:4px;margin:0 0 2px 10px;padding-left:10px;border-left:2px solid #DFD2C6}
+.ab-dgroup.open .ab-dsub{display:flex}
+.ab-dsub a{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;font-size:13px;
+           font-weight:600;color:#54483F;text-decoration:none;background:#FBF8F5;border:1px solid #FBF8F5}
+.ab-dsub a:hover{background:#DFD2C6;color:#D23C0E}
+
+/* Nav cần ~620px; cộng logo + khối phải thì dưới 1100px là nav bắt đầu ĐÈ lên
+   chuông/menu user (đo được: 1050px đè 37px, 1100px hết đè). Dưới ngưỡng đó
+   chuyển sang drawer thay vì để nav bị che. */
+@media(max-width:1100px){
+  .ab-burger{display:inline-flex;align-items:center;justify-content:center}
+  .ab-nav{display:none !important}
+}
+@media(max-width:768px){
+  .appbar{padding:8px 12px}
+  .ab-logo{height:32px;padding-right:10px;margin-right:6px}
+  .ab-logo img{height:26px}
+  .ab-logo-sub{display:none}
+  .ab-right{padding-left:8px}
+  .ab-uinfo,.ab-chev{display:none}
+  .ab-userbtn{padding:4px 6px}
+  .ab-umenu{width:240px}
+}
+</style>
+
+<div class="appbar">
+  <a class="ab-logo" href="/app" title="Về Kế Toán">
+    <img src="https://papasanvietnam.vn/wp-content/uploads/2025/11/Ch%C6%B0a-c%C3%B3-t%C3%AAn-250-x-67-px-2.png"
+         alt="Papasan Việt Nam"
+         onerror="this.outerHTML='<span class=\'ab-logo-txt\'>Papasan</span>'">
+    <span class="ab-logo-sub">Kế Toán</span>
+  </a>
+  <button class="ab-burger" type="button" onclick="abToggleDrawer()" aria-label="Menu">&#9776;</button>
+
+  {# Nav gánh TOÀN BỘ điều hướng — sidebar dọc của SPA đã bỏ hẳn.
+     `data-page` = id trang SPA (`page-<data-page>`); href `/app#<name>` để deep-link
+     được từ trang khác. Trên chính /app, đổi hash không tải lại nên `hashchange`
+     bên dưới lo việc gọi showPage. #}
+  <nav class="ab-nav" aria-label="Điều hướng chính">
+    <div class="ab-dd">
+      <button type="button" class="ab-pill ab-ddbtn" aria-haspopup="true" aria-expanded="false"
+              onclick="abToggleDD(this,event)">Tổng Quan <span class="ab-caret">▾</span></button>
+      <div class="ab-menu">
+        <a class="ab-item" data-page="bao-cao"  href="/app#bao-cao">Dashboard</a>
+        <a class="ab-item" data-page="can-doi"  href="/app#can-doi">Cân Đối Tài Chính</a>
+        <a class="ab-item" data-page="pnl"      href="/app#pnl">P&amp;L (Kết Quả KD)</a>
+        <a class="ab-item" data-page="cashflow" href="/app#cashflow">Cashflow</a>
+      </div>
+    </div>
+    <div class="ab-dd">
+      <button type="button" class="ab-pill ab-ddbtn" aria-haspopup="true" aria-expanded="false"
+              onclick="abToggleDD(this,event)">Thu — Chi <span class="ab-caret">▾</span></button>
+      <div class="ab-menu">
+        <a class="ab-item" data-page="doanh-thu" href="/app#doanh-thu">Doanh Thu</a>
+        <a class="ab-item" data-page="chi-phi"   href="/app#chi-phi">Chi Phí Phát Sinh</a>
+        <a class="ab-item" data-page="co-dinh"   href="/app#co-dinh">Chi Phí Cố Định</a>
+      </div>
+    </div>
+    <div class="ab-dd">
+      <button type="button" class="ab-pill ab-ddbtn{% if _path.startswith('/duyet-ncc') %} active{% endif %}"
+              aria-haspopup="true" aria-expanded="false" onclick="abToggleDD(this,event)">Quản Lý <span class="ab-caret">▾</span></button>
+      <div class="ab-menu">
+        <a class="ab-item" data-page="cong-no"      href="/app#cong-no">Công Nợ</a>
+        <a class="ab-item" data-page="cong-no-ncc"  href="/app#cong-no-ncc">Công Nợ NCC</a>
+        {% if _mgr %}<a class="ab-item" href="/duyet-ncc">Duyệt ĐX Trả NCC</a>{% endif %}
+        <div class="ab-div"></div>
+        <a class="ab-item" data-page="so-quy"       href="/app#so-quy">Sổ Quỹ</a>
+        <a class="ab-item" data-page="khoan-vay"    href="/app#khoan-vay">Vốn Vay</a>
+        <a class="ab-item" data-page="phan-phoi-ln" href="/app#phan-phoi-ln">Phân Phối Lợi Nhuận</a>
+        <a class="ab-item" data-page="tscd"         href="/app#tscd">TSCĐ + Khấu Hao</a>
+      </div>
+    </div>
+    <div class="ab-dd">
+      <button type="button" class="ab-pill ab-ddbtn" aria-haspopup="true" aria-expanded="false"
+              onclick="abToggleDD(this,event)">Liên Phòng Ban <span class="ab-caret">▾</span></button>
+      <div class="ab-menu">
+        <a class="ab-item" data-page="luong"    href="/app#luong">Lương HCNS</a>
+        <a class="ab-item" data-page="don-hang" href="/app#don-hang">Đơn Hàng</a>
+        <a class="ab-item" data-page="ads"      href="/app#ads">Chi Phí ADS</a>
+        <a class="ab-item" data-page="cpa-ads"  href="/app#cpa-ads">ROI/CPA Ads</a>
+      </div>
+    </div>
+    <div class="ab-dd">
+      <button type="button" class="ab-pill ab-ddbtn{% if _path.startswith('/products') %} active{% endif %}"
+              aria-haspopup="true" aria-expanded="false" onclick="abToggleDD(this,event)">Danh Mục <span class="ab-caret">▾</span></button>
+      <div class="ab-menu">
+        <a class="ab-item" data-page="san-pham"     href="/app#san-pham">Sản Phẩm</a>
+        <a class="ab-item" data-page="thuoc-tinh"   href="/app#thuoc-tinh">Thuộc Tính SP</a>
+        <a class="ab-item" data-page="ton-kho"      href="/app#ton-kho">Tồn Kho</a>
+        <a class="ab-item" data-page="loai-cp"      href="/app#loai-cp">Loại Chi Phí</a>
+        <a class="ab-item" data-page="tai-khoan-nh" href="/app#tai-khoan-nh">Tài Khoản NH</a>
+        <a class="ab-item" data-page="quan-ly-quy"  href="/app#quan-ly-quy">Quản Lý Quỹ</a>
+        <div class="ab-div"></div>
+        <div class="ab-mtitle">Trang riêng</div>
+        <a class="ab-item" href="/products">Sản Phẩm &amp; Tồn Kho</a>
+        {# "Khuyến Mãi" đã gỡ: route /khuyen-mai (pages.py) render `khuyen_mai.html`
+           — file KHÔNG tồn tại trong repo này nên trả 500. Template gốc bên
+           qlpps-marketing gọi /api/khuyen-mai, /api/all-staff, /api/product-groups
+           mà ketoan đều không có, nên chép sang cũng chỉ ra trang rỗng lỗi.
+           Muốn bật lại: phải port cả API trước, rồi mới thêm link. #}
+      </div>
+    </div>
+  </nav>
+
+  <div class="ab-right">
+    <div id="qlpps-bell-mount" class="ab-bell"></div>
+    <div class="ab-user" id="ab-user">
+      <div class="ab-userbtn" onclick="abToggleUser(event)">
+        <div class="ab-avatar">
+          <img id="ab-ava-img" src="" alt="">
+          <span id="ab-ava-init">{{ (user.ho_ten[0]|upper) if (user and user.ho_ten) else 'U' }}</span>
+        </div>
+        <div class="ab-uinfo">
+          <span class="ab-uname">{{ user.ho_ten if user else '' }}</span>
+          <span class="ab-urole">{{ (user.phong_ban|upper) if (user and user.phong_ban) else _role|upper }}</span>
+        </div>
+        <span class="ab-chev">▾</span>
+      </div>
+      <input type="file" id="ab-ava-upload" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="abUploadAva(this)">
+      <div class="ab-umenu">
+        <div class="ab-uhead">
+          <div class="ab-avatar" onclick="document.getElementById('ab-ava-upload').click()" title="Nhấn để đổi ảnh đại diện">
+            <img id="ab-ava-img2" src="" alt="">
+            <span id="ab-ava-init2">{{ (user.ho_ten[0]|upper) if (user and user.ho_ten) else 'U' }}</span>
+            <div class="ab-cam">Đổi ảnh</div>
+          </div>
+          <div>
+            <div class="ab-uhead-name">{{ user.ho_ten if user else '' }}</div>
+            <div class="ab-uhead-role">{{ (user.phong_ban|upper) if (user and user.phong_ban) else _role|upper }}</div>
+          </div>
+        </div>
+        <div class="ab-mtitle">Cá nhân</div>
+        <a href="/xin-nghi"      class="ab-item">Xin Nghỉ</a>
+        <a href="/giao-viec"     class="ab-item">Giao Việc</a>
+        <a href="/lich-lam-viec" class="ab-item">Lịch làm việc</a>
+        <a href="/cham-cong"     class="ab-item">Chấm Công</a>
+        {% if _mgr %}<a href="/phe-duyet" class="ab-item">Phê Duyệt</a>{% endif %}
+        <div class="ab-div"></div>
+        <div class="ab-mtitle">Duyệt chi &amp; Đào tạo</div>
+        <a href="/duyet-chi"        class="ab-item">Duyệt Chi</a>
+        <a href="/de-nghi-tt"       class="ab-item">Đề Nghị Thanh Toán</a>
+        <a href="/bao-cao/duyet-chi" class="ab-item">Báo Cáo Duyệt Chi</a>
+        <a href="/dao-tao"          class="ab-item">Đào Tạo</a>
+        <div class="ab-div"></div>
+        <a href="/ho-so-ca-nhan" class="ab-item">Hồ sơ đầy đủ (HCNS)</a>
+        <button type="button" class="ab-item" onclick="abOpenProfile()">Đổi mật khẩu</button>
+        <div class="ab-div"></div>
+        <a href="/logout" class="ab-item ab-logout">Đăng xuất</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="ab-backdrop" id="ab-backdrop" onclick="abCloseDrawer()"></div>
+<aside class="ab-drawer" id="ab-drawer" role="dialog" aria-label="Menu điều hướng">
+  <div class="ab-dhead">
+    <span class="ab-dtitle">Menu</span>
+    <button type="button" class="ab-dclose" onclick="abCloseDrawer()" aria-label="Đóng">&times;</button>
+  </div>
+  <div class="ab-dlist" id="ab-dlist"></div>
+</aside>
+
+{# Helper dùng chung (esc / escHtml / initials) — nạp ở đây nên MỌI trang
+   include _header.html đều có sẵn, khỏi khai báo lại trong từng template. #}
+<script src="/static/js/ui-common.js?v=1"></script>
+<script src="/static/js/notifications_bell.js?v=4"></script>
+<script>
+(function(){
+  if (window.__abReady) return;      // include 2 lần cũng không gắn handler 2 lần
+  window.__abReady = true;
+
+  /* ── chiều cao header → bù padding cho body (mobile header cao hơn) ── */
+  function abSyncHeight(){
+    var bar = document.querySelector('.appbar');
+    if (bar) document.documentElement.style.setProperty('--ab-h', bar.offsetHeight + 'px');
+  }
+  window.abSyncHeight = abSyncHeight;
+
+  /* ── dropdown "Duyệt Chi" ── */
+  window.abCloseDD = function(){
+    document.querySelectorAll('.ab-dd.open').forEach(function(d){
+      d.classList.remove('open');
+      var b = d.querySelector('.ab-ddbtn');
+      if (b) b.setAttribute('aria-expanded','false');
+    });
+  };
+  window.abToggleDD = function(btn, ev){
+    if (ev) ev.stopPropagation();
+    var dd = btn.closest('.ab-dd');
+    if (!dd) return;
+    var wasOpen = dd.classList.contains('open');
+    abCloseDD(); abCloseUser();
+    if (!wasOpen){ dd.classList.add('open'); btn.setAttribute('aria-expanded','true'); }
+  };
+
+  /* ── menu user ── */
+  window.abCloseUser = function(){
+    var u = document.getElementById('ab-user');
+    if (u) u.classList.remove('open');
+  };
+  window.abToggleUser = function(ev){
+    if (ev) ev.stopPropagation();
+    var u = document.getElementById('ab-user');
+    if (!u) return;
+    var wasOpen = u.classList.contains('open');
+    abCloseDD(); abCloseUser();
+    if (!wasOpen) u.classList.add('open');
+  };
+  /* ── Mở dropdown khi ĐƯA CHUỘT vào, đóng khi rời ra ──────────────────────
+     - Chỉ bật trên thiết bị có chuột thật (`hover:hover`); màn cảm ứng giữ
+       hành vi click, vì ở đó "hover" chỉ xảy ra sau khi đã tap.
+     - Có delay khi rời chuột: đi chéo từ nút sang menu vẫn kịp, không bị đóng
+       giữa đường. Khoảng hở nút↔menu đã được `::after` phủ.
+     - Click vẫn hoạt động (bàn phím / touch / muốn đóng nhanh). */
+  var _abHoverCap = !window.matchMedia || window.matchMedia('(hover:hover)').matches;
+  var _abCloseTimer = null;
+  function abHoverBind(el, open, close){
+    if (!el) return;
+    el.addEventListener('mouseenter', function(){
+      clearTimeout(_abCloseTimer);
+      abCloseDD(); abCloseUser();
+      open();
+    });
+    el.addEventListener('mouseleave', function(){
+      clearTimeout(_abCloseTimer);
+      _abCloseTimer = setTimeout(close, 180);
+    });
+  }
+  if (_abHoverCap) {
+    document.querySelectorAll('.ab-dd').forEach(function(dd){
+      abHoverBind(dd,
+        function(){ dd.classList.add('open');
+                    var b = dd.querySelector('.ab-ddbtn');
+                    if (b) b.setAttribute('aria-expanded','true'); },
+        abCloseDD);
+    });
+    abHoverBind(document.getElementById('ab-user'),
+      function(){ document.getElementById('ab-user').classList.add('open'); },
+      abCloseUser);
+  }
+
+  /* Đổi mật khẩu: SPA có sẵn modal openChangePassword(); trang khác → hồ sơ HCNS */
+  window.abOpenProfile = function(){
+    abCloseUser();
+    if (typeof window.openChangePassword === 'function') window.openChangePassword();
+    else if (typeof window.openProfile === 'function') window.openProfile();
+    else location.href = '/ho-so-ca-nhan';
+  };
+
+  /* ── drawer mobile: dựng lại từ nav mỗi lần mở ── */
+  function abClonePill(orig){
+    var clone = document.createElement('a');
+    clone.href = orig.getAttribute('href') || '#';
+    clone.className = orig.className;
+    clone.innerHTML = orig.innerHTML;
+    clone.addEventListener('click', abCloseDrawer);
+    return clone;
+  }
+  function abCloneGroup(dd){
+    var wrap = document.createElement('div');
+    wrap.className = 'ab-dgroup open';
+    var head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'ab-pill';
+    var btn = dd.querySelector('.ab-ddbtn');
+    head.innerHTML = btn ? btn.innerHTML : '';
+    head.addEventListener('click', function(){ wrap.classList.toggle('open'); });
+    var sub = document.createElement('div');
+    sub.className = 'ab-dsub';
+    dd.querySelectorAll('.ab-menu .ab-item').forEach(function(a){
+      var c = document.createElement('a');
+      c.href = a.getAttribute('href') || '#';
+      c.innerHTML = a.innerHTML;
+      c.addEventListener('click', abCloseDrawer);
+      sub.appendChild(c);
+    });
+    wrap.appendChild(head); wrap.appendChild(sub);
+    return wrap;
+  }
+  function abBuildDrawer(){
+    var list = document.getElementById('ab-dlist');
+    var nav  = document.querySelector('.appbar .ab-nav');
+    if (!list || !nav) return;
+    list.innerHTML = '';
+    Array.prototype.forEach.call(nav.children, function(node){
+      if (node.classList.contains('ab-dd')) list.appendChild(abCloneGroup(node));
+      else if (node.classList.contains('ab-pill')) list.appendChild(abClonePill(node));
+    });
+  }
+  window.abToggleDrawer = function(){
+    var d = document.getElementById('ab-drawer'), b = document.getElementById('ab-backdrop');
+    if (!d || !b) return;
+    if (d.classList.contains('open')) { abCloseDrawer(); return; }
+    abBuildDrawer();
+    b.classList.add('open'); d.classList.add('open');
+  };
+  window.abCloseDrawer = function(){
+    var d = document.getElementById('ab-drawer'), b = document.getElementById('ab-backdrop');
+    if (d) d.classList.remove('open');
+    if (b) b.classList.remove('open');
+  };
+
+  document.addEventListener('click', function(e){
+    if (!e.target.closest('.ab-dd')) abCloseDD();
+    if (!e.target.closest('.ab-user')) abCloseUser();
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape'){ abCloseDD(); abCloseUser(); abCloseDrawer(); }
+  });
+  window.addEventListener('resize', function(){ abCloseDD(); abSyncHeight(); });
+  window.addEventListener('orientationchange', function(){ setTimeout(abSyncHeight, 150); });
+
+  /* ── ảnh đại diện ── */
+  function abSetAva(url){
+    ['ab-ava-img','ab-ava-img2'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el){ el.src = url; el.style.display = 'block'; }
+    });
+    ['ab-ava-init','ab-ava-init2'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+  }
+  window.abUploadAva = function(input){
+    var file = input.files[0];
+    if (!file) return;
+    if (file.size > 3*1024*1024){ alert('Ảnh quá lớn, tối đa 3MB'); input.value=''; return; }
+    var fd = new FormData(); fd.append('file', file);
+    fetch('/api/profile/avatar', {method:'POST', credentials:'include', body:fd})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d && d.ok) abSetAva(URL.createObjectURL(file));
+        else alert((d && d.detail) || 'Lỗi upload ảnh');
+      })
+      .catch(function(e){ alert('Lỗi: ' + e.message); })
+      .then(function(){ input.value = ''; });
+  };
+
+  /* ── Deep-link vào trang SPA: /app#doanh-thu ──────────────────────────────
+     Chỉ có tác dụng trên /app (nơi showPage tồn tại); trang khác thì bỏ qua.
+     Cần cả hashchange: khi đang ở /app, bấm href="/app#x" chỉ đổi hash chứ
+     không tải lại trang, nên không có sự kiện load nào để bắt. */
+  function abMarkActive(name){
+    document.querySelectorAll('.ab-item[data-page]').forEach(function(a){
+      a.classList.toggle('ab-item-active', a.dataset.page === name);
+    });
+    document.querySelectorAll('.appbar .ab-dd').forEach(function(dd){
+      var b = dd.querySelector('.ab-ddbtn');
+      if (b) b.classList.toggle('active', !!dd.querySelector('.ab-item[data-page="' + name + '"]'));
+    });
+  }
+  function abSpaSync(){
+    if (typeof window.showPage !== 'function') return;   // không phải /app
+    var name = (location.hash || '').replace(/^#/, '');
+    if (name && document.getElementById('page-' + name)) { showPage(name); return; }
+    abMarkActive('bao-cao');   // không có hash → SPA tự mở trang mặc định
+  }
+  window.addEventListener('hashchange', abSpaSync);
+
+  function abInit(){
+    abSyncHeight();
+    /* Header nằm đầu <body> nên listener DOMContentLoaded của nó chạy TRƯỚC
+       init của SPA (index.html:3067). setTimeout 0 đẩy việc này xuống sau khi
+       mọi listener DOMContentLoaded đã chạy xong — lúc đó META mới sẵn sàng. */
+    setTimeout(abSpaSync, 0);
+    var bar = document.querySelector('.appbar');
+    if (bar && window.ResizeObserver) new ResizeObserver(abSyncHeight).observe(bar);
+    if (window.QlppsBell) {
+      try { QlppsBell.mount({mountId:'qlpps-bell-mount', apiBase:'/api/notifications', appName:'ketoan'}); }
+      catch(e){}
+    }
+    fetch('/api/profile/avatar', {credentials:'include'})
+      .then(function(r){ return r.ok ? r.blob() : null; })
+      .then(function(b){ if (b) abSetAva(URL.createObjectURL(b)); })
+      .catch(function(){});
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', abInit);
+  else abInit();
+})();
+</script>

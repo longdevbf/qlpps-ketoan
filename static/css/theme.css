@@ -1,0 +1,86 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   theme.css — HỆ MÀU QLPPS MARKETING (Papasan)
+   ───────────────────────────────────────────────────────────────────────────
+   NGUYÊN TẮC: CÀNG ÍT MÀU CÀNG SẠCH.
+   Toàn bộ giao diện chỉ dùng 7 màu + 4 màu trạng thái. Trước đây có 13 sắc
+   thương hiệu trộn với 12 sắc xám LẠNH trên nền ẤM — đó là nguyên nhân giao
+   diện trông "bẩn" và rối mắt. Nay gom về một hệ ẤM duy nhất, CAM làm chủ đạo.
+
+   TRƯỚC KHI THÊM MÀU MỚI: hãy dùng lại 1 trong 7 màu dưới đây. Mỗi màu thêm
+   vào là một bước quay lại tình trạng cũ.
+
+   ── Nguồn ──
+   Cam lấy từ logo Papasan (shared/static/logo.png): #F05424.
+   Giao diện dùng biến thể đậm hơn #D23C0E vì #F05424 với chữ trắng chỉ đạt
+   3.41:1 → TRƯỢT chuẩn WCAG AA. #D23C0E đạt 4.78:1 ✔ — vẫn đúng tông logo
+   nhưng nhân viên đọc được khi ngồi 8 tiếng/ngày.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ═══ 1. THƯƠNG HIỆU — chỉ MỘT màu cam, không có màu thứ hai ════════════
+     Dùng cho TẤT CẢ: nền topbar, nút chính, chữ tiêu đề, tab đang chọn,
+     viền nhấn, icon. Không tách nâu/cam/cam-vàng như trước nữa.       */
+  --brand:       #D23C0E;   /* trắng trên nền này 4.78:1 ✔ AA
+                               làm chữ trên nền thẻ  4.78:1 ✔ AA
+                               làm chữ trên --bg-page 4.52:1 ✔ AA */
+  --brand-hover: #BF370D;   /* hover/active của nút — 5.57:1 ✔ */
+  --brand-soft:  #FDEEE8;   /* nền nhạt tông cam: hàng đang chọn, chip, tab */
+
+  /* ═══ 2. NỀN — 2 mức, ám ấm để hợp tông cam ═════════════════════════════ */
+  --bg-card: #FFFFFF;       /* thẻ, bảng, modal */
+  --bg-page: #FBF8F5;       /* nền trang, sọc bảng, vùng lõm */
+
+  /* ═══ 3. VIỀN — 1 mức duy nhất ══════════════════════════════════════════
+     Viền nhạt là chủ ý (giao diện nhiều bảng, viền đậm gây rối). Việc nhận
+     biết ô đang focus dựa vào --focus-ring màu cam, không dựa vào viền.   */
+  --border: #DFD2C6;
+  --focus-ring: 0 0 0 3px rgba(210, 60, 14, .25);
+
+  /* ═══ 4. CHỮ — 3 mức, xám ẤM (không ám xanh) ════════════════════════════
+     Quan trọng: xám LẠNH (#64748b, #94a3b8…) đặt trên nền kem ẤM là nguyên
+     nhân chính khiến màn hình trông đục. Ba màu dưới đây ám nâu nhẹ.      */
+  --text-1: #2A2521;        /* tiêu đề, số liệu   — 13.61:1 ✔ */
+  --text-2: #54483F;        /* nội dung chính     —  7.94:1 ✔ */
+  --text-3: #736659;        /* chú thích, nhãn phụ—  5.26:1 ✔ */
+  --text-on-brand: #FFFFFF; /* chữ đặt trên nền --brand */
+
+  /* ═══ 5. TRẠNG THÁI — KHÔNG ĐỔI THEO THƯƠNG HIỆU ════════════════════════
+     Đây là quy ước ai cũng hiểu: đỏ = xoá/lỗi, lục = thành công, vàng =
+     cảnh báo. Nhuộm cam sẽ khiến người dùng bấm nhầm nút xoá.            */
+  --danger:       #DC2626;  --danger-soft:  #FEE2E2;  --danger-fg:  #991B1B;
+  --success:      #16A34A;  --success-soft: #DCFCE7;  --success-fg: #15803D;
+  --warning:      #F59E0B;  --warning-soft: #FEF3C7;  --warning-fg: #92400E;
+  --info:         #2563EB;  --info-soft:    #DBEAFE;  --info-fg:    #1D4ED8;
+
+  /* ═══ 6. THƯƠNG HIỆU BÊN THỨ BA — không đổi ═════════════════════════════
+     Đây là nhận diện của họ, đổi là dùng sai thương hiệu.                */
+  --facebook: #0084FF;
+  --messenger: #1877F2;
+  --zalo: #0068FF;
+
+  /* ═══ 7. ĐỔ BÓNG — ám nâu thay vì đen thuần, hợp nền ấm ═════════════════ */
+  --shadow-sm: 0 1px 3px rgba(90, 48, 16, .08);
+  --shadow-md: 0 2px 10px rgba(90, 48, 16, .10);
+  --shadow-lg: 0 10px 32px rgba(90, 48, 16, .16);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BẢNG ĐỐI CHIẾU — mã màu cũ đã được thay bằng gì
+   (giữ lại để tra khi gặp code cũ ở đâu đó)
+   ───────────────────────────────────────────────────────────────────────────
+   → --brand   (#D23C0E) : #1a3c5e #0f2640 #5A3010 #F05424 #FCA83C
+   → --bg-page (#FBF8F5) : #eef1f6 #f0f4f8 #eef2f7 #f6f8fb #f8fafc #f1f5f9
+                           #fafbfc #f5f6f8 #f5f8ff
+   → --border  (#DFD2C6) : #d0dcea #e4e9f2 #e2e8f0 #dde1ea #cbd5e1 #e6ebf2
+                           #e5e7eb #dde4f0
+   → --text-1  (#2A2521) : #0f172a #1a2533 #181818 #222 #333 #1f2937
+   → --text-2  (#54483F) : #475569 #374151 #334155 #6b7280 #5b6b80 #555 #666
+   → --text-3  (#736659) : #94a3b8 #64748b #888 #999 #aaa
+   → --brand-soft (#FDEEE8) : #e8f0fe #f0f6ff
+
+   CÒN GIỮ MÃ CỨNG (cố ý):
+     · Màu trạng thái + màu bên thứ ba — xem mục 5 và 6 ở trên.
+     · #e67e22 — nằm trong mảng màu biểu đồ (Chart.js) và vài dòng chữ nhấn.
+       Không gộp vào --brand vì các chuỗi dữ liệu trên biểu đồ phải phân
+       biệt được với nhau.
+   ═══════════════════════════════════════════════════════════════════════════ */
