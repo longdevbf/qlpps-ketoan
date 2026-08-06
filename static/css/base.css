@@ -1,0 +1,138 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   base.css — KHUNG TRANG DÙNG CHUNG
+   ───────────────────────────────────────────────────────────────────────────
+   Nạp SAU theme.css, TRƯỚC components.css. Xem thứ tự trong templates/base.html.
+
+   theme.css  → token MÀU (dùng chung 4 app QLPPS, kế thừa từ qlpps-marketing,
+                KHÔNG được sửa cho riêng ketoan)
+   base.css   → token BỐ CỤC (riêng app kế toán) + reset + khung .page
+   components.css → nút, ô nhập, thẻ, bảng, modal…
+
+   Vì sao token bố cục để ở đây mà không nhét vào theme.css: sửa theme.css là
+   làm 4 app trôi khỏi nhau. CSS cho phép nhiều khối :root, chúng cộng dồn.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root{
+  /* ═══ Khung trang ═══════════════════════════════════════════════════════
+     1200px là giá trị 6/15 trang đang dùng → 6 trang không đổi một pixel nào.
+     24px lề bằng đúng padding của .appbar (_header.html) nên mép nội dung
+     thẳng hàng với mép logo.                                              */
+  --page-max: 1200px;
+  --page-pad: 24px;
+
+  /* ═══ Nhịp khoảng cách — bội của 8 để cộng trừ nhẩm được ═══════════════ */
+  --gap-1:  4px;    /* khe hẹp: giữa icon và chữ, giữa 2 badge */
+  --gap-2:  8px;    /* khe chuẩn trong toolbar, giữa các nút */
+  --gap:   16px;    /* giữa các khối trong trang (thẻ, bảng, toolbar) */
+  --gap-lg:24px;    /* trên/dưới tiêu đề trang */
+
+  /* ═══ Bo góc — 23 giá trị rải rác trong repo dồn về 3 + 50% ════════════
+     Đúng thang design-system: 6px nav · 8-9px nút · 12px thẻ/menu · 50% avatar */
+  --radius-xs: 6px;   /* ô nhập, chip, tab */
+  --radius-sm: 8px;   /* nút */
+  --radius:   12px;   /* thẻ, hộp thoại, khung bảng */
+  /* Hình viên thuốc cho badge. Không dùng 50% được: 50% trên phần tử chữ nhật
+     ra hình bầu dục méo, chỉ đúng khi phần tử vuông (avatar). Repo vốn đã dùng
+     20px trên badge cao ~20px — tức cùng ý đồ, chỉ là viết bằng số lẻ. */
+  --radius-pill: 999px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ĐIỂM GÃY — CHỈ 3 SỐ NÀY. Không nội suy, không thêm số thứ 4.
+
+     1100px — ĐO ĐƯỢC: nav cần ~620px, cộng logo và khối phải thì dưới ngưỡng
+              này nav bắt đầu đè lên chuông (1050px đè 37px). Trùng breakpoint
+              chuyển drawer của _header.html.
+      768px — tablet dọc / mobile ngang. Phổ biến nhất trong repo (7 file) và
+              trùng breakpoint thứ hai của _header.html.
+      480px — điện thoại. Gom cụm 400/420/480 đang có.
+
+   ĐÃ BỎ: 520 · 599 · 600 · 700 · 767 · 860 · 900 · 992 · 1023 · 1200
+          (15 giá trị → 3)
+
+   ⚠️ KHÔNG viết @media(max-width:var(--bp)) — media query được đánh giá TRƯỚC
+      khi biến CSS được resolve, nên nó IM LẶNG không có tác dụng, không báo
+      lỗi, và trên desktop trông vẫn ổn. Điểm gãy phải là số thật.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  font-family:'Segoe UI',sans-serif;
+  background:var(--bg-page);
+  color:var(--text-1);
+  font-size:13px;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ═══ Khung nội dung — MẪU DUY NHẤT cho cả 15 trang ═══════════════════════
+   Thay cho 7 mẫu cũ: .page-wrap .content .container .page .llv .layout/.main */
+.page{
+  max-width:var(--page-max);
+  margin:0 auto;
+  width:100%;
+  padding:var(--gap-lg) var(--page-pad) 40px;
+}
+/* Chỉ dùng cho trang bảng trải hết bề ngang (SPA /app). Không lạm dụng. */
+.page--full{max-width:none}
+/* Trang không có nội dung dạng danh sách — vd đăng nhập: căn giữa dọc. */
+.page--center{
+  min-height:calc(100vh - 56px);
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* ═══ Tiêu đề trang — MẪU DUY NHẤT ═══════════════════════════════════════
+   Thay 5 mẫu cũ (hero gradient, .ph-*, .llv-head…) và bù cho 5 trang trước
+   đây KHÔNG có tiêu đề nào.
+
+   Cố ý KHÔNG dùng khối màu nền:
+   - .appbar đã là một dải ngang 56px cố định trên đỉnh; thêm dải thứ hai ngay
+     dưới thì người dùng mất mốc "đâu là điều hướng, đâu là nội dung".
+   - Hero cũ ăn ~140px chiều cao; trên laptop 768px đó là ~20% viewport còn
+     lại trước khi thấy dòng dữ liệu đầu tiên. App nội bộ nhiều dữ liệu nên
+     thang phải ĐẶC.
+   Cấu trúc đến từ chữ + khoảng trắng + một vạch nhấn, không từ nền màu.     */
+.page-head{
+  display:flex;align-items:center;gap:var(--gap);flex-wrap:wrap;
+  padding-bottom:var(--gap-2);
+  margin-bottom:var(--gap-lg);
+  border-bottom:1px solid var(--border);
+}
+/* Vạch cam thay cho ô vuông icon 54px đã gỡ cùng emoji. */
+.page-head-mark{
+  width:4px;align-self:stretch;min-height:36px;flex-shrink:0;
+  background:var(--brand);border-radius:var(--radius-xs);
+}
+.page-head-text{min-width:0;flex:1}
+.page-head-title{
+  font-size:16px;font-weight:800;color:var(--brand);
+  line-height:1.25;letter-spacing:-.2px;
+}
+.page-head-sub{
+  font-size:12px;font-weight:500;color:var(--text-3);margin-top:3px;
+}
+.page-head-actions{
+  margin-left:auto;display:flex;align-items:center;gap:var(--gap-2);
+  flex-shrink:0;flex-wrap:wrap;
+}
+
+/* ═══ Nhịp dọc giữa các khối ══════════════════════════════════════════════ */
+.section{margin-bottom:var(--gap)}
+.section:last-child{margin-bottom:0}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media(max-width:1100px){
+  .page{padding:var(--gap) var(--gap) 32px}
+}
+@media(max-width:768px){
+  .page-head{align-items:stretch}
+  .page-head-actions{width:100%;margin-left:0}
+  .page-head-title{font-size:15px}
+}
+@media(max-width:480px){
+  .page{padding:12px var(--gap-2) 24px}
+  .page-head{gap:var(--gap-2);margin-bottom:var(--gap)}
+}

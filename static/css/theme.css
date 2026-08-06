@@ -1,0 +1,43 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   theme.css — HỆ MÀU PAPASAN ERP, dùng chung 4 app QLPPS.
+   Nguồn duy nhất: HE-MAU-ERP.md (bản chuẩn từ app Marketing, 06/08/2026).
+   KHÔNG sửa token ở đây cho riêng ketoan — sửa là 4 app trôi khỏi nhau.
+   Bảng đối chiếu mã màu cũ → token: xem HE-MAU-ERP.md mục 10.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ═══ 1. THƯƠNG HIỆU — chỉ MỘT màu cam, không có màu thứ hai ═══ */
+  --brand:       #D23C0E;
+  --brand-hover: #BF370D;
+  --brand-soft:  #FBE5D0;
+
+  /* ═══ 2. NỀN — đúng 2 mức, ám ẤM ═══ */
+  --bg-card: #FFFFFF;
+  --bg-page: #FBF8F5;
+
+  /* ═══ 3. VIỀN — đúng 1 mức ═══ */
+  --border: #DFD2C6;
+  --focus-ring: 0 0 0 3px rgba(210, 60, 14, .25);
+
+  /* ═══ 4. CHỮ — đúng 3 mức, xám ám NÂU ═══ */
+  --text-1: #2A2521;
+  --text-2: #54483F;
+  --text-3: #736659;
+  --text-on-brand: #FFFFFF;
+
+  /* ═══ 5. TRẠNG THÁI — KHÔNG nhuộm theo thương hiệu ═══ */
+  --danger:  #DC2626;  --danger-soft:  #FEE2E2;  --danger-fg:  #991B1B;
+  --success: #16A34A;  --success-soft: #DCFCE7;  --success-fg: #15803D;
+  --warning: #F59E0B;  --warning-soft: #FEF3C7;  --warning-fg: #92400E;
+  --info:    #2563EB;  --info-soft:    #DBEAFE;  --info-fg:    #1D4ED8;
+
+  /* ═══ 6. THƯƠNG HIỆU BÊN THỨ BA — không đổi ═══ */
+  --facebook:  #0084FF;
+  --messenger: #1877F2;
+  --zalo:      #0068FF;
+
+  /* ═══ 7. ĐỔ BÓNG — ám nâu, không đen thuần ═══ */
+  --shadow-sm: 0 1px 3px rgba(90, 48, 16, .08);
+  --shadow-md: 0 2px 10px rgba(90, 48, 16, .10);
+  --shadow-lg: 0 10px 32px rgba(90, 48, 16, .16);
+}

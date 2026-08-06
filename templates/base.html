@@ -1,0 +1,90 @@
+{# ═══════════════════════════════════════════════════════════════════════════
+   base.html — KHUNG DUY NHẤT cho mọi trang.
+
+   Trang con dùng như sau:
+
+       {% extends "base.html" %}
+       {% set page_title = "Đơn Xin Nghỉ" %}
+       {% set page_sub   = "Gửi và quản lý đơn xin nghỉ" %}
+       {% block page_actions %}<button class="btn btn-primary">Tạo đơn</button>{% endblock %}
+       {% block content %} …markup… {% endblock %}
+
+   ───────────────────────────────────────────────────────────────────────────
+   BA BẪY JINJA — nguồn của hầu hết lỗi khi mới dùng inheritance:
+
+   1. Mọi thứ ở file con NẰM NGOÀI {% block %} đều bị VỨT, KHÔNG báo lỗi.
+      Quên bọc {% block content %} → trang trả HTTP 200 với body rỗng.
+      (Bằng chứng sống: de_nghi_tt.html từng có `{% extends "" %}` — Jinja
+       compile qua, render mới nổ. Kiểm cú pháp một mình KHÔNG đủ.)
+
+   2. {% set %} phải ở CẤP CAO NHẤT của file con (ngay sau extends) thì
+      base.html mới đọc được. Đặt bên trong một block thì KHÔNG.
+
+   3. base.html đã {% include "_header.html" %} — file con TUYỆT ĐỐI không
+      include lại. Nếu không sẽ có hai thẻ .appbar chồng khít nhau; JS có
+      window.__abReady chặn gắn handler đúp nhưng DOM thì không, biểu hiện là
+      chuông thông báo bấm không ăn. Rất khó đoán ra.
+      Lệnh chặn: grep -c 'class="appbar"' trên HTML đã render PHẢI = 1.
+   ═══════════════════════════════════════════════════════════════════════════ #}
+{# Phá cache trình duyệt khi sửa CSS — repo không có build step nên phải thủ công.
+   KHÔNG thêm vào shared/templates.py: file đó dùng chung cho cả 6 app. #}
+{% set ASSET_V = '2' %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}{{ page_title|default('Kế Toán') }}{% endblock %} — PAPASAN Kế Toán</title>
+<link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
+<link rel="shortcut icon" href="/static/papasan.ico">
+
+{# THỨ TỰ NÀY LÀ BẮT BUỘC. CSS cùng độ đặc hiệu thì file nạp SAU thắng:
+     theme.css      → token màu (dùng chung 4 app, không sửa cho riêng ketoan)
+     base.css       → token bố cục + khung .page + .page-head
+     components.css → nút, ô nhập, thẻ, bảng, modal, toast
+     page_css       → CSS riêng của trang, phải ghi đè được cả ba ở trên
+   Đặt ngược thứ tự thì mọi ghi đè riêng của trang im lặng mất tác dụng. #}
+<link rel="stylesheet" href="/static/css/theme.css?v={{ ASSET_V }}">
+<link rel="stylesheet" href="/static/css/base.css?v={{ ASSET_V }}">
+<link rel="stylesheet" href="/static/css/components.css?v={{ ASSET_V }}">
+{% block page_css %}{% endblock %}
+
+{% block head_extra %}{% endblock %}
+
+{# Lối thoát TẠM cho CSS trang chưa kịp tách ra file riêng.
+   Mục tiêu cuối: mọi trang đều RỖNG ở đây. Đây là "nợ nhìn thấy được". #}
+<style>{% block page_style %}{% endblock %}</style>
+</head>
+{# `|trim` để trang không khai body_class/page_mod thì không sinh class="" hay
+   class="page " thừa khoảng trắng — 15 trang đều đi qua đây. #}
+<body{% set _bc %}{% block body_class %}{% endblock %}{% endset %}{% if _bc|trim %} class="{{ _bc|trim }}"{% endif %}>
+{% include "_header.html" %}
+
+{% set _pm %}{% block page_mod %}{% endblock %}{% endset %}
+<main class="{{ ('page ' ~ _pm)|trim }}">
+  {# Trang không cần tiêu đề thì override rỗng: {% block page_head %}{% endblock %} #}
+  {% block page_head %}
+  {% if page_title %}
+  <div class="page-head">
+    <div class="page-head-mark"></div>
+    <div class="page-head-text">
+      <h1 class="page-head-title">{{ page_title }}</h1>
+      {% if page_sub %}<p class="page-head-sub">{{ page_sub }}</p>{% endif %}
+    </div>
+    <div class="page-head-actions">{% block page_actions %}{% endblock %}</div>
+  </div>
+  {% endif %}
+  {% endblock %}
+
+  {% block content %}{% endblock %}
+</main>
+
+{# Modal đặt NGOÀI <main>: .page có max-width + padding, modal lồng trong đó
+   sẽ bị bó lại thay vì phủ toàn màn hình. #}
+{% block modals %}{% endblock %}
+
+{% block scripts %}{% endblock %}
+{# chat_widget, push_request_popup… — những thứ phải nạp sau cùng #}
+{% block after_body %}{% endblock %}
+</body>
+</html>

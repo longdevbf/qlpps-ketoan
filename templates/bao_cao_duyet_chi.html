@@ -6,56 +6,39 @@
 <title>Báo Cáo Duyệt Chi — Kế Toán — QLPPS</title>
 <link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
 <link rel="shortcut icon" href="/static/papasan.ico">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <style>
 :root{
-  --bg:#f3f6fb; --line:#e6ebf2; --text:#0f172a; --muted:#64748b;
-  --primary:#0084ff; --primary-d:#0066cc; --navy:#1a3c5e; --navy-d:#0c2340;
-  --success:#10b981; --warn:#f59e0b; --danger:#dc2626;
-  --amber-bg:#fef3c7; --amber-bd:#fcd34d; --amber-txt:#92400e;
-  --green-bg:#dcfce7; --green-bd:#86efac; --green-txt:#15803d;
-  --purple-bg:#f3e8ff; --purple-bd:#d8b4fe; --purple-txt:#6b21a8;
-  --blue-bg:#dbeafe; --blue-bd:#93c5fd; --blue-txt:#1e40af;
-  --rose-bg:#ffe4e6; --rose-bd:#fda4af; --rose-txt:#9f1239;
-  --cyan-bg:#cffafe; --cyan-bd:#67e8f9; --cyan-txt:#155e75;
+  --bg:var(--bg-page); --line:var(--border); --text:var(--text-1); --muted:var(--text-3);
+  --primary:var(--brand); --primary-d:var(--brand); --navy:var(--brand); --navy-d:var(--brand-hover);
+  --warn:var(--warning);   /* --success va --danger da co o theme.css (nap sau, dang thang) — khai lai la code chet */
+  --amber-bg:#fef3c7; --amber-bd:var(--warning); --amber-txt:#92400e;
+  --green-bg:#dcfce7; --green-bd:var(--success-soft); --green-txt:#15803d;
+  --purple-bg:var(--brand-soft); --purple-bd:var(--brand-soft); --purple-txt:var(--brand);
+  --blue-bg:#dbeafe; --blue-bd:var(--brand-soft); --blue-txt:var(--brand);
+  --rose-bg:var(--danger-soft); --rose-bd:var(--danger-soft); --rose-txt:var(--danger);
+  --cyan-bg:var(--info-soft); --cyan-bd:var(--info); --cyan-txt:var(--info-fg);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:var(--bg);min-height:100vh;color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 
 /* ── Topbar ── */
-.topbar{height:54px;background:linear-gradient(90deg,var(--navy-d) 0%,var(--navy) 50%,var(--navy-d) 100%);color:#fff;padding:0 22px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 4px 14px rgba(15,23,42,.18)}
-.topbar-logo{font-size:15px;font-weight:800;letter-spacing:.3px;white-space:nowrap}
-.topbar-logo span{color:#7ec8e3}
-.topbar-sep{color:rgba(255,255,255,.3);font-size:18px}
-.topbar-title{font-size:14px;font-weight:700;white-space:nowrap}
-.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:12.5px}
-.topbar-user{color:rgba(255,255,255,.85);font-weight:600}
-.topbar-btn{padding:6px 13px;border-radius:7px;border:none;cursor:pointer;font-size:12.5px;font-weight:600;transition:all .15s;text-decoration:none;display:inline-flex;align-items:center;gap:5px}
-.mt-btn-back{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.22)}
 @media(max-width:600px){
-  .topbar{padding:0 12px;gap:8px}
-  .topbar-logo,.topbar-sep,.topbar-user{display:none}
-  .topbar-btn{padding:6px 10px}
 }
-.mt-btn-back:hover{background:rgba(255,255,255,.24);border-color:rgba(255,255,255,.4)}
-.mt-btn-logout{background:#c0392b;color:#fff}
-.mt-btn-logout:hover{background:#a93226}
 
 /* ── Hero (page header) — full-bleed ── */
 .page-header{
-  background:linear-gradient(135deg,var(--navy) 0%,var(--primary) 100%);color:#fff;
+  background:var(--brand-soft);color:var(--brand-hover);
   width:100vw;margin-left:calc(50% - 50vw);
   padding-top:30px;padding-bottom:56px;
   padding-left:max(26px,calc((100vw - 1340px) / 2 + 18px));
   padding-right:max(26px,calc((100vw - 1340px) / 2 + 18px));
   position:relative;overflow:hidden;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
 }
-.page-header::before{content:'';position:absolute;top:-40%;right:-10%;width:380px;height:380px;background:radial-gradient(circle,rgba(255,255,255,.1) 0%,transparent 70%);pointer-events:none;z-index:0}
+.page-header::before{content:'';position:absolute;top:-40%;right:-10%;width:380px;height:380px;display:none;pointer-events:none;z-index:0}
 .page-header > *{position:relative;z-index:1}
-.page-header-icon{width:54px;height:54px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:26px;flex-shrink:0;position:relative;z-index:1}
 .page-header-text{position:relative;z-index:1}
-.page-header-text h4{margin:0;font-weight:800;color:#fff;font-size:24px;letter-spacing:-.4px}
-.page-header-text p{font-size:13px;color:rgba(255,255,255,.85);margin:4px 0 0}
+.page-header-text h4{margin:0;font-weight:800;color:var(--brand-hover);font-size:22px;letter-spacing:-.4px}
+.page-header-text p{font-size:13px;color:var(--text-2);margin:4px 0 0}
 
 /* ── Page wrap ── */
 .page-wrap{max-width:1340px;margin:0 auto;padding:0 18px 30px;width:100%}
@@ -68,7 +51,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 .kpi-card{background:#fff;border-radius:14px;border:1px solid var(--line);padding:14px 16px;display:flex;align-items:center;gap:13px;box-shadow:0 4px 12px rgba(15,23,42,.06);position:relative;overflow:hidden;transition:all .15s}
 .kpi-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line);border-radius:14px 0 0 14px}
 .kpi-card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(15,23,42,.1)}
-.kpi-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.kpi-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
 .kpi-icon.tong{background:var(--blue-bg);color:var(--blue-txt)}
 .kpi-icon.duyet{background:var(--green-bg);color:var(--green-txt)}
 .kpi-icon.cho{background:var(--amber-bg);color:var(--amber-txt)}
@@ -78,30 +61,30 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 
 /* ── Section ── */
 .section{background:#fff;border-radius:14px;border:1px solid var(--line);margin-bottom:16px;overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.04)}
-.section-head{background:linear-gradient(90deg,var(--navy-d) 0%,var(--navy) 100%);color:#fff;padding:12px 18px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700}
+.section-head{background:var(--brand-soft);color:var(--brand-hover);padding:12px 18px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700}
 .section-head .right{margin-left:auto;display:flex;gap:8px}
-.section-head .badge,.section-head .badge-cnt{background:rgba(255,255,255,.2);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700}
+.section-head .badge,.section-head .badge-cnt{background:var(--bg-card);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700}
 .section-body{padding:14px 16px}
 
 /* ── Filter bar ── */
-.filter-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#f8fafc;padding:10px 14px;border-bottom:1px solid var(--line)}
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--bg-page);padding:10px 14px;border-bottom:1px solid var(--line)}
 .filter-bar label{font-size:11px;font-weight:700;color:var(--text);white-space:nowrap}
 .filter-bar select,.filter-bar input{padding:6px 10px;border:1.5px solid var(--line);border-radius:7px;font-size:12px;outline:none;background:#fff;color:var(--text);font-weight:600;font-family:inherit;transition:border-color .15s,box-shadow .15s}
-.filter-bar select:focus,.filter-bar input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(0,132,255,.13)}
-.btn-filter{padding:6px 14px;background:var(--primary);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
-.btn-filter:hover{background:var(--primary-d)}
+.filter-bar select:focus,.filter-bar input:focus{border-color:var(--primary);box-shadow:var(--focus-ring)}
+.btn-filter{padding:6px 14px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
+.btn-filter:hover{filter:brightness(.95)}
 .btn-csv{padding:5px 12px;background:var(--success);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-family:inherit;transition:background .15s}
-.btn-csv:hover{background:#059669}
+.btn-csv:hover{background:var(--success)}
 
 /* ── Tables ── */
 .tbl-scroll{overflow-x:auto}
 .data-table{width:100%;border-collapse:collapse;font-size:13px}
-.data-table thead th{background:#f8fafc;color:var(--muted);padding:11px 13px;font-weight:700;white-space:nowrap;text-align:left;border-bottom:1px solid var(--line);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
-.data-table tbody tr{border-bottom:1px solid #f1f5f9;transition:background .15s}
-.data-table tbody tr:hover{background:#fafbfc}
+.data-table thead th{background:var(--bg-page);color:var(--muted);padding:11px 13px;font-weight:700;white-space:nowrap;text-align:left;border-bottom:1px solid var(--line);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.data-table tbody tr{border-bottom:1px solid var(--bg-page);transition:background .15s}
+.data-table tbody tr:hover{background:var(--bg-page)}
 .data-table tbody td{padding:10px 13px;vertical-align:middle}
 .data-table tbody td.num{text-align:right;font-variant-numeric:tabular-nums}
-.empty-row td{text-align:center;color:#94a3b8;padding:36px 0;font-size:13px}
+.empty-row td{text-align:center;color:var(--text-3);padding:36px 0;font-size:13px}
 .split-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media(max-width:900px){.split-grid{grid-template-columns:1fr}}
 
@@ -109,7 +92,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 .st-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
 .st-cho{background:var(--amber-bg);color:var(--amber-txt);border:1px solid var(--amber-bd)}
 .st-duyet{background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd)}
-.st-tuchoi{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+.st-tuchoi{background:#fee2e2;color:#991b1b;border:1px solid var(--danger-soft)}
 
 /* ── Approval level badges ── */
 .lv-badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:var(--blue-bg);color:var(--blue-txt);border:1px solid var(--blue-bd)}
@@ -117,12 +100,12 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 .lv-ketoan{background:var(--blue-bg);color:var(--blue-txt);border-color:var(--blue-bd)}
 .lv-ceo{background:var(--purple-bg);color:var(--purple-txt);border-color:var(--purple-bd)}
 .lv-done{background:var(--green-bg);color:var(--green-txt);border-color:var(--green-bd)}
-.lv-rejected{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
+.lv-rejected{background:#fee2e2;color:#991b1b;border-color:var(--danger-soft)}
 
 /* ── Action buttons ── */
 .btn-review{padding:5px 13px;background:var(--blue-bg);color:var(--blue-txt);border:1px solid var(--blue-bd);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
-.btn-review:hover{background:var(--primary);color:#fff;border-color:var(--primary);transform:translateY(-1px)}
-.btn-reject-sm{padding:5px 11px;background:#fff;color:#991b1b;border:1.5px solid #fca5a5;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
+.btn-review:hover{background:var(--brand-soft);color:var(--brand-hover);border-color:var(--brand-soft);transform:translateY(-1px)}
+.btn-reject-sm{padding:5px 11px;background:#fff;color:#991b1b;border:1.5px solid var(--danger-soft);border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
 .btn-reject-sm:hover{background:#fee2e2;border-color:var(--danger);color:var(--danger)}
 
 /* ── Modal ── */
@@ -130,23 +113,23 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 .modal-overlay.show{display:flex}
 .modal-box{background:#fff;border-radius:16px;width:560px;max-width:96vw;box-shadow:0 20px 60px rgba(15,23,42,.3);overflow:hidden;animation:modalIn .25s ease-out}
 @keyframes modalIn{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
-.modal-header{background:linear-gradient(135deg,var(--navy) 0%,var(--primary) 100%);padding:18px 22px;display:flex;align-items:center;gap:10px}
-.modal-header h5{color:#fff;margin:0;font-weight:800;font-size:15.5px}
+.modal-header{background:var(--brand-soft);padding:18px 22px;display:flex;align-items:center;gap:10px}
+.modal-header h5{color:var(--brand-hover);margin:0;font-weight:800;font-size:15px}
 .modal-body{padding:22px 24px}
-.modal-nv-card{background:#f8fafc;border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-bottom:14px}
+.modal-nv-card{background:var(--bg-page);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-bottom:14px}
 .info-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .info-chip{background:var(--blue-bg);color:var(--blue-txt);border:1px solid var(--blue-bd);border-radius:7px;padding:4px 11px;font-size:12px;font-weight:600;display:inline-block}
 .info-chip.money{background:var(--green-bg);color:var(--green-txt);border-color:var(--green-bd)}
 .section-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px}
-.modal-textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:9px;font-size:13.5px;outline:none;resize:vertical;min-height:80px;font-family:inherit;transition:border-color .15s,box-shadow .15s}
-.modal-textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(0,132,255,.13)}
-.modal-footer{padding:14px 24px;border-top:1px solid #f1f5f9;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;background:#fafbfc}
+.modal-textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:9px;font-size:13px;outline:none;resize:vertical;min-height:80px;font-family:inherit;transition:border-color .15s,box-shadow .15s}
+.modal-textarea:focus{border-color:var(--primary);box-shadow:var(--focus-ring)}
+.modal-footer{padding:14px 24px;border-top:1px solid var(--bg-page);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;background:var(--bg-page)}
 .btn-approve{background:var(--success);color:#fff;border:none;border-radius:9px;padding:10px 20px;font-weight:700;cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
-.btn-approve:hover{background:#059669;transform:translateY(-1px)}
+.btn-approve:hover{background:var(--success);transform:translateY(-1px)}
 .btn-reject{background:var(--danger);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-weight:700;cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
-.btn-reject:hover{background:#b91c1c;transform:translateY(-1px)}
+.btn-reject:hover{background:var(--danger);transform:translateY(-1px)}
 .btn-cancel-m{background:#fff;color:var(--text);border:1.5px solid var(--line);border-radius:9px;padding:10px 16px;font-weight:600;cursor:pointer;font-size:13px;font-family:inherit;transition:all .15s}
-.btn-cancel-m:hover{background:#f1f5f9;border-color:#94a3b8}
+.btn-cancel-m:hover{background:var(--bg-page);border-color:var(--text-3)}
 
 /* ── Toast ── */
 .toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
@@ -154,27 +137,17 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 .toast.show{opacity:1;transform:translateY(0)}
 .toast.success{background:var(--success)}
 .toast.error{background:var(--danger)}
-.toast.info{background:var(--primary)}
+.toast.info{background:var(--info)}
 .toast.warning{background:var(--warn)}
 </style>
 </head>
 <body>
+{% include "_header.html" %}
 
-<div class="topbar">
-  <div class="topbar-logo">QLPPS <span>Papasan</span></div>
-  <div class="topbar-sep">|</div>
-  <div class="topbar-title"><i class="bi bi-clipboard-data"></i> Báo Cáo Duyệt Chi</div>
-  <div class="topbar-right">
-    <span class="topbar-user"><i class="bi bi-person-circle"></i> {{ user.ho_ten if user else '' }}</span>
-    <a href="/" class="topbar-btn mt-btn-back"><i class="bi bi-house"></i> Trang chủ</a>
-    <a href="/logout" class="topbar-btn mt-btn-logout"><i class="bi bi-box-arrow-right"></i> Đăng xuất</a>
-  </div>
-</div>
 
 <div class="page-wrap">
 
   <div class="page-header">
-    <div class="page-header-icon"><i class="bi bi-clipboard-data"></i></div>
     <div class="page-header-text">
       <h4>Báo Cáo Duyệt Chi</h4>
       <p>Queue đơn KT cần duyệt + tổng hợp phân tích theo phòng / loại / SLA</p>
@@ -184,7 +157,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
   <!-- Section 1: Queue KT cần duyệt -->
   <div class="section">
     <div class="section-head">
-      <i class="bi bi-inbox"></i> Đơn chờ Kế Toán duyệt
+      Đơn chờ Kế Toán duyệt
       <span class="badge" id="queue-count">0</span>
     </div>
     <div class="section-body" style="padding:0">
@@ -198,7 +171,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
             </tr>
           </thead>
           <tbody id="queue-body">
-            <tr class="empty-row"><td colspan="9"><i class="bi bi-inbox"></i> Đang tải...</td></tr>
+            <tr class="empty-row"><td colspan="9">Đang tải...</td></tr>
           </tbody>
         </table>
       </div>
@@ -208,19 +181,19 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
   <!-- Section 2: KPI cards -->
   <div class="kpi-grid">
     <div class="kpi-card">
-      <div class="kpi-icon tong"><i class="bi bi-files"></i></div>
+      <div class="kpi-icon tong"></div>
       <div><div class="kpi-num" id="kpi-total">0</div><div class="kpi-label">Tổng đơn (theo lọc)</div></div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon duyet"><i class="bi bi-check-circle"></i></div>
+      <div class="kpi-icon duyet"></div>
       <div><div class="kpi-num" id="kpi-amount">0₫</div><div class="kpi-label">Tổng tiền (toàn bộ)</div></div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon cho"><i class="bi bi-hourglass-split"></i></div>
+      <div class="kpi-icon cho"></div>
       <div><div class="kpi-num" id="kpi-pending">0</div><div class="kpi-label">Đơn đang chờ</div></div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-icon sla"><i class="bi bi-speedometer2"></i></div>
+      <div class="kpi-icon sla"></div>
       <div><div class="kpi-num" id="kpi-sla">—</div><div class="kpi-label">SLA TB (giờ)</div></div>
     </div>
   </div>
@@ -228,7 +201,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
   <!-- Section 3: Filter -->
   <div class="section">
     <div class="section-head">
-      <i class="bi bi-funnel"></i> Bộ lọc
+      Bộ lọc
     </div>
     <div class="filter-bar">
       <label>Tháng:</label>
@@ -253,8 +226,8 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
         <option value="done">Hoàn tất</option>
         <option value="rejected">Đã từ chối</option>
       </select>
-      <button class="btn-filter" onclick="applyFilter()"><i class="bi bi-search"></i> Lọc</button>
-      <button class="btn-filter" style="background:#64748b" onclick="resetFilter()"><i class="bi bi-arrow-counterclockwise"></i> Reset</button>
+      <button class="btn-filter" onclick="applyFilter()">Lọc</button>
+      <button class="btn-filter" style="background:var(--text-3)" onclick="resetFilter()">Reset</button>
     </div>
   </div>
 
@@ -263,7 +236,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 
     <div class="section">
       <div class="section-head">
-        <i class="bi bi-diagram-3"></i> Theo phòng ban
+        Theo phòng ban
       </div>
       <div class="tbl-scroll">
         <table class="data-table">
@@ -282,7 +255,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 
     <div class="section">
       <div class="section-head">
-        <i class="bi bi-tags"></i> Theo loại chi
+        Theo loại chi
       </div>
       <div class="tbl-scroll">
         <table class="data-table">
@@ -301,10 +274,10 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
   <!-- Section 5: Detail table -->
   <div class="section">
     <div class="section-head">
-      <i class="bi bi-list-ul"></i> Chi tiết đơn
+      Chi tiết đơn
       <span class="badge" id="detail-count">0</span>
       <div class="right">
-        <button class="btn-csv" onclick="exportCsv()"><i class="bi bi-download"></i> Export CSV</button>
+        <button class="btn-csv" onclick="exportCsv()">Export CSV</button>
       </div>
     </div>
     <div class="tbl-scroll">
@@ -321,7 +294,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
         </tbody>
       </table>
     </div>
-    <div class="pagination" id="bcdc-pagination" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#f8fafc;border-top:1px solid var(--line);font-size:13px;flex-wrap:wrap;gap:8px">
+    <div class="pagination" id="bcdc-pagination" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg-page);border-top:1px solid var(--line);font-size:13px;flex-wrap:wrap;gap:8px">
       <div>
         Hiển thị
         <select id="bcdc-page-size" onchange="bcdcSetPageSize(this.value)" style="padding:4px 8px;border:1.5px solid var(--line);border-radius:6px;font-size:12px;font-weight:600;font-family:inherit;margin:0 4px">
@@ -346,32 +319,32 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 <div class="modal-overlay" id="review-modal">
   <div class="modal-box">
     <div class="modal-header">
-      <i class="bi bi-cash-coin" style="color:#7ec8e3;font-size:18px"></i>
+      
       <h5>Kế Toán duyệt đề xuất chi</h5>
     </div>
     <div class="modal-body">
       <div class="modal-nv-card">
-        <div style="font-weight:700;color:#1a3c5e;font-size:14px" id="rv-name">—</div>
-        <div style="font-size:12px;color:#64748b;margin-top:2px" id="rv-sub">—</div>
+        <div style="font-weight:700;color:var(--brand);font-size:14px" id="rv-name">—</div>
+        <div style="font-size:12px;color:var(--text-3);margin-top:2px" id="rv-sub">—</div>
         <div class="info-row">
           <span class="info-chip" id="rv-tieu-de">—</span>
           <span class="info-chip" id="rv-loai">—</span>
           <span class="info-chip money" id="rv-so-tien">—</span>
           <span class="info-chip" id="rv-ngay">—</span>
         </div>
-        <div style="margin-top:8px;font-size:13px;color:#374151" id="rv-muc-dich"></div>
+        <div style="margin-top:8px;font-size:13px;color:var(--text-2)" id="rv-muc-dich"></div>
       </div>
 
       <div class="section-label">Hạn thanh toán (KT đặt)</div>
-      <input type="date" id="rv-han-tt" style="width:100%;padding:8px 12px;border:1.5px solid #d0dcea;border-radius:8px;font-size:13px;outline:none;background:#f8fafc;font-family:inherit">
+      <input type="date" id="rv-han-tt" style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--bg-page);font-family:inherit">
 
       <div class="section-label">Nhận xét duyệt</div>
       <textarea class="modal-textarea" id="rv-nhan-xet" placeholder="Nhập nhận xét hoặc lý do từ chối..."></textarea>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel-m" onclick="closeReview()">Hủy</button>
-      <button class="btn-reject" onclick="doReview('tu_choi')"><i class="bi bi-x-circle"></i> Từ chối</button>
-      <button class="btn-approve" onclick="doReview('da_duyet')"><i class="bi bi-check-circle"></i> Duyệt</button>
+      <button class="btn-reject" onclick="doReview('tu_choi')">Từ chối</button>
+      <button class="btn-approve" onclick="doReview('da_duyet')">Duyệt</button>
     </div>
   </div>
 </div>
@@ -391,7 +364,7 @@ function showToast(msg, type='info'){
   const wrap = document.getElementById('toast-wrap');
   const t = document.createElement('div');
   t.className = `toast ${type}`;
-  t.innerHTML = `<i class="bi bi-${type==='success'?'check-circle':type==='error'?'exclamation-triangle':'info-circle'}"></i> ${msg}`;
+  t.innerHTML = `${msg}`;
   wrap.appendChild(t);
   setTimeout(()=>t.classList.add('show'),30);
   setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),300)},3000);
@@ -411,7 +384,7 @@ function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&l
 function stBadge(st){
   const m = {cho_duyet:['st-cho','bi-hourglass-split','Chờ duyệt'],da_duyet:['st-duyet','bi-check-circle','Đã duyệt'],tu_choi:['st-tuchoi','bi-x-circle','Từ chối']};
   const [cls,ic,lb] = m[st] || ['','bi-question',st||'—'];
-  return `<span class="st-badge ${cls}"><i class="bi ${ic}"></i> ${lb}</span>`;
+  return `<span class="st-badge ${cls}">${lb}</span>`;
 }
 function lvBadge(lv){
   const m = {manager:'Manager',ketoan:'Kế Toán',ceo:'CEO',done:'Hoàn tất',rejected:'Từ chối'};
@@ -447,20 +420,20 @@ async function loadQueue(){
     const ktQueue = list.filter(d => d.approval_level === 'ketoan');
     document.getElementById('queue-count').textContent = ktQueue.length;
     if(!ktQueue.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="9"><i class="bi bi-check2-circle"></i> Không có đơn nào chờ KT duyệt</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Không có đơn nào chờ KT duyệt</td></tr>';
       return;
     }
     tbody.innerHTML = ktQueue.map(d => `<tr>
       <td>#${d.id}</td>
-      <td><b>${escHtml(d.ho_ten)}</b><br><small style="color:#64748b">${escHtml(d.username)}</small></td>
+      <td><b>${escHtml(d.ho_ten)}</b><br><small style="color:var(--text-3)">${escHtml(d.username)}</small></td>
       <td>${escHtml(d.phong_ban||'—')}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(d.tieu_de)}">${escHtml(d.tieu_de)}</td>
       <td>${loaiLabel(d.loai_chi)}</td>
-      <td class="num" style="font-weight:700;color:#0f5132">${fmtMoney(d.so_tien)}</td>
+      <td class="num" style="font-weight:700;color:var(--success-fg)">${fmtMoney(d.so_tien)}</td>
       <td>${fmtDate(d.ngay_de_xuat)}</td>
       <td>${lvBadge(d.approval_level)}</td>
       <td>
-        <button class="btn-review" onclick='openReview(${JSON.stringify(d).replace(/'/g,"&#39;")})'><i class="bi bi-check2"></i> Duyệt</button>
+        <button class="btn-review" onclick='openReview(${JSON.stringify(d).replace(/'/g,"&#39;")})'>Duyệt</button>
       </td>
     </tr>`).join('');
   }catch(e){
@@ -497,9 +470,9 @@ async function loadReport(){
         return `<tr>
           <td><b>${escHtml(k)}</b></td>
           <td class="num">${(v.total||0).toLocaleString('vi-VN')}</td>
-          <td class="num" style="color:#0f5132;font-weight:600">${(v.da_duyet||0).toLocaleString('vi-VN')}</td>
-          <td class="num" style="color:#856404;font-weight:600">${(v.cho_duyet||0).toLocaleString('vi-VN')}</td>
-          <td class="num" style="color:#b71c1c">${(v.tu_choi||0).toLocaleString('vi-VN')}</td>
+          <td class="num" style="color:var(--success-fg);font-weight:600">${(v.da_duyet||0).toLocaleString('vi-VN')}</td>
+          <td class="num" style="color:var(--warning-fg);font-weight:600">${(v.cho_duyet||0).toLocaleString('vi-VN')}</td>
+          <td class="num" style="color:var(--danger)">${(v.tu_choi||0).toLocaleString('vi-VN')}</td>
           <td class="num" style="font-weight:700">${fmtMoney(v.amount||0)}</td>
         </tr>`;
       }).join('');
@@ -526,7 +499,7 @@ async function loadReport(){
         return `<tr>
           <td><b>${escHtml(v.label||loaiLabel(k))}</b></td>
           <td class="num">${(v.total||0).toLocaleString('vi-VN')}</td>
-          <td class="num" style="font-weight:700;color:#0f5132">${fmtMoney(v.amount||0)}</td>
+          <td class="num" style="font-weight:700;color:var(--success-fg)">${fmtMoney(v.amount||0)}</td>
         </tr>`;
       }).join('');
     }
@@ -569,11 +542,11 @@ function bcdcRenderPage(){
   const slice = _bcdcAll.slice(start, start + size);
 
   if(!total){
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="11"><i class="bi bi-inbox"></i> Chưa có đề xuất nào</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="11">Chưa có đề xuất nào</td></tr>';
   } else {
     tbody.innerHTML = slice.map(d => `<tr>
       <td>#${d.id}</td>
-      <td>${escHtml(d.ho_ten)}<br><small style="color:#64748b">${escHtml(d.username)}</small></td>
+      <td>${escHtml(d.ho_ten)}<br><small style="color:var(--text-3)">${escHtml(d.username)}</small></td>
       <td>${escHtml(d.phong_ban||'—')}</td>
       <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(d.tieu_de)}">${escHtml(d.tieu_de)}</td>
       <td>${loaiLabel(d.loai_chi)}</td>

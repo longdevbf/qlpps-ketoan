@@ -1,0 +1,32 @@
+# === Claude Code ===
+CLAUDE.local.md
+.claude/settings.local.json
+
+# === Secrets ===
+# CẢNH BÁO: .env ĐANG bị git theo dõi từ commit 974981c và chứa secret production thật.
+# Dòng dưới KHÔNG gỡ nó ra khỏi lịch sử — vẫn phải chạy `git rm --cached .env` và rotate key.
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+service-account*.json
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# === IDE / OS ===
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+
+# Bo kit he mau (tai lieu phat hanh tu Marketing, chi giu local)
+/HE-MAU-ERP.md
