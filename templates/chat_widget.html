@@ -43,14 +43,14 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--z-blue) 0%, var(--z-blue-dark) 100%);
+  background: var(--z-blue);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 26px;
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(0, 132, 255, .35), 0 2px 6px rgba(0, 0, 0, .12);
+  box-shadow: var(--shadow-md);
   z-index: 99998;
   user-select: none;
   transition: transform .18s ease, box-shadow .18s ease;
@@ -61,6 +61,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   box-shadow: 0 10px 26px rgba(0, 132, 255, .42), 0 3px 8px rgba(0, 0, 0, .16);
 }
 #_chat_fab:active { transform: translateY(0) scale(.98); }
+.zV2_fab_icon { display: flex; align-items: center; justify-content: center; }
 #_chat_fab .zV2_fab_badge {
   position: absolute;
   top: -2px;
@@ -148,7 +149,11 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   background: transparent;
   border: none;
   color: #fff;
-  font-size: 22px;
+  /* Nhãn chữ thay icon (11px trong thang đo) — icon cũ là entity bị regex phá */
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -803,7 +808,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   cursor: pointer;
   font-size: 18px;
   color: #fff;
-  background: linear-gradient(135deg, var(--z-blue) 0%, var(--z-blue-dark) 100%);
+  background: var(--z-blue);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -954,7 +959,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
 }
 .zV2_msg_row--own .zV2_bubble {
-  background: linear-gradient(135deg, var(--z-blue) 0%, var(--z-blue-dark) 100%);
+  background: var(--z-blue);
   color: #fff;
   border-radius: 18px 18px 4px 18px;
 }
@@ -1290,7 +1295,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
     gap: 6px;
     justify-content: center;
     align-items: center;
-    background: linear-gradient(180deg, #0084FF 0%, #0068FF 100%);
+    background: var(--zalo);
     border-bottom: none;
     flex-shrink: 0;
   }
@@ -1490,11 +1495,11 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 /* ── Skeleton loading khi chờ tin nhắn ── */
 .zV2_msg_skel_wrap { padding: 16px 12px; display: flex; flex-direction: column; gap: 12px; }
 .zV2_msg_skel {
-  height: 38px; border-radius: 18px; background: linear-gradient(90deg,var(--bg-page) 25%,var(--bg-page) 50%,var(--bg-page) 75%);
+  height: 38px; border-radius: 18px; background: var(--bg-page);
   background-size: 200% 100%; animation: zV2_skelShimmer 1.4s infinite; max-width: 65%;
 }
 .zV2_msg_skel--in  { align-self: flex-start; margin-left: 44px; }
-.zV2_msg_skel--out { align-self: flex-end; background: linear-gradient(90deg,var(--brand-soft) 25%,var(--brand-soft) 50%,var(--brand-soft) 75%); background-size: 200% 100%; animation: zV2_skelShimmer 1.4s infinite; }
+.zV2_msg_skel--out { align-self: flex-end; background: var(--brand-soft); background-size: 200% 100%; animation: zV2_skelShimmer 1.4s infinite; }
 .zV2_msg_skel--short { max-width: 38%; height: 32px; }
 @keyframes zV2_skelShimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 
@@ -1862,10 +1867,10 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   transition: all .12s;
 }
 .zV2_btn_primary {
-  background: linear-gradient(135deg, #0084FF, var(--brand));
-  color: #fff;
+  background: var(--brand-soft);
+  color: var(--brand-hover);
 }
-.zV2_btn_primary:hover:not(:disabled) { box-shadow: 0 4px 12px rgba(0,132,255,.35); }
+.zV2_btn_primary:hover:not(:disabled) { filter: brightness(.95); }
 .zV2_btn_primary:disabled { opacity: .5; cursor: not-allowed; }
 .zV2_btn_secondary {
   background: var(--bg-page);
@@ -2413,7 +2418,9 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 
   <!-- FAB (giữ ID #_chat_fab cho base.html) -->
   <button id="_chat_fab" type="button" aria-label="Mở chat Papasan">
-    <span class="zV2_fab_icon">&var(--info-fg);</span>
+    {# Icon bong bóng chat = SVG inline (không icon font, không CDN — hợp lệ
+       với design system). Icon cũ là entity &#...; từng bị regex thay màu phá. #}
+    <span class="zV2_fab_icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3.2c-4.9 0-8.8 3.4-8.8 7.6 0 2.1 1 4 2.6 5.4-.2 1-.6 2.1-1.4 2.9-.1.1 0 .3.1.3 1.6-.1 3.1-.7 4.2-1.4 1 .3 2.1.4 3.3.4 4.9 0 8.8-3.4 8.8-7.6S16.9 3.2 12 3.2z" fill="#fff"/><circle cx="8.2" cy="10.8" r="1.1" fill="var(--z-blue, #0084FF)"/><circle cx="12" cy="10.8" r="1.1" fill="var(--z-blue, #0084FF)"/><circle cx="15.8" cy="10.8" r="1.1" fill="var(--z-blue, #0084FF)"/></svg></span>
     <span class="zV2_fab_badge" id="_chat_fab_badge">0</span>
   </button>
 
@@ -2425,13 +2432,13 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
       <div id="zV2_rail_logo" title="Papasan Chat"><img src="/static/papasan_icon_1024.png" alt="Papasan" style="width:100%;height:100%;object-fit:contain;" /></div>
 
       <button type="button" class="zV2_rail_btn active" id="zV2_rail_btn_tin" data-tab="tin-nhan" aria-label="Tin nhắn">
-        <span class="zV2_rail_icon">&var(--info-fg);</span>
+        <span class="zV2_rail_icon">Tin nhắn</span>
         <span class="zV2_rail_badge" id="zV2_rail_badge_tin">0</span>
         <span class="zV2_rail_tooltip">Tin nhắn</span>
       </button>
 
       <button type="button" class="zV2_rail_btn" id="zV2_rail_btn_danhba" data-tab="danh-ba" aria-label="Danh bạ">
-        <span class="zV2_rail_icon">&var(--success-fg);</span>
+        <span class="zV2_rail_icon">Danh bạ</span>
         <span class="zV2_rail_tooltip">Danh bạ</span>
       </button>
 
@@ -2443,7 +2450,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
       <header id="zV2_mid_header">
         <div id="zV2_mid_header_avatar">U</div>
         <div id="zV2_mid_header_name">Papasan</div>
-        <button type="button" id="zV2_btn_new_group" title="Tạo nhóm mới" aria-label="Tạo nhóm mới">&#9999;&#65039;</button>
+        <button type="button" id="zV2_btn_new_group" title="Tạo nhóm mới" aria-label="Tạo nhóm mới">+</button>
       </header>
 
       <div id="zV2_search_wrap">
@@ -2467,7 +2474,6 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 
       <!-- Empty state -->
       <div id="zV2_empty_main">
-        <div class="zV2_empty_icon">&var(--info-fg);</div>
         <div class="zV2_empty_title">Chào mừng đến Chat Papasan!</div>
         <div class="zV2_empty_sub">Chọn cuộc trò chuyện hoặc Danh bạ để bắt đầu.</div>
       </div>
@@ -6078,7 +6084,7 @@ window.zV2_renderInfoPanel = function (roomId) {
       '</div>' +
       '<div class="zV2_info_name">' + zV2_escapeHtml(displayName) + '</div>' +
       '<div class="zV2_info_meta">' + (room.type === 'direct' ? 'Cuộc trò chuyện riêng' : (membersCount + ' thành viên')) + '</div>' +
-      (isAdmin && isCustomGroup ? '<button class="zV2_btn_secondary zV2_btn_rename_room" type="button">✏️ Đổi tên</button>' : '') +
+      (isAdmin && isCustomGroup ? '<button class="zV2_btn_secondary zV2_btn_rename_room" type="button">Đổi tên</button>' : '') +
     '</div>' +
     '<div class="zV2_info_tabs">' +
       '<button class="zV2_info_tab_btn active" data-tab="thong-tin" type="button">Thông tin</button>' +
@@ -7212,7 +7218,7 @@ document.addEventListener('DOMContentLoaded', () => {
       + '.zV2_aiBrief_overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;animation:zV2_aiBrief_fade .18s ease;}'
       + '@keyframes zV2_aiBrief_fade{from{opacity:0}to{opacity:1}}'
       + '.zV2_aiBrief_card{background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 18px 50px rgba(0,0,0,.25);overflow:hidden;}'
-      + '.zV2_aiBrief_head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--brand-soft);background:linear-gradient(135deg,#fef3c7 0%,var(--warning-soft) 100%);}'
+      + '.zV2_aiBrief_head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--brand-soft);background:linear-var(--warning-soft);}'
       + '.zV2_aiBrief_avatar{width:38px;height:38px;border-radius:50%;background:var(--warning);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0;}'
       + '.zV2_aiBrief_title{flex:1;min-width:0;}'
       + '.zV2_aiBrief_title .name{font-weight:700;font-size:15px;color:var(--text-1);}'
@@ -7231,8 +7237,8 @@ document.addEventListener('DOMContentLoaded', () => {
       + '.zV2_aiBrief_loading{padding:32px;text-align:center;color:var(--text-2);}'
       + '.zV2_aiBrief_actions{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--brand-soft);background:var(--bg-page);}'
       + '.zV2_aiBrief_btn{flex:1;padding:9px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}'
-      + '.zV2_aiBrief_btn_primary{background:var(--brand);color:#fff;}'
-      + '.zV2_aiBrief_btn_primary:hover{background:#2563eb;}'
+      + '.zV2_aiBrief_btn_primary{background:var(--brand-soft);color:var(--brand-hover);}'
+      + '.zV2_aiBrief_btn_primary:hover{filter:brightness(.95);}'
       + '.zV2_aiBrief_btn_secondary{background:var(--bg-page);color:var(--text-2);}'
       + '.zV2_aiBrief_btn_secondary:hover{background:var(--border);}'
       ;
@@ -7370,7 +7376,7 @@ document.addEventListener('DOMContentLoaded', () => {
 #zcall_remote{width:100%;height:100%;object-fit:cover;background:var(--text-1)}
 #zcall_local{position:absolute;right:14px;bottom:104px;width:120px;height:160px;object-fit:cover;border-radius:12px;border:2px solid rgba(255,255,255,.3);background:var(--text-1);z-index:2}
 #zcall_audioface{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:1}
-#zcall_bar,#zcall_gbar{position:absolute;left:0;right:0;bottom:0;padding:20px;display:flex;gap:24px;justify-content:center;align-items:flex-start;background:linear-gradient(transparent,rgba(0,0,0,.65));z-index:3}
+#zcall_bar,#zcall_gbar{position:absolute;left:0;right:0;bottom:0;padding:20px;display:flex;gap:24px;justify-content:center;align-items:flex-start;background:rgba(0,0,0,.55);z-index:3}
 #zcall_timer{position:absolute;top:16px;left:0;right:0;text-align:center;font-size:14px;z-index:3;text-shadow:0 1px 4px rgba(0,0,0,.6)}
 #zcall_group{position:absolute;inset:0;display:none;flex-direction:column;background:var(--text-1)}
 #zcall_overlay.ingroup #zcall_group{display:flex}

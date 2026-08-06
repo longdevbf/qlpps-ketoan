@@ -14,15 +14,15 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg-page);color:var(--tex
 .tab-nav{display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:14px}
 .tab-btn{padding:9px 18px;background:none;border:none;border-bottom:3px solid transparent;font-size:13px;font-weight:600;color:var(--text-3);cursor:pointer;margin-bottom:-2px}
 .tab-btn:hover{color:var(--brand);background:var(--bg-page)}
-.tab-btn.active{color:var(--brand);border-bottom-color:#2563eb}
+.tab-btn.active{color:var(--brand);border-bottom-color:var(--brand)}
 .tab-pane{display:none;flex:1;flex-direction:column}
 .tab-pane.active{display:flex}
 .toolbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .toolbar input,.toolbar select{padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:13px;outline:none}
 .toolbar input:focus,.toolbar select:focus{border-color:var(--brand)}
 .btn{padding:7px 14px;border-radius:7px;border:none;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
-.btn-primary{background:var(--brand);color:#fff}
-.btn-primary:hover{background:var(--brand-hover)}
+.btn-primary{background:var(--brand-soft);color:var(--brand-hover)}
+.btn-primary:hover{filter:brightness(.95)}
 .btn-outline{background:#fff;border:1px solid var(--border);color:var(--text-2)}
 .btn-outline:hover{background:var(--bg-page)}
 .btn-danger{background:#dc2626;color:#fff}
@@ -30,8 +30,8 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg-page);color:var(--tex
 .btn-sm{padding:4px 9px;font-size:12px}
 .table-wrap{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden;flex:1;margin-bottom:12px}
 table{width:100%;border-collapse:collapse}
-thead tr{background:var(--brand)}
-thead th{color:#fff;font-size:12px;font-weight:600;padding:10px 12px;text-align:left;white-space:nowrap}
+thead tr{background:var(--brand-soft)}
+thead th{color:var(--brand-hover);font-size:12px;font-weight:600;padding:10px 12px;text-align:left;white-space:nowrap}
 tbody tr{border-bottom:1px solid var(--bg-page)}
 tbody tr:hover{background:var(--brand-soft)}
 tbody td{padding:10px 12px;font-size:13px;vertical-align:middle}
@@ -54,7 +54,7 @@ tbody td{padding:10px 12px;font-size:13px;vertical-align:middle}
 .tree-node:hover{background:var(--bg-page)}
 .tree-node .name{flex:1;font-weight:600;color:var(--brand)}
 .tree-children{margin-left:22px;border-left:2px solid var(--border)}
-.toast{position:fixed;bottom:20px;right:20px;background:var(--brand);color:#fff;padding:11px 20px;border-radius:8px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;font-size:13px}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--text-1);color:#fff;padding:11px 20px;border-radius:8px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;font-size:13px}
 .toast.show{transform:translateY(0);opacity:1}
 .toast.err{background:#dc2626}
 .summary{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -127,7 +127,7 @@ tbody td{padding:10px 12px;font-size:13px;vertical-align:middle}
   <div id="tab-categories" class="tab-pane active">
     <div class="toolbar">
       <button class="btn btn-primary" onclick="openCatForm()">+ Nhóm mới</button>
-      <button class="btn btn-outline" onclick="loadTree()">⟳ Reload</button>
+      <button class="btn btn-outline" onclick="loadTree()">Tải lại</button>
     </div>
     <div class="table-wrap" id="cat-tree"></div>
   </div>
@@ -430,7 +430,7 @@ function renderTree(nodes, depth) {
       <span class="badge b-cat">${n.ma_nhom}</span>
       <span class="name">${n.ten_nhom}</span>
       <span class="badge b-ok">${n.product_count} SP</span>
-      <button class="btn btn-sm btn-outline" onclick="editCat(${n.id})">✎</button>
+      <button class="btn btn-sm btn-outline" onclick="editCat(${n.id})">Sửa</button>
       <button class="btn btn-sm btn-danger" onclick="delCat(${n.id})">×</button>
     </div>
     ${n.children && n.children.length ? `<div class="tree-children">${renderTree(n.children, depth+1)}</div>` : ''}
@@ -449,7 +449,7 @@ function editCat(id) {
   const c = _cats.find(x => x.id === id);
   if (!c) return;
   _editCatId = id;
-  document.getElementById('m-cat-title').textContent = '✎ Sửa nhóm';
+  document.getElementById('m-cat-title').textContent = 'Sửa nhóm';
   document.getElementById('cat-ma').value = c.ma_nhom;
   document.getElementById('cat-ten').value = c.ten_nhom;
   document.getElementById('cat-parent').value = c.parent_id || '';
@@ -501,7 +501,7 @@ async function loadProducts() {
         <td><b>${fmt(p.gia_ban_mac_dinh)}</b></td>
         <td>${p.active ? '<span class="badge b-ok">true</span>' : '<span class="badge b-danger">false</span>'}</td>
         <td class="td-actions">
-          <button class="btn btn-sm btn-outline" onclick="editProd(${p.id})">✎</button>
+          <button class="btn btn-sm btn-outline" onclick="editProd(${p.id})">Sửa</button>
           <button class="btn btn-sm btn-danger" onclick="delProd(${p.id})">×</button>
         </td>
       </tr>
@@ -527,7 +527,7 @@ function editProd(id) {
   const p = _prods.find(x => x.id === id);
   if (!p) return;
   _editProdId = id;
-  document.getElementById('m-prod-title').textContent = '✎ Sửa SP';
+  document.getElementById('m-prod-title').textContent = 'Sửa SP';
   document.getElementById('prod-ma').value = p.ma_sp;
   document.getElementById('prod-ten').value = p.ten_sp;
   document.getElementById('prod-cat-sel').value = p.category_id;
@@ -722,7 +722,7 @@ async function loadBoms() {
         <td><b>${fmt(b.tong_gia_von)} đ</b></td>
         <td>${b.active ? '<span class="badge b-ok">true</span>' : '<span class="badge b-danger">false</span>'}</td>
         <td class="td-actions">
-          <button class="btn btn-sm btn-outline" onclick="editBom(${b.id})">✎</button>
+          <button class="btn btn-sm btn-outline" onclick="editBom(${b.id})">Sửa</button>
           <button class="btn btn-sm btn-outline" onclick="cloneBom(${b.id})" title="Tạo phiên bản mới">⎘</button>
           <button class="btn btn-sm btn-danger" onclick="delBom(${b.id})">×</button>
         </td>
@@ -773,7 +773,7 @@ async function editBom(id) {
   try {
     const b = await api('GET', '/api/bom/' + id);
     _editBomId = id;
-    document.getElementById('m-bom-title').textContent = '✎ Sửa BOM ' + b.ma_bom;
+    document.getElementById('m-bom-title').textContent = 'Sửa BOM ' + b.ma_bom;
     document.getElementById('bom-ma').value = b.ma_bom;
     document.getElementById('bom-ten').value = b.ten_bom;
     document.getElementById('bom-cat-sel').value = b.category_id;

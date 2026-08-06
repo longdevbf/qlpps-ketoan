@@ -8,17 +8,21 @@
 <link rel="shortcut icon" href="/static/papasan.ico">
 <!-- PWA meta — bắt buộc cho iOS "Add to Home Screen" mở fullscreen (ẩn URL bar) -->
 <link rel="manifest" href="/manifest.webmanifest">
-<meta name="theme-color" content="var(--brand)">
+{# meta không nhận var() — đây là hex --brand, ngoại lệ được phép #}
+<meta name="theme-color" content="#D23C0E">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kế Toán">
 <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+{# Trang login KHÔNG include _header.html (chưa đăng nhập thì không có nav) —
+   nên phải tự nạp theme.css, vì bình thường token màu đi vào qua header. #}
+<link rel="stylesheet" href="/static/css/theme.css">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,var(--brand-hover) 0%,var(--brand-hover) 50%,var(--brand) 100%);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.login-card{background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.3);width:100%;max-width:420px;overflow:hidden}
-.login-header{background:linear-gradient(135deg,var(--brand-hover),var(--brand-hover));color:#fff;padding:32px;text-align:center}
+body{font-family:'Segoe UI',sans-serif;background:var(--bg-page);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.login-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-lg);width:100%;max-width:420px;overflow:hidden}
+.login-header{background:var(--brand-soft);color:var(--brand-hover);padding:32px;text-align:center}
 .login-header .logo{font-size:22px;font-weight:900;letter-spacing:2px}
 .login-header .dept{font-size:13px;opacity:.8;margin-top:4px;letter-spacing:1px}
 .login-header .icon{font-size:22px;margin-bottom:12px}
@@ -26,11 +30,11 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,var(--b
 .form-group{margin-bottom:18px}
 .form-group label{display:block;font-size:12px;font-weight:700;color:var(--text-2);margin-bottom:7px;text-transform:uppercase;letter-spacing:.5px}
 .form-control{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;outline:none;transition:border-color .2s,box-shadow .2s}
-.form-control:focus{border-color:var(--brand-hover);box-shadow:0 0 0 3px rgba(26,58,110,.12)}
-.btn-login{width:100%;padding:12px;background:linear-gradient(135deg,var(--brand-hover),var(--brand));color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .1s;margin-top:6px;letter-spacing:.5px}
+.form-control:focus{border-color:var(--brand-hover);box-shadow:var(--focus-ring)}
+.btn-login{width:100%;padding:12px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .1s;margin-top:6px;letter-spacing:.5px}
 .btn-login:hover{opacity:.9;transform:translateY(-1px)}
 .error-msg{background:var(--danger-soft);color:var(--danger);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:18px}
-.footer{margin-top:24px;font-size:11px;color:rgba(255,255,255,.6);text-align:center}
+.footer{margin-top:24px;font-size:11px;color:var(--text-3);text-align:center}
 
 /* Responsive */
 @media(max-width:480px){
@@ -49,14 +53,13 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,var(--b
 </style>
 </head>
 <body>
-{% include "_header.html" %}
 <div class="login-card">
   <div class="login-header">
     <div class="icon"></div>
     <div class="logo" style="display:flex;justify-content:center;align-items:center;padding:8px 0">
       <img src="https://papasanvietnam.vn/wp-content/uploads/2025/11/Ch%C6%B0a-c%C3%B3-t%C3%AAn-250-x-67-px-2.png"
            alt="Papasan Việt Nam"
-           style="max-width:220px;height:auto;background:#fff;padding:8px 12px;border-radius:8px;object-fit:contain;box-shadow:0 2px 8px rgba(0,0,0,.08)"
+           style="max-width:220px;height:auto;background:#fff;padding:8px 12px;border-radius:8px;object-fit:contain;box-shadow:var(--shadow-sm)"
            onerror="this.outerHTML='PAPASAN'">
     </div>
     <div class="dept">Phòng Kế Toán — Tài Chính</div>

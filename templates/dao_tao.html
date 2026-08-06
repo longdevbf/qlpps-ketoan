@@ -18,8 +18,8 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg-page);color:var(--tex
 .toolbar select{padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;background:#fff;outline:none}
 .toolbar input[type=date]{padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;outline:none;background:#fff}
 .btn{padding:7px 14px;border-radius:7px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
-.btn-primary{background:var(--brand);color:#fff}
-.btn-primary:hover{background:var(--brand-hover)}
+.btn-primary{background:var(--brand-soft);color:var(--brand-hover)}
+.btn-primary:hover{filter:brightness(.95)}
 .btn-outline{background:#fff;border:1px solid var(--border);color:var(--text-2)}
 .btn-outline:hover{background:var(--bg-page)}
 .btn-danger{background:#dc2626;color:#fff}
@@ -28,8 +28,8 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg-page);color:var(--tex
 
 .table-wrap{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden;flex:1}
 table{width:100%;border-collapse:collapse}
-thead tr{background:var(--brand)}
-thead th{color:#fff;font-size:12px;font-weight:600;padding:11px 12px;text-align:left;white-space:nowrap;user-select:none}
+thead tr{background:var(--brand-soft)}
+thead th{color:var(--brand-hover);font-size:12px;font-weight:600;padding:11px 12px;text-align:left;white-space:nowrap;user-select:none}
 thead th:first-child{width:44px;text-align:center}
 tbody tr{border-bottom:1px solid var(--bg-page);transition:background .12s;cursor:pointer}
 tbody tr:last-child{border-bottom:none}
@@ -82,14 +82,14 @@ tbody td:first-child{text-align:center;color:var(--text-3);font-size:12px}
 .detail-desc{font-size:13px;color:var(--text-2);margin-bottom:14px;line-height:1.6}
 .section-label{font-size:13px;font-weight:700;color:var(--brand);margin-bottom:8px;display:flex;align-items:center;gap:5px}
 
-.toast{position:fixed;bottom:24px;right:24px;background:var(--brand);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--text-1);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s}
 .toast.show{transform:translateY(0);opacity:1}
 .toast.err{background:#dc2626}
 .count-chip{font-size:12px;color:var(--text-3);background:var(--bg-page);padding:3px 10px;border-radius:20px}
 .tab-nav{display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:14px}
 .tab-btn{padding:9px 18px;background:none;border:none;border-bottom:3px solid transparent;font-size:13px;font-weight:600;color:var(--text-3);cursor:pointer;transition:all .15s;margin-bottom:-2px}
 .tab-btn:hover{color:var(--brand);background:var(--bg-page)}
-.tab-btn.active{color:var(--brand);border-bottom-color:#2563eb}
+.tab-btn.active{color:var(--brand);border-bottom-color:var(--brand)}
 .tab-pane{display:none;flex:1;flex-direction:column}
 .tab-pane.active{display:flex}
 .vb-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bg-page);font-size:13px}
@@ -424,7 +424,7 @@ function renderTable(){
     const fc = files.length;
     const fileBadge = `<span class="badge badge-file${fc?' has-file':''}">${fc ? `${fc} file` : '—'}</span>`;
     const actions = G_CAN_MANAGE
-      ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();openEdit('${s.id}')">✏️</button>
+      ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();openEdit('${s.id}')">Sửa</button>
          <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteSession('${s.id}','${esc(s.ten)}')">Xoá</button>`
       : '';
     return `<tr onclick="openDetail('${s.id}')">
@@ -602,7 +602,7 @@ function renderDetail(s){
     <div id="upload-status" style="font-size:12px;color:var(--text-3);margin-top:6px"></div>` : '';
 
   const managerActions = G_CAN_MANAGE ? `
-    <button class="btn btn-outline btn-sm" onclick="closeDetail();openEdit('${s.id}')">✏️ Sửa thông tin</button>` : '';
+    <button class="btn btn-outline btn-sm" onclick="closeDetail();openEdit('${s.id}')">Sửa thông tin</button>` : '';
 
   document.getElementById('detail-body').innerHTML = `
     <div class="meta-bar">

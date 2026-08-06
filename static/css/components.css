@@ -48,8 +48,11 @@
 .btn:disabled,.btn[disabled]{opacity:.5;cursor:not-allowed}
 .btn:focus-visible{outline:none;box-shadow:var(--focus-ring)}
 
-.btn-primary{background:var(--brand);color:var(--text-on-brand)}
-.btn-primary:hover:not(:disabled){background:var(--brand-hover)}
+/* Quyết định pastel 05/08/2026 (HE-MAU-ERP.md mục 4): nút chính KHÔNG còn cam
+   đặc + chữ trắng — nền --brand-soft + chữ --brand-hover (4.57:1 ✔ AA).
+   Hover không thêm hex mới: dùng filter brightness. */
+.btn-primary{background:var(--brand-soft);color:var(--brand-hover)}
+.btn-primary:hover:not(:disabled){filter:brightness(.95)}
 
 .btn-outline{background:var(--bg-card);border-color:var(--border);color:var(--text-2)}
 .btn-outline:hover:not(:disabled){background:var(--bg-page);color:var(--brand)}
