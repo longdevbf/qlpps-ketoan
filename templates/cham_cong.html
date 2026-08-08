@@ -14,100 +14,109 @@
   --bg:var(--bg-page); --line:var(--border); --text:var(--text-1); --muted:var(--text-3);
   --primary:var(--brand); --primary-d:var(--brand); --navy:var(--brand); --navy-d:var(--brand-hover);
   --warn:var(--warning);   /* --success va --danger da co o theme.css (nap sau, dang thang) — khai lai la code chet */
-  --amber-bg:#fef3c7; --amber-bd:var(--warning); --amber-txt:#92400e;
-  --green-bg:#dcfce7; --green-bd:var(--success-soft); --green-txt:#15803d;
+  --amber-bg:var(--warning-soft); --amber-bd:var(--warning); --amber-txt:var(--warning-fg);
+  --green-bg:var(--success-soft); --green-bd:var(--success-soft); --green-txt:var(--success-fg);
   --purple-bg:var(--brand-soft); --purple-bd:var(--brand-soft); --purple-txt:var(--brand);
-  --blue-bg:#dbeafe; --blue-bd:var(--brand-soft); --blue-txt:var(--brand);
+  --blue-bg:var(--info-soft); --blue-bd:var(--brand-soft); --blue-txt:var(--brand);
   --rose-bg:var(--danger-soft); --rose-bd:var(--danger-soft); --rose-txt:var(--danger);
   --cyan-bg:var(--info-soft); --cyan-bd:var(--info); --cyan-txt:var(--info-fg);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:var(--bg);min-height:100vh;color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-height:100vh;color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 
 /* ── Topbar ── */
 
 /* ── Hero (page header reimagined) — full-bleed background, content căn theo max-width 1200px ── */
 .page-header{
-  background:var(--brand-soft);color:var(--brand-hover);
-  width:100vw;margin-left:calc(50% - 50vw);
-  padding-top:30px;padding-bottom:56px;
-  padding-left:max(26px,calc((100vw - 1200px) / 2 + 18px));
-  padding-right:max(26px,calc((100vw - 1200px) / 2 + 18px));
-  position:relative;overflow:hidden;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  /* ĐƯA VỀ CHUẨN `static/css/base.css` (.page-head) — 08/08/2026.
+     Trước đây đây là dải hổ phách full-bleed cao ~140px. Hai lý do bỏ:
+       • `.appbar` đã là một dải ngang 56px cố định trên đỉnh; thêm dải màu thứ hai
+         ngay dưới làm người dùng mất mốc "đâu là điều hướng, đâu là nội dung".
+       • Nó ăn ~20% chiều cao màn laptop trước khi thấy dòng dữ liệu đầu tiên.
+     Cấu trúc nay đến từ chữ + khoảng trắng + MỘT vạch nhấn, không từ nền màu. */
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:0 0 8px;margin-bottom:24px;
+  border-bottom:1px solid var(--border);
 }
-.page-header::before{content:'';position:absolute;top:-40%;right:-10%;width:380px;height:380px;display:none;pointer-events:none;z-index:0}
+/* Vạch nhấn 4px thay cho cả khối nền — giống .page-head-mark của base.css */
+.page-header::before{
+  content:'';display:block;flex-shrink:0;
+  width:4px;align-self:stretch;min-height:36px;
+  background:var(--brand);border-radius:6px;
+}
+
 .page-header > *{position:relative;z-index:1}
 /* Elevate first content section over hero (overlap pattern giống stats-bar) */
-.main-layout{margin-top:-40px;position:relative;z-index:5}
+.main-layout{margin-top:0;position:relative;z-index:5}
 
 .page-header-text{position:relative;z-index:1}
 .page-header-text h4{margin:0;font-weight:800;color:var(--brand-hover);font-size:22px;letter-spacing:-.4px}
-.page-header-text p{font-size:13px;color:var(--text-2);margin:4px 0 0}
-.btn-refresh{padding:9px 16px;background:var(--bg-card);color:var(--brand-hover);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;margin-left:auto;position:relative;z-index:1}
-.btn-refresh:hover{filter:brightness(.97)}
+.page-header-text p{font-size:14px;color:var(--text-2);margin:4px 0 0}
+.btn-refresh{padding:9px 16px;background:var(--bg-card);color:var(--brand-hover);border:1px solid var(--border);border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;margin-left:auto;position:relative;z-index:1}
+.btn-refresh:hover{filter:brightness(.95)}
 
 /* ── Page wrap ── */
 .page-wrap{max-width:1200px;margin:0 auto;padding:0 18px 30px;width:100%}
 .page-wrap > *:not(.page-header){position:relative;z-index:2}
 
 /* ── Stats bar (overlap hero) ── */
-.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:-40px;margin-bottom:18px;position:relative;z-index:5}
-@media(max-width:700px){.stats-bar{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:420px){.stats-bar{grid-template-columns:1fr}}
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:0;margin-bottom:18px;position:relative;z-index:5}
+@media(max-width:768px){.stats-bar{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.stats-bar{grid-template-columns:1fr}}
 .stat-card{background:#fff;border-radius:14px;border:1px solid var(--line);padding:14px 16px;display:flex;align-items:center;gap:13px;cursor:pointer;transition:all .15s;box-shadow:0 4px 12px rgba(15,23,42,.06);position:relative;overflow:hidden}
 .stat-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line);border-radius:14px 0 0 14px}
 .stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(15,23,42,.1)}
 .stat-card.active{box-shadow:0 0 0 2px var(--primary),0 4px 12px rgba(15,23,42,.06)}
 .stat-card.active::before{background:var(--primary)}
-.stat-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
-.stat-icon.nghi{background:var(--amber-bg);color:var(--amber-txt)}
-.stat-icon.chi{background:var(--purple-bg);color:var(--purple-txt)}
-.stat-icon.lenh{background:var(--blue-bg);color:var(--blue-txt)}
-.stat-icon.ct{background:var(--green-bg);color:var(--green-txt)}
+.stat-icon{width:3px;height:34px;border-radius:2px;flex-shrink:0}  /* hộp icon rỗng sau khi gỡ emoji -> dải neo mỏng */
+.stat-icon.nghi{background:var(--warning)}
+.stat-icon.chi{background:var(--info)}
+.stat-icon.lenh{background:var(--info)}
+.stat-icon.ct{background:var(--success)}
 .stat-num{font-size:22px;font-weight:800;color:var(--text);line-height:1}
-.stat-label{font-size:11px;color:var(--muted);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.stat-label{font-size:12px;color:var(--muted);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
 
 /* ── Filter Tabs ── */
 .tabs-bar{background:#fff;border-radius:12px;border:1px solid var(--line);padding:6px;display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px;box-shadow:0 2px 6px rgba(15,23,42,.04)}
-.tab-btn{padding:9px 18px;border:0;background:transparent;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-radius:9px;transition:all .15s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-family:inherit}
+.tab-btn{padding:9px 18px;border:0;background:transparent;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;border-radius:9px;transition:all .15s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-family:inherit}
 .tab-btn:hover{background:var(--brand-soft);color:var(--primary)}
 .tab-btn.active{background:var(--brand-soft);color:var(--brand-hover)}
 
 /* ── Table ── */
 .tbl-wrap{background:#fff;border-radius:14px;border:1px solid var(--line);overflow:hidden;overflow-x:auto;-webkit-overflow-scrolling:touch;box-shadow:0 2px 6px rgba(15,23,42,.04)}
 .tbl-scroll{overflow-x:auto}
-.data-table{width:100%;border-collapse:collapse;font-size:13px}
-.data-table thead th{background:var(--bg-page);color:var(--muted);padding:11px 13px;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--line)}
+.data-table{width:100%;border-collapse:collapse;font-size:14px}
+.data-table thead th{background:var(--bg-page);color:var(--muted);padding:11px 13px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--line)}
 .data-table tbody tr{border-bottom:1px solid var(--bg-page);transition:background .15s}
 .data-table tbody tr:hover{background:var(--bg-page)}
 .data-table tbody td{padding:11px 13px;vertical-align:middle}
-.empty-row td{text-align:center;color:var(--text-3);padding:44px 0;font-size:13px}
+.empty-row td{text-align:center;color:var(--text-3);padding:44px 0;font-size:14px}
 
 /* ── NV cell ── */
 .nv-cell{display:flex;align-items:center;gap:9px}
-.nv-ava{width:32px;height:32px;border-radius:50%;background:var(--brand-soft);color:var(--brand-hover);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.nv-ava{width:32px;height:32px;border-radius:50%;background:var(--brand-soft);color:var(--brand-hover);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 
 /* ── Type badge ── */
-.type-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.type-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap}
 .type-nghi{background:var(--amber-bg);color:var(--amber-txt);border:1px solid var(--amber-bd)}
 .type-chi{background:var(--purple-bg);color:var(--purple-txt);border:1px solid var(--purple-bd)}
 .type-lenh{background:var(--blue-bg);color:var(--blue-txt);border:1px solid var(--blue-bd)}
 .type-ct{background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd)}
 
 /* ── Action btns ── */
-.btn-approve{padding:6px 13px;background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
+.btn-approve{padding:6px 13px;background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
 .btn-approve:hover{background:var(--success);color:#fff;border-color:var(--success);transform:translateY(-1px)}
-.btn-reject{padding:6px 13px;background:#fee2e2;color:#991b1b;border:1px solid var(--danger-soft);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
+.btn-reject{padding:6px 13px;background:var(--danger-soft);color:var(--danger-fg);border:1px solid var(--danger-soft);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
 .btn-reject:hover{background:var(--danger);color:#fff;border-color:var(--danger);transform:translateY(-1px)}
 
 /* ── Card (shared) ── */
 .card{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:16px;box-shadow:0 2px 6px rgba(15,23,42,.04);overflow:hidden}
 .card-header{padding:16px 20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid transparent;transition:background .15s}
 .card-header:hover{background:var(--bg-page)}
-.card-header h3{font-size:15px;font-weight:700;color:var(--text);margin:0;display:flex;align-items:center;gap:9px}
+.card-header h3{font-size:16px;font-weight:700;color:var(--text);margin:0;display:flex;align-items:center;gap:9px}
 .card-toolbar{display:flex;align-items:center;gap:8px}
 .card-body{padding:0 20px 20px}
-.month-select{padding:7px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:12px;color:var(--text);background:#fff;font-family:inherit;cursor:pointer}
+.month-select{padding:7px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;color:var(--text);background:#fff;font-family:inherit;cursor:pointer}
 .month-select:focus{outline:0;border-color:var(--primary);box-shadow:var(--focus-ring)}
 
 /* ── Modal ── */
@@ -116,18 +125,18 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 .modal-box{background:#fff;border-radius:16px;width:520px;max-width:96vw;box-shadow:0 20px 60px rgba(15,23,42,.3);overflow:hidden;animation:modalIn .25s ease-out}
 @keyframes modalIn{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
 .modal-header{background:var(--brand-soft);padding:18px 22px;display:flex;align-items:center;gap:10px}
-.modal-header h5{color:var(--brand-hover);margin:0;font-weight:800;font-size:15px}
+.modal-header h5{color:var(--brand-hover);margin:0;font-weight:800;font-size:16px}
 .modal-body{padding:22px 24px}
 .modal-footer{padding:14px 24px;border-top:1px solid var(--bg-page);display:flex;gap:8px;justify-content:flex-end;background:var(--bg-page)}
 .modal-info-card{background:var(--bg-page);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-bottom:18px}
-.info-chip{background:var(--blue-bg);color:var(--blue-txt);border-radius:7px;padding:4px 11px;font-size:12px;font-weight:600;display:inline-block;margin:2px 4px 2px 0;border:1px solid var(--blue-bd)}
-.modal-textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:9px;font-size:13px;outline:none;resize:vertical;min-height:80px;font-family:inherit;transition:border-color .15s,box-shadow .15s}
+.info-chip{background:var(--blue-bg);color:var(--blue-txt);border-radius:7px;padding:4px 11px;font-size:13px;font-weight:600;display:inline-block;margin:2px 4px 2px 0;border:1px solid var(--blue-bd)}
+.modal-textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;outline:none;resize:vertical;min-height:80px;font-family:inherit;transition:border-color .15s,box-shadow .15s}
 .modal-textarea:focus{border-color:var(--primary);box-shadow:var(--focus-ring)}
-.btn-modal-approve{background:var(--success);color:#fff;border:none;border-radius:9px;padding:10px 20px;font-weight:700;cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
+.btn-modal-approve{background:var(--success);color:#fff;border:none;border-radius:9px;padding:10px 20px;font-weight:700;cursor:pointer;font-size:14px;transition:all .15s;font-family:inherit}
 .btn-modal-approve:hover{background:var(--success);transform:translateY(-1px)}
-.btn-modal-reject{background:var(--danger);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-weight:700;cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
+.btn-modal-reject{background:var(--danger);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-weight:700;cursor:pointer;font-size:14px;transition:all .15s;font-family:inherit}
 .btn-modal-reject:hover{background:var(--danger);transform:translateY(-1px)}
-.btn-cancel-m{background:#fff;color:var(--text);border:1.5px solid var(--line);border-radius:9px;padding:10px 16px;font-weight:600;cursor:pointer;font-size:13px;font-family:inherit;transition:all .15s}
+.btn-cancel-m{background:#fff;color:var(--text);border:1.5px solid var(--line);border-radius:9px;padding:10px 16px;font-weight:600;cursor:pointer;font-size:14px;font-family:inherit;transition:all .15s}
 .btn-cancel-m:hover{background:var(--bg-page);border-color:var(--text-3)}
 
 /* ── Loading spinner ── */
@@ -137,7 +146,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 
 /* ── Toast ── */
 .toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast{padding:13px 20px;border-radius:10px;font-size:13px;font-weight:600;color:#fff;box-shadow:0 6px 22px rgba(15,23,42,.25);opacity:0;transform:translateY(12px);transition:all .28s;pointer-events:none;max-width:340px;display:flex;align-items:center;gap:8px}
+.toast{padding:13px 20px;border-radius:10px;font-size:14px;font-weight:600;color:#fff;box-shadow:0 6px 22px rgba(15,23,42,.25);opacity:0;transform:translateY(12px);transition:all .28s;pointer-events:none;max-width:340px;display:flex;align-items:center;gap:8px}
 .toast.show{opacity:1;transform:translateY(0)}
 .toast.success{background:var(--success)}
 .toast.error{background:var(--danger)}
@@ -150,18 +159,18 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 
 /* ── Layout ── */
 .main-layout{display:grid;grid-template-columns:340px 1fr;gap:18px;align-items:start;margin-top:18px}
-@media(max-width:860px){.main-layout{grid-template-columns:1fr}}
+@media(max-width:1100px){.main-layout{grid-template-columns:1fr}}
 
 /* ── Status Card (chấm vào/ra hôm nay) ── */
 .cc-status-card{background:#fff;border-radius:14px;border:1px solid var(--line);padding:22px 24px;margin-bottom:16px;text-align:center;box-shadow:0 2px 6px rgba(15,23,42,.04)}
-.cc-date-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-.cc-date-big{font-size:16px;font-weight:800;color:var(--navy);margin-bottom:16px}
-.cc-not-yet{font-size:15px;color:var(--text-3);margin-bottom:16px}
-.cc-done-msg{font-size:14px;color:var(--green-txt);font-weight:700;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:9px;padding:10px 14px;margin-bottom:10px}
-.btn-cham-vao{width:100%;padding:16px;background:var(--success);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;letter-spacing:.2px;box-shadow:0 4px 12px rgba(16,185,129,.3)}
+.cc-date-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.cc-date-big{font-size:17px;font-weight:800;color:var(--navy);margin-bottom:16px}
+.cc-not-yet{font-size:16px;color:var(--text-3);margin-bottom:16px}
+.cc-done-msg{font-size:15px;color:var(--green-txt);font-weight:700;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:9px;padding:10px 14px;margin-bottom:10px}
+.btn-cham-vao{width:100%;padding:16px;background:var(--success);color:#fff;border:none;border-radius:12px;font-size:17px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;letter-spacing:.2px;box-shadow:0 4px 12px rgba(16,185,129,.3)}
 .btn-cham-vao:hover{background:var(--success);transform:translateY(-1px);box-shadow:0 6px 18px rgba(16,185,129,.4)}
 .btn-cham-vao:disabled{opacity:.6;cursor:not-allowed;transform:none}
-.btn-cham-ra{width:100%;padding:16px;background:var(--warn);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;letter-spacing:.2px;box-shadow:0 4px 12px rgba(245,158,11,.3)}
+.btn-cham-ra{width:100%;padding:16px;background:var(--warn);color:#fff;border:none;border-radius:12px;font-size:17px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;letter-spacing:.2px;box-shadow:0 4px 12px rgba(245,158,11,.3)}
 .btn-cham-ra:hover{background:var(--warning);transform:translateY(-1px);box-shadow:0 6px 18px rgba(245,158,11,.4)}
 .btn-cham-ra:disabled{opacity:.6;cursor:not-allowed;transform:none}
 
@@ -170,27 +179,27 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 .geofence-banner.show{display:block}
 
 /* ── Status badges (riêng cho cham_cong) ── */
-.st-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.st-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap}
 .st-cho{background:var(--amber-bg);color:var(--amber-txt);border:1px solid var(--amber-bd)}
 .st-duyet{background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd)}
-.st-tuchoi{background:#fee2e2;color:#991b1b;border:1px solid var(--danger-soft)}
+.st-tuchoi{background:var(--danger-soft);color:var(--danger-fg);border:1px solid var(--danger-soft)}
 .st-dangoai{background:var(--blue-bg);color:var(--blue-txt);border:1px solid var(--blue-bd)}
 
 /* ── Form ── */
 .form-field{margin-bottom:14px}
-.form-field label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
-.form-field input,.form-field select,.form-field textarea{width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;outline:none;background:var(--bg-page);font-family:inherit;color:var(--text);transition:border-color .15s,box-shadow .15s}
+.form-field label{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+.form-field input,.form-field select,.form-field textarea{width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;outline:none;background:var(--bg-page);font-family:inherit;color:var(--text);transition:border-color .15s,box-shadow .15s}
 .form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:var(--primary);background:#fff;box-shadow:var(--focus-ring)}
 
 /* ── Btn variants (chấm công) ── */
-.btn-primary{padding:8px 16px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;font-family:inherit}
+.btn-primary{padding:8px 16px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;font-family:inherit}
 .btn-primary:hover{filter:brightness(.95);transform:translateY(-1px)}
-.btn-sm{padding:5px 12px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all .15s;font-family:inherit}
+.btn-sm{padding:5px 12px;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .15s;font-family:inherit}
 .btn-success{background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd)}
 .btn-success:hover{background:var(--success);color:#fff;border-color:var(--success)}
 .btn-warning{background:var(--amber-bg);color:var(--amber-txt);border:1px solid var(--amber-bd)}
 .btn-warning:hover{background:var(--warn);color:#fff;border-color:var(--warn)}
-.btn-danger{background:#fee2e2;color:#991b1b;border:1px solid var(--danger-soft)}
+.btn-danger{background:var(--danger-soft);color:var(--danger-fg);border:1px solid var(--danger-soft)}
 .btn-danger:hover{background:var(--danger);color:#fff;border-color:var(--danger)}
 .btn-info{background:var(--blue-bg);color:var(--blue-txt);border:1px solid var(--blue-bd)}
 .btn-info:hover{background:var(--brand-soft);color:var(--brand-hover);border-color:var(--brand-soft)}
@@ -198,18 +207,18 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 /* ── Modal extensions ── */
 .modal-box{max-height:90vh;overflow-y:auto}
 .modal-header{justify-content:space-between;position:sticky;top:0;z-index:1}
-.modal-close{background:none;border:none;color:rgba(255,255,255,.75);font-size:16px;cursor:pointer;line-height:1;padding:0}
+.modal-close{background:none;border:none;color:rgba(255,255,255,.75);font-size:17px;cursor:pointer;line-height:1;padding:0}
 .modal-close:hover{color:#fff}
 .modal-tabs{display:flex;border-bottom:1.5px solid var(--line);margin-bottom:16px}
-.modal-tab{flex:1;padding:9px;background:none;border:none;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;font-family:inherit;transition:all .15s}
+.modal-tab{flex:1;padding:9px;background:none;border:none;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;font-family:inherit;transition:all .15s}
 .modal-tab:hover{color:var(--primary)}
 .modal-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
 .modal-pane{display:none}
 .modal-pane.active{display:block}
 
 /* ── Phiên table (chi tiết phiên chấm công) ── */
-.session-tbl{width:100%;font-size:13px;border-collapse:collapse;margin-bottom:12px}
-.session-tbl th{background:var(--bg-page);padding:6px 10px;text-align:left;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+.session-tbl{width:100%;font-size:14px;border-collapse:collapse;margin-bottom:12px}
+.session-tbl th{background:var(--bg-page);padding:6px 10px;text-align:left;font-weight:700;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.4px}
 .session-tbl td{padding:7px 10px;border-bottom:1px solid var(--bg-page)}
 
 /* ── Card body override cho chấm công (table flush) ── */
@@ -220,21 +229,21 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
   html,body{overflow-x:hidden}
   .page-wrap{padding:0 8px 16px}
   .page-header{padding-top:20px;padding-bottom:36px;gap:10px}
-  .page-header-text h4{font-size:16px}
-  .page-header-text p{font-size:12px}
+  .page-header-text h4{font-size:17px}
+  .page-header-text p{font-size:13px}
   .main-layout{margin-top:12px;gap:12px}
 
   /* Card header — ẩn text mô tả, thu gọn toolbar */
   .card-header{padding:11px 12px;gap:8px;flex-wrap:wrap}
-  .card-header h3{font-size:13px}
-  .card-header>div[style*="font-size:11px"]{display:none!important}
+  .card-header h3{font-size:14px}
+  .card-header>div[style*="font-size:12px"]{display:none!important}
   .card-toolbar{gap:6px;flex-wrap:nowrap}
-  .month-select{max-width:120px;font-size:11px;padding:6px 8px}
-  .btn-primary{font-size:11px;padding:6px 10px;gap:4px}
-  .btn-primary i{font-size:12px}
+  .month-select{max-width:120px;font-size:12px;padding:6px 8px}
+  .btn-primary{font-size:12px;padding:6px 10px;gap:4px}
+  .btn-primary i{font-size:13px}
 
   /* Tables — giảm padding, font */
-  .data-table{font-size:11px}
+  .data-table{font-size:12px}
   .data-table thead th,.data-table tbody td{padding:7px 7px;white-space:normal;word-break:break-word}
   .data-table thead th{white-space:nowrap}
 
@@ -253,8 +262,8 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 
   /* Status card */
   .cc-status-card{padding:14px 16px}
-  .cc-date-big{font-size:15px;margin-bottom:10px}
-  .btn-cham-vao,.btn-cham-ra{font-size:15px;padding:12px}
+  .cc-date-big{font-size:16px;margin-bottom:10px}
+  .btn-cham-vao,.btn-cham-ra{font-size:16px;padding:12px}
 
   /* Geofence */
   .geofence-banner{padding:10px 12px}
@@ -267,19 +276,19 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 
   /* Toast */
   .toast-wrap{right:8px;bottom:8px}
-  .toast{max-width:calc(100vw - 16px);font-size:12px}
+  .toast{max-width:calc(100vw - 16px);font-size:13px}
 
   /* Btn nhỏ trong bảng */
-  .btn-sm{padding:4px 8px;font-size:11px}
+  .btn-sm{padding:4px 8px;font-size:12px}
 }
 
 /* ── Điện thoại nhỏ ── */
-@media(max-width:420px){
+@media(max-width:480px){
   .page-wrap{padding:0 6px 12px}
-  .cc-date-big{font-size:14px}
-  .btn-cham-vao,.btn-cham-ra{font-size:14px;padding:11px}
-  .data-table thead th,.data-table tbody td{padding:5px 5px;font-size:10px}
-  .month-select{max-width:100px;font-size:10px}
+  .cc-date-big{font-size:15px}
+  .btn-cham-vao,.btn-cham-ra{font-size:15px;padding:11px}
+  .data-table thead th,.data-table tbody td{padding:5px 5px;font-size:11px}
+  .month-select{max-width:100px;font-size:11px}
   /* Bảng Lịch sử: ẩn thêm cột Giờ vào */
   #tbl-lich-su th:nth-child(2),#tbl-lich-su td:nth-child(2){display:none}
 }
@@ -293,12 +302,6 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 <div class="page-wrap">
 
   <!-- Page Header -->
-  <div class="page-header">
-    <div class="page-header-text">
-      <h4>Chấm Công</h4>
-      <p>Chấm công và quản lý lệnh đi ngoài của bạn</p>
-    </div>
-  </div>
 
   <div class="main-layout">
 
@@ -309,13 +312,13 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
       <div class="geofence-banner" id="cc-geofence-banner">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <div>
-            <div style="font-weight:700;color:var(--warning-fg);font-size:14px">Bạn đã rời khỏi phạm vi công ty</div>
-            <div id="cc-geofence-dist" style="font-size:12px;color:var(--warning-fg);margin-top:2px"></div>
+            <div style="font-weight:700;color:var(--warning-fg);font-size:15px">Bạn đã rời khỏi phạm vi công ty</div>
+            <div id="cc-geofence-dist" style="font-size:13px;color:var(--warning-fg);margin-top:2px"></div>
           </div>
           <div style="display:flex;gap:8px;flex-shrink:0">
-            <button onclick="chamRa()" style="padding:7px 14px;background:var(--danger);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Chấm ra ngay</button>
+            <button onclick="chamRa()" style="padding:7px 14px;background:var(--danger);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Chấm ra ngay</button>
             <button onclick="document.getElementById('cc-geofence-banner').classList.remove('show')"
-              style="padding:7px 14px;background:#fff;border:1.5px solid var(--warning-fg);color:var(--warning-fg);border-radius:8px;font-size:13px;cursor:pointer">Bỏ qua</button>
+              style="padding:7px 14px;background:#fff;border:1.5px solid var(--warning-fg);color:var(--warning-fg);border-radius:8px;font-size:14px;cursor:pointer">Bỏ qua</button>
           </div>
         </div>
       </div>
@@ -338,7 +341,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
       <div class="card">
         <div class="card-header">
           <h3>Lệnh đi trong ngày</h3>
-          <div style="font-size:11px;color:var(--text-3);margin-left:6px;flex:1">Đi rồi về trong ngày, vẫn chấm công VP</div>
+          <div style="font-size:12px;color:var(--text-3);margin-left:6px;flex:1">Đi rồi về trong ngày, vẫn chấm công VP</div>
           <div class="card-toolbar">
             <select class="month-select" id="ldd-nv-thang" onchange="loadLenhDiDoNv(this.value)"></select>
             <button class="btn-primary" onclick="openLenhDiModal()">Tạo lệnh đi</button>
@@ -399,7 +402,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
       <div class="card">
         <div class="card-header">
           <h3>Đăng ký công trình</h3>
-          <div style="font-size:11px;color:var(--text-3);margin-left:6px;flex:1">Đi cả ngày/nhiều ngày, thay thế chấm công VP</div>
+          <div style="font-size:12px;color:var(--text-3);margin-left:6px;flex:1">Đi cả ngày/nhiều ngày, thay thế chấm công VP</div>
           <div class="card-toolbar">
             <button class="btn-primary" onclick="openCongTrinhModal()">Đăng ký</button>
           </div>
@@ -432,7 +435,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
       <button class="modal-close" onclick="closeCongTrinhModal()">•</button>
     </div>
     <div class="modal-body">
-      <div style="background:var(--brand-soft);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--brand-hover)">
+      <div style="background:var(--brand-soft);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:13px;color:var(--brand-hover)">
         Sau khi manager duyệt, những ngày này được tính công thay cho chấm công VP. NV cần check-in GPS khi đến và rời công trình.
       </div>
 
@@ -457,7 +460,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
       <!-- Thông tin công trình -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
         <div class="form-field" style="margin:0">
-          <label>Mã công trình <span style="font-size:11px;color:var(--text-3);font-weight:500">(nếu có)</span></label>
+          <label>Mã công trình <span style="font-size:12px;color:var(--text-3);font-weight:500">(nếu có)</span></label>
           <input type="text" id="ct-ma-ct" placeholder="VD: CT-2026-001">
         </div>
         <div class="form-field" style="margin:0">
@@ -473,9 +476,9 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
       </div>
 
       <!-- Vị trí GPS -->
-      <div style="font-size:13px;font-weight:700;color:var(--brand);margin-bottom:10px;margin-top:4px">
+      <div style="font-size:14px;font-weight:700;color:var(--brand);margin-bottom:10px;margin-top:4px">
         Vị trí công trình
-        <span style="font-size:11px;color:var(--text-3);font-weight:500;margin-left:6px">dùng để xác minh GPS khi check-in</span>
+        <span style="font-size:12px;color:var(--text-3);font-weight:500;margin-left:6px">dùng để xác minh GPS khi check-in</span>
       </div>
       <div class="modal-tabs">
         <button class="modal-tab active" onclick="_ctSwitchTab('link')" id="ct-tab-link">Dán link Maps</button>
@@ -483,29 +486,29 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
       </div>
 
       <div class="modal-pane active" id="ct-pane-link">
-        <div style="font-size:12px;color:var(--text-3);margin-bottom:8px;line-height:1.6">
+        <div style="font-size:13px;color:var(--text-3);margin-bottom:8px;line-height:1.6">
           Mở Google Maps → tìm địa điểm công trình → <b>Chia sẻ</b> → Copy link → Dán vào đây
         </div>
         <div style="display:flex;gap:8px">
           <input type="text" id="ct-gmaps-paste" placeholder="https://maps.app.goo.gl/..."
-            style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--bg-page)">
+            style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;outline:none;background:var(--bg-page)">
           <button type="button" onclick="_ctExtractFromLink()"
-            style="padding:9px 16px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+            style="padding:9px 16px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap">
             Lấy tọa độ
           </button>
         </div>
-        <div id="ct-link-status" style="margin-top:8px;font-size:12px"></div>
+        <div id="ct-link-status" style="margin-top:8px;font-size:13px"></div>
       </div>
 
       <div class="modal-pane" id="ct-pane-manual">
-        <div style="font-size:12px;color:var(--text-3);margin-bottom:8px;line-height:1.6">
+        <div style="font-size:13px;color:var(--text-3);margin-bottom:8px;line-height:1.6">
           Mở Google Maps → nhấn giữ vị trí → copy tọa độ (VD: <b>10.7234, 106.7234</b>)
         </div>
         <div style="display:flex;gap:8px">
           <input type="text" id="ct-manual-coords" placeholder="10.7234, 106.7234"
-            style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--bg-page)">
+            style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;outline:none;background:var(--bg-page)">
           <button type="button" onclick="_ctParseManualCoords()"
-            style="padding:9px 16px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+            style="padding:9px 16px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">
             Xác nhận
           </button>
         </div>
@@ -514,12 +517,12 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
       <div id="ct-map-wrap" style="display:none;margin-top:14px;background:var(--success-soft);border-radius:10px;padding:12px 14px">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">
           <div>
-            <div style="font-size:12px;color:var(--success);font-weight:700;margin-bottom:4px">Đã xác định vị trí</div>
-            <div id="ct-map-addr" style="font-size:13px;color:var(--brand);line-height:1.4"></div>
-            <div id="ct-coords-display" style="font-size:11px;color:var(--text-3);margin-top:4px"></div>
+            <div style="font-size:13px;color:var(--success);font-weight:700;margin-bottom:4px">Đã xác định vị trí</div>
+            <div id="ct-map-addr" style="font-size:14px;color:var(--brand);line-height:1.4"></div>
+            <div id="ct-coords-display" style="font-size:12px;color:var(--text-3);margin-top:4px"></div>
           </div>
           <a id="ct-gmaps-link" href="#" target="_blank"
-            style="display:inline-flex;align-items:center;gap:6px;background:var(--brand-soft);color:var(--brand-hover);padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;flex-shrink:0">
+            style="display:inline-flex;align-items:center;gap:6px;background:var(--brand-soft);color:var(--brand-hover);padding:8px 12px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;flex-shrink:0">
             Xem Maps
           </a>
         </div>
@@ -542,7 +545,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
     <div class="modal-header">
       
       <h5>Sửa địa điểm lệnh đi</h5>
-      <button onclick="document.getElementById('modal-sua-dd').style.display='none'" style="margin-left:auto;background:none;border:none;font-size:16px;cursor:pointer;color:var(--text-3)">×</button>
+      <button onclick="document.getElementById('modal-sua-dd').style.display='none'" style="margin-left:auto;background:none;border:none;font-size:17px;cursor:pointer;color:var(--text-3)">×</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="sua-dd-id">
@@ -557,41 +560,41 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 
       <!-- GPS (chỉ hiện khi chưa check-in) -->
       <div id="sua-dd-gps-wrap">
-        <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Tọa độ GPS <span style="font-weight:500;text-transform:none">(tùy chọn — để xác nhận vị trí khi check-in)</span></div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Tọa độ GPS <span style="font-weight:500;text-transform:none">(tùy chọn — để xác nhận vị trí khi check-in)</span></div>
         <div style="display:flex;gap:0;margin-bottom:8px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden">
           <button type="button" id="sua-dd-tab-link" onclick="_suaDdTab('link')"
-            style="flex:1;padding:7px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:var(--brand-soft);color:var(--brand-hover)">
+            style="flex:1;padding:7px;font-size:13px;font-weight:700;border:none;cursor:pointer;background:var(--brand-soft);color:var(--brand-hover)">
             Dán link Maps
           </button>
           <button type="button" id="sua-dd-tab-manual" onclick="_suaDdTab('manual')"
-            style="flex:1;padding:7px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:var(--bg-page);color:var(--text-3)">
+            style="flex:1;padding:7px;font-size:13px;font-weight:700;border:none;cursor:pointer;background:var(--bg-page);color:var(--text-3)">
             Nhập tọa độ
           </button>
         </div>
         <div id="sua-dd-pane-link">
-          <div style="font-size:12px;color:var(--text-3);margin-bottom:8px">
+          <div style="font-size:13px;color:var(--text-3);margin-bottom:8px">
             Mở Google Maps → tìm địa điểm → <b>Chia sẻ</b> → Copy link → Dán vào đây
           </div>
           <div style="display:flex;gap:8px">
             <input type="text" id="sua-dd-link" placeholder="https://maps.app.goo.gl/..."
-              style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--bg-page)">
+              style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;outline:none;background:var(--bg-page)">
             <button type="button" onclick="_suaDdExtractLink()"
-              style="padding:9px 14px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+              style="padding:9px 14px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap">
               Lấy tọa độ
             </button>
           </div>
-          <div id="sua-dd-link-st" style="margin-top:6px;font-size:12px"></div>
+          <div id="sua-dd-link-st" style="margin-top:6px;font-size:13px"></div>
         </div>
         <div id="sua-dd-pane-manual" style="display:none">
-          <div style="font-size:12px;color:var(--text-3);margin-bottom:6px">Nhập tọa độ dạng: 10.7234, 106.7234</div>
+          <div style="font-size:13px;color:var(--text-3);margin-bottom:6px">Nhập tọa độ dạng: 10.7234, 106.7234</div>
           <div style="display:flex;gap:8px">
             <input type="text" id="sua-dd-manual" placeholder="10.7234, 106.7234"
-              style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--bg-page)">
+              style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;outline:none;background:var(--bg-page)">
             <button type="button" onclick="_suaDdManual()"
-              style="padding:9px 14px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Xác nhận</button>
+              style="padding:9px 14px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Xác nhận</button>
           </div>
         </div>
-        <div id="sua-dd-coords-display" style="display:none;margin-top:8px;padding:8px 12px;background:var(--success-soft);border:1.5px solid var(--success-soft);border-radius:8px;font-size:12px;color:var(--success-fg)">
+        <div id="sua-dd-coords-display" style="display:none;margin-top:8px;padding:8px 12px;background:var(--success-soft);border:1.5px solid var(--success-soft);border-radius:8px;font-size:13px;color:var(--success-fg)">
           <span id="sua-dd-coords-text"></span>
           <input type="hidden" id="sua-dd-lat"><input type="hidden" id="sua-dd-lng">
         </div>
@@ -599,9 +602,9 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
     </div>
     <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding:14px 20px;border-top:1.5px solid var(--border)">
       <button onclick="document.getElementById('modal-sua-dd').style.display='none'"
-        style="padding:8px 18px;background:var(--bg-page);border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Hủy</button>
+        style="padding:8px 18px;background:var(--bg-page);border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Hủy</button>
       <button onclick="saveSuaDiaDiem()"
-        style="padding:8px 18px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+        style="padding:8px 18px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">
         Lưu thay đổi
       </button>
     </div>
@@ -657,7 +660,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
             </div>
           </div>
           <div class="form-field">
-            <label>Mã báo giá <span style="font-size:11px;color:var(--text-3);font-weight:500">(không bắt buộc)</span></label>
+            <label>Mã báo giá <span style="font-size:12px;color:var(--text-3);font-weight:500">(không bắt buộc)</span></label>
             <input type="text" id="ldd-tc-ma-bg" placeholder="VD: BG-2026-001">
           </div>
         </div>
@@ -674,7 +677,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
             </div>
           </div>
           <div class="form-field">
-            <label>Giai đoạn <span style="font-size:11px;color:var(--text-3);font-weight:500">(không bắt buộc)</span></label>
+            <label>Giai đoạn <span style="font-size:12px;color:var(--text-3);font-weight:500">(không bắt buộc)</span></label>
             <input type="text" id="ldd-tc-giai-doan" placeholder="VD: Thi công hoàn thiện">
           </div>
         </div>
@@ -718,7 +721,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
       </div>
 
       <!-- Vị trí tabs -->
-      <div style="font-size:13px;font-weight:700;color:var(--brand);margin-bottom:10px">Vị trí</div>
+      <div style="font-size:14px;font-weight:700;color:var(--brand);margin-bottom:10px">Vị trí</div>
       <div class="modal-tabs">
         <button class="modal-tab active" onclick="switchLddTab('link')" id="ldd-tab-link">Dán link Maps</button>
         <button class="modal-tab" onclick="switchLddTab('manual')" id="ldd-tab-manual">Nhập tọa độ</button>
@@ -726,30 +729,30 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 
       <!-- Tab: dán link -->
       <div class="modal-pane active" id="ldd-pane-link">
-        <div style="font-size:12px;color:var(--text-3);margin-bottom:8px;line-height:1.6">
+        <div style="font-size:13px;color:var(--text-3);margin-bottom:8px;line-height:1.6">
           Mở Google Maps → tìm địa chỉ → nhấn <b>Chia sẻ</b> → Copy link → Dán vào đây
         </div>
         <div style="display:flex;gap:8px">
           <input type="text" id="ldd-gmaps-paste" placeholder="https://maps.app.goo.gl/... hoặc https://www.google.com/maps/..."
-            style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--bg-page)">
+            style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;outline:none;background:var(--bg-page)">
           <button type="button" onclick="_lddExtractFromLink()"
-            style="padding:9px 16px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+            style="padding:9px 16px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap">
             Lấy tọa độ
           </button>
         </div>
-        <div id="ldd-link-status" style="margin-top:8px;font-size:12px"></div>
+        <div id="ldd-link-status" style="margin-top:8px;font-size:13px"></div>
       </div>
 
       <!-- Tab: nhập tọa độ thủ công -->
       <div class="modal-pane" id="ldd-pane-manual">
-        <div style="font-size:12px;color:var(--text-3);margin-bottom:8px;line-height:1.6">
+        <div style="font-size:13px;color:var(--text-3);margin-bottom:8px;line-height:1.6">
           Mở Google Maps → nhấn giữ vào vị trí → copy tọa độ hiện ra ở thanh dưới (VD: <b>10.7234, 106.7234</b>)
         </div>
         <div style="display:flex;gap:8px">
           <input type="text" id="ldd-manual-coords" placeholder="10.7234, 106.7234"
-            style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:var(--bg-page)">
+            style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;outline:none;background:var(--bg-page)">
           <button type="button" onclick="_lddParseManualCoords()"
-            style="padding:9px 16px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+            style="padding:9px 16px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">
             Xác nhận
           </button>
         </div>
@@ -759,12 +762,12 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
       <div id="ldd-map-wrap" style="display:none;margin-top:14px;background:var(--success-soft);border-radius:10px;padding:12px 14px">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">
           <div>
-            <div style="font-size:12px;color:var(--success);font-weight:700;margin-bottom:4px">Đã xác định vị trí</div>
-            <div id="ldd-map-addr" style="font-size:13px;color:var(--brand);line-height:1.4"></div>
-            <div id="ldd-coords-display" style="font-size:11px;color:var(--text-3);margin-top:4px"></div>
+            <div style="font-size:13px;color:var(--success);font-weight:700;margin-bottom:4px">Đã xác định vị trí</div>
+            <div id="ldd-map-addr" style="font-size:14px;color:var(--brand);line-height:1.4"></div>
+            <div id="ldd-coords-display" style="font-size:12px;color:var(--text-3);margin-top:4px"></div>
           </div>
           <a id="ldd-gmaps-link" href="#" target="_blank"
-            style="display:inline-flex;align-items:center;gap:6px;background:var(--brand-soft);color:var(--brand-hover);padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;flex-shrink:0">
+            style="display:inline-flex;align-items:center;gap:6px;background:var(--brand-soft);color:var(--brand-hover);padding:8px 12px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;flex-shrink:0">
             Xem Maps
           </a>
         </div>
@@ -893,7 +896,7 @@ function _ccRenderTrangThai(sessions){
 
   const bangPhien = sessions.map((s,i)=>`
     <tr>
-      <td style="color:var(--text-3);font-size:12px">Phiên ${i+1}</td>
+      <td style="color:var(--text-3);font-size:13px">Phiên ${i+1}</td>
       <td><b>${_ccFmtTime(s.gio_vao)}</b></td>
       <td>${s.gio_ra ? `<b>${_ccFmtTime(s.gio_ra)}</b>` : '<span style="color:#e67e22">Đang làm</span>'}</td>
       <td>${s.tong_gio ? s.tong_gio+'h' : '—'}</td>
@@ -904,7 +907,7 @@ function _ccRenderTrangThai(sessions){
       <thead><tr><th></th><th>Vào</th><th>Ra</th><th>Giờ</th></tr></thead>
       <tbody>${bangPhien}</tbody>
       <tfoot><tr>
-        <td colspan="3" style="padding:6px 10px;font-weight:700;text-align:right;color:var(--text-3);font-size:12px">Tổng hôm nay:</td>
+        <td colspan="3" style="padding:6px 10px;font-weight:700;text-align:right;color:var(--text-3);font-size:13px">Tổng hôm nay:</td>
         <td style="padding:6px 10px;font-weight:800;color:var(--brand)">${tongGio}h</td>
       </tr></tfoot>
     </table>
@@ -912,7 +915,7 @@ function _ccRenderTrangThai(sessions){
       ? `<button class="btn-cham-ra" onclick="chamRa()">CHẤM RA</button>`
       : `<div>
            <div class="cc-done-msg">Tất cả phiên đã đóng — Tổng: ${tongGio}h</div>
-           <button class="btn-cham-vao" onclick="chamVao()" style="font-size:15px;padding:12px">CHẤM VÀO TIẾP</button>
+           <button class="btn-cham-vao" onclick="chamVao()" style="font-size:16px;padding:12px">CHẤM VÀO TIẾP</button>
          </div>`
     }
   `;
@@ -1036,10 +1039,10 @@ async function loadLenhDiDoNv(thang){
     const isAfter1730 = nowH > 17 || (nowH === 17 && nowM >= 30);
     const loaiLabels = {do_nha:'Thăm/Đo nhà',cong_trinh:'Kiểm tra CT',gap_ncc:'Gặp NCC',quay_chup:'Quay chụp',hop_tac:'Họp/Đối tác',khac:'Khác'};
     const _warnKhongDi = `<div style="line-height:1.6">
-      <span class="st-badge" style="background:var(--warning-soft);color:var(--warning-fg);border:1px solid #f59e0b;display:inline-flex;gap:4px">
+      <span class="st-badge" style="background:var(--warning-soft);color:var(--warning-fg);border:1px solid var(--warning);display:inline-flex;gap:4px">
         Không check-in
       </span>
-      <div style="font-size:10px;color:var(--text-3);margin-top:3px">Đã thông báo HCNS</div>
+      <div style="font-size:11px;color:var(--text-3);margin-top:3px">Đã thông báo HCNS</div>
     </div>`;
     tbody.innerHTML = list.map(r=>{
       const stBadge = {
@@ -1063,16 +1066,16 @@ async function loadLenhDiDoNv(thang){
         } else if(!r.gio_ra){
           actions = `<button class="btn-sm btn-warning" onclick="checkoutLenhDiDo(${r.id})">Đã về</button>`;
         } else {
-          actions = '<span style="color:var(--success-fg);font-size:12px;font-weight:700">Hoàn thành</span>';
+          actions = '<span style="color:var(--success-fg);font-size:13px;font-weight:700">Hoàn thành</span>';
         }
       } else if(r.status==='cho_duyet'){
         actions = `${btnSuaViTri}
           <button class="btn-sm btn-danger" onclick="xoaLenhDi(${r.id})" style="margin-left:4px">Xóa</button>`;
       } else if(r.status==='tu_choi'){
-        actions = `<span style="color:var(--danger);font-size:11px">Từ chối${r.note_duyet ? ': <i>'+_ccEsc(r.note_duyet)+'</i>' : ''}</span>`;
+        actions = `<span style="color:var(--danger);font-size:12px">Từ chối${r.note_duyet ? ': <i>'+_ccEsc(r.note_duyet)+'</i>' : ''}</span>`;
       } else if(r.status==='da_duyet' && !isToday){
         actions = r.gio_vao
-          ? '<span style="color:var(--text-3);font-size:11px">Đã đi</span>'
+          ? '<span style="color:var(--text-3);font-size:12px">Đã đi</span>'
           : _warnKhongDi;
       }
 
@@ -1080,9 +1083,9 @@ async function loadLenhDiDoNv(thang){
 
       return `<tr>
         <td style="white-space:nowrap">${_ccFmtDate(r.ngay)}</td>
-        <td><b>${_ccEsc(r.dia_diem||'—')}</b>${r.dia_chi ? `<div style="font-size:11px;color:var(--text-3)">${_ccEsc(r.dia_chi.split(',').slice(0,2).join(','))}</div>` : ''}</td>
+        <td><b>${_ccEsc(r.dia_diem||'—')}</b>${r.dia_chi ? `<div style="font-size:12px;color:var(--text-3)">${_ccEsc(r.dia_chi.split(',').slice(0,2).join(','))}</div>` : ''}</td>
         <td style="white-space:nowrap">${loaiLabels[r.loai_di]||r.loai_di||'—'}</td>
-        <td>${stBadge}${r.status==='tu_choi' && r.note_duyet ? `<div style="font-size:11px;color:var(--danger);margin-top:2px">↳ ${_ccEsc(r.note_duyet)}</div>` : ''}</td>
+        <td>${stBadge}${r.status==='tu_choi' && r.note_duyet ? `<div style="font-size:12px;color:var(--danger);margin-top:2px">↳ ${_ccEsc(r.note_duyet)}</div>` : ''}</td>
         <td style="white-space:nowrap">${r.gio_vao ? r.gio_vao.slice(0,5) : '—'}</td>
         <td style="white-space:nowrap">${r.gio_ra ? r.gio_ra.slice(0,5) : '—'}</td>
         <td style="white-space:nowrap">${tongGio}</td>
@@ -1369,7 +1372,7 @@ async function _lddExtractFromLink(){
   if(!lat||!lng){
     if(status) status.innerHTML=`
       <span style="color:var(--danger)">Không đọc được tọa độ từ link này.</span>
-      <div style="margin-top:6px;line-height:1.6;color:var(--text-3);font-size:12px">
+      <div style="margin-top:6px;line-height:1.6;color:var(--text-3);font-size:13px">
         Cách khác: mở Maps → nhấn giữ vào vị trí → tọa độ hiện ở thanh dưới → chuyển sang tab "Nhập tọa độ"
       </div>`;
     return;
@@ -1539,21 +1542,21 @@ async function loadCongTrinhCuaToi(){
     const list = await api('GET', '/api/cong-trinh/cua-toi');
     if(!list.length){ tbody.innerHTML='<tr class="empty-row"><td colspan="6">Chưa có đăng ký nào</td></tr>'; return; }
     const stBadge = {
-      cho_duyet:'<span style="background:var(--warning-soft);color:var(--warning-fg);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">Chờ duyệt</span>',
-      da_duyet: '<span style="background:var(--success-soft);color:var(--success-fg);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">Đã duyệt</span>',
-      tu_choi:  '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">Từ chối</span>',
+      cho_duyet:'<span style="background:var(--warning-soft);color:var(--warning-fg);padding:2px 8px;border-radius:10px;font-size:12px;font-weight:700">Chờ duyệt</span>',
+      da_duyet: '<span style="background:var(--success-soft);color:var(--success-fg);padding:2px 8px;border-radius:10px;font-size:12px;font-weight:700">Đã duyệt</span>',
+      tu_choi:  '<span style="background:var(--danger-soft);color:var(--danger-fg);padding:2px 8px;border-radius:10px;font-size:12px;font-weight:700">Từ chối</span>',
     };
     tbody.innerHTML = list.map(r => {
       const tuNgay = r.ngay_bat_dau ? r.ngay_bat_dau.slice(8,10)+'/'+r.ngay_bat_dau.slice(5,7) : '—';
       const denNgay = r.ngay_ket_thuc ? r.ngay_ket_thuc.slice(8,10)+'/'+r.ngay_ket_thuc.slice(5,7) : '—';
       const st = stBadge[r.status] || r.status;
-      const note = r.note_duyet ? `<div style="font-size:11px;color:#991b1b;margin-top:2px">↳ ${r.note_duyet}</div>` : '';
+      const note = r.note_duyet ? `<div style="font-size:12px;color:var(--danger-fg);margin-top:2px">↳ ${r.note_duyet}</div>` : '';
       const canDelete = r.status === 'cho_duyet'
-        ? `<button onclick="xoaCongTrinh(${r.id})" style="padding:3px 8px;background:#fff;border:1px solid var(--danger);color:var(--danger);border-radius:6px;font-size:11px;cursor:pointer">Xoá</button>` : '—';
+        ? `<button onclick="xoaCongTrinh(${r.id})" style="padding:3px 8px;background:#fff;border:1px solid var(--danger);color:var(--danger);border-radius:6px;font-size:12px;cursor:pointer">Xoá</button>` : '—';
       return `<tr>
         <td>${tuNgay}</td><td>${denNgay}</td>
         <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.dia_diem||'—'}</td>
-        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-3);font-size:12px">${r.ly_do||'—'}</td>
+        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-3);font-size:13px">${r.ly_do||'—'}</td>
         <td>${st}${note}</td>
         <td style="text-align:center">${canDelete}</td>
       </tr>`;

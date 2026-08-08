@@ -53,7 +53,7 @@ bạn là làm cho người ta **hiểu**, để họ tự viết được.
 Đọc `CLAUDE.md` và `.claude/rules/` trước. Vài điểm hay gây hiểu nhầm cho người mới:
 
 - Repo **không tự chạy được** — nó là package `ketoan` tách từ monorepo, scaffolding ở
-  `C:/PapasanIT/ketoan-devrun`. ASGI target là `ketoan.app.main:app`.
+  `C:/PapasanIT/App_qlpps/ketoan-devrun`. ASGI target là `ketoan.app.main:app`.
 - **Session là ĐỒNG BỘ** (`sqlalchemy.orm.Session`), không `AsyncSession`. Endpoint có thể là
   `async def` nhưng `db.execute(...)` không có `await`. Đây là chỗ người mới hay nhầm nhất.
 - **Import trong `app/` là tương đối** (`from ..models import`), không phải `from app.models`.

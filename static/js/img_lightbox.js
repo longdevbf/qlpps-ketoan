@@ -60,7 +60,7 @@
     overlayEl.innerHTML = `
       <button type="button" data-act="close" aria-label="Đóng"
         style="position:absolute;top:14px;right:18px;background:rgba(0,0,0,.4);border:none;color:#fff;
-        font-size:26px;line-height:1;width:38px;height:38px;border-radius:50%;cursor:pointer">✕</button>
+        font-size:22px;line-height:1;width:38px;height:38px;border-radius:50%;cursor:pointer">✕</button>
       <img alt="" style="max-width:92vw;max-height:88vh;object-fit:contain;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.6)">
       <div style="display:flex;gap:10px;align-items:center">
         <a data-act="open" target="_blank" rel="noopener" style="background:rgba(255,255,255,.15);color:#fff;

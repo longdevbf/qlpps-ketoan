@@ -1,345 +1,410 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Duyệt Đề Xuất Trả NCC — Kế Toán</title>
-<link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
-<link rel="shortcut icon" href="/static/papasan.ico">
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-{# Khối alias V1 bắc cầu sang token — KHÔNG đè lại token hệ (--border từng bị
-   đè thành brand-soft làm viền bảng hồng). Nền trang dùng --bg-page. #}
-:root{--blue:var(--brand-hover);--blue2:var(--brand);--blue3:var(--brand-soft);--green:var(--success-fg);--red:var(--danger);--orange:#e67e22;--gray:var(--bg-page);--text:var(--text-1);--text2:var(--text-3)}
-body{font-family:'Segoe UI',sans-serif;background:var(--gray);color:var(--text);min-height:100vh}
+{% extends "base.html" %}
+{% set page_title = "Duyệt Đề Xuất Trả NCC" %}
+{% set page_sub = "Duyệt cấp 1 — hồ sơ qua bước này mới lên CEO" %}
 
-{# Sidebar dọc V1 đã bỏ (06/08/2026) — điều hướng nằm hết ở _header.html.
-   Mục "Duyệt ĐX Trả NCC" có sẵn trong menu Quản Lý của header. #}
+{% block page_style %}
+/* ── CSS riêng trang: chỉ những gì components.css KHÔNG có ────────────────
+   Trang này trước đây tự dựng lại .card / .btn / .badge / .modal / bảng.
+   Nay dùng thẳng components.css; phần còn lại đúng 4 khối dưới đây. */
 
-/* Content area */
-.content{padding:20px 24px}
+/* Tầng 1 — số DUY NHẤT khiến kế toán phải hành động. 29px theo thang
+   design-system (mục "Cỡ KPI"); 25px khi màn thấp, giống .stats-row.tier-1
+   của dashboard. */
+.ncc-hero{max-width:340px}
+.ncc-hero .stat-num{font-size:29px;color:var(--brand-hover)}
+@media(max-height:820px){.ncc-hero .stat-num{font-size:25px}}
+.ncc-hero-sub{font-size:12px;color:var(--text-3);margin-top:8px;line-height:1.5}
 
-/* Summary cards */
-.summary{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
-.stat{background:#fff;padding:14px 20px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);min-width:140px;cursor:pointer;transition:all .15s;border:1.5px solid transparent}
-.stat:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,0,0,.1)}
-.stat.active{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue)}
-.stat .label{color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.3px;font-weight:600}
-.stat .value{font-size:22px;font-weight:800;color:var(--blue);margin-top:4px}
-.stat.cho_duyet .value{color:var(--warning)}
-.stat.kt_duyet .value{color:var(--info)}
-.stat.duyet .value{color:var(--green)}
-.stat.kt_tu_choi .value, .stat.tu_choi .value{color:var(--red)}
-
-/* Card + table */
-.card{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden}
-.card-header{padding:14px 20px;border-bottom:1px solid var(--border);font-weight:700;color:var(--blue);font-size:14px;display:flex;align-items:center;gap:10px}
-table{width:100%;border-collapse:collapse}
-th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--bg-page);font-size:13px;vertical-align:top}
-th{background:var(--bg-page);color:var(--text-2);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid var(--border)}
-tr:hover td{background:var(--bg-page)}
-.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
-.b-cho_duyet{background:#fef3c7;color:#92400e}
-.b-kt_duyet{background:var(--info-soft);color:var(--info-fg)}
-.b-duyet{background:var(--success-soft);color:var(--success-fg)}
-.b-kt_tu_choi,.b-tu_choi{background:#fee2e2;color:#991b1b}
-.money{font-variant-numeric:tabular-nums;color:var(--blue);font-weight:700;text-align:right;white-space:nowrap}
-.btn{display:inline-block;padding:6px 12px;border-radius:6px;border:none;font-size:12px;cursor:pointer;font-weight:600;margin-right:4px;transition:all .15s}
-.btn-ok{background:var(--green);color:#fff}
-.btn-ok:hover{background:var(--success-fg)}
-.btn-no{background:var(--red);color:#fff}
-.btn-no:hover{background:var(--danger)}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.empty{padding:60px 20px;text-align:center;color:var(--text2);font-style:italic}
-.ghi-chu-cell{max-width:220px;color:var(--text2);font-size:12px;line-height:1.4}
-
-/* Modal */
-.modal{display:none;position:fixed;inset:0;background:rgba(10,35,64,.55);z-index:1000;align-items:center;justify-content:center;padding:16px}
-.modal.open{display:flex}
-.modal-box{background:#fff;border-radius:10px;max-width:500px;width:100%;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
-.modal-box h3{margin-bottom:12px;color:var(--blue);font-size:16px}
-.modal-box .info{background:var(--blue3);padding:10px 12px;border-radius:6px;margin-bottom:14px;font-size:13px;line-height:1.5}
-.modal-box textarea{width:100%;padding:10px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;min-height:80px;resize:vertical}
-.modal-box textarea:focus{outline:none;border-color:var(--blue)}
-.modal-box .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
-.btn-cancel{background:var(--border);color:var(--text-2)}
-.btn-cancel:hover{background:var(--border)}
-
-/* Mobile */
-@media (max-width:992px){
-  .content{padding:14px}
-  .summary{gap:8px}
-  .stat{min-width:120px;flex:1 1 45%;padding:12px 14px}
-  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .table-scroll table{min-width:900px}
-  table{font-size:12px}
-  th{padding:8px 8px;font-size:10px}
-  td{padding:7px 8px}
+/* Đếm trong tab lọc — nằm trong .tab-btn nên thừa hưởng màu active của nó. */
+.tab-count{
+  margin-left:6px;padding:1px 7px;border-radius:var(--radius-pill);
+  background:var(--bg-page);font-size:12px;font-weight:700;
 }
-</style>
-</head>
-<body>
-{% include "_header.html" %}
-{# Sidebar V1 đã gỡ — nav nằm hết ở header dùng chung #}
-<div class="content">
+.tab-btn.active .tab-count{background:var(--brand-soft);color:var(--brand-hover)}
 
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <div style="width:4px;height:20px;background:var(--brand);border-radius:2px"></div>
-      <h1 style="font-size:16px;font-weight:800;color:var(--text-1)">Duyệt Đề Xuất Trả NCC</h1>
+/* Cột tiền: --text-1, KHÔNG tô brand. Số tiền là số trung tính, chỉ tô màu
+   khi nó mang phán xét (ui-standards mục 2). */
+.money{font-weight:700;color:var(--text-1);white-space:nowrap}
+.ma{white-space:nowrap}
+
+/* Bảng 10 cột: chặn đáy bề rộng rồi cho cuộn ngang trong .table-scroll.
+   Không có nó thì dưới ~1000px trình duyệt bóp cột lại, "DX-2026-0041" và
+   "48.750.000 đ" bị ngắt làm 3 dòng và mỗi hàng cao gấp ba (đo ở 375px).
+   Sau khi gộp 10 cột → 7, 880px là đủ; vùng nội dung trên màn 1440 có subnav
+   trái 210px còn ~1150px nên desktop không phải cuộn. */
+.table{min-width:880px}
+
+/* Cột "Duyệt" gộp: mỗi bước một khối, nhãn cấp in hoa đứng trước tên người. */
+.cot-duyet{min-width:150px}
+.buoc + .buoc{margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)}
+.buoc-cap{
+  font-size:11px;font-weight:700;color:var(--text-3);
+  text-transform:uppercase;letter-spacing:.5px;
+}
+
+/* Mô tả cần bề rộng TỐI THIỂU, không chỉ tối đa: chỉ đặt max-width thì trình
+   duyệt vẫn bóp nó xuống ~85px và chữ rơi thành 5 dòng. */
+.mo-ta{min-width:180px;max-width:260px;color:var(--text-2);font-size:13px;line-height:1.45}
+/* Ghi chú của KT nằm lồng trong ô người duyệt — nhỏ hơn, không cần min-width. */
+.ghi-chu{max-width:200px;color:var(--text-3);font-size:12px;line-height:1.45;margin-top:2px}
+.meta{color:var(--text-3);font-size:12px}
+
+/* Skeleton tĩnh — không animation: rule 9 nói hiệu ứng phải có mục đích,
+   thanh xám đứng yên đã đủ nói "đang tải". */
+.skel{height:11px;border-radius:var(--radius-xs);background:var(--bg-page)}
+{% endblock %}
+
+{% block content %}
+
+{# ═══ TẦNG 1 — KPI duy nhất ═══════════════════════════════════════════════
+   Trước 08/08/2026 chỗ này là 6 thẻ đều nhau dùng làm nút lọc, vi phạm luật 4
+   ("cấm lưới card đều tăm tắp") và chôn mất việc chính. 5 thẻ kia đã giáng
+   xuống dải tab bên dưới — không con số nào bị xoá. #}
+<div class="card ncc-hero section">
+  <div class="card-body">
+    <div class="stat-num" id="kpi-cho-duyet">—</div>
+    <div class="stat-label">Đề xuất chờ bạn duyệt</div>
+    <p class="ncc-hero-sub">Nguồn: Mua Hàng. Bấm tab <b>Chờ KT</b> bên dưới để xem đúng danh sách này.</p>
+  </div>
+</div>
+
+{# ═══ Bộ lọc — subnav dạng 2 (tab trong thân trang), dạng duy nhất được phép
+   khi các mục ngang hàng cùng một trang. #}
+<div class="tab-nav" id="filters" role="tablist" aria-label="Lọc theo trạng thái">
+  <button type="button" class="tab-btn active" role="tab" aria-selected="true"  data-filter="">Tất cả <span class="tab-count" id="cnt-all">—</span></button>
+  <button type="button" class="tab-btn"        role="tab" aria-selected="false" data-filter="cho_duyet">Chờ KT <span class="tab-count" id="cnt-cho_duyet">—</span></button>
+  <button type="button" class="tab-btn"        role="tab" aria-selected="false" data-filter="kt_duyet">Chờ CEO <span class="tab-count" id="cnt-kt_duyet">—</span></button>
+  <button type="button" class="tab-btn"        role="tab" aria-selected="false" data-filter="duyet">Hoàn tất <span class="tab-count" id="cnt-duyet">—</span></button>
+  <button type="button" class="tab-btn"        role="tab" aria-selected="false" data-filter="kt_tu_choi">KT từ chối <span class="tab-count" id="cnt-kt_tu_choi">—</span></button>
+  <button type="button" class="tab-btn"        role="tab" aria-selected="false" data-filter="tu_choi">CEO từ chối <span class="tab-count" id="cnt-tu_choi">—</span></button>
+</div>
+
+{# ═══ Bảng — ĐỦ 4 TRẠNG THÁI (frontend-ui luật 5) ════════════════════════
+   loading (skeleton) · empty (vì sao trống + làm gì tiếp) · error (lỗi gì +
+   nút thử lại) · data. Đúng một khối hiện tại mỗi thời điểm. #}
+<div class="table-wrap">
+
+  <div id="st-loading" class="card-body" aria-busy="true">
+    <div class="skel" style="width:100%;margin-bottom:10px"></div>
+    <div class="skel" style="width:82%;margin-bottom:10px"></div>
+    <div class="skel" style="width:91%;margin-bottom:10px"></div>
+    <div class="skel" style="width:74%"></div>
+  </div>
+
+  <div id="st-empty" class="empty-state" hidden>
+    <div id="st-empty-msg" style="font-weight:600;color:var(--text-2);margin-bottom:6px"></div>
+    <div id="st-empty-hint"></div>
+  </div>
+
+  <div id="st-error" class="empty-state" hidden>
+    <div style="font-weight:600;color:var(--danger-fg);margin-bottom:6px">Không tải được danh sách</div>
+    <div id="st-error-msg" style="margin-bottom:14px"></div>
+    <button type="button" class="btn btn-outline btn-sm" id="btn-retry">Thử lại</button>
+  </div>
+
+  <div id="st-data" class="table-scroll" hidden>
+    {# 10 cột cũ đã gộp còn 7 (08/08/2026). Không mất thông tin nào — ngày dồn
+       xuống dưới mã, người đề xuất dồn xuống dưới tên NCC, hai cột KT/CEO gộp
+       thành một cột "Duyệt" hai dòng có nhãn. Lý do: 10 cột ép bảng rộng
+       1200px+, cột Mô tả bị bóp còn ~85px và cột Hành động bị cắt khỏi màn. #}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Mã / Ngày</th>
+          <th>Nhà cung cấp</th>
+          <th class="num">Số tiền</th>
+          <th>Mô tả</th>
+          <th>Trạng thái</th>
+          <th>Duyệt</th>
+          <th class="act">Hành động</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block modals %}
+<div class="modal-overlay" id="modal-approve">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="approve-title">
+    <div class="modal-head"><span id="approve-title">Kế Toán duyệt đề xuất</span>
+      <button type="button" class="modal-close" onclick="closeModals()" aria-label="Đóng">&times;</button>
     </div>
-
-    <div class="summary" id="summary">
-      <div class="stat active" data-filter=""><div class="label">Tất cả</div><div class="value" id="cnt-all">—</div></div>
-      <div class="stat cho_duyet" data-filter="cho_duyet"><div class="label">Chờ KT duyệt</div><div class="value" id="cnt-cho_duyet">—</div></div>
-      <div class="stat kt_duyet" data-filter="kt_duyet"><div class="label">Đã KT duyệt, chờ CEO</div><div class="value" id="cnt-kt_duyet">—</div></div>
-      <div class="stat duyet" data-filter="duyet"><div class="label">CEO đã duyệt</div><div class="value" id="cnt-duyet">—</div></div>
-      <div class="stat kt_tu_choi" data-filter="kt_tu_choi"><div class="label">KT từ chối</div><div class="value" id="cnt-kt_tu_choi">—</div></div>
-      <div class="stat tu_choi" data-filter="tu_choi"><div class="label">CEO từ chối</div><div class="value" id="cnt-tu_choi">—</div></div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">Danh sách <span id="filter-label" style="color:var(--text2);font-weight:500;font-size:12px"></span></div>
-      <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>Mã</th>
-            <th>Ngày</th>
-            <th>Nhà cung cấp</th>
-            <th>Số tiền</th>
-            <th>Mô tả</th>
-            <th>Người đề xuất</th>
-            <th>Trạng thái</th>
-            <th>KT duyệt</th>
-            <th>CEO duyệt</th>
-            <th style="text-align:center">Hành động</th>
-          </tr>
-        </thead>
-        <tbody id="tbody">
-          <tr><td colspan="10" class="empty">Đang tải…</td></tr>
-        </tbody>
-      </table>
+    <div class="modal-body">
+      <div id="approve-info" class="card-body" style="background:var(--bg-page);border-radius:var(--radius-xs);margin-bottom:14px"></div>
+      <div class="field">
+        <label for="approve-note">Ghi chú (tuỳ chọn)</label>
+        <textarea id="approve-note" placeholder="VD: Đã đối chiếu công nợ, hợp lệ"></textarea>
       </div>
     </div>
-
-</div><!-- /content -->
-
-<!-- Modal duyệt -->
-<div class="modal" id="modal-approve">
-  <div class="modal-box">
-    <h3>Kế Toán Duyệt</h3>
-    <div class="info" id="approve-info"></div>
-    <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--text-2);font-weight:600">Ghi chú (tùy chọn)</label>
-    <textarea id="approve-note" placeholder="VD: Đã đối chiếu công nợ, hợp lệ"></textarea>
-    <div class="actions">
-      <button class="btn btn-cancel" onclick="closeModals()">Hủy</button>
-      <button class="btn btn-ok" id="approve-submit">Duyệt</button>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-outline" onclick="closeModals()">Huỷ</button>
+      <button type="button" class="btn btn-primary" id="approve-submit">Duyệt</button>
     </div>
   </div>
 </div>
 
-<!-- Modal từ chối -->
-<div class="modal" id="modal-reject">
-  <div class="modal-box">
-    <h3>Kế Toán Từ Chối</h3>
-    <div class="info" id="reject-info"></div>
-    <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--text-2);font-weight:600">Lý do <span style="color:var(--red)">*</span></label>
-    <textarea id="reject-reason" placeholder="VD: Số tiền không khớp công nợ NCC" required></textarea>
-    <div class="actions">
-      <button class="btn btn-cancel" onclick="closeModals()">Hủy</button>
-      <button class="btn btn-no" id="reject-submit">Từ chối</button>
+<div class="modal-overlay" id="modal-reject">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="reject-title">
+    <div class="modal-head"><span id="reject-title">Kế Toán từ chối đề xuất</span>
+      <button type="button" class="modal-close" onclick="closeModals()" aria-label="Đóng">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="reject-info" class="card-body" style="background:var(--bg-page);border-radius:var(--radius-xs);margin-bottom:14px"></div>
+      <div class="field">
+        <label for="reject-reason">Lý do <span style="color:var(--danger-fg)">*</span></label>
+        <textarea id="reject-reason" placeholder="VD: Số tiền không khớp công nợ NCC" required></textarea>
+        <div id="reject-err" class="meta" style="color:var(--danger-fg)" hidden>Phải nhập lý do thì bên Mua Hàng mới biết cần sửa gì.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-outline" onclick="closeModals()">Huỷ</button>
+      <button type="button" class="btn btn-danger" id="reject-submit">Từ chối</button>
     </div>
   </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
+/* esc / fmtVnd / fmtDate / fmtDateTime / toast — ĐỀU LÀ HÀM TOÀN CỤC trong
+   /static/js/ui-common.js (nạp ở _header.html). Không khai lại ở đây. */
+
 let currentFilter = '';
 let allRows = [];
 let actionId = null;
 
+/* Không bao giờ render key kỹ thuật ra màn (frontend-ui luật 2). */
 const STATUS_LABEL = {
-  cho_duyet: 'Chờ KT',
-  kt_duyet: 'Chờ CEO',
-  duyet: 'Hoàn tất',
+  cho_duyet:  'Chờ KT',
+  kt_duyet:   'Chờ CEO',
+  duyet:      'Hoàn tất',
   kt_tu_choi: 'KT từ chối',
-  tu_choi: 'CEO từ chối',
+  tu_choi:    'CEO từ chối',
 };
-
-function fmtVnd(n){
-  if(n == null) return '—';
-  return Number(n).toLocaleString('vi-VN') + 'đ';
-}
-function fmtDate(s){
-  if(!s) return '—';
-  return s.slice(0,10).split('-').reverse().join('/');
-}
-function fmtDt(s){
-  if(!s) return '—';
-  const d = new Date(s);
-  return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'});
-}
-function esc(s){
-  return String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const STATUS_BADGE = {
+  cho_duyet:  'badge-warn',
+  kt_duyet:   'badge-info',
+  duyet:      'badge-ok',
+  kt_tu_choi: 'badge-danger',
+  tu_choi:    'badge-danger',
+};
+function nhan(key) {
+  if (STATUS_LABEL[key]) return STATUS_LABEL[key];
+  console.warn('thiếu nhãn cho trạng thái:', key);
+  return 'Chưa đặt tên';
 }
 
-async function loadSummary(){
-  try{
-    const r = await fetch('/api/ncc-de-xuat/summary', {credentials:'include'});
-    if(!r.ok) return;
+/* Một chỗ duy nhất bật/tắt 4 trạng thái — tránh sót khối đang hiện. */
+function showState(ten) {
+  ['loading', 'empty', 'error', 'data'].forEach(s => {
+    document.getElementById('st-' + s).hidden = (s !== ten);
+  });
+}
+
+async function loadSummary() {
+  try {
+    const r = await fetch('/api/ncc-de-xuat/summary', { credentials: 'include' });
+    if (!r.ok) return;
     const data = await r.json();
     let total = 0;
-    ['cho_duyet','kt_duyet','duyet','kt_tu_choi','tu_choi'].forEach(k => {
+    Object.keys(STATUS_LABEL).forEach(k => {
       const n = data[k] || 0;
-      document.getElementById('cnt-'+k).textContent = n;
+      document.getElementById('cnt-' + k).textContent = n;
       total += n;
     });
     document.getElementById('cnt-all').textContent = total;
-  }catch(e){console.error(e)}
+    document.getElementById('kpi-cho-duyet').textContent = data.cho_duyet || 0;
+  } catch (e) {
+    // Fail-soft: bảng vẫn dùng được khi chỉ số đếm hỏng. Giữ dấu "—".
+    console.error('không tải được summary:', e);
+  }
 }
 
-async function loadList(){
-  const tbody = document.getElementById('tbody');
-  tbody.innerHTML = '<tr><td colspan="10" class="empty">Đang tải…</td></tr>';
-  try{
-    const url = currentFilter ? `/api/ncc-de-xuat?trang_thai=${currentFilter}` : '/api/ncc-de-xuat';
-    const r = await fetch(url, {credentials:'include'});
-    if(!r.ok){
-      tbody.innerHTML = `<tr><td colspan="10" class="empty">Lỗi: ${r.status} ${esc(await r.text())}</td></tr>`;
+async function loadList() {
+  showState('loading');
+  try {
+    const url = currentFilter
+      ? `/api/ncc-de-xuat?trang_thai=${encodeURIComponent(currentFilter)}`
+      : '/api/ncc-de-xuat';
+    const r = await fetch(url, { credentials: 'include' });
+    if (!r.ok) {
+      document.getElementById('st-error-msg').textContent =
+        r.status === 403
+          ? 'Tài khoản của bạn không có quyền duyệt đề xuất trả NCC. Liên hệ quản trị để cấp quyền.'
+          : `Máy chủ trả lỗi ${r.status}. Nếu bấm Thử lại vẫn lỗi, báo IT kèm mã này.`;
+      showState('error');
       return;
     }
     allRows = await r.json();
     render();
-  }catch(e){
-    tbody.innerHTML = `<tr><td colspan="10" class="empty">Lỗi mạng: ${esc(e.message)}</td></tr>`;
+  } catch (e) {
+    document.getElementById('st-error-msg').textContent =
+      'Mất kết nối tới máy chủ. Kiểm tra mạng rồi bấm Thử lại.';
+    showState('error');
   }
 }
 
-function render(){
-  const tbody = document.getElementById('tbody');
-  if(allRows.length === 0){
-    tbody.innerHTML = '<tr><td colspan="10" class="empty">Không có đề xuất nào.</td></tr>';
+function render() {
+  if (allRows.length === 0) {
+    /* Empty phải nói VÌ SAO trống và LÀM GÌ TIẾP (luật 5) — khác nhau tuỳ
+       đang lọc cái gì, nên không dùng được một câu chung. */
+    document.getElementById('st-empty-msg').textContent = currentFilter
+      ? `Không có đề xuất nào ở trạng thái "${nhan(currentFilter)}"`
+      : 'Chưa có đề xuất trả NCC nào';
+    document.getElementById('st-empty-hint').textContent = currentFilter
+      ? 'Bấm tab "Tất cả" để xem toàn bộ đề xuất.'
+      : 'Đề xuất được tạo bên app Mua Hàng và tự chuyển sang đây, không nhập tay ở màn này.';
+    showState('empty');
     return;
   }
-  tbody.innerHTML = allRows.map(r => {
-    const canAct = r.trang_thai === 'cho_duyet';
-    const actions = canAct
-      ? `<button class="btn btn-ok" onclick="openApprove('${esc(r.id)}')">Duyệt</button>
-         <button class="btn btn-no" onclick="openReject('${esc(r.id)}')">Từ chối</button>`
-      : `<span style="color:var(--text-3);font-size:11px">—</span>`;
-    const kt = r.kt_duyet_boi
-      ? `<div>${esc(r.kt_duyet_boi_ten || r.kt_duyet_boi)}</div><div style="color:var(--text-3);font-size:11px">${fmtDt(r.kt_duyet_luc)}</div>${r.kt_ghi_chu ? `<div class="ghi-chu-cell">${esc(r.kt_ghi_chu)}</div>` : ''}`
-      : '—';
-    const ceo = r.nguoi_duyet
-      ? `<div>${esc(r.nguoi_duyet_ten || r.nguoi_duyet)}</div><div style="color:var(--text-3);font-size:11px">${fmtDt(r.ngay_duyet)}</div>`
-      : '—';
+
+  document.getElementById('tbody').innerHTML = allRows.map(r => {
+    /* "Từ chối" ở hàng bảng dùng btn-outline, KHÔNG phải đỏ đặc: với 3 hàng
+       chờ duyệt thì 3 nút đỏ hút mắt hơn cả ý chính của trang (thấy rõ khi
+       làm mờ ảnh — luật 10). Đỏ đặc để dành cho nút xác nhận trong modal,
+       đúng chỗ hành động thật sự xảy ra. */
+    const actions = r.trang_thai === 'cho_duyet'
+      ? `<button type="button" class="btn btn-primary btn-sm" onclick="openApprove('${esc(r.id)}')">Duyệt</button>
+         <button type="button" class="btn btn-outline btn-sm" onclick="openReject('${esc(r.id)}')">Từ chối</button>`
+      : '<span class="meta">—</span>';
+
+    /* Một cột "Duyệt" hai dòng, mỗi dòng có nhãn cấp — thay 2 cột riêng.
+       Chưa tới cấp nào thì KHÔNG render dòng đó, không hiện "CEO: —" thừa. */
+    const buoc = (nhanCap, ten, luc, ghiChu) => !ten ? '' : `
+      <div class="buoc">
+        <span class="buoc-cap">${nhanCap}</span> ${esc(ten)}
+        <div class="meta">${fmtDateTime(luc)}</div>
+        ${ghiChu ? `<div class="ghi-chu">${esc(ghiChu)}</div>` : ''}
+      </div>`;
+
+    const duyet =
+      buoc('KT', r.kt_duyet_boi_ten || r.kt_duyet_boi, r.kt_duyet_luc, r.kt_ghi_chu) +
+      buoc('CEO', r.nguoi_duyet_ten || r.nguoi_duyet, r.ngay_duyet, null)
+      || '<span class="meta">Chưa duyệt</span>';
+
     return `<tr>
-      <td><b>${esc(r.id)}</b></td>
-      <td>${fmtDate(r.ngay)}</td>
-      <td>${esc(r.ncc_name || r.ncc_id || '')}</td>
-      <td class="money">${fmtVnd(r.so_tien)}</td>
-      <td class="ghi-chu-cell">${esc(r.mo_ta||'')}</td>
-      <td>${esc(r.nguoi_tao_ten || r.nguoi_tao || '')}</td>
-      <td><span class="badge b-${r.trang_thai}">${STATUS_LABEL[r.trang_thai]||r.trang_thai}</span></td>
-      <td>${kt}</td>
-      <td>${ceo}</td>
-      <td style="text-align:center">${actions}</td>
+      <td class="ma"><b>${esc(r.id)}</b><div class="meta">${fmtDate(r.ngay)}</div></td>
+      <td>${esc(r.ncc_name || r.ncc_id || '')}
+          <div class="meta">Đề xuất: ${esc(r.nguoi_tao_ten || r.nguoi_tao || '—')}</div></td>
+      <td class="num money">${fmtVnd(r.so_tien)}</td>
+      <td class="mo-ta">${esc(r.mo_ta || '')}</td>
+      <td><span class="badge ${STATUS_BADGE[r.trang_thai] || 'badge-muted'}">${nhan(r.trang_thai)}</span></td>
+      <td class="cot-duyet">${duyet}</td>
+      <td class="act">${actions}</td>
     </tr>`;
   }).join('');
+
+  showState('data');
 }
 
-function openApprove(id){
+function openApprove(id) {
   const r = allRows.find(x => x.id === id);
-  if(!r) return;
+  if (!r) return;
   actionId = id;
   document.getElementById('approve-info').innerHTML =
-    `<b>${esc(id)}</b> — NCC ${esc(r.ncc_name||r.ncc_id||'')} — <b class="money">${fmtVnd(r.so_tien)}</b><br>Mô tả: ${esc(r.mo_ta||'—')}`;
+    `<b>${esc(id)}</b> — NCC ${esc(r.ncc_name || r.ncc_id || '')}
+     — <b class="money">${fmtVnd(r.so_tien)}</b><br>Mô tả: ${esc(r.mo_ta || '—')}`;
   document.getElementById('approve-note').value = '';
-  document.getElementById('modal-approve').classList.add('open');
+  document.getElementById('modal-approve').classList.add('show');
+  document.getElementById('approve-note').focus();
 }
 
-function openReject(id){
+function openReject(id) {
   const r = allRows.find(x => x.id === id);
-  if(!r) return;
+  if (!r) return;
   actionId = id;
   document.getElementById('reject-info').innerHTML =
-    `<b>${esc(id)}</b> — NCC ${esc(r.ncc_name||r.ncc_id||'')} — <b class="money">${fmtVnd(r.so_tien)}</b>`;
+    `<b>${esc(id)}</b> — NCC ${esc(r.ncc_name || r.ncc_id || '')}
+     — <b class="money">${fmtVnd(r.so_tien)}</b>`;
   document.getElementById('reject-reason').value = '';
-  document.getElementById('modal-reject').classList.add('open');
+  document.getElementById('reject-err').hidden = true;
+  document.getElementById('modal-reject').classList.add('show');
+  document.getElementById('reject-reason').focus();
 }
 
-function closeModals(){
-  document.querySelectorAll('.modal').forEach(m => m.classList.remove('open'));
+function closeModals() {
+  document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('show'));
   actionId = null;
 }
 
-async function submitApprove(){
-  if(!actionId) return;
-  const btn = document.getElementById('approve-submit');
+/* Gộp 2 hàm submit cũ: chúng chỉ khác endpoint, body và câu báo. */
+async function submitAction({ btnId, endpoint, body, thanhCong }) {
+  if (!actionId) return;
+  const btn = document.getElementById(btnId);
   btn.disabled = true;
-  try{
-    const r = await fetch(`/api/ncc-de-xuat/${encodeURIComponent(actionId)}/kt-approve`, {
-      method:'POST',
-      credentials:'include',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({kt_ghi_chu: document.getElementById('approve-note').value || null}),
+  try {
+    const r = await fetch(`/api/ncc-de-xuat/${encodeURIComponent(actionId)}/${endpoint}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
-    if(!r.ok){
-      alert('Lỗi: ' + r.status + ' ' + await r.text());
+    if (!r.ok) {
+      /* Lỗi phải nói chuyện gì sai + bước tiếp theo (luật 7). Giữ nguyên dữ
+         liệu đã nhập trong modal để người dùng không phải gõ lại. */
+      toast(r.status === 409
+        ? 'Đề xuất này vừa được người khác xử lý. Đóng và tải lại danh sách.'
+        : `Không lưu được (lỗi ${r.status}). Thử lại sau ít phút, nếu vẫn lỗi báo IT.`, 'error');
       return;
     }
     closeModals();
+    toast(thanhCong);
     await Promise.all([loadSummary(), loadList()]);
-  }finally{
+  } catch (e) {
+    toast('Mất kết nối, chưa lưu được. Kiểm tra mạng rồi bấm lại.', 'error');
+  } finally {
     btn.disabled = false;
   }
 }
 
-async function submitReject(){
-  if(!actionId) return;
-  const reason = document.getElementById('reject-reason').value.trim();
-  if(!reason){ alert('Vui lòng nhập lý do từ chối'); return; }
-  const btn = document.getElementById('reject-submit');
-  btn.disabled = true;
-  try{
-    const r = await fetch(`/api/ncc-de-xuat/${encodeURIComponent(actionId)}/kt-reject`, {
-      method:'POST',
-      credentials:'include',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ly_do: reason}),
-    });
-    if(!r.ok){
-      alert('Lỗi: ' + r.status + ' ' + await r.text());
-      return;
-    }
-    closeModals();
-    await Promise.all([loadSummary(), loadList()]);
-  }finally{
-    btn.disabled = false;
-  }
-}
+document.getElementById('approve-submit').addEventListener('click', () => submitAction({
+  btnId: 'approve-submit',
+  endpoint: 'kt-approve',
+  body: { kt_ghi_chu: document.getElementById('approve-note').value || null },
+  thanhCong: 'Đã duyệt — hồ sơ chuyển lên CEO',
+}));
 
-// Filter buttons
-document.querySelectorAll('.stat').forEach(s => {
-  s.addEventListener('click', () => {
-    document.querySelectorAll('.stat').forEach(x => x.classList.remove('active'));
-    s.classList.add('active');
-    currentFilter = s.dataset.filter;
-    document.getElementById('filter-label').textContent =
-      currentFilter ? `(lọc: ${STATUS_LABEL[currentFilter] || currentFilter})` : '(tất cả)';
+document.getElementById('reject-submit').addEventListener('click', () => {
+  const ly_do = document.getElementById('reject-reason').value.trim();
+  if (!ly_do) {
+    // Validate tại field, không alert (luật 7).
+    document.getElementById('reject-err').hidden = false;
+    document.getElementById('reject-reason').focus();
+    return;
+  }
+  document.getElementById('reject-err').hidden = true;
+  submitAction({
+    btnId: 'reject-submit',
+    endpoint: 'kt-reject',
+    body: { ly_do },
+    thanhCong: 'Đã từ chối — Mua Hàng sẽ thấy lý do',
+  });
+});
+
+document.querySelectorAll('#filters .tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#filters .tab-btn').forEach(x => {
+      x.classList.remove('active');
+      x.setAttribute('aria-selected', 'false');
+    });
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    currentFilter = btn.dataset.filter;
     loadList();
   });
 });
 
-document.getElementById('approve-submit').addEventListener('click', submitApprove);
-document.getElementById('reject-submit').addEventListener('click', submitReject);
+document.getElementById('btn-retry').addEventListener('click', loadList);
 
-document.querySelectorAll('.modal').forEach(m => {
-  m.addEventListener('click', e => { if(e.target === m) closeModals(); });
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) closeModals(); });
 });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModals(); });
 
 loadSummary();
 loadList();
 </script>
-
-</body>
-</html>
+{% endblock %}

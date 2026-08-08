@@ -32,8 +32,13 @@
       font-size: 18px; line-height: 1; position: relative; color: inherit;
       border-radius: 6px; transition: background .15s;
     }
-    .qlpps-bell-btn:hover { background: rgba(255,255,255,.12); }
-    .qlpps-bell-btn .qlpps-bell-icon { display: inline-block; transition: transform .2s; }
+    .qlpps-bell-btn:hover { background: var(--bg-page); }
+    /* SVG inline thay emoji chuông (08/08/2026) — design-system cấm emoji.
+       Icon dùng currentColor nên ăn theo màu brand của appbar.
+       KHÔNG được dùng dấu nháy ngược ở đây: cả khối CSS này nằm trong một
+       template literal của JS, một dấu nháy ngược là đóng chuỗi và vỡ file. */
+    .qlpps-bell-btn .qlpps-bell-icon { display:inline-flex; align-items:center; color:var(--brand); transition:transform .2s; }
+    .qlpps-bell-btn:hover .qlpps-bell-icon { color:var(--brand-hover); }
     .qlpps-bell-btn.has-new .qlpps-bell-icon { animation: qlppsRing .6s ease-in-out 2; }
     @keyframes qlppsRing {
       0%, 100% { transform: rotate(0deg); }
@@ -44,104 +49,104 @@
     }
     .qlpps-bell-badge {
       position: absolute; top: 0; right: 0;
-      background: #e53935; color: #fff; font-size: 10px; font-weight: 700;
+      background: var(--danger); color: #fff; font-size: 10px; font-weight: 700;
       min-width: 16px; height: 16px; padding: 0 4px;
       border-radius: 8px; display: flex; align-items: center; justify-content: center;
-      line-height: 1; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+      line-height: 1; box-shadow: var(--shadow-sm);
     }
     .qlpps-bell-badge[data-count="0"] { display: none; }
     .qlpps-bell-dropdown {
       position: absolute; top: calc(100% + 6px); right: 0;
       width: 360px; max-height: 480px;
-      background: #fff; color: #333;
-      border: 1px solid #e0e0e0; border-radius: 8px;
-      box-shadow: 0 4px 16px rgba(0,0,0,.18);
+      background: var(--bg-card); color: var(--text-1);
+      border: 1px solid var(--border); border-radius: 8px;
+      box-shadow: var(--shadow-lg);
       display: none; z-index: 9999;
       flex-direction: column;
     }
     .qlpps-bell-dropdown.open { display: flex; }
     .qlpps-bell-head {
-      padding: 10px 14px; border-bottom: 1px solid #eee;
+      padding: 10px 14px; border-bottom: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between;
       font-weight: 600; font-size: 13px;
     }
     .qlpps-bell-actions { display: flex; gap: 8px; }
     .qlpps-bell-actions button {
       background: transparent; border: none; cursor: pointer;
-      font-size: 12px; color: #1976d2; padding: 2px 4px;
+      font-size: 12px; color: var(--brand); padding: 2px 4px;
     }
     .qlpps-bell-actions button:hover { text-decoration: underline; }
     .qlpps-bell-list { overflow-y: auto; max-height: 400px; }
     .qlpps-bell-item {
-      padding: 10px 14px; border-bottom: 1px solid #f0f0f0;
+      padding: 10px 14px; border-bottom: 1px solid var(--border);
       cursor: pointer; transition: background .12s;
       display: flex; gap: 10px; align-items: flex-start;
     }
-    .qlpps-bell-item:hover { background: #f5f9ff; }
-    .qlpps-bell-item.unseen { background: #f0f7ff; }
-    .qlpps-bell-item.severity-warning { border-left: 3px solid #f57c00; }
-    .qlpps-bell-item.severity-critical { border-left: 3px solid #d32f2f; }
+    .qlpps-bell-item:hover { background: var(--bg-page); }
+    .qlpps-bell-item.unseen { background: var(--brand-soft); }
+    .qlpps-bell-item.severity-warning { border-left: 3px solid var(--warning); }
+    .qlpps-bell-item.severity-critical { border-left: 3px solid var(--danger); }
     .qlpps-bell-icon-wrap {
       flex: 0 0 28px; height: 28px; border-radius: 50%;
-      background: #e3f2fd; color: #1976d2;
+      background: var(--info-soft); color: var(--info-fg);
       display: flex; align-items: center; justify-content: center;
       font-size: 14px;
     }
-    .qlpps-bell-item.severity-warning .qlpps-bell-icon-wrap { background: #fff3e0; color: #f57c00; }
-    .qlpps-bell-item.severity-critical .qlpps-bell-icon-wrap { background: #ffebee; color: #d32f2f; }
+    .qlpps-bell-item.severity-warning .qlpps-bell-icon-wrap { background: var(--warning-soft); color: var(--warning-fg); }
+    .qlpps-bell-item.severity-critical .qlpps-bell-icon-wrap { background: var(--danger-soft); color: var(--danger-fg); }
     .qlpps-bell-content { flex: 1; min-width: 0; }
     .qlpps-bell-title {
-      font-size: 13px; font-weight: 600; color: #222;
+      font-size: 13px; font-weight: 600; color: var(--text-1);
       margin-bottom: 2px; line-height: 1.3;
       overflow: hidden; text-overflow: ellipsis;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
     }
     .qlpps-bell-msg {
-      font-size: 12px; color: #666; line-height: 1.3;
+      font-size: 12px; color: var(--text-2); line-height: 1.3;
       overflow: hidden; text-overflow: ellipsis;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
     }
-    .qlpps-bell-time { font-size: 11px; color: #999; margin-top: 3px; }
+    .qlpps-bell-time { font-size: 11px; color: var(--text-3); margin-top: 3px; }
     .qlpps-bell-empty {
-      padding: 30px 14px; text-align: center; color: #aaa; font-size: 13px;
+      padding: 30px 14px; text-align: center; color: var(--text-3); font-size: 13px;
     }
     .qlpps-bell-foot {
-      padding: 8px 14px; border-top: 1px solid #eee;
+      padding: 8px 14px; border-top: 1px solid var(--border);
       display: flex; justify-content: space-between; align-items: center;
-      font-size: 12px; color: #666;
+      font-size: 12px; color: var(--text-2);
     }
     .qlpps-sound-toggle {
-      background: transparent; border: 1px solid #ddd; border-radius: 4px;
+      background: transparent; border: 1px solid var(--border); border-radius: 4px;
       padding: 3px 8px; cursor: pointer; font-size: 11px;
     }
-    .qlpps-sound-toggle.on { color: #1976d2; border-color: #1976d2; }
+    .qlpps-sound-toggle.on { color: var(--brand); border-color: var(--brand); }
     .qlpps-push-cta {
       display: none; margin: 8px 14px 4px; padding: 10px 12px;
-      background: #fff8e1; border: 1px solid #ffd54f; border-radius: 6px;
-      font-size: 12px; color: #5d4037; line-height: 1.4;
+      background: var(--warning-soft); border: 1px solid var(--warning); border-radius: 6px;
+      font-size: 12px; color: var(--text-2); line-height: 1.4;
     }
     .qlpps-push-cta.show { display: block; }
-    .qlpps-push-cta b { color: #b85c00; }
+    .qlpps-push-cta b { color: var(--warning-fg); }
     .qlpps-push-cta button {
-      margin-top: 6px; background: #1976d2; color: #fff; border: none;
+      margin-top: 6px; background: var(--brand-soft); color: var(--brand-hover); border: none;
       border-radius: 4px; padding: 5px 10px; font-size: 12px; font-weight: 600;
       cursor: pointer;
     }
-    .qlpps-push-cta button:hover { background: #1565c0; }
+    .qlpps-push-cta button:hover { filter: brightness(.95); }
     .qlpps-push-cta .qlpps-push-dismiss {
-      background: transparent; color: #999; margin-left: 6px;
+      background: transparent; color: var(--text-3); margin-left: 6px;
     }
     .qlpps-push-status {
       display: flex; align-items: center; gap: 6px; font-size: 11px;
-      padding: 5px 14px; border-top: 1px solid #eee; color: #888; flex-wrap: wrap;
+      padding: 5px 14px; border-top: 1px solid var(--border); color: var(--text-3); flex-wrap: wrap;
     }
-    .qlpps-push-status.on  { color: #2e7d32; }
-    .qlpps-push-status.off { color: #b71c1c; }
+    .qlpps-push-status.on  { color: var(--success-fg); }
+    .qlpps-push-status.off { color: var(--danger-fg); }
     .qlpps-push-status button {
-      font-size: 11px; padding: 2px 8px; border: 1px solid #1976d2; border-radius: 4px;
-      background: #e3f2fd; color: #1565c0; cursor: pointer; font-weight: 600;
+      font-size: 11px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px;
+      background: var(--brand-soft); color: var(--brand-hover); cursor: pointer; font-weight: 600;
     }
-    .qlpps-push-status button:hover { background: #1976d2; color: #fff; }
+    .qlpps-push-status button:hover { filter: brightness(.95); }
   `;
 
   const ICON_MAP = {
@@ -272,7 +277,7 @@
       s.mountEl.innerHTML = `
         <div class="qlpps-bell-wrap">
           <button type="button" class="qlpps-bell-btn" title="Thông báo">
-            <span class="qlpps-bell-icon">🔔</span>
+            <span class="qlpps-bell-icon"><svg viewBox="0 0 16 16" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4c0 2.6-.7 3.9-1.3 4.6-.3.3-.1.9.4.9h9.8c.5 0 .7-.6.4-.9C12.7 9.9 12 8.6 12 6a4 4 0 0 0-4-4z"/><path d="M6.4 13.5a1.8 1.8 0 0 0 3.2 0"/></svg></span>
             <span class="qlpps-bell-badge" data-count="0">0</span>
           </button>
           <div class="qlpps-bell-dropdown">
@@ -493,7 +498,7 @@
       if (Notification.permission === 'denied') {
         row.className = 'qlpps-push-status off';
         row.innerHTML = `<span class="qlpps-push-status-text">🚫 Thông báo bị chặn</span>
-          <span style="color:#888;font-size:10px">Vào cài đặt trình duyệt để bật lại</span>`;
+          <span style="color:var(--text-3);font-size:10px">Vào cài đặt trình duyệt để bật lại</span>`;
         return;
       }
 

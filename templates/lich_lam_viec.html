@@ -17,27 +17,34 @@
   /* ============================================================
      Lịch làm việc — Google Calendar style (light, chia khu rõ ràng)
      ============================================================ */
-  body.ceo-app{background:var(--bg-page)}
+  /* Nền trang TRẮNG (luật 08/08/2026) — --bg-page chỉ dùng cho bề mặt lõm */
+  body.ceo-app{background:var(--bg-card)}
 
-  .llv{
-    /* Bảng màu Google */
+  /* Token cục bộ của trang lịch.
+     PHẠM VI phải phủ cả modal/FAB — chúng nằm NGOÀI .llv trong DOM (xem cuối
+     file). Trước đây chỉ khai trên .llv nên trong modal mọi var(--pri/--card/
+     --line/--text) đều vô định: nút "Copy" thành nền trong suốt + chữ trắng,
+     ô nhập mất viền, icon lịch về đen mặc định.
+     CẤM tự tham chiếu (--x:var(--x)) — CSS coi đó là vòng lặp và vô hiệu hoá
+     token, kéo theo mọi token trỏ vào nó. Token nào giữ nguyên giá trị gốc
+     thì ĐỪNG khai lại, để nó thừa kế thẳng từ :root. */
+  .llv, .llv-modal, .llv-fab{
     --card:#ffffff;
-    --border:var(--border);      /* viền thẻ / khu */
-    --line:var(--border);        /* viền lưới lịch + input */
+    --line:var(--border);        /* viền lưới lịch + input — --border thừa kế từ :root */
     --text:var(--text-1);
     --muted:var(--text-2);
     --faint:var(--text-3);       /* tên thứ T2..CN */
     --daynum:var(--text-1);      /* số ngày */
     --pri:var(--brand);
-    --pri-d:var(--brand);
-    --pri-soft:var(--brand-soft);    /* xanh nhạt Google (chip / icon) */
+    --pri-d:var(--brand-hover);
+    --pri-soft:var(--brand-soft);
     --group:var(--bg-page);       /* nền nhóm trong modal */
     /* Màu loại sự kiện (đồng bộ với JS backgroundColor) */
-    --c-personal:#0084ff; --c-shared:var(--success); --c-public:#f59e0b;
+    --c-personal:#0084ff; --c-shared:var(--success); --c-public:var(--warning);
     --c-leave:var(--danger); --c-directive:var(--brand); --c-daotao:var(--brand);
-    --ok:var(--success); --danger:var(--danger); --warn:var(--warning);
-    --shadow:0 1px 2px 0 rgba(60,64,67,.10);
-    --shadow-h:0 1px 3px 0 rgba(60,64,67,.16),0 4px 8px 0 rgba(60,64,67,.06);
+    --ok:var(--success); --warn:var(--warning);
+    --shadow:0 1px 2px 0 rgba(96,56,20,.10);
+    --shadow-h:0 1px 3px 0 rgba(96,56,20,.16),0 4px 8px 0 rgba(96,56,20,.06);
     --radius:12px; --radius-sm:8px;
   }
   .llv{
@@ -46,40 +53,48 @@
     font-family:'Segoe UI',Arial,sans-serif;   /* đồng bộ font nhà (baogia + mọi app) */
     -webkit-font-smoothing:antialiased;
   }
-  .llv *{box-sizing:border-box}
+  /* Phải gồm CẢ `.llv`, không chỉ con của nó: `.llv` có width:100% + padding,
+     content-box làm nó rộng hơn màn → cả trang cuộn ngang (đo ở 375px). */
+  /* modal cũng phải có border-box — nó nằm ngoài .llv nên không ăn `.llv *` */
+  .llv,.llv *,.llv-modal,.llv-modal *{box-sizing:border-box}
 
-  /* ===== Thẻ / khu chung ===== */
+  /* ===== Thẻ / khu chung =====
+     Nền trang đã là TRẮNG, nên thẻ dùng bề mặt lõm --bg-page để tách khỏi nền.
+     Riêng .cal-card giữ trắng: nó padding:0, lưới FullCalendar chiếm trọn thẻ
+     và cần nền trắng để sự kiện đọc được. */
   .llv-card{
-    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    background:var(--bg-page);border:1px solid var(--border);border-radius:var(--radius);
     box-shadow:var(--shadow);
   }
 
-  /* ===== Header (thẻ trắng, gọn 1 hàng) ===== */
+  /* ===== Header (gọn 1 hàng) ===== */
   .llv-head{
     display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    background:var(--bg-page);border:1px solid var(--border);border-radius:var(--radius);
     padding:12px 18px;box-shadow:var(--shadow);margin-bottom:16px;
   }
   .llv-head-text{min-width:0;flex:1}
-  .llv-head-text h1{margin:0;font-size:16px;font-weight:600;letter-spacing:-.2px;color:var(--text)}
-  .llv-head-text p{margin:2px 0 0;font-size:12px;color:var(--muted);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .llv-head-text h1{margin:0;font-size:17px;font-weight:600;letter-spacing:-.2px;color:var(--text)}
+  .llv-head-text p{margin:2px 0 0;font-size:13px;color:var(--muted);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .llv-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
   /* ===== Buttons (Google) ===== */
   .llv-btn{
     padding:9px 16px;border-radius:var(--radius-sm);border:1px solid var(--line);
-    background:var(--card);color:var(--daynum);font-weight:500;font-size:13px;
+    background:var(--card);color:var(--daynum);font-weight:500;font-size:14px;
     cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-family:inherit;
     transition:background .15s,box-shadow .15s,border-color .15s;white-space:nowrap;line-height:1.15;
   }
-  .llv-btn:hover{background:var(--bg-page);border-color:var(--border);box-shadow:var(--shadow)}
+  /* Hover KHÔNG đổi sang --bg-page nữa: thẻ nay đã là --bg-page, nút sẽ tan vào
+     thẻ. Dùng filter:brightness theo đúng luật "hover không thêm hex mới". */
+  .llv-btn:hover{filter:brightness(.96);border-color:var(--border);box-shadow:var(--shadow)}
   .llv-btn-ghost{background:var(--card);border-color:var(--line);color:var(--pri);font-weight:600}
   .llv-btn-ghost:hover{background:var(--pri-soft);border-color:var(--brand-soft)}
   .llv-btn-primary{
     background:var(--pri);color:#fff;border-color:transparent;font-weight:600;
-    box-shadow:0 1px 2px 0 rgba(26,115,232,.30);
+    box-shadow:0 1px 2px 0 rgba(96,56,20,.30);
   }
-  .llv-btn-primary:hover{background:var(--pri-d);box-shadow:0 1px 3px 1px rgba(26,115,232,.30)}
+  .llv-btn-primary:hover{background:var(--pri-d);box-shadow:0 1px 3px 1px rgba(96,56,20,.30)}
   .llv-btn-danger{background:var(--danger);color:#fff;border-color:transparent;font-weight:600}
   .llv-btn-danger:hover{background:var(--danger)}
   .llv-btn-success{background:var(--ok);color:#fff;border-color:transparent;font-weight:600}
@@ -88,18 +103,13 @@
   /* ===== Stats (4 thẻ trắng) ===== */
   .llv-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
   .llv-stat{
-    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    background:var(--bg-page);border:1px solid var(--border);border-radius:var(--radius);
     padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);
     transition:box-shadow .18s ease;
   }
   .llv-stat:hover{box-shadow:var(--shadow-h)}
-  .llv-stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
-  .llv-stat.s1 .llv-stat-icon{background:var(--pri-soft);color:var(--pri)}
-  .llv-stat.s2 .llv-stat-icon{background:var(--success-soft);color:var(--ok)}
-  .llv-stat.s3 .llv-stat-icon{background:var(--warning-soft);color:var(--warn)}
-  .llv-stat.s4 .llv-stat-icon{background:var(--bg-page);color:var(--muted)}
   .llv-stat-body{display:flex;flex-direction:column;line-height:1.15;min-width:0}
-  .llv-stat-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+  .llv-stat-label{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
   .llv-stat-value{font-size:22px;font-weight:600;color:var(--text);margin-top:2px}
 
   /* ===== Grid (2 cột desktop / xếp chồng mobile) ===== */
@@ -120,12 +130,9 @@
   .llv-card-head{
     display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--border);
   }
-  .llv-card-head .ci{
-    width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;
-  }
-  .llv-card-head h3{margin:0;font-size:14px;font-weight:600;color:var(--text);flex:1;line-height:1.2}
+  .llv-card-head h3{margin:0;font-size:15px;font-weight:600;color:var(--text);flex:1;line-height:1.2}
   .llv-card-head .cnt{
-    background:var(--pri-soft);color:var(--pri);border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;min-width:22px;text-align:center;
+    background:var(--pri-soft);color:var(--pri);border-radius:999px;padding:2px 9px;font-size:12px;font-weight:700;min-width:22px;text-align:center;
   }
 
   /* ===== Khu 1: thanh điều khiển + bộ lọc ===== */
@@ -137,36 +144,36 @@
   .cal-nav{display:inline-flex;align-items:center;gap:6px}
   .cal-nav button{
     border:1px solid var(--line);background:var(--card);color:var(--daynum);
-    font-family:inherit;font-weight:500;font-size:13px;cursor:pointer;border-radius:var(--radius-sm);
+    font-family:inherit;font-weight:500;font-size:14px;cursor:pointer;border-radius:var(--radius-sm);
     padding:8px 14px;transition:background .15s,border-color .15s;line-height:1;
   }
-  .cal-nav button:hover{background:var(--bg-page);border-color:var(--border)}
-  .cal-nav .nav-arrow{width:36px;height:36px;padding:0;font-size:16px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted)}
-  .cal-views{display:inline-flex;gap:2px;background:var(--bg-page);border:1px solid var(--line);border-radius:9px;padding:3px}
+  .cal-nav button:hover{filter:brightness(.96);border-color:var(--border)}
+  .cal-nav .nav-arrow{width:36px;height:36px;padding:0;font-size:17px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted)}
+  .cal-views{display:inline-flex;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:3px}
   .cal-views button{
-    border:none;background:transparent;color:var(--muted);font-family:inherit;font-weight:600;font-size:12px;
+    border:none;background:transparent;color:var(--muted);font-family:inherit;font-weight:600;font-size:13px;
     cursor:pointer;border-radius:7px;padding:7px 14px;transition:all .15s;line-height:1;
   }
-  .cal-views button:hover{color:var(--pri);background:rgba(26,115,232,.08)}
+  .cal-views button:hover{color:var(--pri);background:var(--brand-soft)}
   .cal-views button.active{background:var(--card);color:var(--pri);box-shadow:var(--shadow)}
   .cal-view-select{
-    display:none;border:1px solid var(--line);border-radius:var(--radius-sm);padding:9px 11px;font-size:13px;
+    display:none;border:1px solid var(--line);border-radius:var(--radius-sm);padding:9px 11px;font-size:14px;
     font-family:inherit;font-weight:600;color:var(--text);background:var(--card);cursor:pointer;
   }
   .cal-search{position:relative;flex:1;min-width:160px;margin-left:auto}
-  .cal-search i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;pointer-events:none}
+  .cal-search i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px;pointer-events:none}
   .cal-search input{
     width:100%;padding:9px 12px 9px 36px;border:1px solid var(--line);border-radius:var(--radius-sm);
-    font-size:13px;font-family:inherit;color:var(--text);background:var(--card);outline:none;transition:all .15s;
+    font-size:14px;font-family:inherit;color:var(--text);background:var(--card);outline:none;transition:all .15s;
   }
-  .cal-search input:focus{border-color:var(--pri);box-shadow:0 0 0 3px rgba(26,115,232,.15)}
+  .cal-search input:focus{border-color:var(--pri);box-shadow:var(--focus-ring)}
 
   /* ===== Chip lọc (legend + bộ lọc) ===== */
   .cal-chips{display:flex;gap:8px;flex-wrap:wrap;padding:11px 14px}
   .cal-chip{
     display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:999px;
     border:1px solid var(--line);background:var(--card);color:var(--muted);
-    font-family:inherit;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap;
+    font-family:inherit;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;
     transition:all .13s;user-select:none;
   }
   .cal-chip .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
@@ -176,23 +183,23 @@
   .cal-chip:not(.active) .dot{filter:grayscale(1)}
 
   /* ===== Khu 2: lịch ===== */
-  .cal-card{padding:0;overflow:hidden}
-  #calendar{padding:12px 14px;min-height:600px;font-size:13px}
+  .cal-card{padding:0;overflow:hidden;background:var(--card)}   /* canvas lịch giữ TRẮNG */
+  #calendar{padding:12px 14px;min-height:600px;font-size:14px}
 
   /* ===== FullCalendar — dáng Google Calendar ===== */
   .fc .fc-toolbar.fc-header-toolbar{margin-bottom:12px}
-  .fc .fc-toolbar-title{font-size:16px;color:var(--daynum);font-weight:500;letter-spacing:-.2px}
+  .fc .fc-toolbar-title{font-size:17px;color:var(--daynum);font-weight:500;letter-spacing:-.2px}
   .fc-theme-standard td,.fc-theme-standard th{border-color:var(--line)}
   .fc-theme-standard .fc-scrollgrid{border-color:var(--line)}
   /* Ô tên thứ (T2..CN): nền trắng, chữ xám in hoa, KHÔNG gạch chân */
   .fc .fc-col-header-cell{background:#fff}
   .fc .fc-col-header-cell-cushion{
     text-decoration:none;color:var(--faint);text-transform:uppercase;
-    font-size:11px;font-weight:600;letter-spacing:.5px;padding:10px 4px;
+    font-size:12px;font-weight:600;letter-spacing:.5px;padding:10px 4px;
   }
   .fc .fc-col-header-cell-cushion:hover{text-decoration:none;color:var(--faint)}
   /* Số ngày */
-  .fc .fc-daygrid-day-number{color:var(--daynum);font-weight:500;padding:6px 8px;font-size:12px;text-decoration:none}
+  .fc .fc-daygrid-day-number{color:var(--daynum);font-weight:500;padding:6px 8px;font-size:13px;text-decoration:none}
   /* Hôm nay: KHOANH TRÒN số (kiểu Google), bỏ nền xanh phủ cả ô */
   .fc .fc-day-today{background:transparent !important}
   .fc .fc-day-today .fc-daygrid-day-number{
@@ -201,14 +208,14 @@
     padding:0;margin:4px 4px 2px;font-weight:600;
   }
   /* Cột hôm nay ở timegrid: nền rất nhạt để dễ định vị (không chói) */
-  .fc .fc-timegrid-col.fc-day-today{background:rgba(26,115,232,.04) !important}
+  .fc .fc-timegrid-col.fc-day-today{background:var(--bg-page) !important}
   /* Sự kiện: thanh bo góc 4px, chữ trắng đậm vừa */
   .fc-event{
-    cursor:pointer;border:none !important;padding:1px 6px;font-size:12px;font-weight:600;
+    cursor:pointer;border:none !important;padding:1px 6px;font-size:13px;font-weight:600;
     border-radius:4px;color:#fff;
     transition:box-shadow .12s ease,filter .12s ease;overflow:hidden;
   }
-  .fc-event:hover{filter:brightness(.94);box-shadow:0 1px 3px rgba(60,64,67,.3);z-index:5}
+  .fc-event:hover{filter:brightness(.95);box-shadow:var(--shadow-sm);z-index:5}
   .fc-daygrid-event{border-radius:4px}
   .fc-daygrid-event-dot{display:none}
   .fc-event .fc-event-time{font-weight:700;opacity:1}
@@ -234,12 +241,11 @@
   /* Now indicator + nhãn giờ */
   .fc .fc-timegrid-now-indicator-line{border-color:var(--pri)}
   .fc .fc-timegrid-now-indicator-arrow{border-color:var(--pri);color:var(--pri)}
-  .fc .fc-timegrid-slot-label-cushion,.fc .fc-timegrid-axis-cushion{color:var(--muted);font-size:11px}
+  .fc .fc-timegrid-slot-label-cushion,.fc .fc-timegrid-axis-cushion{color:var(--muted);font-size:12px}
 
   /* ===== Sidebar: Lời mời chờ ===== */
   #llv-invites-card{border-color:var(--warning-soft);background:var(--warning-soft)}
   #llv-invites-card .llv-card-head{border-bottom-color:var(--warning-soft)}
-  #llv-invites-card .ci{background:var(--warning-soft);color:var(--warn)}
   #llv-invites-card .cnt{background:var(--warning-soft);color:var(--warn)}
   #llv-invites-card h3{color:var(--warning-fg)}
   .llv-invite-list{display:flex;flex-direction:column;gap:9px;padding:12px 14px;max-height:360px;overflow-y:auto}
@@ -247,13 +253,12 @@
     border:1px solid var(--warning-soft);border-radius:10px;padding:11px 12px;background:#fff;
     display:flex;flex-direction:column;gap:8px;
   }
-  .llv-invite .it-title{font-size:13px;font-weight:600;color:var(--text);line-height:1.3}
-  .llv-invite .it-meta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .llv-invite .it-title{font-size:14px;font-weight:600;color:var(--text);line-height:1.3}
+  .llv-invite .it-meta{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;flex-wrap:wrap}
   .llv-invite .it-actions{display:flex;gap:7px}
-  .llv-invite .it-actions button{flex:1;padding:7px 10px;font-size:12px;justify-content:center}
+  .llv-invite .it-actions button{flex:1;padding:7px 10px;font-size:13px;justify-content:center}
 
   /* ===== Sidebar: Sắp diễn ra ===== */
-  #llv-upcoming-card .ci{background:var(--pri-soft);color:var(--pri)}
   .llv-upcoming{display:flex;flex-direction:column;gap:8px;padding:12px 14px;max-height:560px;overflow-y:auto}
   .llv-up-item{
     background:#fff;border:1px solid var(--border);border-left:3px solid var(--pri);
@@ -261,10 +266,10 @@
     display:flex;flex-direction:column;gap:3px;
   }
   .llv-up-item:hover{border-color:var(--brand-soft);background:var(--bg-page)}
-  .llv-up-time{font-size:11px;font-weight:700;color:var(--pri);text-transform:uppercase;letter-spacing:.3px;display:flex;align-items:center;gap:5px}
-  .llv-up-title{font-size:13px;font-weight:600;color:var(--text);line-height:1.3}
-  .llv-up-meta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:1px;flex-wrap:wrap}
-  .llv-empty{text-align:center;padding:26px 12px;color:var(--muted);font-size:12px;background:var(--bg-page);border-radius:10px;border:1px dashed var(--line);margin:12px 14px}
+  .llv-up-time{font-size:12px;font-weight:700;color:var(--pri);text-transform:uppercase;letter-spacing:.3px;display:flex;align-items:center;gap:5px}
+  .llv-up-title{font-size:14px;font-weight:600;color:var(--text);line-height:1.3}
+  .llv-up-meta{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:1px;flex-wrap:wrap}
+  .llv-empty{text-align:center;padding:26px 12px;color:var(--muted);font-size:13px;background:var(--bg-page);border-radius:10px;border:1px dashed var(--line);margin:12px 14px}
   .llv-empty i{font-size:22px;display:block;margin-bottom:6px;opacity:.4}
 
   /* ===== FAB (mobile) — góc dưới-TRÁI để không đè chat FAB ===== */
@@ -298,15 +303,10 @@
     display:flex;align-items:center;gap:12px;padding:18px 22px 16px;border-bottom:1px solid var(--border);
     position:sticky;top:0;background:#fff;z-index:2;border-radius:16px 16px 0 0;
   }
-  .llv-modal-head .ico{
-    width:40px;height:40px;border-radius:11px;flex-shrink:0;
-    background:var(--pri-soft);color:var(--pri);
-    display:flex;align-items:center;justify-content:center;font-size:16px;
-  }
-  .llv-modal-head h3{margin:0;font-size:16px;font-weight:600;color:var(--text);flex:1}
+  .llv-modal-head h3{margin:0;font-size:17px;font-weight:600;color:var(--text);flex:1}
   .llv-modal-head .close-x{
     background:transparent;border:none;border-radius:50%;width:36px;height:36px;cursor:pointer;
-    color:var(--muted);font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s;
+    color:var(--muted);font-size:17px;display:flex;align-items:center;justify-content:center;transition:all .15s;
   }
   .llv-modal-head .close-x:hover{background:var(--bg-page);color:var(--text)}
   .llv-modal-body{padding:18px 22px}
@@ -317,24 +317,35 @@
     padding:14px 16px 4px;margin-bottom:14px;
   }
   .llv-section-title{
-    margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;
+    margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;
     color:var(--muted);display:flex;align-items:center;gap:7px;
   }
-  .llv-section-title .si{font-size:14px;line-height:1}
 
   .llv-fg{margin-bottom:13px}
-  .llv-fg label{display:block;font-weight:500;font-size:12px;color:var(--daynum);margin-bottom:6px}
+  .llv-fg label{display:block;font-weight:500;font-size:13px;color:var(--daynum);margin-bottom:6px}
   .llv-fg .req{color:var(--danger)}
   .llv-fc{
     width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);
-    font-size:13px;outline:none;background:#fff;font-family:inherit;color:var(--text);transition:all .15s;
+    font-size:14px;outline:none;background:#fff;font-family:inherit;color:var(--text);transition:all .15s;
   }
-  .llv-fc:focus{border-color:var(--pri);box-shadow:0 0 0 3px rgba(26,115,232,.15)}
+  .llv-fc:focus{border-color:var(--pri);box-shadow:var(--focus-ring)}
   textarea.llv-fc{resize:vertical;min-height:64px}
-  .llv-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .llv-check{
-    display:flex;align-items:center;gap:9px;font-weight:500;font-size:13px;cursor:pointer;color:var(--daynum);
+  /* Flex chứ KHÔNG grid 1fr 1fr: nhiều hàng có ô thứ 2 ẩn (display:none) như
+     "Lặp đến ngày" / "Lặp lại". Với grid, ô còn lại vẫn chỉ chiếm 1 trong 2 cột
+     nên nằm thụt nửa hàng — đó là chỗ trông so le. Flex thì ô còn lại tự giãn. */
+  .llv-row{display:flex;flex-wrap:wrap;gap:12px}
+  .llv-row > .llv-fg{flex:1 1 220px;min-width:0}
+  /* Ô chọn màu là MẪU màu, không phải trường nhập: đừng cho nó ăn width:100% */
+  .llv-row > .llv-fg.fg-color{flex:0 0 auto}
+  input[type=color].llv-fc{width:56px;height:42px;padding:3px;cursor:pointer}
+  /* Phải viết `.llv-fg label.llv-check` (0,2,1) chứ không phải `.llv-check` (0,1,0):
+     `.llv-fg label` là (0,1,1) nên nó THẮNG, ép display:block + font-size:13px +
+     margin-bottom:6px. Đó là lý do ô "Cả ngày" từng kéo dài hết hàng.
+     inline-flex để ô ôm vừa chữ, không giả dạng một trường nhập. */
+  .llv-fg label.llv-check{
+    display:inline-flex;align-items:center;gap:9px;font-weight:500;font-size:14px;cursor:pointer;color:var(--daynum);
     background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;
+    margin-bottom:0;
   }
   .llv-check input{width:17px;height:17px;accent-color:var(--pri)}
   .llv-actions{display:flex;gap:8px;justify-content:flex-end;padding:14px 22px;border-top:1px solid var(--border);flex-wrap:wrap;background:#fff}
@@ -342,7 +353,7 @@
   /* Banner trùng lịch */
   .llv-conflict{
     display:none;background:var(--warning-soft);border:1px solid var(--warning-soft);border-radius:10px;
-    padding:11px 13px;margin-bottom:14px;font-size:12px;color:var(--warning-fg);
+    padding:11px 13px;margin-bottom:14px;font-size:13px;color:var(--warning-fg);
   }
   .llv-conflict.show{display:block}
   .llv-conflict b{color:var(--warn)}
@@ -356,39 +367,39 @@
     border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px;background:#fff;
     min-height:42px;display:flex;flex-wrap:wrap;gap:5px;transition:all .15s;
   }
-  .parts-box:focus-within{border-color:var(--pri);box-shadow:0 0 0 3px rgba(26,115,232,.15)}
+  .parts-box:focus-within{border-color:var(--pri);box-shadow:var(--focus-ring)}
   .pchip{
-    background:var(--pri-soft);color:var(--brand);padding:4px 9px;border-radius:999px;font-size:12px;font-weight:600;
+    background:var(--pri-soft);color:var(--brand);padding:4px 9px;border-radius:999px;font-size:13px;font-weight:600;
     display:inline-flex;align-items:center;gap:6px;
   }
-  .pchip .x{cursor:pointer;font-weight:700;font-size:14px;line-height:1}
+  .pchip .x{cursor:pointer;font-weight:700;font-size:15px;line-height:1}
   .pchip .x:hover{color:var(--danger)}
-  .parts-box input{border:none;outline:none;background:transparent;min-width:130px;font-size:13px;padding:5px}
+  .parts-box input{border:none;outline:none;background:transparent;min-width:130px;font-size:14px;padding:5px}
   .suggest-list{
     position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);
     max-height:200px;overflow-y:auto;z-index:50;display:none;box-shadow:0 2px 6px 2px rgba(60,64,67,.15);margin-top:4px;
   }
   .suggest-list.show{display:block}
-  .suggest-item{padding:9px 12px;cursor:pointer;font-size:12px;transition:background .12s}
+  .suggest-item{padding:9px 12px;cursor:pointer;font-size:13px;transition:background .12s}
   .suggest-item:hover{background:var(--pri-soft);color:var(--brand)}
 
   /* Chi tiết */
-  .detail-row{display:flex;gap:10px;padding:10px 0;font-size:13px;align-items:flex-start;border-bottom:1px solid var(--bg-page)}
+  .detail-row{display:flex;gap:10px;padding:10px 0;font-size:14px;align-items:flex-start;border-bottom:1px solid var(--bg-page)}
   .detail-row:last-child{border-bottom:none}
-  .detail-row .lab{min-width:96px;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.3px;padding-top:2px}
+  .detail-row .lab{min-width:96px;color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.3px;padding-top:2px}
   .detail-row .val{flex:1;color:var(--text);font-weight:500}
-  .badge-type{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;color:#fff}
+  .badge-type{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;color:#fff}
 
   /* iCal */
   .ical-url{display:flex;gap:8px;align-items:stretch;margin:6px 0 4px}
-  .ical-url input{flex:1;font-size:12px;background:#fff}
-  .ical-help{font-size:12px;color:var(--muted);line-height:1.7;background:var(--bg-page);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:12px}
+  .ical-url input{flex:1;font-size:13px;background:#fff}
+  .ical-help{font-size:13px;color:var(--muted);line-height:1.7;background:var(--bg-page);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:12px}
   .ical-help b{color:var(--text)}
 
   /* Toast */
   #qlpps-toast{
     position:fixed;bottom:22px;right:22px;padding:12px 20px;background:var(--text-1);color:#fff;
-    border-radius:var(--radius-sm);font-size:13px;font-weight:500;display:none;z-index:100000;
+    border-radius:var(--radius-sm);font-size:14px;font-weight:500;display:none;z-index:100000;
     box-shadow:0 3px 5px -1px rgba(0,0,0,.2),0 6px 10px 0 rgba(0,0,0,.14);animation:llvPop .2s ease;max-width:340px;
   }
   #qlpps-toast.success{background:var(--ok)}
@@ -399,25 +410,25 @@
   /* ===== Tài liệu đính kèm ===== */
   .llv-attach-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
   .llv-attach-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--line);
-    border-radius:var(--radius-sm);background:#fff;font-size:12px}
-  .llv-attach-item .ic{font-size:16px;flex-shrink:0}
+    border-radius:var(--radius-sm);background:#fff;font-size:13px}
+  .llv-attach-item .ic{font-size:17px;flex-shrink:0}
   .llv-attach-item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
     color:var(--text);font-weight:500;text-decoration:none}
   .llv-attach-item a.nm:hover{color:var(--pri);text-decoration:underline}
-  .llv-attach-item .sz{color:var(--muted);font-size:11px;flex-shrink:0}
-  .llv-attach-item .rm{background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;
+  .llv-attach-item .sz{color:var(--muted);font-size:12px;flex-shrink:0}
+  .llv-attach-item .rm{background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;
     line-height:1;padding:2px 4px;border-radius:6px;flex-shrink:0}
-  .llv-attach-item .rm:hover{background:var(--danger-soft);color:var(--danger)}
+  .llv-attach-item .rm:hover{background:var(--danger-soft);color:var(--danger-fg)}
   .llv-attach-item.pending{border-style:dashed;background:var(--warning-soft);border-color:var(--warning-soft)}
   .llv-attach-item.pending .ic{opacity:.7}
   .llv-attach-add{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;cursor:pointer;
-    border:1px dashed var(--brand-soft);border-radius:var(--radius-sm);color:var(--pri);font-weight:600;font-size:12px;
+    border:1px dashed var(--brand-soft);border-radius:var(--radius-sm);color:var(--pri);font-weight:600;font-size:13px;
     background:#fff;transition:all .15s;user-select:none}
   .llv-attach-add:hover{background:var(--pri-soft);border-color:var(--pri)}
   .llv-detail-attach{display:flex;flex-direction:column;gap:6px;margin-top:4px}
 
   /* ===== Responsive ===== */
-  @media (max-width:1023px){
+  @media (max-width:1100px){
     .llv-grid{
       grid-template-columns:1fr;
       grid-template-rows:auto auto auto;
@@ -425,14 +436,14 @@
     }
     #llv-upcoming-card .llv-upcoming{max-height:none}
   }
-  @media (max-width:767px){
+  @media (max-width:768px){
     .llv{padding:12px 10px 30px}
     .llv-head{padding:12px 14px}
     .llv-head-text p{white-space:normal}
     .llv-head-actions{width:100%}
     .llv-head-actions .llv-btn{flex:1;justify-content:center}
     .llv-stats{grid-template-columns:1fr 1fr;gap:10px}
-    .llv-stat-value{font-size:16px}
+    .llv-stat-value{font-size:17px}
     /* Toolbar rút gọn: dùng select thay 4 nút view */
     .cal-views{display:none}
     .cal-view-select{display:inline-block}
@@ -443,11 +454,11 @@
     .cal-chips::-webkit-scrollbar{display:none}
     .cal-chip{flex:0 0 auto;min-height:40px}
     #calendar{padding:8px;min-height:520px}
-    .fc .fc-toolbar-title{font-size:16px}
+    .fc .fc-toolbar-title{font-size:17px}
     /* Header gọn + cuộn ngang mượt (đi kèm dayMinWidth trong JS) */
-    .fc .fc-col-header-cell-cushion{font-size:10px;padding:7px 2px;white-space:nowrap}
-    .fc .fc-timegrid-slot-label-cushion,.fc .fc-timegrid-axis-cushion{font-size:10px}
-    .fc .fc-daygrid-day-number{font-size:12px;padding:4px 5px}
+    .fc .fc-col-header-cell-cushion{font-size:11px;padding:7px 2px;white-space:nowrap}
+    .fc .fc-timegrid-slot-label-cushion,.fc .fc-timegrid-axis-cushion{font-size:11px}
+    .fc .fc-daygrid-day-number{font-size:13px;padding:4px 5px}
     .fc .fc-day-today .fc-daygrid-day-number{width:24px;height:24px;margin:3px 3px 2px}
     .fc-scroller{-webkit-overflow-scrolling:touch}
     .cal-card{overflow:hidden}
@@ -458,18 +469,18 @@
     .llv-modal-inner{max-width:100%;width:100%;max-height:100%;height:100%;border-radius:0;animation:llvFade .15s ease}
     .llv-modal-head{border-radius:0}
     .llv-modal-sm .llv-modal-inner{max-width:100%}
-    .llv-row{grid-template-columns:1fr}
+    .llv-row > .llv-fg{flex:1 1 100%}   /* mobile: mỗi ô một hàng */
     .llv-actions{position:sticky;bottom:0}
   }
-  @media (max-width:400px){
+  @media (max-width:480px){
     .llv-stats{grid-template-columns:1fr}
   }
 </style>
 
 <style>
   body{font-family:'Segoe UI',Arial,sans-serif}   /* đồng bộ font nhà (baogia) cho cả topbar */
-  body.ceo-app{background:var(--bg-page)}
-  @media(max-width:600px){.llv-tb-title,.llv-tb-user{display:none}}
+  body.ceo-app{background:var(--bg-card)}
+  @media(max-width:768px){.llv-tb-title,.llv-tb-user{display:none}}
 </style>
 </head>
 <body class="ceo-app">
@@ -490,20 +501,16 @@
 
   <!-- ===== Stats (4 thẻ) ===== -->
   <div class="llv-stats">
-    <div class="llv-stat s1">
-      <div class="llv-stat-icon"></div>
+    <div class="llv-stat">
       <div class="llv-stat-body"><span class="llv-stat-label">Hôm nay</span><span class="llv-stat-value" id="llv-stat-today">0</span></div>
     </div>
-    <div class="llv-stat s2">
-      <div class="llv-stat-icon"></div>
+    <div class="llv-stat">
       <div class="llv-stat-body"><span class="llv-stat-label">Tuần này</span><span class="llv-stat-value" id="llv-stat-week">0</span></div>
     </div>
-    <div class="llv-stat s3">
-      <div class="llv-stat-icon"></div>
+    <div class="llv-stat">
       <div class="llv-stat-body"><span class="llv-stat-label">Sắp tới (7 ngày)</span><span class="llv-stat-value" id="llv-stat-upcoming">0</span></div>
     </div>
-    <div class="llv-stat s4">
-      <div class="llv-stat-icon"></div>
+    <div class="llv-stat">
       <div class="llv-stat-body"><span class="llv-stat-label">Tổng (đang xem)</span><span class="llv-stat-value" id="llv-stat-total">0</span></div>
     </div>
   </div>
@@ -542,7 +549,7 @@
         <div class="cal-chips" id="cal-chips">
           <button class="cal-chip active" data-cat="personal"><span class="dot" style="background:#0084ff"></span>Cá nhân</button>
           <button class="cal-chip active" data-cat="shared"><span class="dot" style="background:var(--success)"></span>Chia sẻ</button>
-          <button class="cal-chip active" data-cat="public"><span class="dot" style="background:#f59e0b"></span>Công khai</button>
+          <button class="cal-chip active" data-cat="public"><span class="dot" style="background:var(--warning)"></span>Công khai</button>
           <button class="cal-chip active" data-cat="leave_request"><span class="dot" style="background:var(--danger)"></span>Nghỉ phép</button>
           <button class="cal-chip active" data-cat="directive"><span class="dot" style="background:var(--brand)"></span>Deadline</button>
           <button class="cal-chip active" data-cat="dao_tao_session"><span class="dot" style="background:var(--brand)"></span>Đào tạo</button>
@@ -559,7 +566,6 @@
     <!-- Sidebar: Lời mời -->
     <div class="llv-card" id="llv-invites-card" style="display:none">
       <div class="llv-card-head">
-        <div class="ci">✋</div>
         <h3>Lời mời chờ phản hồi</h3>
         <span class="cnt" id="llv-invites-count">0</span>
       </div>
@@ -569,7 +575,6 @@
     <!-- Sidebar: Sắp diễn ra -->
     <div class="llv-card" id="llv-upcoming-card">
       <div class="llv-card-head">
-        <div class="ci">⚡</div>
         <h3>Sắp diễn ra</h3>
         <span class="cnt" id="llv-upcoming-count">0</span>
       </div>
@@ -588,7 +593,6 @@
 <div class="llv-modal" id="llv-edit-modal" onclick="if(event.target===this)llvCloseEdit()">
   <div class="llv-modal-inner">
     <div class="llv-modal-head">
-      <div class="ico"></div>
       <h3 id="llv-edit-title">Tạo sự kiện</h3>
       <button class="close-x" onclick="llvCloseEdit()" title="Đóng">✕</button>
     </div>
@@ -606,7 +610,7 @@
 
       <!-- Nhóm 1: Nội dung -->
       <div class="llv-section">
-        <div class="llv-section-title"><span class="si"></span> Nội dung</div>
+        <div class="llv-section-title">Nội dung</div>
         <div class="llv-fg">
           <label>Tiêu đề <span class="req">*</span></label>
           <input type="text" class="llv-fc" id="llv-title" placeholder="VD: Họp tuần kinh doanh">
@@ -619,7 +623,7 @@
 
       <!-- Nhóm 2: Thời gian -->
       <div class="llv-section">
-        <div class="llv-section-title"><span class="si"></span> Thời gian</div>
+        <div class="llv-section-title">Thời gian</div>
         <div class="llv-row">
           <div class="llv-fg">
             <label>Bắt đầu <span class="req">*</span></label>
@@ -653,7 +657,7 @@
 
       <!-- Nhóm 3: Phân loại -->
       <div class="llv-section">
-        <div class="llv-section-title"><span class="si"></span> Phân loại</div>
+        <div class="llv-section-title">Phân loại</div>
         <div class="llv-row">
           <div class="llv-fg">
             <label>Loại</label>
@@ -681,16 +685,16 @@
             <label>Địa điểm</label>
             <input type="text" class="llv-fc" id="llv-loc" placeholder="VD: Phòng họp tầng 2">
           </div>
-          <div class="llv-fg">
+          <div class="llv-fg fg-color">
             <label>Màu</label>
-            <input type="color" class="llv-fc" id="llv-color" value="#0084ff" style="height:42px;padding:3px">
+            <input type="color" class="llv-fc" id="llv-color" value="#0084ff">
           </div>
         </div>
       </div>
 
       <!-- Nhóm 4: Người & tài liệu -->
       <div class="llv-section">
-        <div class="llv-section-title"><span class="si"></span> Người &amp; tài liệu</div>
+        <div class="llv-section-title">Người &amp; tài liệu</div>
         <div class="llv-fg parts-wrap">
           <label>Người tham gia <span style="color:var(--text-2);font-weight:500">— có thể chọn nhiều người</span></label>
           <select id="llv-parts-dropdown" class="llv-fc" style="margin-bottom:6px">
@@ -700,7 +704,7 @@
             <input type="text" id="llv-parts-input" placeholder="Hoặc gõ tên/username để tìm thêm…" autocomplete="off">
           </div>
           <div class="suggest-list" id="llv-parts-suggest"></div>
-          <small id="llv-parts-hint" style="color:var(--text-2);font-size:11px">Đang tải danh sách NV…</small>
+          <small id="llv-parts-hint" style="color:var(--text-2);font-size:12px">Đang tải danh sách NV…</small>
         </div>
         <div class="llv-fg">
           <label>Tài liệu đính kèm <span style="color:var(--text-2);font-weight:500">— CV, tài liệu họp (PDF/Word/Excel/ảnh, ≤20MB)</span></label>
@@ -724,7 +728,6 @@
 <div class="llv-modal" id="llv-detail-modal" onclick="if(event.target===this)llvCloseDetail()">
   <div class="llv-modal-inner">
     <div class="llv-modal-head">
-      <div class="ico">ℹ️</div>
       <h3 id="llv-detail-title">Chi tiết</h3>
       <button class="close-x" onclick="llvCloseDetail()" title="Đóng">✕</button>
     </div>
@@ -742,7 +745,6 @@
 <div class="llv-modal llv-modal-sm" id="llv-ical-modal" onclick="if(event.target===this)llvCloseIcal()">
   <div class="llv-modal-inner">
     <div class="llv-modal-head">
-      <div class="ico"></div>
       <h3>Đồng bộ iCal</h3>
       <button class="close-x" onclick="llvCloseIcal()" title="Đóng">✕</button>
     </div>
@@ -854,7 +856,7 @@ function _colorFor(ev){
   if(src==='dao_tao_session') return 'var(--brand)';
   const t = ev.event_type || 'personal';
   if(t==='shared') return 'var(--success)';
-  if(t==='public') return '#f59e0b';
+  if(t==='public') return 'var(--warning)';
   return '#0084ff';
 }
 function _catOf(ev){
@@ -1361,7 +1363,7 @@ function _populateDropdown(){
   if(!sel) return;
   sel.innerHTML = '<option value="">-- Chọn nhân viên từ danh sách --</option>';
   if(!recipientsCache || recipientsCache.length === 0){
-    if(hint) hint.innerHTML = '<span style="color:#dc2626">Không có quyền xem danh sách NV. Có thể gõ tay vào ô bên dưới.</span>';
+    if(hint) hint.innerHTML = '<span style="color:var(--danger)">Không có quyền xem danh sách NV. Có thể gõ tay vào ô bên dưới.</span>';
     return;
   }
   const groups = {};
@@ -1428,7 +1430,7 @@ async function llvOpenIcal(){
     }
     if(!url) throw new Error('empty');
     bodyEl.innerHTML = `
-      <p style="font-size:13px;color:var(--text-2);margin:0 0 8px">Dán URL bên dưới vào ứng dụng lịch để tự động đồng bộ (chỉ đọc):</p>
+      <p style="font-size:14px;color:var(--text-2);margin:0 0 8px">Dán URL bên dưới vào ứng dụng lịch để tự động đồng bộ (chỉ đọc):</p>
       <div class="ical-url">
         <input type="text" class="llv-fc" id="llv-ical-url" readonly value="${esc(url)}">
         <button class="llv-btn llv-btn-primary" onclick="llvCopyIcal()">Copy</button>

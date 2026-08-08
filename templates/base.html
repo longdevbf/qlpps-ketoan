@@ -28,7 +28,7 @@
    ═══════════════════════════════════════════════════════════════════════════ #}
 {# Phá cache trình duyệt khi sửa CSS — repo không có build step nên phải thủ công.
    KHÔNG thêm vào shared/templates.py: file đó dùng chung cho cả 6 app. #}
-{% set ASSET_V = '2' %}
+{% set ASSET_V = '4' %}
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -39,7 +39,9 @@
 <link rel="shortcut icon" href="/static/papasan.ico">
 
 {# THỨ TỰ NÀY LÀ BẮT BUỘC. CSS cùng độ đặc hiệu thì file nạp SAU thắng:
-     theme.css      → token màu (dùng chung 4 app, không sửa cho riêng ketoan)
+     theme.css      → token màu. ⚠️ Từ 08/08/2026 đây là BẢN THỬ RIÊNG của
+                      ketoan (hệ hổ phách/cà phê theo logo), đã lệch khỏi 6 app
+                      QLPPS kia. Lý do + đường lùi ghi ngay trong file đó.
      base.css       → token bố cục + khung .page + .page-head
      components.css → nút, ô nhập, thẻ, bảng, modal, toast
      page_css       → CSS riêng của trang, phải ghi đè được cả ba ở trên
@@ -63,15 +65,18 @@
 {% set _pm %}{% block page_mod %}{% endblock %}{% endset %}
 <main class="{{ ('page ' ~ _pm)|trim }}">
   {# Trang không cần tiêu đề thì override rỗng: {% block page_head %}{% endblock %} #}
+  {# Tiêu đề trang nay hiện Ở HEADER (`#page-title` trong _header.html) nên
+     KHÔNG lặp lại <h1> ở đây nữa — 08/08/2026, người dùng báo bị trùng.
+     Khối này chỉ còn phụ đề + nút hành động; không có cả hai thì bỏ hẳn. #}
   {% block page_head %}
-  {% if page_title %}
+  {% set _act %}{% block page_actions %}{% endblock %}{% endset %}
+  {% if page_sub or _act|trim %}
   <div class="page-head">
     <div class="page-head-mark"></div>
     <div class="page-head-text">
-      <h1 class="page-head-title">{{ page_title }}</h1>
       {% if page_sub %}<p class="page-head-sub">{{ page_sub }}</p>{% endif %}
     </div>
-    <div class="page-head-actions">{% block page_actions %}{% endblock %}</div>
+    <div class="page-head-actions">{{ _act }}</div>
   </div>
   {% endif %}
   {% endblock %}
