@@ -10508,7 +10508,6 @@ function nccClearTime() {
   (async()=>{try{const res=await fetch('/api/profile/avatar',{credentials:'include'});if(res.ok)_ktSetAva(URL.createObjectURL(await res.blob()));}catch(e){}})();
 })();
 </script>
-{% include 'chat_widget.html' %}
 <!-- Mandatory push notification popup (Anh Quang 2026-06-13) -->
 <script src="/static/js/push_request_popup.js?v=3" data-app="ketoan" data-api-base="/api/notifications"></script>
 </body>

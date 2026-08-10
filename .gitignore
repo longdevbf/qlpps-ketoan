@@ -33,3 +33,6 @@ desktop.ini
 
 # Bo kit frontend copy tu ngoai vao — noi dung da hap thu vao .claude/, chi giu local
 /papasan-frontend-claude/
+
+# Sao luu giao dien truoc dot chuan hoa 08/08/2026 — chi giu local, khong day len
+/_backup-ui-2026-08-08/

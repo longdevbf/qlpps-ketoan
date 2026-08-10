@@ -396,10 +396,13 @@ async function loadSessions(){
 }
 
 function fileIcon(ext){
-  const map = {pdf:'',doc:'',docx:'',xls:'',xlsx:'',ppt:'',pptx:'',
-               png:'',jpg:'',jpeg:'',gif:'',mp4:'',mov:'',avi:'',
-               zip:'',rar:'','7z':''};
-  return map[(ext||'').toLowerCase()] || '';
+  /* Tra CHU chu khong phai emoji: vua dung luat "khong emoji", vua co thong tin.
+     Ban cu cua ketoan la map RONG {pdf:'',doc:'',...} + fallback '' -> render ra
+     <span> RONG (tinh nang chet). Ban cu cua marketing dung emoji -> vi pham. */
+  const map = {pdf:'PDF',doc:'DOC',docx:'DOC',xls:'XLS',xlsx:'XLS',ppt:'PPT',pptx:'PPT',
+               png:'Ảnh',jpg:'Ảnh',jpeg:'Ảnh',gif:'Ảnh',mp4:'Video',mov:'Video',avi:'Video',
+               zip:'Nén',rar:'Nén','7z':'Nén'};
+  return map[(ext||'').toLowerCase()] || 'Tệp';
 }
 function fileViewUrl(f){ return f.view_url || f.url || '#'; }
 function fileDownloadUrl(f){ return f.download_url || f.url || '#'; }

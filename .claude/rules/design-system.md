@@ -165,6 +165,12 @@ một CDN ngoài — đúng thứ giới hạn số 7 cấm.
 - **Ký tự chữ chức năng thì được**: `▾` (menu xổ), `☰`/`&#9776;` (menu mobile),
   `×`/`✕` (đóng), `→` (mũi tên trong câu), `•` (dấu phân cách). Đây là ký tự
   typographic, không phải hình vẽ — thang đo còn ghi rõ `22px` dành cho chúng.
+- **Bổ sung 08/08/2026 — người dùng đã chốt: `✓` `✗` `○` `◀` `▶` ĐƯỢC GIỮ.**
+  Chúng đang làm việc thật (badge trạng thái "✓ Đã nộp" / "✗ Từ chối", nút phân
+  trang "◀ Trước" / "Sau ▶") và chính ketoan cũng đang dùng 89 chỗ. Yêu cầu duy
+  nhất: **cỡ chữ đủ lớn để đọc rõ** — dùng `17px` khi đứng trong câu, `22px` khi
+  đứng một mình làm glyph. **Đừng quét xoá chúng như emoji** — đợt trước suýt gỡ
+  hết, sẽ làm badge trạng thái mất tín hiệu thị giác.
 
 Kiểm bằng:
 

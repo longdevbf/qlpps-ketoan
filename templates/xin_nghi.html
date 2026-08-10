@@ -50,7 +50,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
 .btn-refresh:hover{filter:brightness(.95)}
 
 /* ── Page wrap ── */
-.page-wrap{max-width:1200px;margin:0 auto;padding:0 18px 30px;width:100%}
+/* `max-width:1200px` được đặt từ thời trang này CHƯA có sidebar dọc 196px.
+   Nay vùng nội dung chỉ còn `viewport − 196`, mà khung vẫn tự bó ở 1200 nên
+   sinh ra đúng cái nghịch lý người dùng thấy: thừa chỗ trắng bên phải trong
+   khi bảng vẫn phải cuộn ngang. Đo ở 1500px: thừa 104px, bảng thiếu 186px.
+   `padding-top` = 0 cũng là lỗi: `.appbar` cố định cao 56px và nội dung bắt
+   đầu đúng tại y=56, không một khoảng thở nào — nhìn như bị thanh trên đè. */
+.page-wrap{max-width:1560px;margin:0 auto;padding:14px 18px 30px;width:100%}
 .page-wrap > *:not(.page-header){position:relative;z-index:2}
 
 /* ── Stats bar (overlap hero) ── */
@@ -80,10 +86,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
 .tbl-wrap{background:#fff;border-radius:14px;border:1px solid var(--line);overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.04)}
 .tbl-scroll{overflow-x:auto}
 .data-table{width:100%;border-collapse:collapse;font-size:14px}
-.data-table thead th{background:var(--bg-page);color:var(--muted);padding:11px 13px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--line)}
+/* Đệm 13px × 9 cột = 234px chỉ để làm khoảng trắng, trong khi bảng còn thiếu
+   80px so với chỗ có. Siết xuống 10px là đủ cho bảng vừa khít ở 1500px mà vẫn
+   đọc thoáng. */
+.data-table thead th{background:var(--bg-page);color:var(--muted);padding:9px 10px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--line)}
 .data-table tbody tr{border-bottom:1px solid var(--bg-page);transition:background .15s}
 .data-table tbody tr:hover{background:var(--bg-page)}
-.data-table tbody td{padding:11px 13px;vertical-align:middle}
+.data-table tbody td{padding:9px 10px;vertical-align:middle}
 .empty-row td{text-align:center;color:var(--text-3);padding:44px 0;font-size:14px}
 
 /* ── NV cell ── */
@@ -655,7 +664,7 @@ _xnRender.mine = function(slice, total, dom) {
       <td>${fmtDate(d.ngay_bat_dau)}</td>
       <td>${fmtDate(d.ngay_ket_thuc)}</td>
       <td><b>${d.so_ngay}</b></td>
-      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(d.ly_do)}">${escHtml(d.ly_do)}</td>
+      <td style="max-width:148px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(d.ly_do)}">${escHtml(d.ly_do)}</td>
       <td>${stBadge(d.trang_thai)}</td>
       <td>${_nguoiDuyet}</td>
       <td>${canDel ? `<button class="btn-del" onclick="event.stopPropagation(); deleteDon(${d.id})">Hủy</button>` : ''}</td>
@@ -708,7 +717,7 @@ _xnRender.approve = function(slice, total, dom) {
       <td>${fmtDate(d.ngay_bat_dau)}</td>
       <td>${fmtDate(d.ngay_ket_thuc)}</td>
       <td><b>${d.so_ngay}</b></td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(d.ly_do)}">${escHtml(d.ly_do)}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(d.ly_do)}">${escHtml(d.ly_do)}</td>
       <td>${stBadge(d.trang_thai)}</td>
       <td>${canReview ? `<button class="btn-review" onclick='event.stopPropagation(); openReview(${JSON.stringify(d)})'>Duyệt</button>` : ''}</td>
     </tr>`;
