@@ -15,17 +15,21 @@
      • user — dict từ shared.templates.user_ctx(): ho_ten, phong_ban, role,
               _is_mgr, _is_kt… Thiếu context → hiện đủ; route vẫn tự chặn.
 
-   Nav CHỈ trỏ tới trang có URL thật. Các mục nghiệp vụ trong SPA (`/app`) điều
-   hướng bằng `showPage()` — hàm đó đọc `event.currentTarget` và KHÔNG đọc
-   `location.hash`, nên không deep-link được từ ngoài vào. Vì vậy toàn bộ SPA
-   gom về MỘT mục "Kế Toán" → `/app`.
+   ĐIỀU HƯỚNG NAY Ở SIDEBAR DỌC `.ab-sb` bên trái (đổi 08/08/2026), không còn
+   nav ngang trên header. Header giữ: logo · tiêu đề trang (#page-title) ·
+   kỳ kế toán (#month-picker, chỉ trên /app) · chuông · avatar.
+   Mục SPA mang `data-page` + `href="/app#<tên>"`; `abSbSync()` lắng
+   `hashchange` để đánh dấu mục đang mở và tự xổ nhóm chứa nó.
 
    Class đều mang tiền tố `ab-` (appbar) để không dính CSS riêng của trang.
    ═══════════════════════════════════════════════════════════════════════════ #}
 {% set _path = request.url.path if request else '' %}
 {% set _role = ((user.vai_tro if (user and user.vai_tro is defined) else (user.role if user else '')) or '')|lower %}
 {% set _mgr  = (user._is_mgr if (user and user._is_mgr is defined) else False) %}
-<link rel="stylesheet" href="/static/css/theme.css">
+{# Phải có ?v= giống base.html: 15 trang standalone lấy token màu qua ĐÂY chứ
+   không qua base.html. Thiếu version thì sửa theme.css xong trình duyệt vẫn
+   phục vụ bản cache và trang trông y như cũ. Tăng số này mỗi lần sửa màu. #}
+<link rel="stylesheet" href="/static/css/theme.css?v=4">
 <style>
 /* ─── Khung header ─────────────────────────────────────────────────────── */
 :root{--ab-h:56px}
@@ -40,22 +44,21 @@ body{padding-top:var(--ab-h) !important}
 .ab-logo{display:flex;align-items:center;gap:8px;flex-shrink:0;height:38px;
          padding-right:20px;margin-right:10px;border-right:1px solid var(--border);text-decoration:none}
 .ab-logo img{height:30px;width:auto;object-fit:contain;display:block}
-.ab-logo-txt{font-size:15px;font-weight:900;letter-spacing:1px;color:var(--brand);text-transform:uppercase}
-.ab-logo-sub{font-size:11px;font-weight:600;color:var(--brand);letter-spacing:.5px;white-space:nowrap}
+.ab-logo-txt{font-size:16px;font-weight:900;letter-spacing:1px;color:var(--brand);text-transform:uppercase}
+.ab-logo-sub{font-size:12px;font-weight:600;color:var(--brand);letter-spacing:.5px;white-space:nowrap}
 
 /* ─── Nav ──────────────────────────────────────────────────────────────── */
-.ab-nav{display:flex;align-items:center;gap:2px;min-width:0}
 /* Nav dạng CHỮ THUẦN — không nền, không viền. Trạng thái phân biệt bằng
    màu + độ đậm chữ, không dùng khối/đường kẻ. */
 .ab-pill{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;padding:7px 12px;
          background:none;border:none;border-radius:6px;color:var(--text-2);
-         font-size:13px;font-weight:500;line-height:1.2;letter-spacing:.1px;
+         font-size:14px;font-weight:500;line-height:1.2;letter-spacing:.1px;
          font-family:inherit;white-space:nowrap;text-decoration:none;cursor:pointer;
          transition:color .15s}
 .ab-pill:hover{background:none;color:var(--brand);text-decoration:none}
 .ab-pill.active{background:none;color:var(--brand-hover);font-weight:700}
 .ab-dd{position:relative;display:flex;flex-shrink:0}
-.ab-caret{font-size:9px;opacity:.6;margin-left:1px;transition:transform .18s}
+.ab-caret{font-size:10px;opacity:.6;margin-left:1px;transition:transform .18s}
 .ab-dd.open>.ab-pill{background:none;color:var(--brand-hover)}
 .ab-dd.open .ab-caret{transform:rotate(180deg)}
 .ab-menu{position:absolute;top:calc(100% + 6px);left:0;min-width:238px;background:var(--bg-card);
@@ -65,13 +68,13 @@ body{padding-top:var(--ab-h) !important}
 /* Cầu nối trong suốt phủ khoảng hở giữa nút và menu — không có nó thì chuột
    đi từ nút xuống menu sẽ rơi vào vùng trống và menu tự đóng. */
 .ab-dd::after,.ab-user::after{content:'';position:absolute;left:0;right:0;top:100%;height:8px}
-.ab-mtitle{font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:.8px;padding:10px 15px 5px;text-transform:uppercase}
+.ab-mtitle{font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:.8px;padding:10px 15px 5px;text-transform:uppercase}
 {# Mục BẤM ĐƯỢC dùng --text-1 đậm rõ; tiêu đề nhóm (.ab-mtitle) giữ --text-3
    nhỏ + IN HOA — hai mức chữ của hệ tự phân biệt "bấm được / không bấm được". #}
-.ab-item{display:flex;align-items:center;padding:9px 15px;font-size:13px;font-weight:500;
+.ab-item{display:flex;align-items:center;padding:9px 15px;font-size:14px;font-weight:500;
          color:var(--text-1);text-decoration:none;white-space:nowrap;transition:background .12s;
          border:none;background:none;width:100%;text-align:left;cursor:pointer;font-family:inherit}
-.ab-item:hover{background:var(--brand-soft);color:var(--brand);text-decoration:none}
+.ab-item:hover{background:var(--brand-soft);color:var(--brand-hover);text-decoration:none}
 /* Trang SPA đang mở. Cùng quy ước với .ab-pill.active: chỉ đổi màu + độ đậm,
    KHÔNG tô nền — nền dành riêng cho hover. */
 .ab-item.ab-item-active{color:var(--brand-hover);font-weight:700}
@@ -88,32 +91,179 @@ body{padding-top:var(--ab-h) !important}
 .ab-userbtn:hover{background:var(--bg-page);border-color:var(--border)}
 /* Quyết định pastel 05/08/2026: avatar bỏ nền cam đặc, dùng nền soft + chữ brand-hover */
 .ab-avatar{width:30px;height:30px;border-radius:50%;background:var(--brand-soft);color:var(--brand-hover);overflow:hidden;
-           display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+           display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}
 .ab-avatar img{width:100%;height:100%;object-fit:cover;display:none}
 .ab-uinfo{display:flex;flex-direction:column;line-height:1.2}
-.ab-uname{font-size:12px;font-weight:700;color:var(--brand);white-space:nowrap}
-.ab-urole{font-size:10px;font-weight:500;color:var(--text-3);white-space:nowrap}
-.ab-chev{color:var(--text-3);font-size:11px;margin-left:2px;transition:transform .2s}
+.ab-uname{font-size:13px;font-weight:700;color:var(--brand);white-space:nowrap}
+.ab-urole{font-size:11px;font-weight:500;color:var(--text-3);white-space:nowrap}
+.ab-chev{color:var(--text-3);font-size:12px;margin-left:2px;transition:transform .2s}
 .ab-user.open .ab-chev{transform:rotate(180deg)}
 .ab-umenu{position:absolute;top:calc(100% + 10px);right:0;width:260px;background:var(--bg-card);
           border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;z-index:20;
           box-shadow:var(--shadow-lg)}
 .ab-user.open .ab-umenu{display:block}
 .ab-uhead{background:var(--bg-page);border-bottom:1px solid var(--bg-page);padding:16px;display:flex;align-items:center;gap:12px}
-.ab-uhead .ab-avatar{width:42px;height:42px;font-size:16px;cursor:pointer;position:relative}
-.ab-uhead-name{font-size:14px;font-weight:700;color:var(--brand)}
-.ab-uhead-role{font-size:11px;color:var(--text-3);margin-top:2px}
+.ab-uhead .ab-avatar{width:42px;height:42px;font-size:17px;cursor:pointer;position:relative}
+.ab-uhead-name{font-size:15px;font-weight:700;color:var(--brand)}
+.ab-uhead-role{font-size:12px;color:var(--text-3);margin-top:2px}
 .ab-cam{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.45);color:#fff;
-        font-size:8px;text-align:center;padding:2px 0;pointer-events:none}
+        font-size:9px;text-align:center;padding:2px 0;pointer-events:none}
 .ab-logout{color:var(--danger)}
 .ab-logout:hover{background:var(--danger-soft);color:var(--danger-fg)}
+
+/* ═══ SIDEBAR DỌC — điều hướng chính (08/08/2026) ═══════════════════════════
+   Thay 5 dropdown trên header. Rộng 196px (hẹp hơn rail cũ 210px), thu gọn
+   được xuống 52px chỉ còn icon. Icon CHỈ đặt ở hàng nhóm — hàng con thụt lề
+   bằng chữ, tiết kiệm ~26px bề ngang mỗi dòng.
+   Icon là SVG inline (design-system cấm emoji + icon font, cho phép SVG).   */
+:root{--sb-w:196px;--sb-min:52px}
+.ab-sb{
+  position:fixed;top:var(--ab-h);left:0;bottom:0;width:var(--sb-w);z-index:150;
+  background:var(--bg-card);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  font-family:'Segoe UI',sans-serif;
+}
+body{padding-left:var(--sb-w)}
+body.sb-min{padding-left:var(--sb-min)}
+body.sb-min .ab-sb{width:var(--sb-min)}
+.ab-sb-nav{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 6px 12px}
+
+/* Hàng nhóm + hàng lá dùng chung khung */
+.ab-sb-a,.ab-sb-gb{
+  display:flex;align-items:center;gap:9px;width:100%;
+  padding:8px 9px;border:none;background:none;border-radius:7px;
+  font-family:inherit;font-size:14px;font-weight:500;color:var(--text-2);
+  text-align:left;text-decoration:none;cursor:pointer;
+  transition:background .12s,color .12s;
+}
+.ab-sb-a:hover,.ab-sb-gb:hover{background:var(--bg-page);color:var(--brand);text-decoration:none}
+.ab-sb-ic{flex:0 0 16px;height:16px;display:flex;align-items:center;justify-content:center;color:var(--text-3)}
+.ab-sb-svg{width:16px;height:16px;display:block}
+.ab-sb-tx{flex:1;min-width:0;line-height:1.3}
+.ab-sb-gb:hover .ab-sb-ic,.ab-sb-a:hover .ab-sb-ic{color:var(--brand)}
+
+/* Mũi ‹›: xoay 90° khi nhóm mở */
+.ab-sb-cv{flex:0 0 auto;font-size:14px;color:var(--text-3);transition:transform .16s}
+.ab-sb-g.open .ab-sb-cv{transform:rotate(90deg)}
+
+/* Hàng con: thụt lề bằng vạch dẫn, KHÔNG dùng icon để giữ rail hẹp */
+.ab-sb-sub{display:none;margin:1px 0 3px 18px;padding-left:9px;border-left:1px solid var(--border)}
+.ab-sb-g.open .ab-sb-sub{display:block}
+.ab-sb-child{padding:6px 9px;font-size:13px}
+
+/* Mục đang mở — nền pastel + chữ brand, đúng quy ước .ab-item.active */
+.ab-sb-a.active{background:var(--brand-soft);color:var(--brand-hover);font-weight:700}
+.ab-sb-a.active .ab-sb-ic{color:var(--brand-hover)}
+/* Nhóm chứa mục đang mở: chỉ đổi chữ, KHÔNG tô nền (nền dành cho mục lá) */
+.ab-sb-g.has-active > .ab-sb-gb{color:var(--brand-hover);font-weight:700}
+.ab-sb-g.has-active > .ab-sb-gb .ab-sb-ic{color:var(--brand-hover)}
+
+/* Badge số việc chờ — lý do chính để đổi sang sidebar */
+.ab-sb-bd,.ab-sb-gbd{
+  flex:0 0 auto;min-width:18px;padding:1px 6px;border-radius:999px;
+  background:var(--brand-hover);color:var(--text-on-brand);
+  font-size:11px;font-weight:700;text-align:center;line-height:1.5;
+}
+.ab-sb-gbd{margin-left:auto}
+
+/* Nút thu gọn, ghim đáy */
+.ab-sb-min{
+  flex:0 0 auto;display:flex;align-items:center;gap:9px;
+  padding:9px 15px;border:none;border-top:1px solid var(--border);
+  background:none;font-family:inherit;font-size:13px;color:var(--text-3);
+  cursor:pointer;transition:color .12s;
+}
+.ab-sb-min:hover{color:var(--brand)}
+.ab-sb-mi{flex:0 0 16px;text-align:center;font-size:14px;transition:transform .16s}
+body.sb-min .ab-sb-mi{transform:rotate(180deg)}
+
+/* Trạng thái THU GỌN: chỉ còn icon nhóm; nhóm con xổ ra không có chỗ nên
+   ẩn hẳn — bấm icon sẽ tự mở lại rail (xem abSbGroup). */
+/* `.ab-sb-g.open .ab-sb-sub` có 3 class nên THẮNG `body.sb-min .ab-sb-sub`
+   (2 class + 1 thẻ). Phải viết đủ đặc hiệu, nếu không nhóm đang mở vẫn lòi
+   vạch dẫn + ô active ra ngoài rail 52px. */
+body.sb-min .ab-sb-tx,
+body.sb-min .ab-sb-cv,
+body.sb-min .ab-sb-g .ab-sb-sub,
+body.sb-min .ab-sb-g.open .ab-sb-sub,
+body.sb-min .ab-sb-bd{display:none}
+body.sb-min .ab-sb-a,body.sb-min .ab-sb-gb{justify-content:center;padding:9px 0}
+body.sb-min .ab-sb-min{justify-content:center;padding:9px 0}
+body.sb-min .ab-sb-gbd{
+  margin:0;position:absolute;transform:translate(11px,-9px);
+  min-width:0;width:7px;height:7px;padding:0;font-size:0;
+}
+body.sb-min .ab-sb-g,body.sb-min .ab-sb-top{position:relative}
+
+/* Dưới 1100px: rail nhường chỗ cho drawer (đã có sẵn) */
+@media(max-width:1100px){
+  .ab-sb{display:none}
+  body,body.sb-min{padding-left:0}
+}
+
+/* ─── Tiêu đề trang + Kỳ kế toán trên header (gộp từ .topbar cũ) ────────── */
+.ab-ptitle{
+  font-size:15px;font-weight:700;color:var(--text-1);
+  padding-left:16px;margin-right:16px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;
+}
+/* margin-right: tách ô chọn kỳ khỏi vạch ngăn của khối chuông/avatar —
+   sát quá thì đọc thành một cụm. */
+.ab-tools{display:flex;align-items:center;gap:10px;margin-left:auto;margin-right:20px}
+.ab-period{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:5px 10px 5px 11px;border:1px solid var(--border);border-radius:8px;
+  background:var(--bg-card);cursor:pointer;
+}
+.ab-period:focus-within{border-color:var(--brand);box-shadow:var(--focus-ring)}
+.ab-period-lb{
+  font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-3);
+}
+.ab-period-in{
+  border:none;background:none;outline:none;font-family:inherit;
+  font-size:13px;font-weight:600;color:var(--text-1);cursor:pointer;padding:0;
+  width:auto;
+}
+/* <select> thừa hưởng font của trang nên không cần vá shadow DOM như
+   input[type=month] trước đây. Mũi ▾ tự vẽ để không phụ thuộc style hệ. */
+.ab-period-in{
+  appearance:none;-webkit-appearance:none;
+  padding-right:18px;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),
+                   linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-size:5px 5px,5px 5px;
+  background-position:right 6px center,right 1px center;
+  background-repeat:no-repeat;
+}
+.ab-period-in option{font-family:'Segoe UI',sans-serif;font-size:14px;color:var(--text-1)}
+/* Khối phải không còn tự đẩy sang phải nữa — .ab-tools đã giữ vai trò đó */
+.ab-right{margin-left:0}
+@media(max-width:768px){
+  .ab-ptitle{display:none}          /* hẹp quá thì nhường chỗ cho kỳ + avatar */
+  .ab-period-lb{display:none}
+  .ab-tools{margin-right:10px}
+}
+/* Điện thoại: ô chọn kỳ thu còn ĐÚNG NÚT LỊCH. Trước đây nó giữ nguyên bề
+   rộng "Tháng Tám 2026" nên đẩy khối tài khoản ra ngoài mép phải, mất luôn
+   avatar (người dùng báo 08/08/2026). Bấm icon vẫn mở đúng bộ chọn tháng. */
+@media(max-width:480px){
+  /* Màn hẹp: rút nhãn tháng còn dạng ngắn "T8/2026" (JS tự đổi text), ô hẹp lại */
+  .ab-period{padding:6px 8px}
+  .ab-period-in{width:86px;font-size:13px}
+  .ab-tools{margin-right:8px}
+  /* Tên + vai trò chiếm ~130px — bỏ, chỉ giữ vòng avatar */
+  .ab-uinfo,.ab-chev{display:none}
+  .ab-userbtn{padding:5px 6px}
+  .ab-right{padding-left:10px}
+}
 
 /* ─── Hamburger + drawer (mobile) ──────────────────────────────────────── */
 .ab-burger{display:none;background:none;border:none;color:var(--text-2);font-size:22px;
            line-height:1;padding:6px 10px;border-radius:6px;cursor:pointer;margin-right:6px;
            transition:color .15s}
 .ab-burger:hover{color:var(--brand)}
-.ab-backdrop{display:none;position:fixed;inset:0;background:rgba(15,38,64,.42);z-index:1998;opacity:0;transition:opacity .2s}
+.ab-backdrop{display:none;position:fixed;inset:0;background:rgba(51,33,15,.32);z-index:1998;opacity:0;transition:opacity .2s}
 .ab-backdrop.open{display:block;opacity:1}
 .ab-drawer{position:fixed;top:0;left:0;bottom:0;width:280px;max-width:82vw;background:var(--bg-card);color:var(--brand);
            z-index:1999;transform:translateX(-100%);transition:transform .25s ease;
@@ -121,17 +271,17 @@ body{padding-top:var(--ab-h) !important}
            font-family:'Segoe UI',sans-serif}
 .ab-drawer.open{transform:translateX(0)}
 .ab-dhead{padding:14px 16px;border-bottom:1px solid var(--bg-page);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.ab-dtitle{font-size:14px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--brand)}
+.ab-dtitle{font-size:15px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--brand)}
 .ab-dclose{background:transparent;border:0;color:var(--text-3);font-size:22px;cursor:pointer;padding:0 6px;line-height:1}
 .ab-dlist{padding:10px;display:flex;flex-direction:column;gap:6px}
-.ab-dlist .ab-pill{display:flex;width:100%;justify-content:flex-start;padding:11px 14px;font-size:14px;
+.ab-dlist .ab-pill{display:flex;width:100%;justify-content:flex-start;padding:11px 14px;font-size:15px;
                    background:var(--bg-page);border:1px solid var(--border);color:var(--text-2)}
 .ab-dlist .ab-pill.active{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-hover)}
 .ab-dgroup{display:flex;flex-direction:column;gap:6px}
 .ab-dgroup>.ab-pill{justify-content:space-between}
 .ab-dsub{display:none;flex-direction:column;gap:4px;margin:0 0 2px 10px;padding-left:10px;border-left:2px solid var(--border)}
 .ab-dgroup.open .ab-dsub{display:flex}
-.ab-dsub a{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;font-size:13px;
+.ab-dsub a{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;font-size:14px;
            font-weight:600;color:var(--text-2);text-decoration:none;background:var(--bg-page);border:1px solid var(--bg-page)}
 .ab-dsub a:hover{background:var(--border);color:var(--brand)}
 
@@ -140,21 +290,6 @@ body{padding-top:var(--ab-h) !important}
    chuyển sang drawer thay vì để nav bị che. */
 @media(max-width:1100px){
   .ab-burger{display:inline-flex;align-items:center;justify-content:center}
-  .ab-nav{display:none !important}
-}
-/* ── Subnav TRÁI — bản chiếu nội dung dropdown đang active ──────────────────
-   Ngoại lệ khỏi chuẩn "chỉ 2 dạng subnav", NGƯỜI DÙNG DUYỆT 06/08/2026 (riêng
-   ketoan). Dropdown trên header vẫn giữ nguyên; JS abBuildSubnav() clone menu
-   của nhóm đang active vào đây — một nguồn dữ liệu, không khai trùng. */
-.ab-subnav{display:none;position:fixed;top:var(--ab-h);left:0;bottom:0;width:210px;
-           background:var(--bg-card);border-right:1px solid var(--border);
-           overflow-y:auto;padding:10px 0;z-index:150}
-body.has-subnav .ab-subnav{display:block}
-body.has-subnav{padding-left:210px}
-.ab-subnav .ab-item{white-space:normal}   /* cột hẹp — cho phép tên dài xuống dòng */
-@media(max-width:1100px){
-  .ab-subnav{display:none !important}
-  body.has-subnav{padding-left:0}
 }
 @media(max-width:768px){
   .appbar{padding:8px 12px}
@@ -177,75 +312,36 @@ body.has-subnav{padding-left:210px}
   </a>
   <button class="ab-burger" type="button" onclick="abToggleDrawer()" aria-label="Menu">&#9776;</button>
 
-  {# Nav gánh TOÀN BỘ điều hướng — sidebar dọc của SPA đã bỏ hẳn.
-     `data-page` = id trang SPA (`page-<data-page>`); href `/app#<name>` để deep-link
-     được từ trang khác. Trên chính /app, đổi hash không tải lại nên `hashchange`
-     bên dưới lo việc gọi showPage. #}
-  <nav class="ab-nav" aria-label="Điều hướng chính">
-    <div class="ab-dd">
-      <button type="button" class="ab-pill ab-ddbtn" aria-haspopup="true" aria-expanded="false"
-              onclick="abToggleDD(this,event)">Tổng Quan <span class="ab-caret">▾</span></button>
-      <div class="ab-menu">
-        <a class="ab-item" data-page="bao-cao"  href="/app#bao-cao">Dashboard</a>
-        <a class="ab-item" data-page="can-doi"  href="/app#can-doi">Cân Đối Tài Chính</a>
-        <a class="ab-item" data-page="pnl"      href="/app#pnl">P&amp;L (Kết Quả KD)</a>
-        <a class="ab-item" data-page="cashflow" href="/app#cashflow">Cashflow</a>
-      </div>
-    </div>
-    <div class="ab-dd">
-      <button type="button" class="ab-pill ab-ddbtn" aria-haspopup="true" aria-expanded="false"
-              onclick="abToggleDD(this,event)">Thu — Chi <span class="ab-caret">▾</span></button>
-      <div class="ab-menu">
-        <a class="ab-item" data-page="doanh-thu" href="/app#doanh-thu">Doanh Thu</a>
-        <a class="ab-item" data-page="chi-phi"   href="/app#chi-phi">Chi Phí Phát Sinh</a>
-        <a class="ab-item" data-page="co-dinh"   href="/app#co-dinh">Chi Phí Cố Định</a>
-      </div>
-    </div>
-    <div class="ab-dd">
-      <button type="button" class="ab-pill ab-ddbtn{% if _path.startswith('/duyet-ncc') %} active{% endif %}"
-              aria-haspopup="true" aria-expanded="false" onclick="abToggleDD(this,event)">Quản Lý <span class="ab-caret">▾</span></button>
-      <div class="ab-menu">
-        <a class="ab-item" data-page="cong-no"      href="/app#cong-no">Công Nợ</a>
-        <a class="ab-item" data-page="cong-no-ncc"  href="/app#cong-no-ncc">Công Nợ NCC</a>
-        {% if _mgr %}<a class="ab-item" href="/duyet-ncc">Duyệt ĐX Trả NCC</a>{% endif %}
-        <div class="ab-div"></div>
-        <a class="ab-item" data-page="so-quy"       href="/app#so-quy">Sổ Quỹ</a>
-        <a class="ab-item" data-page="khoan-vay"    href="/app#khoan-vay">Vốn Vay</a>
-        <a class="ab-item" data-page="phan-phoi-ln" href="/app#phan-phoi-ln">Phân Phối Lợi Nhuận</a>
-        <a class="ab-item" data-page="tscd"         href="/app#tscd">TSCĐ + Khấu Hao</a>
-      </div>
-    </div>
-    <div class="ab-dd">
-      <button type="button" class="ab-pill ab-ddbtn" aria-haspopup="true" aria-expanded="false"
-              onclick="abToggleDD(this,event)">Liên Phòng Ban <span class="ab-caret">▾</span></button>
-      <div class="ab-menu">
-        <a class="ab-item" data-page="luong"    href="/app#luong">Lương HCNS</a>
-        <a class="ab-item" data-page="don-hang" href="/app#don-hang">Đơn Hàng</a>
-        <a class="ab-item" data-page="ads"      href="/app#ads">Chi Phí ADS</a>
-        <a class="ab-item" data-page="cpa-ads"  href="/app#cpa-ads">ROI/CPA Ads</a>
-      </div>
-    </div>
-    <div class="ab-dd">
-      <button type="button" class="ab-pill ab-ddbtn{% if _path.startswith('/products') %} active{% endif %}"
-              aria-haspopup="true" aria-expanded="false" onclick="abToggleDD(this,event)">Danh Mục <span class="ab-caret">▾</span></button>
-      <div class="ab-menu">
-        <a class="ab-item" data-page="san-pham"     href="/app#san-pham">Sản Phẩm</a>
-        <a class="ab-item" data-page="thuoc-tinh"   href="/app#thuoc-tinh">Thuộc Tính SP</a>
-        <a class="ab-item" data-page="ton-kho"      href="/app#ton-kho">Tồn Kho</a>
-        <a class="ab-item" data-page="loai-cp"      href="/app#loai-cp">Loại Chi Phí</a>
-        <a class="ab-item" data-page="tai-khoan-nh" href="/app#tai-khoan-nh">Tài Khoản NH</a>
-        <a class="ab-item" data-page="quan-ly-quy"  href="/app#quan-ly-quy">Quản Lý Quỹ</a>
-        <div class="ab-div"></div>
-        <div class="ab-mtitle">Trang riêng</div>
-        <a class="ab-item" href="/products">Sản Phẩm &amp; Tồn Kho</a>
-        {# "Khuyến Mãi" đã gỡ: route /khuyen-mai (pages.py) render `khuyen_mai.html`
-           — file KHÔNG tồn tại trong repo này nên trả 500. Template gốc bên
-           qlpps-marketing gọi /api/khuyen-mai, /api/all-staff, /api/product-groups
-           mà ketoan đều không có, nên chép sang cũng chỉ ra trang rỗng lỗi.
-           Muốn bật lại: phải port cả API trước, rồi mới thêm link. #}
-      </div>
-    </div>
-  </nav>
+  {# Tiêu đề trang + Kỳ kế toán — gộp từ thanh `.topbar` cũ của index.html
+     (08/08/2026). Giữ NGUYÊN id `page-title` và `month-picker` nên không phải
+     sửa dòng JS nào trong SPA: showPage() vẫn ghi tiêu đề, onMonthChange()
+     vẫn bắt được ô chọn tháng.
+     Kỳ kế toán chỉ hiện trên /app vì `onMonthChange` do index.html định nghĩa;
+     trang riêng không có hàm đó. #}
+  <div class="ab-ptitle" id="page-title"></div>
+
+  <div class="ab-tools">
+    {% if _path.startswith('/app') %}
+    {# DÙNG <select>, KHÔNG dùng <input type="month">.
+       Bộ chọn gốc của input[type=month] là popup NGOÀI DOM — không style được,
+       không đo được, và trên màn hẹp có thể tràn khỏi mép phải (người dùng báo
+       08/08/2026). <select> thì mở bằng bộ chọn của hệ điều hành nên luôn
+       hiện đủ, lại thừa hưởng font của trang.
+       `.value` vẫn là chuỗi 'YYYY-MM' y hệt input cũ → không dòng JS nào của
+       SPA phải sửa (showPage / onMonthChange / loadDonHang… giữ nguyên). #}
+    <label class="ab-period" title="Kỳ kế toán đang xem — đổi là mọi số trên trang đổi theo">
+      <span class="ab-period-lb">Kỳ</span>
+      <select id="month-picker" class="ab-period-in"
+              onchange="if (typeof onMonthChange === 'function') onMonthChange()"></select>
+    </label>
+    {% endif %}
+  </div>
+
+  {# Điều hướng đã chuyển XUỐNG SIDEBAR dọc bên trái (`.ab-sb`), 08/08/2026.
+     Header nay chỉ còn: logo · nút mở drawer (mobile) · chuông · avatar.
+     Lý do đổi: 35 đích đến nhét trong 5 dropdown thì phải mở ra mới thấy —
+     sidebar hiện thường trực nên đặt được SỐ CHỜ DUYỆT ngay trên mục, biến
+     điều hướng thành hàng đợi công việc. #}
 
   <div class="ab-right">
     <div id="qlpps-bell-mount" class="ab-bell"></div>
@@ -296,7 +392,86 @@ body.has-subnav{padding-left:210px}
   </div>
 </div>
 
-<aside class="ab-subnav" id="ab-subnav" aria-label="Điều hướng phụ"></aside>
+<aside class="ab-sb" id="ab-sb" aria-label="Điều hướng chính">
+  <nav class="ab-sb-nav">
+  <a class="ab-sb-a ab-sb-top" data-page="bao-cao" href="/app#bao-cao" title="Tổng quan"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="2.5" width="5" height="5" rx="1"/><rect x="8.5" y="2.5" width="5" height="5" rx="1"/><rect x="2.5" y="8.5" width="5" height="5" rx="1"/><rect x="8.5" y="8.5" width="5" height="5" rx="1"/></svg></span><span class="ab-sb-tx">Tổng quan</span></a>
+  <div class="ab-sb-g" data-g="thuchi">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Thu — Chi"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 10.5V3M4.5 3 2 5.5M4.5 3 7 5.5"/><path d="M11.5 5.5V13M11.5 13 9 10.5M11.5 13 14 10.5"/></svg></span><span class="ab-sb-tx">Thu — Chi</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+    <div class="ab-sb-sub">
+    <a class="ab-sb-a ab-sb-child" data-page="doanh-thu" href="/app#doanh-thu" title="Doanh thu"><span class="ab-sb-tx">Doanh thu</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="chi-phi" href="/app#chi-phi" title="Chi phí phát sinh"><span class="ab-sb-tx">Chi phí phát sinh</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="co-dinh" href="/app#co-dinh" title="Chi phí cố định"><span class="ab-sb-tx">Chi phí cố định</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="so-quy" href="/app#so-quy" title="Sổ quỹ"><span class="ab-sb-tx">Sổ quỹ</span></a>
+    </div>
+  </div>
+  <div class="ab-sb-g" data-g="congno">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Công nợ"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 2.5h9v11l-2-1.2-2 1.2-2-1.2-2 1.2z"/><path d="M6 6h4M6 8.8h4"/></svg></span><span class="ab-sb-tx">Công nợ</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+    <div class="ab-sb-sub">
+    <a class="ab-sb-a ab-sb-child" data-page="cong-no" href="/app#cong-no" title="Công nợ khách"><span class="ab-sb-tx">Công nợ khách</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="cong-no-ncc" href="/app#cong-no-ncc" title="Công nợ NCC"><span class="ab-sb-tx">Công nợ NCC</span></a>
+    {% if _mgr %}<a class="ab-sb-a ab-sb-child" href="/duyet-ncc" title="Duyệt ĐX trả NCC"><span class="ab-sb-tx">Duyệt ĐX trả NCC</span><span class="ab-sb-bd" id="ab-sb-bd-ncc" hidden>0</span></a>{% endif %}
+    </div>
+  </div>
+  <div class="ab-sb-g" data-g="kho">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Kho & giá vốn"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 5.5 8 2.5l5.5 3v5L8 13.5l-5.5-3z"/><path d="M2.5 5.5 8 8.5l5.5-3M8 8.5v5"/></svg></span><span class="ab-sb-tx">Kho & giá vốn</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+    <div class="ab-sb-sub">
+    <a class="ab-sb-a ab-sb-child" data-page="san-pham" href="/app#san-pham" title="Sản phẩm"><span class="ab-sb-tx">Sản phẩm</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="thuoc-tinh" href="/app#thuoc-tinh" title="Thuộc tính SP"><span class="ab-sb-tx">Thuộc tính SP</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="ton-kho" href="/app#ton-kho" title="Tồn kho"><span class="ab-sb-tx">Tồn kho</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/products" title="Trang SP đầy đủ"><span class="ab-sb-tx">Trang SP đầy đủ</span></a>
+    </div>
+  </div>
+  <div class="ab-sb-g" data-g="von">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Vốn & tài sản"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6.5 8 2.5l6 4"/><path d="M3.5 6.5v6M6.5 6.5v6M9.5 6.5v6M12.5 6.5v6"/><path d="M2 13.5h12"/></svg></span><span class="ab-sb-tx">Vốn & tài sản</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+    <div class="ab-sb-sub">
+    <a class="ab-sb-a ab-sb-child" data-page="khoan-vay" href="/app#khoan-vay" title="Vốn vay"><span class="ab-sb-tx">Vốn vay</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="quan-ly-quy" href="/app#quan-ly-quy" title="Quản lý quỹ"><span class="ab-sb-tx">Quản lý quỹ</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="phan-phoi-ln" href="/app#phan-phoi-ln" title="Phân phối LN"><span class="ab-sb-tx">Phân phối LN</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="tscd" href="/app#tscd" title="TSCĐ & khấu hao"><span class="ab-sb-tx">TSCĐ & khấu hao</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="tai-khoan-nh" href="/app#tai-khoan-nh" title="Tài khoản NH"><span class="ab-sb-tx">Tài khoản NH</span></a>
+    </div>
+  </div>
+  <div class="ab-sb-g" data-g="baocao">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Báo cáo"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 13.5h11"/><path d="M4.5 13.5V8M8 13.5V4M11.5 13.5v-3.5"/></svg></span><span class="ab-sb-tx">Báo cáo</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+    <div class="ab-sb-sub">
+    <a class="ab-sb-a ab-sb-child" data-page="can-doi" href="/app#can-doi" title="Cân đối tài chính"><span class="ab-sb-tx">Cân đối tài chính</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="pnl" href="/app#pnl" title="P&L (kết quả KD)"><span class="ab-sb-tx">P&L (kết quả KD)</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="cashflow" href="/app#cashflow" title="Cashflow"><span class="ab-sb-tx">Cashflow</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="cpa-ads" href="/app#cpa-ads" title="ROI / CPA Ads"><span class="ab-sb-tx">ROI / CPA Ads</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/bao-cao/duyet-chi" title="Báo cáo duyệt chi"><span class="ab-sb-tx">Báo cáo duyệt chi</span></a>
+    </div>
+  </div>
+  <div class="ab-sb-g" data-g="lienphong">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Liên phòng ban"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.5" r="2.2"/><path d="M2.5 13c0-2 1.6-3.4 3.5-3.4S9.5 11 9.5 13"/><path d="M11 5.6a2 2 0 0 1 0 3.9M11.8 13c0-1.4-.4-2.4-1-3.1"/></svg></span><span class="ab-sb-tx">Liên phòng ban</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+    <div class="ab-sb-sub">
+    <a class="ab-sb-a ab-sb-child" data-page="don-hang" href="/app#don-hang" title="Đơn hàng"><span class="ab-sb-tx">Đơn hàng</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="luong" href="/app#luong" title="Lương HCNS"><span class="ab-sb-tx">Lương HCNS</span></a>
+    <a class="ab-sb-a ab-sb-child" data-page="ads" href="/app#ads" title="Chi phí ADS"><span class="ab-sb-tx">Chi phí ADS</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/duyet-chi" title="Duyệt chi"><span class="ab-sb-tx">Duyệt chi</span><span class="ab-sb-bd" id="ab-sb-bd-chi" hidden>0</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/de-nghi-tt" title="Đề nghị TT"><span class="ab-sb-tx">Đề nghị TT</span></a>
+    {% if _mgr %}<a class="ab-sb-a ab-sb-child" href="/phe-duyet" title="Phê duyệt"><span class="ab-sb-tx">Phê duyệt</span><span class="ab-sb-bd" id="ab-sb-bd-pd" hidden>0</span></a>{% endif %}
+    </div>
+  </div>
+  <div class="ab-sb-g" data-g="canhan">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Cá nhân"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="5.3" r="2.6"/><path d="M3 13.5c0-2.5 2.2-4.2 5-4.2s5 1.7 5 4.2"/></svg></span><span class="ab-sb-tx">Cá nhân</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+    <div class="ab-sb-sub">
+    <a class="ab-sb-a ab-sb-child" href="/ho-so-ca-nhan" title="Hồ sơ cá nhân"><span class="ab-sb-tx">Hồ sơ cá nhân</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/cham-cong" title="Chấm công"><span class="ab-sb-tx">Chấm công</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/xin-nghi" title="Xin nghỉ"><span class="ab-sb-tx">Xin nghỉ</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/giao-viec" title="Giao việc"><span class="ab-sb-tx">Giao việc</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/lich-lam-viec" title="Lịch làm việc"><span class="ab-sb-tx">Lịch làm việc</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/dao-tao" title="Đào tạo"><span class="ab-sb-tx">Đào tạo</span></a>
+    </div>
+  </div>
+  <div class="ab-sb-g" data-g="danhmuc">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Danh mục"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h8M6 8h8M6 12h8"/><circle cx="3" cy="4" r=".9"/><circle cx="3" cy="8" r=".9"/><circle cx="3" cy="12" r=".9"/></svg></span><span class="ab-sb-tx">Danh mục</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+    <div class="ab-sb-sub">
+    <a class="ab-sb-a ab-sb-child" data-page="loai-cp" href="/app#loai-cp" title="Loại chi phí"><span class="ab-sb-tx">Loại chi phí</span></a>
+    </div>
+  </div>
+  </nav>
+  <button type="button" class="ab-sb-min" onclick="abSbMin()" id="ab-sb-min" title="Thu gọn thanh bên"><span class="ab-sb-mi" aria-hidden="true">‹</span><span class="ab-sb-tx">Thu gọn</span></button>
+</aside>
 
 <div class="ab-backdrop" id="ab-backdrop" onclick="abCloseDrawer()"></div>
 <aside class="ab-drawer" id="ab-drawer" role="dialog" aria-label="Menu điều hướng">
@@ -309,8 +484,8 @@ body.has-subnav{padding-left:210px}
 
 {# Helper dùng chung (esc / escHtml / initials) — nạp ở đây nên MỌI trang
    include _header.html đều có sẵn, khỏi khai báo lại trong từng template. #}
-<script src="/static/js/ui-common.js?v=1"></script>
-<script src="/static/js/notifications_bell.js?v=4"></script>
+<script src="/static/js/ui-common.js?v=3"></script>
+<script src="/static/js/notifications_bell.js?v=5"></script>
 <script>
 (function(){
   if (window.__abReady) return;      // include 2 lần cũng không gắn handler 2 lần
@@ -394,44 +569,50 @@ body.has-subnav{padding-left:210px}
     else location.href = '/ho-so-ca-nhan';
   };
 
-  /* ── drawer mobile: dựng lại từ nav mỗi lần mở ── */
-  function abClonePill(orig){
-    var clone = document.createElement('a');
-    clone.href = orig.getAttribute('href') || '#';
-    clone.className = orig.className;
-    clone.innerHTML = orig.innerHTML;
-    clone.addEventListener('click', abCloseDrawer);
-    return clone;
-  }
-  function abCloneGroup(dd){
-    var wrap = document.createElement('div');
-    wrap.className = 'ab-dgroup open';
-    var head = document.createElement('button');
-    head.type = 'button';
-    head.className = 'ab-pill';
-    var btn = dd.querySelector('.ab-ddbtn');
-    head.innerHTML = btn ? btn.innerHTML : '';
-    head.addEventListener('click', function(){ wrap.classList.toggle('open'); });
-    var sub = document.createElement('div');
-    sub.className = 'ab-dsub';
-    dd.querySelectorAll('.ab-menu .ab-item').forEach(function(a){
-      var c = document.createElement('a');
-      c.href = a.getAttribute('href') || '#';
-      c.innerHTML = a.innerHTML;
-      c.addEventListener('click', abCloseDrawer);
-      sub.appendChild(c);
-    });
-    wrap.appendChild(head); wrap.appendChild(sub);
-    return wrap;
+  /* ── Drawer mobile: dựng lại từ SIDEBAR mỗi lần mở ───────────────────────
+     Bản cũ đọc `.appbar .ab-nav` — nav đó đã gỡ khi chuyển sang sidebar dọc,
+     nên drawer sẽ RỖNG nếu không đổi nguồn. Nay chiếu thẳng cây `.ab-sb`. */
+  function abDwLink(a){
+    var c = document.createElement('a');
+    c.href = a.getAttribute('href') || '#';
+    var tx = a.querySelector('.ab-sb-tx');
+    c.textContent = tx ? tx.textContent : a.textContent.trim();
+    if (a.classList.contains('active')) c.className = 'active';
+    var bd = a.querySelector('.ab-sb-bd');
+    if (bd && !bd.hidden){
+      var b = document.createElement('span');
+      b.className = 'ab-sb-bd'; b.textContent = bd.textContent;
+      b.style.marginLeft = '8px';
+      c.appendChild(b);
+    }
+    c.addEventListener('click', abCloseDrawer);
+    return c;
   }
   function abBuildDrawer(){
     var list = document.getElementById('ab-dlist');
-    var nav  = document.querySelector('.appbar .ab-nav');
-    if (!list || !nav) return;
+    var sb   = document.querySelector('#ab-sb .ab-sb-nav');
+    if (!list || !sb) return;
     list.innerHTML = '';
-    Array.prototype.forEach.call(nav.children, function(node){
-      if (node.classList.contains('ab-dd')) list.appendChild(abCloneGroup(node));
-      else if (node.classList.contains('ab-pill')) list.appendChild(abClonePill(node));
+    Array.prototype.forEach.call(sb.children, function(node){
+      if (node.classList.contains('ab-sb-top')){
+        var p = abDwLink(node);
+        p.className = 'ab-pill' + (node.classList.contains('active') ? ' active' : '');
+        list.appendChild(p);
+        return;
+      }
+      if (!node.classList.contains('ab-sb-g')) return;
+      var wrap = document.createElement('div');
+      wrap.className = 'ab-dgroup' + (node.classList.contains('has-active') ? ' open' : '');
+      var head = document.createElement('button');
+      head.type = 'button'; head.className = 'ab-pill';
+      var gt = node.querySelector('.ab-sb-gb .ab-sb-tx');
+      head.textContent = gt ? gt.textContent : '';
+      head.addEventListener('click', function(){ wrap.classList.toggle('open'); });
+      var sub = document.createElement('div');
+      sub.className = 'ab-dsub';
+      node.querySelectorAll('.ab-sb-sub .ab-sb-a').forEach(function(a){ sub.appendChild(abDwLink(a)); });
+      wrap.appendChild(head); wrap.appendChild(sub);
+      list.appendChild(wrap);
     });
   }
   window.abToggleDrawer = function(){
@@ -504,54 +685,156 @@ body.has-subnav{padding-left:210px}
   }
   window.addEventListener('hashchange', abSpaSync);
 
-  /* ── Subnav trái: chiếu nội dung dropdown đang active ─────────────────────
-     Tìm .ab-dd chứa mục khớp trang hiện tại (trên /app so theo hash/data-page,
-     trang riêng so theo pathname), clone .ab-menu của nó vào #ab-subnav.
-     Không khớp nhóm nào (VD /ho-so-ca-nhan) → ẩn subnav, bỏ padding. */
-  function abBuildSubnav(){
-    var sn = document.getElementById('ab-subnav');
-    if (!sn) return;
-    var path = location.pathname;
-    var hash = (location.hash || '').replace(/^#/, '');
-    var isApp = path === '/app' || path === '/app/';
-    var spa = hash || 'bao-cao';
-    var target = null;
-    document.querySelectorAll('.appbar .ab-dd').forEach(function(dd){
-      if (target) return;
-      dd.querySelectorAll('.ab-menu .ab-item').forEach(function(a){
-        if (target) return;
-        var href = a.getAttribute('href') || '';
-        if (isApp){
-          if (a.dataset.page === spa) target = dd;
-        } else if (href && href.indexOf('/app#') !== 0 && path.indexOf(href) === 0){
-          target = dd;
-        }
-      });
-    });
-    if (!target){
-      sn.innerHTML = '';
-      document.body.classList.remove('has-subnav');
-      return;
-    }
-    /* Chỉ giữ mục BẤM ĐƯỢC + kẻ phân nhóm — bỏ tiêu đề nhóm và nhãn con
-       (.ab-mtitle) theo yêu cầu 06/08/2026: subnav gọn, không chữ trang trí. */
-    sn.innerHTML = target.querySelector('.ab-menu').innerHTML;
-    sn.querySelectorAll('.ab-mtitle').forEach(function(el){ el.remove(); });
-    sn.querySelectorAll('.ab-item').forEach(function(a){
-      var href = a.getAttribute('href') || '';
-      var act = isApp
-        ? (a.dataset.page === spa)
-        : (href && href.indexOf('/app#') !== 0 && path.indexOf(href) === 0);
-      a.classList.toggle('ab-item-active', act);
-    });
-    document.body.classList.add('has-subnav');
+  /* ── Kỳ kế toán: đổ danh sách tháng vào <select> ─────────────────────────
+     Phải chạy NGAY khi script header nạp, TRƯỚC khi index.html gán
+     `#month-picker`.value — nếu chưa có option khớp thì select nhả về rỗng.
+     `abKyThem()` bù thêm option cho giá trị lạ (VD người dùng deep-link tháng
+     ngoài dải), nên không bao giờ mất giá trị. */
+  var AB_THANG = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
+                  'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+
+  function abKyNhan(v, ngan){
+    var p = v.split('-'), m = +p[1];
+    return ngan ? ('T' + m + '/' + p[0]) : (AB_THANG[m - 1] + ', ' + p[0]);
   }
-  window.abBuildSubnav = abBuildSubnav;
-  window.addEventListener('hashchange', abBuildSubnav);
+  function abKyThem(v){
+    var sel = document.getElementById('month-picker');
+    if (!sel || !v || !/^\d{4}-\d{2}$/.test(v)) return;
+    if (sel.querySelector('option[value="' + v + '"]')) return;
+    var o = document.createElement('option');
+    o.value = v; o.textContent = abKyNhan(v, window.innerWidth <= 480);
+    /* Chèn đúng thứ tự giảm dần để danh sách không lộn xộn */
+    var truoc = null;
+    Array.prototype.forEach.call(sel.options, function(x){
+      if (!truoc && x.value < v) truoc = x;
+    });
+    sel.insertBefore(o, truoc);
+  }
+  window.abKyThem = abKyThem;
+
+  (function abKyDung(){
+    var sel = document.getElementById('month-picker');
+    if (!sel) return;
+    var d = new Date(), y = d.getFullYear(), m = d.getMonth();   // 0-11
+    var ngan = window.innerWidth <= 480;
+    var html = '';
+    /* 6 tháng tới + 36 tháng trước — phủ hết mọi kỳ thực tế cần xem lại. */
+    for (var i = 6; i >= -36; i--){
+      var t = new Date(y, m + i, 1);
+      var v = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0');
+      html += '<option value="' + v + '">' + abKyNhan(v, ngan) + '</option>';
+    }
+    sel.innerHTML = html;
+    sel.value = y + '-' + String(m + 1).padStart(2, '0');   // mặc định tháng này
+  })();
+
+  /* ── SIDEBAR DỌC ─────────────────────────────────────────────────────────
+     Thay `abBuildSubnav()` cũ (clone một dropdown). Nay cây đầy đủ nằm sẵn
+     trong HTML; JS chỉ lo: đánh dấu mục đang mở, nhớ nhóm nào đang xổ, và
+     thu gọn rail. Trạng thái lưu localStorage nên đổi trang không mất. */
+  var SB_MO = 'ab_sb_mo', SB_MIN = 'ab_sb_min';
+
+  function abSbDoc(){ try { return JSON.parse(localStorage.getItem(SB_MO) || '[]'); } catch(e){ return []; } }
+  function abSbGhi(ds){ try { localStorage.setItem(SB_MO, JSON.stringify(ds)); } catch(e){} }
+
+  window.abSbGroup = function(btn){
+    var g = btn.closest('.ab-sb-g');
+    if (!g) return;
+    /* Rail đang thu gọn thì không có chỗ xổ nhóm — mở rail ra trước. */
+    if (document.body.classList.contains('sb-min')) { abSbMin(); }
+    var mo = !g.classList.contains('open');
+    g.classList.toggle('open', mo);
+    btn.setAttribute('aria-expanded', mo ? 'true' : 'false');
+    var ds = abSbDoc(), k = g.dataset.g;
+    var i = ds.indexOf(k);
+    if (mo && i < 0) ds.push(k);
+    if (!mo && i >= 0) ds.splice(i, 1);
+    abSbGhi(ds);
+  };
+
+  window.abSbMin = function(){
+    var min = !document.body.classList.contains('sb-min');
+    document.body.classList.toggle('sb-min', min);
+    try { localStorage.setItem(SB_MIN, min ? '1' : '0'); } catch(e){}
+    var b = document.getElementById('ab-sb-min');
+    if (b) b.title = min ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên';
+  };
+
+  /* Đánh dấu mục đang mở. Trên /app so theo hash, trang riêng so theo
+     pathname. Nhóm chứa mục đó tự xổ ra và nhận .has-active. */
+  function abSbSync(){
+    var sb = document.getElementById('ab-sb');
+    if (!sb) return;
+    var path = location.pathname;
+    var isApp = path === '/app' || path === '/app/';
+    var spa = (location.hash || '').replace(/^#/, '') || 'bao-cao';
+    var trung = null;
+    sb.querySelectorAll('.ab-sb-a').forEach(function(a){
+      var href = a.getAttribute('href') || '';
+      var laSpa = href.indexOf('/app#') === 0;
+      var act = isApp ? (laSpa && a.dataset.page === spa)
+                      : (!laSpa && href !== '/' && path.indexOf(href) === 0);
+      a.classList.toggle('active', act);
+      if (act) trung = a;
+    });
+    sb.querySelectorAll('.ab-sb-g').forEach(function(g){
+      var co = !!(trung && g.contains(trung));
+      g.classList.toggle('has-active', co);
+      if (co && !g.classList.contains('open')){
+        g.classList.add('open');
+        var b = g.querySelector('.ab-sb-gb'); if (b) b.setAttribute('aria-expanded','true');
+      }
+    });
+  }
+  window.abSbSync = abSbSync;
+  window.addEventListener('hashchange', abSbSync);
+
+  /* Khôi phục nhóm đang xổ + trạng thái thu gọn. */
+  function abSbKhoiPhuc(){
+    var ds = abSbDoc();
+    ds.forEach(function(k){
+      var g = document.querySelector('.ab-sb-g[data-g="' + k + '"]');
+      if (g){ g.classList.add('open');
+        var b = g.querySelector('.ab-sb-gb'); if (b) b.setAttribute('aria-expanded','true'); }
+    });
+    var min = false;
+    try { min = localStorage.getItem(SB_MIN) === '1'; } catch(e){}
+    if (min) document.body.classList.add('sb-min');
+  }
+
+  /* Số việc CHỜ DUYỆT trên mục — lý do chính đổi sang sidebar.
+     Fail-soft: endpoint hỏng thì badge ở nguyên trạng thái ẩn, không chặn nav. */
+  function abSbBadge(){
+    function dat(id, n){
+      var el = document.getElementById('ab-sb-bd-' + id);
+      if (!el) return;
+      if (!n){ el.hidden = true; }
+      else { el.textContent = n > 99 ? '99+' : n; el.hidden = false; }
+      /* Nhóm cha hiện chấm nhỏ khi rail thu gọn */
+      var g = el.closest('.ab-sb-g');
+      if (g){
+        var tong = 0;
+        g.querySelectorAll('.ab-sb-bd').forEach(function(b){ if (!b.hidden) tong += (+b.textContent || 0); });
+        var gb = g.querySelector('.ab-sb-gbd');
+        if (gb){ gb.textContent = tong || ''; gb.hidden = !tong; }
+      }
+    }
+    fetch('/api/ncc-de-xuat/summary', {credentials:'include'})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){ if (d) dat('ncc', d.cho_duyet || 0); })
+      .catch(function(){});
+  }
 
   function abInit(){
     abSyncHeight();
-    setTimeout(abBuildSubnav, 0);
+    /* Trang riêng không có showPage() — lấy tiêu đề từ <title>. */
+    var pt = document.getElementById('page-title');
+    if (pt && !pt.textContent.trim() && typeof window.showPage !== 'function'){
+      pt.textContent = (document.title || '').split('—')[0].trim();
+    }
+    abSbKhoiPhuc();
+    setTimeout(abSbSync, 0);
+    setTimeout(abSbBadge, 300);
     /* Header nằm đầu <body> nên listener DOMContentLoaded của nó chạy TRƯỚC
        init của SPA (index.html:3067). setTimeout 0 đẩy việc này xuống sau khi
        mọi listener DOMContentLoaded đã chạy xong — lúc đó META mới sẵn sàng. */
@@ -571,3 +854,4 @@ body.has-subnav{padding-left:210px}
   else abInit();
 })();
 </script>
+{% include 'chat_widget.html' %}

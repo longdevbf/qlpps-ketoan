@@ -21,8 +21,9 @@ git log --oneline -10
 ```
 
 **Bước 2 — kiểm tra an toàn (bắt buộc, không được bỏ):**
-- **`.env` có nằm trong danh sách sắp commit không?** File này đang bị git theo dõi và chứa
-  secret production thật. Nếu nó xuất hiện trong diff → **DỪNG LẠI**, báo người dùng, không commit.
+- **`.env` có nằm trong danh sách sắp commit không?** File chứa secret production thật; đã được
+  gỡ khỏi git ở commit `eaad60a` (`git ls-files` chỉ còn `.env.example`, kiểm 08/08/2026) nên
+  bình thường nó KHÔNG được xuất hiện. Nếu nó lọt vào diff → **DỪNG LẠI**, báo người dùng, không commit.
 - Có file `__pycache__/`, `.venv/`, `.pytest_cache/` lọt vào không? Có thì nhắc kiểm tra
   `.gitignore` trước.
 - Có secret/token/mật khẩu hardcode trong diff không?

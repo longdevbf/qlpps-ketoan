@@ -41,7 +41,7 @@
   display:inline-flex;align-items:center;justify-content:center;gap:var(--gap-1);
   padding:8px 16px;
   border:1px solid transparent;border-radius:var(--radius-sm);
-  font-family:inherit;font-size:13px;font-weight:600;line-height:1.2;
+  font-family:inherit;font-size:14px;font-weight:600;line-height:1.2;
   white-space:nowrap;text-decoration:none;cursor:pointer;
   transition:background .15s,border-color .15s,color .15s;
 }
@@ -67,13 +67,13 @@
 .btn-success{background:var(--success);color:#fff}
 .btn-success:hover:not(:disabled){background:var(--success-fg)}
 
-.btn-sm{padding:6px 12px;font-size:12px}
+.btn-sm{padding:6px 12px;font-size:13px}
 
 /* ═══ Ô NHẬP ═════════════════════════════════════════════════════════════
    Thay 13 kiểu đang có (4 bo góc, 2 độ dày viền, 8 giá trị padding).
    Viền 1px là MỨC DUY NHẤT của hệ — bỏ hết 1.5px và 2px đang rải rác.     */
 .field{display:flex;flex-direction:column;gap:var(--gap-1);margin-bottom:12px}
-.field > label{font-size:12px;font-weight:600;color:var(--text-2)}
+.field > label{font-size:13px;font-weight:600;color:var(--text-2)}
 
 .field input,.field select,.field textarea,
 .input,.select,.textarea{
@@ -81,7 +81,7 @@
   padding:8px 12px;
   border:1px solid var(--border);border-radius:var(--radius-xs);
   background:var(--bg-card);color:var(--text-1);
-  font-family:inherit;font-size:13px;
+  font-family:inherit;font-size:14px;
   outline:none;transition:border-color .15s,box-shadow .15s;
 }
 .field input:focus,.field select:focus,.field textarea:focus,
@@ -99,7 +99,7 @@
 .card-head{
   padding:14px 18px;border-bottom:1px solid var(--border);
   display:flex;align-items:center;gap:12px;
-  font-size:13px;font-weight:700;color:var(--text-1);
+  font-size:14px;font-weight:700;color:var(--text-1);
 }
 .card-head-actions{margin-left:auto;display:flex;align-items:center;gap:var(--gap-2)}
 .card-body{padding:16px 18px}
@@ -114,11 +114,11 @@
 }
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 
-.table{width:100%;border-collapse:collapse;font-size:13px}
+.table{width:100%;border-collapse:collapse;font-size:14px}
 .table thead th{
   background:var(--bg-page);color:var(--text-3);
   padding:11px 13px;text-align:left;white-space:nowrap;
-  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+  font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
   border-bottom:1px solid var(--border);
 }
 .table tbody tr{border-bottom:1px solid var(--bg-page);transition:background .12s}
@@ -138,7 +138,7 @@
 }
 .stat-num{font-size:22px;font-weight:800;line-height:1;color:var(--text-1)}
 .stat-label{
-  font-size:11px;font-weight:600;color:var(--text-3);margin-top:4px;
+  font-size:12px;font-weight:600;color:var(--text-3);margin-top:4px;
   text-transform:uppercase;letter-spacing:.4px;
 }
 
@@ -151,7 +151,7 @@
 .tab-btn{
   padding:9px 16px;background:none;border:none;
   border-bottom:2px solid transparent;margin-bottom:-1px;
-  font-family:inherit;font-size:13px;font-weight:600;color:var(--text-3);
+  font-family:inherit;font-size:14px;font-weight:600;color:var(--text-3);
   cursor:pointer;white-space:nowrap;transition:color .15s,border-color .15s;
 }
 .tab-btn:hover{color:var(--brand)}
@@ -163,7 +163,7 @@
 .badge{
   display:inline-flex;align-items:center;gap:var(--gap-1);
   padding:3px 9px;border-radius:var(--radius-pill);
-  font-size:11px;font-weight:700;white-space:nowrap;
+  font-size:12px;font-weight:700;white-space:nowrap;
 }
 .badge-ok{background:var(--success-soft);color:var(--success-fg)}
 .badge-warn{background:var(--warning-soft);color:var(--warning-fg)}
@@ -176,7 +176,10 @@
    Lớp mở là .show (10 file đang dùng, thắng .open của 3 file).             */
 .modal-overlay{
   display:none;position:fixed;inset:0;z-index:1000;
-  background:rgba(15,38,64,.42);
+  /* Lớp phủ NÂU ẤM lấy từ --text-1 (#33210F), không phải navy-đen:
+     nền cũ rgba(15,38,64,.42) là xanh lạnh, đọc thành "màu đen" và lạc
+     khỏi hệ hổ phách. Hạ .42 → .32 cho bớt nặng. */
+  background:rgba(51,33,15,.32);
   align-items:center;justify-content:center;padding:var(--gap);
 }
 .modal-overlay.show{display:flex}
@@ -190,7 +193,7 @@
 .modal-head{
   padding:16px 20px;border-bottom:1px solid var(--border);
   display:flex;align-items:center;gap:12px;
-  font-size:14px;font-weight:700;color:var(--text-1);
+  font-size:15px;font-weight:700;color:var(--text-1);
 }
 .modal-close{
   margin-left:auto;background:none;border:none;cursor:pointer;
@@ -211,7 +214,7 @@
 .toast{
   padding:11px 18px;border-radius:var(--radius-sm);
   background:var(--text-1);color:#fff;
-  font-size:13px;font-weight:600;
+  font-size:14px;font-weight:600;
   box-shadow:var(--shadow-md);
   opacity:0;transform:translateY(12px);transition:opacity .2s,transform .2s;
 }
@@ -224,7 +227,7 @@
 /* ═══ TRẠNG THÁI RỖNG ════════════════════════════════════════════════════ */
 .empty-state{
   text-align:center;padding:48px 20px;
-  color:var(--text-3);font-size:13px;
+  color:var(--text-3);font-size:14px;
 }
 
 /* ═══ TOOLBAR — hàng nút/bộ lọc trên đầu bảng ═══════════════════════════ */

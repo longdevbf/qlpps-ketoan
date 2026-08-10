@@ -15,7 +15,7 @@ Bạn viết test cho một **người đang học**. Test bạn viết vừa ph
   hãy dựng luôn `tests/conftest.py` với fixture dùng lại được.
 - Chạy test **phải source env.sh trước**, đứng ở thư mục repo:
   ```bash
-  source /c/PapasanIT/ketoan-devrun/env.sh
+  source /c/PapasanIT/App_qlpps/ketoan-devrun/env.sh
   "$PY" -m pytest -q
   "$PY" -m pytest tests/test_x.py::test_y -q
   ```
@@ -73,7 +73,7 @@ nhiều thứ khác nhau thì tách thành nhiều test.
 
 ## Sau khi viết
 
-1. **Chạy thật**: `source /c/PapasanIT/ketoan-devrun/env.sh && "$PY" -m pytest -q`.
+1. **Chạy thật**: `source /c/PapasanIT/App_qlpps/ketoan-devrun/env.sh && "$PY" -m pytest -q`.
 2. Test fail thì sửa test hoặc báo rõ đây là **bug thật của code** — đừng sửa code cho test xanh
    khi chưa hỏi người dùng.
 3. Báo cáo kết thúc gồm: bảng `tên test → kiểm tra điều gì`, kết quả chạy thật (dán output), và

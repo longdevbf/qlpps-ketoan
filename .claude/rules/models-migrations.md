@@ -55,7 +55,7 @@ ngay lập tức, không phải "cột đó trả null".
 
 ```bash
 # Tạo revision (alembic.ini nằm ở devrun)
-cd /c/PapasanIT/ketoan-devrun
+cd /c/PapasanIT/App_qlpps/ketoan-devrun
 "$PY" -m alembic -c alembic.ini revision -m "them cot ref_sepay vao so_quy"
 # → file mới trong alembic/versions/ của REPO, tự viết upgrade()/downgrade()
 "$PY" -m alembic -c alembic.ini upgrade head

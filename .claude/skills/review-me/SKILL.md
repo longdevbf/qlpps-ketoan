@@ -38,7 +38,7 @@ nào? **Không tự động sửa** — người dùng đang học, tự sửa m
 ## Lưu ý
 
 - Reviewer có thể chạy `py_compile` để kiểm chứng:
-  `source /c/PapasanIT/ketoan-devrun/env.sh && "$PY" -m py_compile <file>`
+  `source /c/PapasanIT/App_qlpps/ketoan-devrun/env.sh && "$PY" -m py_compile <file>`
 - Không tìm thấy lỗi thì nói thẳng, kèm phạm vi đã review. Đừng bịa lỗi nhẹ cho có.
 - **Không commit sau khi review**, kể cả khi mọi thứ sạch — commit là việc của người dùng
   (`/commit`).

@@ -11,20 +11,29 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
    ============================================================ */
 
 #_chat_widget_root {
-  --z-blue: #0084FF;
-  --z-blue-dark: var(--brand);
-  --z-blue-darker: var(--brand);
-  --z-bg: var(--bg-page);
-  --z-white: #FFFFFF;
-  --z-border: var(--border);
-  --z-text: var(--text-1);
-  --z-muted: var(--text-3);
-  --z-hover: var(--bg-page);
-  --z-active: var(--brand-soft);
-  --z-badge: var(--danger);
+  /* ══ HỆ MÀU RIÊNG CỦA Ô CHAT — XANH & TRẮNG ══
+     CỐ Ý không dùng hệ hổ phách/cà phê của app kế toán: đây là công cụ nhắn
+     tin, người dùng đã quen quy ước xanh-trắng của Zalo/Messenger.
+     Muốn đổi màu chat thì SỬA ĐÚNG 14 DÒNG DƯỚI ĐÂY, đừng đụng hex rải trong
+     file — cả widget đã dồn hết về lớp token này. */
+  --z-blue:        #0084FF;   /* nền nhấn: bong bóng mình gửi, FAB, nút chính */
+  --z-blue-text:   #0B63CE;   /* KHI LÀM CHỮ trên nền trắng — #0084FF chỉ 3,1:1, không đạt AA */
+  --z-blue-dark:   #0068D9;   /* hover của nền nhấn */
+  --z-blue-darker: #0B3D6B;   /* rail dọc bên trái */
+  --z-white:       #FFFFFF;
+  --z-bg:          #F0F2F5;   /* nền phụ (khung danh sách) */
+  --z-hover:       #F2F3F5;   /* hover hàng */
+  --z-active:      #E7F3FF;   /* hàng đang chọn — xanh rất nhạt */
+  --z-border:      #E4E6EB;
+  --z-text:        #050505;   /* chữ chính */
+  --z-text2:       #4B4F56;   /* chữ phụ */
+  --z-muted:       #65676B;   /* chú thích */
+  --z-badge:       #E41E3F;   /* badge chưa đọc, lỗi */
+  --z-ok:          #31A24C;   /* chấm online, đã gửi */
+  --z-warn:        #F7B928;   /* highlight kết quả tìm kiếm */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   color: var(--z-text);
-  font-size: 14px;
+  font-size: 15px;
 }
 
 #_chat_widget_root *,
@@ -48,7 +57,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
+  font-size: 22px;
   cursor: pointer;
   box-shadow: var(--shadow-md);
   z-index: 99998;
@@ -72,7 +81,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border-radius: 10px;
   background: var(--z-badge);
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   display: none;
   align-items: center;
@@ -80,6 +89,28 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border: 2px solid #fff;
 }
 #_chat_fab.has-unread .zV2_fab_badge { display: inline-flex; }
+
+/* ── FAB KÉO THẢ ĐƯỢC (08/08/2026) ─────────────────────────────
+   Vị trí do JS ghi vào 2 biến --zfab-x/--zfab-y; class .zV2_fab_moved chỉ bật
+   khi người dùng đã tự đặt chỗ, nên mặc định vẫn là góc dưới-phải như cũ.
+   Bộ chọn #id.class có độ đặc hiệu (1,1,0) — CỐ Ý cao hơn rule
+   `#_chat_fab{bottom:80px!important}` ở media query mobile dòng ~860 (1,0,0).
+   Thiếu `!important` ở đây thì kéo xong trên mobile nút sẽ nhảy về chỗ cũ.
+   `touch-action:none` để trình duyệt không nuốt thao tác kéo thành cuộn trang. */
+#_chat_fab { touch-action: none; }
+#_chat_fab.zV2_fab_moved {
+  left:   var(--zfab-x) !important;
+  top:    var(--zfab-y) !important;
+  right:  auto !important;
+  bottom: auto !important;
+}
+#_chat_fab.zV2_fab_dragging {
+  cursor: grabbing;
+  transition: none;
+  /* Chặn transform của :hover/:active — translateY(-2px) làm nút lệch khỏi con trỏ */
+  transform: none;
+  box-shadow: 0 12px 30px rgba(0, 132, 255, .46), 0 4px 10px rgba(0, 0, 0, .20);
+}
 
 /* ============================================================
    PANEL — 3 column desktop
@@ -120,7 +151,10 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
    LEFT RAIL (64px)
    ============================================================ */
 #zV2_rail {
-  width: 64px;
+  /* 76px chứ không phải 64px: nhãn "Tin nhắn" phải nằm trọn MỘT dòng.
+     Nút 64px + 6px chừa mỗi bên. Đổi bề rộng này thì sửa luôn `left` của
+     vạch .zV2_rail_btn.active::before cho nó bám đúng mép rail. */
+  width: 76px;
   background: var(--z-blue-darker);
   display: flex;
   flex-direction: column;
@@ -143,43 +177,46 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 }
 .zV2_rail_btn {
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: 64px;
+  height: 44px;
   border-radius: 8px;
   background: transparent;
   border: none;
-  color: #fff;
-  /* Nhãn chữ thay icon (11px trong thang đo) — icon cũ là entity bị regex phá */
+  color: rgba(255, 255, 255, .72);
+  /* Nhãn chữ thay icon — icon cũ là entity bị regex phá */
   font-size: 11px;
   font-weight: 700;
   line-height: 1.2;
   text-align: center;
+  white-space: nowrap;        /* "Tin nhắn" phải một dòng, không được ngắt */
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background .15s ease;
+  transition: color .15s ease;
 }
-.zV2_rail_btn:hover { background: rgba(255, 255, 255, .10); }
-.zV2_rail_btn.active { background: rgba(255, 255, 255, .20); }
+.zV2_rail_btn:hover { color: #fff; }
+/* Mục đang chọn phân biệt bằng VẠCH BÊN CẠNH + chữ sáng lên, KHÔNG tô mảng nền.
+   (Trước đây có thêm background rgba(255,255,255,.20) — đã bỏ theo yêu cầu.) */
+.zV2_rail_btn.active { color: #fff; }
 .zV2_rail_btn.active::before {
   content: "";
   position: absolute;
-  left: -8px;
-  top: 8px;
-  bottom: 8px;
+  left: -6px;                 /* bám mép trái rail: (76 - 64) / 2 = 6 */
+  top: 6px;
+  bottom: 6px;
   width: 3px;
   border-radius: 2px;
   background: #fff;
 }
 .zV2_rail_btn .zV2_rail_tooltip {
   position: absolute;
-  left: 56px;
+  left: 72px;                 /* nút 64px + 8px hở; sửa bề rộng nút thì sửa đây */
   top: 50%;
   transform: translateY(-50%);
-  background: var(--text-1);
+  background: var(--z-text);
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
   padding: 5px 9px;
   border-radius: 6px;
   white-space: nowrap;
@@ -199,7 +236,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border-radius: 8px;
   background: var(--z-badge);
   color: #fff;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   display: none;
   align-items: center;
@@ -241,7 +278,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -253,7 +290,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 #zV2_mid_header_name {
   flex: 1;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -268,7 +305,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 17px;
   color: var(--z-text);
   transition: background .12s ease;
 }
@@ -286,7 +323,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border: none;
   background: var(--z-hover);
   padding: 0 14px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--z-text);
   outline: none;
   transition: background .12s ease, box-shadow .12s ease;
@@ -311,7 +348,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border-radius: 13px;
   background: transparent;
   border: none;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--z-muted);
   cursor: pointer;
@@ -355,7 +392,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 16px;
   position: relative;
   flex-shrink: 0;
   overflow: hidden;
@@ -372,7 +409,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: var(--success);
+  background: var(--z-ok);
   border: 2px solid #fff;
 }
 .zV2_conv_body {
@@ -390,14 +427,14 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 }
 .zV2_conv_name {
   font-weight: 500;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--z-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .zV2_conv_time {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--z-muted);
   flex-shrink: 0;
 }
@@ -408,7 +445,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   gap: 8px;
 }
 .zV2_conv_preview {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--z-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -417,10 +454,10 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 /* === UNREAD state cho conv item (Zalo-style highlight) === */
 .zV2_conv_item--unread .zV2_conv_name {
   font-weight: 700 !important;
-  color: var(--text-1) !important;
+  color: var(--z-text) !important;
 }
 .zV2_conv_item--unread .zV2_conv_preview {
-  color: var(--text-1) !important;
+  color: var(--z-text) !important;
   font-weight: 600 !important;
 }
 .zV2_conv_item--unread .zV2_conv_time {
@@ -428,16 +465,16 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   font-weight: 700 !important;
 }
 .zV2_conv_item--unread .zV2_conv_avatar {
-  box-shadow: 0 0 0 2px var(--danger);
+  box-shadow: 0 0 0 2px var(--z-badge);
 }
 .zV2_conv_badge {
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
   border-radius: 10px;
-  background: var(--danger);
+  background: var(--z-badge);
   color: #fff;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -496,7 +533,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -514,14 +551,14 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 }
 #zV2_main_title {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--z-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 #zV2_main_meta {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--z-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -540,7 +577,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border: none;
   font-size: 17px;
   cursor: pointer;
-  color: var(--text-2);
+  color: var(--z-text2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -578,7 +615,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   left: 16px;
   background: var(--z-white);
   color: var(--z-muted);
-  font-size: 12px;
+  font-size: 13px;
   padding: 6px 12px;
   border-radius: 14px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
@@ -595,8 +632,11 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   background: var(--z-muted);
   animation: zV2_blink 1.2s infinite ease-in-out;
 }
-#zV2_typing_indicator .zV2_dot:nth-child(2) { animation-delay: .2s; }
-#zV2_typing_indicator .zV2_dot:nth-child(3) { animation-delay: .4s; }
+/* Cac cham la con thu 2,3,4 (con thu 1 la .zV2_typing_text) — truoc day
+   viet nth-child(2),(3) nen cham DAU tien bi tre .2s va cham CUOI khong tre,
+   song chay sai nhip. */
+#zV2_typing_indicator .zV2_dot:nth-child(3) { animation-delay: .2s; }
+#zV2_typing_indicator .zV2_dot:nth-child(4) { animation-delay: .4s; }
 @keyframes zV2_blink {
   0%, 60%, 100% { opacity: .3; }
   30% { opacity: 1; }
@@ -612,7 +652,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   background: var(--z-white);
   border: 1px solid var(--z-border);
   color: var(--z-text);
-  font-size: 16px;
+  font-size: 17px;
   cursor: pointer;
   display: none;
   align-items: center;
@@ -632,7 +672,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border-radius: 9px;
   background: var(--z-badge);
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   display: none;
   align-items: center;
@@ -650,7 +690,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center;
   gap: 10px;
   padding: 8px 14px;
-  background: var(--brand-soft);
+  background: var(--z-active);
   border-top: 1px solid var(--z-border);
   flex-shrink: 0;
 }
@@ -666,19 +706,19 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 }
 #zV2_paste_meta { flex: 1; min-width: 0; }
 #zV2_paste_name {
-  font-size: 12px;
-  color: var(--text-1);
+  font-size: 13px;
+  color: var(--z-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-#zV2_paste_hint { font-size: 11px; color: var(--z-muted); margin-top: 2px; }
+#zV2_paste_hint { font-size: 12px; color: var(--z-muted); margin-top: 2px; }
 #zV2_paste_clear {
   background: none;
   border: none;
   cursor: pointer;
   color: var(--z-muted);
-  font-size: 18px;
+  font-size: 22px;
   padding: 4px 6px;
   border-radius: 6px;
   line-height: 1;
@@ -693,7 +733,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   padding: 8px 14px;
   background: var(--z-white);
   border-top: 1px solid var(--z-border);
-  font-size: 12.5px;
+  font-size: 13px;
 }
 #zV2_reply_strip.visible { display: flex; }
 #zV2_reply_strip .zV2_reply_bar {
@@ -712,7 +752,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 #zV2_reply_strip .zV2_reply_to {
   color: var(--z-blue);
   font-weight: 600;
-  font-size: 11.5px;
+  font-size: 12px;
 }
 #zV2_reply_strip .zV2_reply_text {
   color: var(--z-muted);
@@ -728,7 +768,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border: none;
   cursor: pointer;
   color: var(--z-muted);
-  font-size: 16px;
+  font-size: 17px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -757,8 +797,8 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   background: transparent;
   border: none;
   cursor: pointer;
-  color: var(--text-2);
-  font-size: 18px;
+  color: var(--z-text2);
+  font-size: 17px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -782,14 +822,14 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border: none;
   outline: none;
   resize: none;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.4;
   color: var(--z-text);
   font-family: inherit;
   transition: background .12s ease;
 }
 #zV2_compose_input::placeholder { color: var(--z-muted); }
-#zV2_compose_input:focus { background: var(--bg-page); }
+#zV2_compose_input:focus { background: var(--z-hover); }
 
 #zV2_compose_send_wrap {
   position: relative;
@@ -806,7 +846,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border-radius: 50%;
   border: none;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 17px;
   color: #fff;
   background: var(--z-blue);
   display: flex;
@@ -825,10 +865,10 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 #zV2_thumbs_btn > *, #zV2_send_btn > * { pointer-events: none; }
 
 /* Mobile: nút gửi to hơn để dễ chạm */
-@media (max-width: 599px) {
+@media (max-width: 768px) {
   #zV2_compose_send_wrap { width: 44px; height: 44px; }
   #zV2_thumbs_btn, #zV2_send_btn { width: 44px; height: 44px; }
-  #zV2_compose_input { min-height: 44px; font-size: 16px; padding: 11px 16px; }
+  #zV2_compose_input { min-height: 44px; font-size: 17px; padding: 11px 16px; }
   #zV2_compose_tools { padding: 2px 0; }
   .zV2_compose_tool_btn { width: 40px; height: 40px; }
   /* Nâng FAB lên cao hơn để không đè lên nội dung */
@@ -858,7 +898,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13px;
   overflow: hidden;
   flex-shrink: 0;
   visibility: visible;
@@ -878,19 +918,19 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   height: 100%;
   color: #fff;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1;
 }
 /* @mention highlight trong tin nhắn */
 .zV2_mention {
-  color: #1d4ed8;
+  color: var(--info-fg);
   font-weight: 600;
-  background: #dbeafe;
+  background: var(--info-soft);
   border-radius: 3px;
   padding: 0 3px;
   cursor: pointer;
 }
-.zV2_mention:hover { background: var(--brand-soft); }
+.zV2_mention:hover { background: var(--z-active); }
 /* Mention dropdown */
 #zV2_mention_dd {
   position: absolute;
@@ -898,7 +938,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   left: 0;
   right: 0;
   background: #fff;
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--z-border);
   border-radius: 10px 10px 0 0;
   box-shadow: 0 -4px 16px rgba(0,0,0,.1);
   max-height: 220px;
@@ -913,18 +953,18 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   gap: 10px;
   padding: 9px 14px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   transition: background .1s;
 }
-.zV2_mention_item:hover, .zV2_mention_item.active { background: var(--brand-soft); }
+.zV2_mention_item:hover, .zV2_mention_item.active { background: var(--z-active); }
 .zV2_mention_item_ava {
   width: 30px; height: 30px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
+  font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
 }
-.zV2_mention_item_name { font-weight: 600; color: var(--brand); }
-.zV2_mention_item_dept { font-size: 11px; color: var(--text-3); }
+.zV2_mention_item_name { font-weight: 600; color: var(--z-blue-text); }
+.zV2_mention_item_dept { font-size: 12px; color: var(--z-muted); }
 /* avatar always visible */
 .zV2_msg_row--own .zV2_msg_avatar { display: none; }
 
@@ -937,7 +977,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 .zV2_msg_row--own .zV2_msg_body { align-items: flex-end; }
 
 .zV2_msg_sender {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--z-muted);
   padding: 0 14px 2px;
   display: none;
@@ -951,7 +991,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   color: var(--z-text);
   padding: 9px 14px;
   border-radius: 18px 18px 18px 4px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.5;
   word-wrap: break-word;
   overflow-wrap: anywhere;
@@ -973,7 +1013,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 }
 .zV2_bubble--edited::after {
   content: " (đã chỉnh sửa)";
-  font-size: 11px;
+  font-size: 12px;
   color: var(--z-muted);
   font-style: italic;
 }
@@ -985,7 +1025,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   padding: 5px 8px;
   margin-bottom: 6px;
   border-radius: 6px;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--z-muted);
 }
 .zV2_msg_row--own .zV2_bubble_reply_quote {
@@ -1004,7 +1044,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border: 1px solid var(--z-border);
   padding: 1px 6px;
   border-radius: 12px;
-  font-size: 11px;
+  font-size: 12px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
   z-index: 1;
 }
@@ -1040,7 +1080,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--z-text);
   display: flex;
   align-items: center;
@@ -1051,7 +1091,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 .zV2_msg_action_btn > * { pointer-events: none; }
 
 .zV2_msg_time {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--z-muted);
   margin-top: 3px;
   padding: 0 4px;
@@ -1062,7 +1102,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 .zV2_msg_row--last_of_group .zV2_msg_time { opacity: 1; }
 
 .zV2_msg_status {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--z-muted);
   margin-top: 2px;
   padding: 0 4px;
@@ -1074,7 +1114,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center;
   gap: 10px;
   padding: 12px 0;
-  font-size: 11.5px;
+  font-size: 12px;
   text-transform: uppercase;
   color: var(--z-muted);
   letter-spacing: .3px;
@@ -1091,7 +1131,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 /* System message */
 .zV2_sys_msg {
   text-align: center;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--z-muted);
   padding: 6px 0;
 }
@@ -1109,7 +1149,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   gap: 12px;
 }
 #zV2_empty_main .zV2_empty_icon {
-  font-size: 60px;
+  font-size: 29px;
   opacity: .55;
 }
 #zV2_empty_main .zV2_empty_title {
@@ -1118,7 +1158,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   color: var(--z-text);
 }
 #zV2_empty_main .zV2_empty_sub {
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--z-muted);
   max-width: 340px;
   line-height: 1.5;
@@ -1126,7 +1166,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 #zV2_empty_list {
   padding: 40px 16px;
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--z-muted);
 }
 
@@ -1161,7 +1201,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 #zV2_info_title {
   flex: 1;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 16px;
 }
 #zV2_info_close_btn {
   width: 32px;
@@ -1188,7 +1228,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   height: 40px;
   background: transparent;
   border: none;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--z-muted);
   font-weight: 500;
   cursor: pointer;
@@ -1228,7 +1268,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   background: var(--z-white);
   border: 1px solid var(--z-border);
   cursor: pointer;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--z-text);
   display: flex;
   align-items: center;
@@ -1241,7 +1281,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 /* ============================================================
    RESPONSIVE — tablet 600..1023px
    ============================================================ */
-@media (min-width: 600px) and (max-width: 1023px) {
+@media (min-width: 600px) and (max-width: 1100px) {
   #_chat_panel {
     width: calc(100vw - 24px);
     top: 12px;
@@ -1256,7 +1296,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 /* ============================================================
    RESPONSIVE — mobile <600px
    ============================================================ */
-@media (max-width: 599px) {
+@media (max-width: 768px) {
   #_chat_panel {
     inset: 0;
     width: 100vw;
@@ -1308,8 +1348,16 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
     height: 38px;
     border-radius: 19px;
   }
+  /* Mobile: rail nằm ngang. Cũng KHÔNG tô mảng nền cho mục đang chọn — phân
+     biệt bằng gạch chân + chữ sáng, cho khớp desktop. */
   #zV2_rail .zV2_rail_btn.active {
-    background: rgba(255,255,255,.25);
+    background: transparent;
+    color: #fff;
+  }
+  #zV2_rail .zV2_rail_btn.active::before {
+    left: 12px; right: 12px;
+    top: auto; bottom: 0;
+    width: auto; height: 3px;
   }
   #zV2_rail .zV2_rail_tooltip { display: none; }
   #zV2_col_middle {
@@ -1340,10 +1388,10 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 #_chat_widget_root *::-webkit-scrollbar { width: 6px; height: 6px; }
 #_chat_widget_root *::-webkit-scrollbar-track { background: transparent; }
 #_chat_widget_root *::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--z-border);
   border-radius: 3px;
 }
-#_chat_widget_root *::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+#_chat_widget_root *::-webkit-scrollbar-thumb:hover { background: var(--z-muted); }
 
 /* ============================================================
    ZALO V2 — DANH BẠ (giống Zalo mobile: avatar to + call/video icons)
@@ -1354,12 +1402,12 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   background: #fff;
   z-index: 2;
   padding: 8px 16px 4px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
-  color: var(--text-2);
+  color: var(--z-text2);
   text-transform: uppercase;
   letter-spacing: .4px;
-  border-bottom: 1px solid var(--bg-page);
+  border-bottom: 1px solid var(--z-border);
 }
 #_chat_widget_root .zV2_contact_item {
   display: flex;
@@ -1375,10 +1423,10 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   position: absolute;
   left: 76px; right: 14px; bottom: 0;
   height: 1px;
-  background: var(--bg-page);
+  background: var(--z-hover);
 }
 #_chat_widget_root .zV2_contact_item:last-child::after { display: none; }
-#_chat_widget_root .zV2_contact_item:hover { background: var(--bg-page); }
+#_chat_widget_root .zV2_contact_item:hover { background: var(--z-hover); }
 #_chat_widget_root .zV2_contact_avatar {
   width: 48px;
   height: 48px;
@@ -1391,7 +1439,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   justify-content: center;
   color: #fff;
   font-weight: 600;
-  font-size: 18px;
+  font-size: 17px;
   box-shadow: 0 1px 2px rgba(0,0,0,.06);
 }
 #_chat_widget_root .zV2_contact_avatar img {
@@ -1401,7 +1449,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   position: absolute;
   bottom: 2px; right: 2px;
   width: 12px; height: 12px;
-  background: var(--success);
+  background: var(--z-ok);
   border: 2px solid #fff;
   border-radius: 50%;
   display: block;
@@ -1411,16 +1459,16 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   min-width: 0;
 }
 #_chat_widget_root .zV2_contact_name {
-  font-size: 14.5px;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--text-1);
+  color: var(--z-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 #_chat_widget_root .zV2_contact_sub {
-  font-size: 12.5px;
-  color: var(--brand);
+  font-size: 13px;
+  color: var(--z-blue-text);
   margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -1439,14 +1487,14 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   background: transparent;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 18px;
-  color: var(--text-2);
+  font-size: 17px;
+  color: var(--z-text2);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background .12s, color .12s;
 }
-#_chat_widget_root .zV2_contact_btn:hover { background: var(--brand-soft); color: var(--z-blue); }
+#_chat_widget_root .zV2_contact_btn:hover { background: var(--z-active); color: var(--z-blue); }
 #_chat_widget_root .zV2_contact_btn:active { transform: scale(.92); }
 
 /* ── Image bubble (Zalo-like compact size + lightbox cursor) ── */
@@ -1475,13 +1523,13 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   margin: 2px 0;
 }
 /* Mobile: hẹp hơn */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .zV2_msg_img { max-width: 180px; max-height: 240px; }
 }
 
 /* ── Sender name (group chat — khác biệt với nội dung tin) ── */
 .zV2_msg_sender_name {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--success-fg);
   padding: 0 14px 3px 14px;
@@ -1495,11 +1543,11 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 /* ── Skeleton loading khi chờ tin nhắn ── */
 .zV2_msg_skel_wrap { padding: 16px 12px; display: flex; flex-direction: column; gap: 12px; }
 .zV2_msg_skel {
-  height: 38px; border-radius: 18px; background: var(--bg-page);
+  height: 38px; border-radius: 18px; background: var(--z-hover);
   background-size: 200% 100%; animation: zV2_skelShimmer 1.4s infinite; max-width: 65%;
 }
 .zV2_msg_skel--in  { align-self: flex-start; margin-left: 44px; }
-.zV2_msg_skel--out { align-self: flex-end; background: var(--brand-soft); background-size: 200% 100%; animation: zV2_skelShimmer 1.4s infinite; }
+.zV2_msg_skel--out { align-self: flex-end; background: var(--z-active); background-size: 200% 100%; animation: zV2_skelShimmer 1.4s infinite; }
 .zV2_msg_skel--short { max-width: 38%; height: 32px; }
 @keyframes zV2_skelShimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 
@@ -1507,7 +1555,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 .zV2_lightbox_overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, .88);
+  background:rgba(51,33,15,.32);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1547,7 +1595,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   background: rgba(255, 255, 255, .12);
   color: #fff;
   border: 0;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
@@ -1589,8 +1637,8 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border-color: rgba(255,255,255,.2);
 }
 .zV2_msg_file_icon { font-size: 22px; }
-.zV2_msg_file_name { font-size: 13px; font-weight: 600; }
-.zV2_msg_file_meta { font-size: 11px; opacity: .7; }
+.zV2_msg_file_name { font-size: 14px; font-weight: 600; }
+.zV2_msg_file_meta { font-size: 12px; opacity: .7; }
 
 /* ── Dropdown menu cho ℹ️ trên header (Ghim / Ẩn / Xoá) ── */
 .zV2_info_menu {
@@ -1612,13 +1660,13 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  font-size: 14px;
-  color: var(--text-1);
+  font-size: 15px;
+  color: var(--z-text);
   cursor: pointer;
   transition: background .12s;
 }
-.zV2_info_menu_item:hover { background: var(--bg-page); }
-.zV2_info_menu_item.danger { color: var(--danger); }
+.zV2_info_menu_item:hover { background: var(--z-hover); }
+.zV2_info_menu_item.danger { color: var(--z-badge); }
 .zV2_info_menu_item.danger:hover { background: var(--danger-soft); }
 .zV2_info_menu_item svg { flex-shrink: 0; }
 
@@ -1635,8 +1683,12 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   gap: 2px;
   z-index: 100000;
   animation: zV2_menu_in .15s ease;
-  max-height: 280px;
+  /* 8 hàng cần 8*34 + 7*2 gap + 16 padding = 302px. max-height cũ là 280px nên
+     hàng cuối bị cắt — có cuộn được nhưng nhìn như bảng đã hết, không ai biết
+     còn hàng nữa. Để 310px cho vừa trọn; màn thấp thì rơi về 60vh và cuộn. */
+  max-height: min(310px, 60vh);
   overflow-y: auto;
+  overscroll-behavior: contain;   /* cuộn hết bảng thì đừng cuộn lây khung tin nhắn */
 }
 .zV2_compose_emoji_btn {
   width: 34px;
@@ -1644,13 +1696,13 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border-radius: 8px;
   border: none;
   background: transparent;
-  font-size: 20px;
+  font-size: 22px;
   cursor: pointer;
   padding: 0;
   transition: transform .12s, background .12s;
 }
 .zV2_compose_emoji_btn:hover {
-  background: var(--bg-page);
+  background: var(--z-hover);
   transform: scale(1.2);
 }
 
@@ -1663,7 +1715,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   display: flex;
   align-items: center;
   gap: 2px;
-  border: 1px solid var(--bg-page);
+  border: 1px solid var(--z-border);
   animation: zV2_emoji_pop_in .2s cubic-bezier(.34,1.56,.64,1);
 }
 @keyframes zV2_emoji_pop_in {
@@ -1684,7 +1736,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 }
 .zV2_emoji_btn:hover {
   transform: scale(1.4);
-  background: var(--bg-page);
+  background: var(--z-hover);
 }
 .zV2_emoji_btn:active { transform: scale(1.1); }
 
@@ -1692,7 +1744,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 .zV2_modal_overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.55);
+  background:rgba(51,33,15,.32);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1719,7 +1771,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   box-shadow: 0 24px 48px rgba(0,0,0,.25);
   animation: zV2_modal_card_in .22s cubic-bezier(.4,0,.2,1);
 }
-@media (max-width: 599px) {
+@media (max-width: 768px) {
   .zV2_modal_card {
     height: calc(100dvh - 32px);
     max-height: calc(100dvh - 32px);
@@ -1735,23 +1787,23 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center;
   justify-content: space-between;
   padding: 18px 22px;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
-  color: var(--text-1);
-  border-bottom: 1px solid var(--bg-page);
+  color: var(--z-text);
+  border-bottom: 1px solid var(--z-border);
   flex-shrink: 0;
 }
 .zV2_modal_close {
   background: transparent;
   border: none;
-  font-size: 20px;
-  color: var(--text-3);
+  font-size: 22px;
+  color: var(--z-muted);
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 50%;
   line-height: 1;
 }
-.zV2_modal_close:hover { background: var(--bg-page); color: var(--text-1); }
+.zV2_modal_close:hover { background: var(--z-hover); color: var(--z-text); }
 .zV2_modal_body {
   padding: 18px 22px;
   flex: 1 1 0;
@@ -1762,7 +1814,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   gap: 14px;
 }
 .zV2_modal_overlay .zV2_modal_field { display: flex; flex-direction: column; gap: 6px; }
-.zV2_modal_overlay .zV2_modal_field label { font-size: 13px; font-weight: 600; color: var(--text-2); display: block; }
+.zV2_modal_overlay .zV2_modal_field label { font-size: 14px; font-weight: 600; color: var(--z-text2); display: block; }
 .zV2_modal_overlay .zV2_modal_field input,
 .zV2_modal_overlay .zV2_picker_search,
 .zV2_modal_overlay .zV2_picker_groupname,
@@ -1771,13 +1823,13 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   width: 100% !important;
   box-sizing: border-box;
   padding: 10px 14px !important;
-  border: 1px solid var(--bg-page) !important;
+  border: 1px solid var(--z-border) !important;
   border-radius: 10px !important;
-  font-size: 14px !important;
-  background: var(--bg-page) !important;
+  font-size: 15px !important;
+  background: var(--z-hover) !important;
   outline: none !important;
   font-family: inherit !important;
-  color: var(--text-1) !important;
+  color: var(--z-text) !important;
   height: auto !important;
   min-height: 40px;
   margin: 0;
@@ -1797,9 +1849,9 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 }
 .zV2_picker_group { margin-bottom: 8px; }
 .zV2_picker_group_label {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--text-2);
+  color: var(--z-text2);
   text-transform: uppercase;
   letter-spacing: .4px;
   padding: 6px 4px;
@@ -1817,7 +1869,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   cursor: pointer;
   transition: background .12s;
 }
-.zV2_picker_row:hover { background: var(--bg-page); }
+.zV2_picker_row:hover { background: var(--z-hover); }
 .zV2_picker_cb { width: 18px; height: 18px; flex-shrink: 0; accent-color: #0084FF; cursor: pointer; }
 .zV2_picker_avatar {
   width: 36px;
@@ -1825,7 +1877,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border-radius: 50%;
   color: #fff;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1833,16 +1885,16 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 }
 .zV2_picker_info { flex: 1; min-width: 0; }
 .zV2_picker_name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
-  color: var(--text-1);
+  color: var(--z-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .zV2_picker_sub {
-  font-size: 12px;
-  color: var(--text-3);
+  font-size: 13px;
+  color: var(--z-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1852,7 +1904,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   justify-content: flex-end;
   gap: 10px;
   padding: 16px 22px;
-  border-top: 1px solid var(--bg-page);
+  border-top: 1px solid var(--z-border);
   flex-shrink: 0;
 }
 .zV2_btn_primary,
@@ -1860,29 +1912,29 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 .zV2_btn_danger {
   padding: 9px 18px;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   border: none;
   transition: all .12s;
 }
 .zV2_btn_primary {
-  background: var(--brand-soft);
-  color: var(--brand-hover);
+  background: var(--z-active);
+  color: var(--z-blue-text);
 }
 .zV2_btn_primary:hover:not(:disabled) { filter: brightness(.95); }
 .zV2_btn_primary:disabled { opacity: .5; cursor: not-allowed; }
 .zV2_btn_secondary {
-  background: var(--bg-page);
-  color: var(--text-2);
+  background: var(--z-hover);
+  color: var(--z-text2);
 }
-.zV2_btn_secondary:hover { background: var(--bg-page); }
+.zV2_btn_secondary:hover { background: var(--z-hover); }
 .zV2_btn_danger {
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--danger-fg);
 }
 .zV2_btn_danger:hover { background: var(--danger-soft); }
-.zV2_empty_hint { padding: 24px; text-align: center; color: var(--text-3); font-size: 13px; }
+.zV2_empty_hint { padding: 24px; text-align: center; color: var(--z-muted); font-size: 14px; }
 
 /* Info panel — header rebuild bởi renderInfoPanel (class .zV2_info_*) */
 #zV2_info_panel .zV2_info_header {
@@ -1890,26 +1942,26 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center !important;
   gap: 10px !important;
   padding: 14px 16px !important;
-  border-bottom: 1px solid var(--bg-page) !important;
+  border-bottom: 1px solid var(--z-border) !important;
   flex-shrink: 0;
   height: auto !important;
 }
 #zV2_info_panel .zV2_info_close {
   background: transparent !important;
   border: none !important;
-  font-size: 14px !important;
+  font-size: 15px !important;
   color: #0084FF !important;
   cursor: pointer;
   padding: 4px 8px !important;
   border-radius: 6px;
   font-weight: 600;
 }
-#zV2_info_panel .zV2_info_close:hover { background: var(--brand-soft) !important; }
+#zV2_info_panel .zV2_info_close:hover { background: var(--z-active) !important; }
 #zV2_info_panel .zV2_info_title {
   flex: 1;
   font-weight: 600;
-  font-size: 16px;
-  color: var(--text-1);
+  font-size: 17px;
+  color: var(--z-text);
 }
 #zV2_info_panel .zV2_info_hero {
   display: flex;
@@ -1917,7 +1969,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center;
   padding: 28px 20px 20px;
   gap: 10px;
-  border-bottom: 8px solid var(--bg-page);
+  border-bottom: 8px solid var(--z-border);
   text-align: center;
   background: #fff;
 }
@@ -1931,7 +1983,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   height: 96px;
   border-radius: 50%;
   color: #fff;
-  font-size: 36px;
+  font-size: 29px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -1946,7 +1998,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   height: 32px;
   border-radius: 50%;
   background: #fff;
-  color: var(--text-2);
+  color: var(--z-text2);
   border: 2px solid #fff;
   box-shadow: 0 2px 8px rgba(0,0,0,.15);
   display: flex;
@@ -1961,31 +2013,31 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   transform: scale(1.1);
 }
 #zV2_info_panel .zV2_info_name {
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 700;
-  color: var(--text-1);
+  color: var(--z-text);
   margin-top: 8px;
   letter-spacing: -.2px;
 }
 #zV2_info_panel .zV2_info_meta {
-  font-size: 13.5px;
-  color: var(--brand);
+  font-size: 14px;
+  color: var(--z-blue-text);
 }
 #zV2_info_panel .zV2_btn_rename_room {
   margin-top: 10px;
   padding: 9px 16px !important;
-  font-size: 13px !important;
-  background: var(--bg-page) !important;
+  font-size: 14px !important;
+  background: var(--z-hover) !important;
   color: #0068FF !important;
   border: none;
   border-radius: 22px;
   cursor: pointer;
   font-weight: 600;
 }
-#zV2_info_panel .zV2_btn_rename_room:hover { background: var(--brand-soft) !important; }
+#zV2_info_panel .zV2_btn_rename_room:hover { background: var(--z-active) !important; }
 #zV2_info_panel .zV2_info_tabs {
   display: flex;
-  border-bottom: 1px solid var(--bg-page);
+  border-bottom: 1px solid var(--z-border);
   padding: 0;
   flex-shrink: 0;
   background: #fff;
@@ -1995,8 +2047,8 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   background: transparent;
   border: none;
   padding: 14px 4px;
-  font-size: 13.5px;
-  color: var(--text-2);
+  font-size: 14px;
+  color: var(--z-text2);
   font-weight: 600;
   cursor: pointer;
   border-bottom: 2.5px solid transparent;
@@ -2011,12 +2063,12 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 #zV2_info_panel .zV2_info_section {
   padding: 14px 16px;
   background: #fff;
-  border-bottom: 8px solid var(--bg-page);
+  border-bottom: 8px solid var(--z-border);
 }
 #zV2_info_panel .zV2_info_section_label {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 700;
-  color: var(--text-1);
+  color: var(--z-text);
   text-transform: none;
   letter-spacing: 0;
   padding: 0 0 10px;
@@ -2033,23 +2085,23 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center;
   width: 100% !important;
   padding: 12px 14px !important;
-  font-size: 14px !important;
+  font-size: 15px !important;
   font-weight: 500 !important;
   border: none !important;
   border-radius: 10px;
   cursor: pointer;
   margin: 4px 0 !important;
   background: transparent !important;
-  color: var(--text-1) !important;
+  color: var(--z-text) !important;
   text-align: left !important;
   gap: 12px;
   transition: background .12s;
 }
 #zV2_info_panel .zV2_btn_search_msg:hover,
-#zV2_info_panel .zV2_btn_create_task:hover { background: var(--bg-page) !important; }
+#zV2_info_panel .zV2_btn_create_task:hover { background: var(--z-hover) !important; }
 #zV2_info_panel .zV2_btn_leave_room,
 #zV2_info_panel .zV2_btn_delete_dm {
-  color: var(--danger) !important;
+  color: var(--z-badge) !important;
   font-weight: 600 !important;
 }
 #zV2_info_panel .zV2_btn_leave_room:hover,
@@ -2060,8 +2112,8 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center;
   gap: 12px;
   padding: 8px 0;
-  font-size: 14px;
-  color: var(--text-1);
+  font-size: 15px;
+  color: var(--z-text);
   cursor: pointer;
 }
 #zV2_info_panel .zV2_toggle_row .zV2_toggle_mute,
@@ -2089,16 +2141,16 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
-  color: var(--text-2);
+  color: var(--z-text2);
   text-transform: uppercase;
   letter-spacing: .4px;
   padding: 6px 16px 10px;
 }
 .zV2_btn_add_member {
   padding: 6px 14px !important;
-  font-size: 13px !important;
+  font-size: 14px !important;
   text-transform: none;
   letter-spacing: 0;
 }
@@ -2113,7 +2165,7 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   padding: 10px 16px;
   transition: background .12s;
 }
-.zV2_member_row:hover { background: var(--bg-page); }
+.zV2_member_row:hover { background: var(--z-hover); }
 .zV2_member_avatar {
   width: 40px;
   height: 40px;
@@ -2124,14 +2176,14 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   justify-content: center;
   color: #fff;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 16px;
   object-fit: cover;
 }
 .zV2_member_info { flex: 1; min-width: 0; }
 .zV2_member_name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--text-1);
+  color: var(--z-text);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2140,8 +2192,8 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   text-overflow: ellipsis;
 }
 .zV2_member_sub {
-  font-size: 12px;
-  color: var(--brand);
+  font-size: 13px;
+  color: var(--z-blue-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2150,8 +2202,8 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 .zV2_admin_chip {
   display: inline-block;
   background: var(--warning-soft);
-  color: var(--warning);
-  font-size: 10.5px;
+  color: var(--warning-fg);
+  font-size: 11px;
   font-weight: 700;
   padding: 1px 7px;
   border-radius: 8px;
@@ -2159,20 +2211,20 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 }
 .zV2_member_remove {
   background: transparent;
-  border: 1px solid var(--bg-page);
-  color: var(--danger);
+  border: 1px solid var(--z-border);
+  color: var(--z-badge);
   width: 30px;
   height: 30px;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all .12s;
   flex-shrink: 0;
 }
-.zV2_member_remove:hover { background: var(--danger-soft); border-color: var(--danger); }
+.zV2_member_remove:hover { background: var(--danger-soft); border-color: var(--z-badge); }
 
 /* Phòng ban dropdown trong picker — gọn, không chiếm chỗ */
 .zV2_dept_dropdown_wrap {
@@ -2183,22 +2235,22 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--brand-soft);
-  border: 1.5px solid var(--brand-soft);
+  background: var(--z-active);
+  border: 1.5px solid var(--z-active);
   color: #0068FF;
   border-radius: 10px;
   padding: 10px 14px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   transition: background .12s;
 }
-.zV2_dept_dropdown_btn:hover { background: var(--brand-soft); }
+.zV2_dept_dropdown_btn:hover { background: var(--z-active); }
 .zV2_dept_dropdown_label { flex: 1; text-align: left; }
 .zV2_dept_count {
   background: #0068FF;
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   padding: 1px 8px;
   border-radius: 10px;
@@ -2206,14 +2258,14 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   text-align: center;
   display: none;
 }
-.zV2_dept_caret { font-size: 11px; color: #0068FF; }
+.zV2_dept_caret { font-size: 12px; color: #0068FF; }
 .zV2_dept_dropdown_menu {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
   right: 0;
   background: #fff;
-  border: 1px solid var(--bg-page);
+  border: 1px solid var(--z-border);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0,0,0,.12);
   z-index: 100;
@@ -2230,13 +2282,13 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   cursor: pointer;
   transition: background .12s;
 }
-.zV2_dept_item:hover { background: var(--brand-soft); }
+.zV2_dept_item:hover { background: var(--z-active); }
 .zV2_dept_cb { width: 18px; height: 18px; accent-color: #0068FF; flex-shrink: 0; cursor: pointer; }
-.zV2_dept_item_name { flex: 1; font-size: 14px; color: var(--text-1); }
+.zV2_dept_item_name { flex: 1; font-size: 15px; color: var(--z-text); }
 .zV2_dept_item_count {
-  font-size: 12px;
-  color: var(--text-3);
-  background: var(--bg-page);
+  font-size: 13px;
+  color: var(--z-muted);
+  background: var(--z-hover);
   padding: 1px 8px;
   border-radius: 10px;
 }
@@ -2252,10 +2304,10 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center;
   gap: 2px;
   background: #fff;
-  border: 1px solid var(--bg-page);
+  border: 1px solid var(--z-border);
   border-radius: 14px;
   padding: 2px 6px;
-  font-size: 12px;
+  font-size: 13px;
   box-shadow: 0 2px 6px rgba(0,0,0,.10);
   cursor: pointer;
   z-index: 2;
@@ -2269,10 +2321,10 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center;
   gap: 3px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
 }
 .zV2_reaction_chip--mine { color: #0068FF; font-weight: 600; }
-.zV2_reaction_count { font-size: 11.5px; opacity: .85; }
+.zV2_reaction_count { font-size: 12px; opacity: .85; }
 
 /* Tabs trên Danh bạ: Tất cả X / Mới truy cập Y */
 #_chat_widget_root .zV2_contacts_topbar {
@@ -2280,20 +2332,20 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   gap: 8px;
   padding: 10px 14px 6px;
   background: #fff;
-  border-bottom: 1px solid var(--bg-page);
+  border-bottom: 1px solid var(--z-border);
 }
 #_chat_widget_root .zV2_contacts_chip {
   padding: 6px 14px;
   border-radius: 18px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  background: var(--bg-page);
-  color: var(--text-2);
+  background: var(--z-hover);
+  color: var(--z-text2);
   cursor: pointer;
   border: none;
 }
 #_chat_widget_root .zV2_contacts_chip.active {
-  background: var(--brand-soft);
+  background: var(--z-active);
   color: var(--z-blue);
 }
 
@@ -2310,38 +2362,38 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 #zV2_thread_header {
   display: flex; align-items: center; gap: 8px;
   padding: 13px 16px; border-bottom: 1px solid var(--z-border);
-  font-weight: 600; font-size: 14px; color: var(--z-text); flex-shrink: 0;
+  font-weight: 600; font-size: 15px; color: var(--z-text); flex-shrink: 0;
 }
 #zV2_thread_close {
   margin-left: auto; background: none; border: none; cursor: pointer;
-  color: var(--z-muted); font-size: 18px; padding: 4px 8px; border-radius: 6px; line-height: 1;
+  color: var(--z-muted); font-size: 22px; padding: 4px 8px; border-radius: 6px; line-height: 1;
 }
 #zV2_thread_close:hover { background: var(--z-hover); color: var(--z-text); }
 #zV2_thread_root_wrap {
-  padding: 10px 14px; background: var(--brand-soft);
+  padding: 10px 14px; background: var(--z-active);
   border-bottom: 1px solid var(--z-border); flex-shrink: 0;
-  font-size: 13px; color: var(--z-text); max-height: 100px; overflow: hidden;
+  font-size: 14px; color: var(--z-text); max-height: 100px; overflow: hidden;
 }
-#zV2_thread_root_wrap .thr_sender { font-weight: 600; color: var(--z-blue); font-size: 11px; margin-bottom: 2px; }
-#zV2_thread_root_wrap .thr_content { color: var(--text-1); line-height: 1.4; }
+#zV2_thread_root_wrap .thr_sender { font-weight: 600; color: var(--z-blue); font-size: 12px; margin-bottom: 2px; }
+#zV2_thread_root_wrap .thr_content { color: var(--z-text); line-height: 1.4; }
 #zV2_thread_scroll {
   flex: 1; overflow-y: auto; padding: 10px 14px;
   display: flex; flex-direction: column; gap: 8px;
 }
 .zV2_thr_reply {
   background: var(--z-bg); border-radius: 10px; padding: 7px 11px;
-  font-size: 13px; line-height: 1.45; max-width: 90%;
+  font-size: 14px; line-height: 1.45; max-width: 90%;
 }
-.zV2_thr_reply--own { background: var(--brand-soft); align-self: flex-end; }
-.zV2_thr_reply_sender { font-weight: 600; font-size: 11px; color: var(--z-blue); margin-bottom: 2px; }
-.zV2_thr_reply_time { font-size: 10px; color: var(--z-muted); margin-top: 3px; }
+.zV2_thr_reply--own { background: var(--z-active); align-self: flex-end; }
+.zV2_thr_reply_sender { font-weight: 600; font-size: 12px; color: var(--z-blue); margin-bottom: 2px; }
+.zV2_thr_reply_time { font-size: 11px; color: var(--z-muted); margin-top: 3px; }
 #zV2_thread_compose_wrap {
   border-top: 1px solid var(--z-border); padding: 9px 12px;
   display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0;
 }
 #zV2_thread_input {
   flex: 1; border: 1px solid var(--z-border); border-radius: 18px;
-  padding: 7px 13px; font-size: 13px; resize: none; outline: none;
+  padding: 7px 13px; font-size: 14px; resize: none; outline: none;
   font-family: inherit; max-height: 90px; min-height: 34px; line-height: 1.4;
   overflow-y: auto;
 }
@@ -2353,11 +2405,11 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 }
 #zV2_thread_send_btn:hover { background: var(--z-blue-dark); }
 .zV2_thread_badge {
-  font-size: 11px; color: var(--z-blue); cursor: pointer; margin-top: 3px;
+  font-size: 12px; color: var(--z-blue); cursor: pointer; margin-top: 3px;
   display: inline-block; padding: 1px 0;
 }
 .zV2_thread_badge:hover { text-decoration: underline; }
-@media (max-width: 700px) {
+@media (max-width: 768px) {
   #zV2_thread_panel { width: 100%; border-left: none; }
 }
 
@@ -2367,49 +2419,49 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  background: var(--bg-page);
-  border-bottom: 1px solid var(--brand-soft);
+  background: var(--z-hover);
+  border-bottom: 1px solid var(--z-active);
   flex-shrink: 0;
 }
 #zV2_msg_search_bar.active { display: flex; }
-#zV2_msg_search_bar .zV2_msg_search_icon { color: var(--text-3); flex-shrink: 0; }
+#zV2_msg_search_bar .zV2_msg_search_icon { color: var(--z-muted); flex-shrink: 0; }
 #zV2_msg_search_input {
   flex: 1;
   min-width: 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--z-border);
   border-radius: 6px;
   padding: 6px 10px;
-  font-size: 13px;
+  font-size: 14px;
   background: #fff;
   outline: none;
 }
-#zV2_msg_search_input:focus { border-color: var(--brand); }
+#zV2_msg_search_input:focus { border-color: var(--z-blue); }
 .zV2_msg_search_count {
-  font-size: 12px;
-  color: var(--text-3);
+  font-size: 13px;
+  color: var(--z-muted);
   min-width: 38px;
   text-align: center;
   user-select: none;
 }
-.zV2_msg_search_count.no-match { color: var(--danger); }
+.zV2_msg_search_count.no-match { color: var(--z-badge); }
 .zV2_msg_search_nav, .zV2_msg_search_close {
   width: 26px; height: 26px;
   border: none; background: transparent;
   border-radius: 4px;
-  cursor: pointer; color: var(--text-3);
+  cursor: pointer; color: var(--z-muted);
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 14px; line-height: 1;
+  font-size: 15px; line-height: 1;
 }
-.zV2_msg_search_nav:hover, .zV2_msg_search_close:hover { background: var(--brand-soft); color: var(--brand); }
+.zV2_msg_search_nav:hover, .zV2_msg_search_close:hover { background: var(--z-active); color: var(--z-blue-text); }
 .zV2_msg_search_nav:disabled { opacity: .35; cursor: not-allowed; }
-.zV2_msg_search_close { font-size: 18px; }
+.zV2_msg_search_close { font-size: 22px; }
 
 /* Highlight matches trong bubble */
 .zV2_bubble mark.zV2_search_hit {
-  background: var(--warning); color: inherit; padding: 0 1px; border-radius: 2px;
+  background: var(--z-warn); color: inherit; padding: 0 1px; border-radius: 2px;
 }
 .zV2_bubble mark.zV2_search_hit.zV2_search_hit_active {
-  background: var(--warning); color: #fff;
+  background: var(--z-warn); color: #fff;
 }
 </style>
 
@@ -2417,7 +2469,8 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
 <div id="_chat_widget_root">
 
   <!-- FAB (giữ ID #_chat_fab cho base.html) -->
-  <button id="_chat_fab" type="button" aria-label="Mở chat Papasan">
+  <button id="_chat_fab" type="button" aria-label="Mở chat Papasan"
+          title="Bấm để mở chat — kéo để đổi chỗ (hoặc phím mũi tên khi nút đang chọn)">
     {# Icon bong bóng chat = SVG inline (không icon font, không CDN — hợp lệ
        với design system). Icon cũ là entity &#...; từng bị regex thay màu phá. #}
     <span class="zV2_fab_icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3.2c-4.9 0-8.8 3.4-8.8 7.6 0 2.1 1 4 2.6 5.4-.2 1-.6 2.1-1.4 2.9-.1.1 0 .3.1.3 1.6-.1 3.1-.7 4.2-1.4 1 .3 2.1.4 3.3.4 4.9 0 8.8-3.4 8.8-7.6S16.9 3.2 12 3.2z" fill="#fff"/><circle cx="8.2" cy="10.8" r="1.1" fill="var(--z-blue, #0084FF)"/><circle cx="12" cy="10.8" r="1.1" fill="var(--z-blue, #0084FF)"/><circle cx="15.8" cy="10.8" r="1.1" fill="var(--z-blue, #0084FF)"/></svg></span>
@@ -2922,6 +2975,29 @@ window.zV2_open   = zV2_open;
 window.zV2_close  = zV2_close;
 window.zV2_toggle = zV2_toggle;
 
+// ---------- Bấm ra ngoài thì tự đóng ----------
+// Cẩn thận: widget gắn 13 lớp phủ THẲNG VÀO <body> (lightbox ảnh, menu chuột
+// phải, popup emoji, modal chuyển tiếp, toast, màn gọi…) nên chúng nằm NGOÀI
+// #_chat_panel. Nếu chỉ kiểm tra "ngoài panel" thì mở ảnh lên là chat tự tắt.
+// Mọi thứ widget sinh ra đều mang tiền tố zV2_ hoặc zcall_ — dựa vào đó để chừa.
+document.addEventListener('pointerdown', function (e) {
+  if (!window._zV2 || !window._zV2.open) return;
+  var t = e.target;
+  if (!t || !t.closest) return;
+  if (t.closest('#_chat_panel')) return;   // bấm trong panel
+  if (t.closest('#_chat_fab'))   return;   // để nút FAB tự bật/tắt, tránh đóng rồi mở lại
+  if (t.closest('[id^="zV2_"], [class*="zV2_"], [id^="zcall"], [class*="zcall"]')) return;
+  zV2_close();
+}, true);   // pha capture: chạy trước khi lớp phủ kịp gỡ chính nó khỏi DOM
+
+// Esc cũng đóng — bàn phím phải làm được việc mà chuột làm được
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape' || !window._zV2 || !window._zV2.open) return;
+  // Chừa khi đang có lớp phủ con mở: Esc phải đóng lớp trong cùng trước
+  if (document.querySelector('#zV2_lightbox_overlay, .zV2_modal_overlay, #zcall_overlay.show')) return;
+  zV2_close();
+});
+
 // ---------- Composer input/send toggle ----------
 function zV2_onComposeInput(){
   if (!$composeInput || !$composeSendWrap) return;
@@ -2991,9 +3067,149 @@ function zV2_mobileBack(){
   if ($panel) $panel.classList.remove('show-main');
 }
 
+// ---------- FAB kéo thả được ----------
+// Nút chat đặt đâu là việc của người dùng, không phải của CSS. Ba điều đáng chú ý:
+//  1. Nhớ vị trí theo TỈ LỆ (0..1) trong vùng kéo được, KHÔNG theo px — thu nhỏ
+//     cửa sổ thì nút vẫn nằm đúng góc tương đối thay vì trôi ra ngoài màn hình.
+//  2. Phân biệt "bấm" với "kéo" bằng ngưỡng 5px; đi quá ngưỡng thì nuốt luôn cú
+//     click sinh ra sau đó, nếu không thả tay ra là chat tự mở.
+//  3. Có đường đi bằng bàn phím (mũi tên khi nút đang focus) — WCAG 2.5.7 đòi mọi
+//     thao tác kéo phải có cách làm khác không cần kéo.
+function zV2_initFabDrag(){
+  var fab = $fab;
+  if (!fab || fab._zV2DragBound) return;
+  fab._zV2DragBound = true;
+
+  var KEY  = 'zV2_fab_pos';   // localStorage: {rx, ry}
+  var EDGE = 8;               // chừa mép màn hình
+  var STEP = 12;              // bước dịch mỗi lần bấm phím mũi tên
+  var drag = null;            // {dx, dy, x0, y0} khi đang giữ chuột/ngón tay
+  var moved = false;          // đã vượt ngưỡng kéo chưa
+  var suppressClick = false;  // nuốt đúng một cú click sau khi kéo xong
+  var pos = null;             // {x, y} hiện tại — nguồn sự thật, tránh đọc lại rect
+  var ratio = null;           // {rx, ry} để tính lại khi đổi cỡ cửa sổ
+
+  // offsetWidth/Height chứ không phải rect: rect đã nhân transform của :hover
+  function limits(){
+    return {
+      maxX: Math.max(0, window.innerWidth  - fab.offsetWidth  - EDGE * 2),
+      maxY: Math.max(0, window.innerHeight - fab.offsetHeight - EDGE * 2)
+    };
+  }
+  function here(){
+    if (pos) return pos;
+    var r = fab.getBoundingClientRect();
+    return { x: r.left, y: r.top };
+  }
+  // commit = true khi kết thúc một thao tác → mới ghi nhớ vị trí
+  function place(x, y, commit){
+    var lim = limits();
+    x = Math.min(Math.max(x, EDGE), EDGE + lim.maxX);
+    y = Math.min(Math.max(y, EDGE), EDGE + lim.maxY);
+    pos = { x: x, y: y };
+    fab.style.setProperty('--zfab-x', Math.round(x) + 'px');
+    fab.style.setProperty('--zfab-y', Math.round(y) + 'px');
+    fab.classList.add('zV2_fab_moved');
+    if (!commit) return;
+    ratio = {
+      rx: lim.maxX ? (x - EDGE) / lim.maxX : 0,
+      ry: lim.maxY ? (y - EDGE) / lim.maxY : 0
+    };
+    // Chế độ riêng tư chặn localStorage → chỉ mất trí nhớ giữa các lần tải trang,
+    // nút vẫn kéo được bình thường. Fail-soft đúng như phần còn lại của widget.
+    try { localStorage.setItem(KEY, JSON.stringify(ratio)); } catch(_){}
+  }
+  function applyRatio(){
+    if (!ratio) return;
+    var lim = limits();
+    place(EDGE + ratio.rx * lim.maxX, EDGE + ratio.ry * lim.maxY, false);
+  }
+
+  // ── Kéo bằng chuột / ngón tay ──
+  fab.addEventListener('pointerdown', function(e){
+    if (e.button) return;                       // chỉ chuột trái, chạm, bút
+    var r = fab.getBoundingClientRect();
+    drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, x0: e.clientX, y0: e.clientY };
+    moved = false;
+    // Bắt con trỏ để vẫn nhận pointermove khi kéo nhanh ra ngoài nút
+    try { fab.setPointerCapture(e.pointerId); } catch(_){}
+  });
+  fab.addEventListener('pointermove', function(e){
+    if (!drag) return;
+    if (!moved){
+      if (Math.abs(e.clientX - drag.x0) + Math.abs(e.clientY - drag.y0) < 5) return;
+      moved = true;
+      fab.classList.add('zV2_fab_dragging');
+    }
+    e.preventDefault();
+    place(e.clientX - drag.dx, e.clientY - drag.dy, false);
+  });
+  function zV2_fabDragEnd(e){
+    if (!drag) return;
+    try { fab.releasePointerCapture(e.pointerId); } catch(_){}
+    drag = null;
+    fab.classList.remove('zV2_fab_dragging');
+    if (moved){
+      var p = here();
+      place(p.x, p.y, true);
+      suppressClick = true;
+      // Click bắn ra ngay sau pointerup (đồng bộ), nên timeout 0 chạy sau nó.
+      // Cần reset để lần `fab.click()` bằng code sau đó không bị nuốt oan
+      // (lich_lam_viec.html gọi kiểu đó để mở chat).
+      setTimeout(function(){ suppressClick = false; }, 0);
+    }
+    moved = false;
+  }
+  fab.addEventListener('pointerup', zV2_fabDragEnd);
+  fab.addEventListener('pointercancel', zV2_fabDragEnd);
+
+  // Nuốt click ở pha capture của document: listener trên chính nút sẽ chạy SAU
+  // zV2_open (cùng target thì thứ tự là thứ tự đăng ký), chặn không kịp.
+  document.addEventListener('click', function(e){
+    if (!suppressClick) return;
+    if (!e.target || !e.target.closest || !e.target.closest('#_chat_fab')) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
+
+  // ── Kéo bằng bàn phím: Tab tới nút rồi bấm mũi tên (Shift = bước dài) ──
+  fab.addEventListener('keydown', function(e){
+    var dx = 0, dy = 0;
+    if      (e.key === 'ArrowLeft')  dx = -1;
+    else if (e.key === 'ArrowRight') dx =  1;
+    else if (e.key === 'ArrowUp')    dy = -1;
+    else if (e.key === 'ArrowDown')  dy =  1;
+    else return;
+    e.preventDefault();                          // đừng để mũi tên cuộn trang
+    var step = e.shiftKey ? STEP * 4 : STEP;
+    var p = here();
+    place(p.x + dx * step, p.y + dy * step, true);
+  });
+
+  // ── Khôi phục vị trí đã nhớ + bám theo khi đổi cỡ cửa sổ ──
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (saved && typeof saved.rx === 'number' && typeof saved.ry === 'number'){
+      ratio = saved;
+      applyRatio();
+    }
+  } catch(_){}
+  window.addEventListener('resize', applyRatio);
+
+  // Trả nút về góc dưới-phải mặc định
+  window.zV2_resetFabPos = function(){
+    ratio = null; pos = null;
+    fab.classList.remove('zV2_fab_moved');
+    fab.style.removeProperty('--zfab-x');
+    fab.style.removeProperty('--zfab-y');
+    try { localStorage.removeItem(KEY); } catch(_){}
+  };
+}
+
 // ---------- Bind events ----------
 function zV2_bind(){
-  // FAB
+  // FAB — kéo thả bind TRƯỚC click để bộ nuốt click kịp chặn zV2_open
+  zV2_initFabDrag();
   if ($fab) $fab.addEventListener('click', zV2_open);
 
   // Panel close
@@ -3125,7 +3341,7 @@ function zV2_renderMidHeaderAvatar(me){
   } else if (me.name) {
     var ch = (me.name.charAt(0) || '?').toUpperCase();
     avEl.textContent = ch;
-    var palette = ['#0084FF','var(--brand)','var(--info)','var(--success)','var(--danger)','var(--danger)','var(--warning)','var(--brand)'];
+    var palette = ['#0B63CE','#1F6F72','#2E7D4F','#6B4E7D','#B02A18','#3D5A80','#A02C5A','#4A4A82'];
     var hash = 0;
     for (var i = 0; i < me.name.length; i++) hash = (hash * 31 + me.name.charCodeAt(i)) >>> 0;
     avEl.style.background = palette[hash % palette.length];
@@ -3174,24 +3390,24 @@ window.zV2_openTaskModal = function(msgId) {
   var users = (_zV2.users || []).filter(function(u){ return u.username !== ((_zV2.currentUser && _zV2.currentUser.username) || ''); });
   var ov = document.createElement('div');
   ov.id = 'zV2_task_modal';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99998;display:flex;align-items:center;justify-content:center;';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(51,33,15,.32);z-index:99998;display:flex;align-items:center;justify-content:center;';
   ov.innerHTML =
     '<div style="background:#fff;border-radius:14px;padding:24px;width:420px;max-width:90vw;box-shadow:0 12px 40px rgba(0,0,0,.2);">' +
-    '<div style="font-size:16px;font-weight:600;color:#0068FF;margin-bottom:14px;">Tạo nhiệm vụ từ tin nhắn</div>' +
-    '<div style="background:var(--bg-page);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:13px;color:var(--text-1);max-height:80px;overflow:hidden;">' +
+    '<div style="font-size:17px;font-weight:600;color:#0068FF;margin-bottom:14px;">Tạo nhiệm vụ từ tin nhắn</div>' +
+    '<div style="background:var(--z-hover);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:14px;color:var(--z-text);max-height:80px;overflow:hidden;">' +
       zV2_escapeHtml(zV2_truncate(msg.content || msg.file_name || '[Đính kèm]', 160)) +
     '</div>' +
-    '<label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:4px;">Tiêu đề nhiệm vụ</label>' +
-    '<input id="zV2_task_title" type="text" value="' + zV2_escapeHtml(zV2_truncate(msg.content || '', 80)) + '" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:12px;outline:none;" />' +
-    '<label style="display:block;font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:4px;">Giao cho</label>' +
-    '<select id="zV2_task_assignee" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:18px;outline:none;background:#fff;">' +
+    '<label style="display:block;font-size:13px;font-weight:600;color:var(--z-text2);margin-bottom:4px;">Tiêu đề nhiệm vụ</label>' +
+    '<input id="zV2_task_title" type="text" value="' + zV2_escapeHtml(zV2_truncate(msg.content || '', 80)) + '" style="width:100%;padding:9px 12px;border:1px solid var(--z-border);border-radius:8px;font-size:15px;margin-bottom:12px;outline:none;" />' +
+    '<label style="display:block;font-size:13px;font-weight:600;color:var(--z-text2);margin-bottom:4px;">Giao cho</label>' +
+    '<select id="zV2_task_assignee" style="width:100%;padding:9px 12px;border:1px solid var(--z-border);border-radius:8px;font-size:15px;margin-bottom:18px;outline:none;background:#fff;">' +
       '<option value="">— Không chỉ định —</option>' +
       users.map(function(u){
         return '<option value="' + zV2_escapeHtml(u.username) + '">' + zV2_escapeHtml(u.ho_ten || u.username) + (u.chuc_vu ? ' (' + zV2_escapeHtml(u.chuc_vu) + ')' : '') + '</option>';
       }).join('') +
     '</select>' +
     '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
-    '<button id="zV2_task_cancel" style="padding:9px 18px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--text-2);font-weight:600;cursor:pointer;">Hủy</button>' +
+    '<button id="zV2_task_cancel" style="padding:9px 18px;border-radius:8px;border:1px solid var(--z-border);background:#fff;color:var(--z-text2);font-weight:600;cursor:pointer;">Hủy</button>' +
     '<button id="zV2_task_submit" style="padding:9px 18px;border-radius:8px;border:none;background:#0068FF;color:#fff;font-weight:600;cursor:pointer;">Tạo nhiệm vụ</button>' +
     '</div>' +
     '</div>';
@@ -3344,14 +3560,14 @@ function zV2_openDirectCallModal(displayName, mode){
   var icon = mode === 'video' ? '' : '';
   var label = mode === 'video' ? 'Gọi video' : 'Gọi thoại';
   var ov = document.createElement('div');
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(51,33,15,.32);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
   ov.innerHTML =
-    '<div style="background:var(--text-1);color:#fff;border-radius:18px;padding:32px 28px;width:100%;max-width:340px;text-align:center;font-family:inherit;">' +
+    '<div style="background:var(--z-text);color:#fff;border-radius:18px;padding:32px 28px;width:100%;max-width:340px;text-align:center;font-family:inherit;">' +
     '<div style="font-size:22px;margin-bottom:12px;">' + icon + '</div>' +
-    '<div style="font-size:16px;font-weight:600;margin-bottom:6px;">' + label + '</div>' +
-    '<div style="font-size:14px;opacity:.85;margin-bottom:8px;">Đang gọi cho <b>' + (displayName || '?') + '</b>...</div>' +
-    '<div style="font-size:12px;opacity:.65;margin-bottom:20px;">(Tính năng đang phát triển)</div>' +
-    '<button id="zV2_call_close" style="background:var(--danger);color:#fff;border:none;padding:10px 22px;border-radius:24px;font-size:14px;font-weight:600;cursor:pointer;">Kết thúc</button>' +
+    '<div style="font-size:17px;font-weight:600;margin-bottom:6px;">' + label + '</div>' +
+    '<div style="font-size:15px;opacity:.85;margin-bottom:8px;">Đang gọi cho <b>' + (displayName || '?') + '</b>...</div>' +
+    '<div style="font-size:13px;opacity:.65;margin-bottom:20px;">(Tính năng đang phát triển)</div>' +
+    '<button id="zV2_call_close" style="background:var(--z-badge);color:#fff;border:none;padding:10px 22px;border-radius:24px;font-size:15px;font-weight:600;cursor:pointer;">Kết thúc</button>' +
     '</div>';
   document.body.appendChild(ov);
   ov.addEventListener('click', function(e){ if (e.target === ov) document.body.removeChild(ov); });
@@ -3506,7 +3722,7 @@ const _zV2_escapeHtml = window.zV2_escapeHtml;
 
 if (typeof window.zV2_hashColor !== 'function') {
   window.zV2_hashColor = function (str) {
-    const palette = ['#0084FF', 'var(--brand)', 'var(--info)', 'var(--success)', 'var(--danger)', 'var(--danger)', 'var(--warning)', 'var(--brand)'];
+    const palette = ['#0B63CE', '#1F6F72', '#2E7D4F', '#6B4E7D', '#B02A18', '#3D5A80', '#A02C5A', '#4A4A82'];
     const s = String(str || '');
     let h = 0;
     for (let i = 0; i < s.length; i++) {
@@ -3631,7 +3847,7 @@ window.zV2_loadRooms = async function () {
   } catch (e) {
     console.error('[zV2] loadRooms failed', e);
     const c = document.getElementById('zV2_conv_list');
-    if (c) c.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-3);font-size:13px;">Không tải được danh sách. <a href="#" id="zV2_retry_rooms" style="color:#0084FF;">Thử lại</a></div>`;
+    if (c) c.innerHTML = `<div style="padding:24px;text-align:center;color:var(--z-muted);font-size:14px;">Không tải được danh sách. <a href="#" id="zV2_retry_rooms" style="color:#0084FF;">Thử lại</a></div>`;
     const r = document.getElementById('zV2_retry_rooms');
     if (r) r.addEventListener('click', (ev) => { ev.preventDefault(); window.zV2_loadRooms(); });
   }
@@ -3668,11 +3884,11 @@ window.zV2_renderRooms = function (filterKeyword) {
   });
   if (!list.length) {
     if (q) {
-      c.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-3);font-size:13px;">Không tìm thấy cuộc trò chuyện nào với từ khoá "${_zV2_escapeHtml(q)}".</div>`;
+      c.innerHTML = `<div style="padding:24px;text-align:center;color:var(--z-muted);font-size:14px;">Không tìm thấy cuộc trò chuyện nào với từ khoá "${_zV2_escapeHtml(q)}".</div>`;
     } else if (currentFilter === 'unread') {
-      c.innerHTML = `<div style="padding:32px 24px;text-align:center;color:var(--brand);font-size:13px;line-height:1.5;"><br>Bạn đã đọc hết tin nhắn rồi!<br><span style="font-size:12px;color:var(--text-3);">Không có cuộc trò chuyện chưa đọc nào.</span></div>`;
+      c.innerHTML = `<div style="padding:32px 24px;text-align:center;color:var(--z-blue-text);font-size:14px;line-height:1.5;"><br>Bạn đã đọc hết tin nhắn rồi!<br><span style="font-size:13px;color:var(--z-muted);">Không có cuộc trò chuyện chưa đọc nào.</span></div>`;
     } else {
-      c.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-3);font-size:13px;">Chưa có cuộc trò chuyện nào.</div>`;
+      c.innerHTML = `<div style="padding:24px;text-align:center;color:var(--z-muted);font-size:14px;">Chưa có cuộc trò chuyện nào.</div>`;
     }
     return;
   }
@@ -3803,7 +4019,7 @@ window.zV2_loadUsers = async function () {
   } catch (e) {
     console.error('[zV2] loadUsers failed', e);
     const c = document.getElementById('zV2_contacts_list');
-    if (c) c.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-3);font-size:13px;">Không tải được danh bạ.</div>`;
+    if (c) c.innerHTML = `<div style="padding:24px;text-align:center;color:var(--z-muted);font-size:14px;">Không tải được danh bạ.</div>`;
   }
 };
 
@@ -3860,7 +4076,7 @@ window.zV2_renderContacts = function (filterKw) {
   // KHÔNG render search box riêng — dùng #zV2_search_box ở top sidebar (xem zV2_bindSearchBox)
   let bodyHTML;
   if (!groups.length) {
-    bodyHTML = `<div style="padding:24px;text-align:center;color:var(--text-3);font-size:13px;">Không có nhân viên phù hợp.</div>`;
+    bodyHTML = `<div style="padding:24px;text-align:center;color:var(--z-muted);font-size:14px;">Không có nhân viên phù hợp.</div>`;
   } else {
     bodyHTML = groups.map(g => {
       const list = map[g];
@@ -4159,12 +4375,39 @@ window.zV2_apiFetch = async function (url, opts) {
   return await resp.text();
 };
 
+// Toast của widget. TRƯỚC ĐÂY chỉ uỷ quyền cho zV2_showToast/showToast —
+// mà KHÔNG file nào định nghĩa hai hàm đó, nên mọi thông báo ("Chuyển tiếp
+// thất bại", "Chỉnh sửa thất bại"…) chỉ rơi vào console.log: người dùng thao
+// tác hỏng mà không thấy gì. Đo được: gọi zV2_toast thêm 0 phần tử vào trang.
+// Nay có chuỗi dự phòng đầy đủ, chốt bằng bản tự vẽ để chạy được ở cả 7 app.
 window.zV2_toast = function (msg, type) {
   try {
-    if (window.zV2_showToast) return window.zV2_showToast(msg, type);
-    if (window.showToast) return window.showToast(msg, type);
-  } catch (e) { }
-  console.log('[zV2 toast]', type || '', msg);
+    if (typeof window.zV2_showToast === 'function') return window.zV2_showToast(msg, type);
+    if (typeof window.showToast === 'function')     return window.showToast(msg, type);
+    if (typeof window.toast === 'function')         return window.toast(msg, type); // ui-common.js của ketoan
+  } catch (e) { /* rơi xuống bản tự vẽ bên dưới */ }
+
+  try {
+    var t = document.createElement('div');
+    t.className = 'zV2_toast zV2_toast_' + (type || 'info');
+    t.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    t.textContent = msg;
+    t.style.cssText =
+      'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);' +
+      'background:' + (type === 'error' ? 'var(--z-badge)'
+                     : type === 'success' ? 'var(--z-ok)' : 'var(--z-text)') + ';' +
+      'color:#fff;padding:10px 16px;border-radius:8px;z-index:2147483001;' +
+      'font-size:14px;max-width:min(420px,90vw);box-shadow:0 4px 16px rgba(0,0,0,.25);' +
+      'opacity:0;transition:opacity .2s';
+    document.body.appendChild(t);
+    requestAnimationFrame(function () { t.style.opacity = '1'; });
+    setTimeout(function () {
+      t.style.opacity = '0';
+      setTimeout(function () { if (t.parentNode) t.remove(); }, 300);
+    }, 2600);
+  } catch (e) {
+    console.log('[zV2 toast]', type || '', msg);
+  }
 };
 
 // ---------- Open Room ----------
@@ -4574,7 +4817,7 @@ window.zV2_buildMessageRow = function (msg, prev, next, currentUser) {
     actionsHtml += '<button class="zV2_msg_action_btn" data-action="reply" data-msg-id="' +
       zV2_escapeHtml(msg.id) + '" title="Trả lời">' + SVG.reply + '</button>';
     actionsHtml += '<button class="zV2_msg_action_btn" data-action="thread" data-msg-id="' +
-      zV2_escapeHtml(msg.id) + '" title="Hội thoại độc lập" style="font-size:14px;">Nhắn</button>';
+      zV2_escapeHtml(msg.id) + '" title="Hội thoại độc lập" style="font-size:15px;">Nhắn</button>';
     actionsHtml += '<button class="zV2_msg_action_btn" data-action="react" data-msg-id="' +
       zV2_escapeHtml(msg.id) + '" title="Cảm xúc">' + SVG.react + '</button>';
     actionsHtml += '<button class="zV2_msg_action_btn" data-action="forward" data-msg-id="' +
@@ -4963,14 +5206,14 @@ window.zV2_openComposeEmojiPicker = function(anchorEl){
   if (existing) { existing.remove(); return; }
   // Bộ emoji thông dụng cho công ty: 5 hàng × 8 emoji
   var emojis = [
-    '','','','','','','','',
-    '','','','','','','','',
-    '','','','','','','','',
-    '','','','','','','','',
-    '','','','','','','✌️','',
-    '❤️','','','','','','','',
-    '','','','','','','','',
-    '','','','❓','❗','','',''
+    '😀','😃','😄','😁','😆','😅','😂','🤣',
+    '🙂','😊','😇','🥰','😍','😘','😋','😎',
+    '🤔','🤨','😐','😑','🙄','😏','😴','🤗',
+    '😢','😭','😤','😠','😰','😱','🤯','😳',
+    '👍','👎','👌','✌️','🤝','👏','🙏','💪',
+    '❤️','🧡','💛','💚','💙','💜','🔥','⭐',
+    '✅','❌','⚠️','📌','📎','📅','📊','💰',
+    '🎉','🎊','🚀','💡','❓','❗','⏰','☕'
   ];
   var pop = document.createElement('div');
   pop.id = 'zV2_compose_emoji_pop';
@@ -5129,7 +5372,7 @@ window.zV2_toggleReaction = async function (msgId, emoji) {
 window.zV2_showEmojiPicker = function (msgId, anchorEl) {
   var existing = document.getElementById('zV2_emoji_picker_pop');
   if (existing) existing.remove();
-  var emojis = ['', '❤️', '', '', '', ''];
+  var emojis = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
   var pop = document.createElement('div');
   pop.id = 'zV2_emoji_picker_pop';
   pop.className = 'zV2_emoji_picker_pop';
@@ -5322,7 +5565,7 @@ window.zV2_composeBind = function () {
   }
   if (thumbsBtn && !thumbsBtn._zV2Bound) {
     thumbsBtn._zV2Bound = true;
-    thumbsBtn.addEventListener('click', function () { zV2_sendMessage(''); });
+    thumbsBtn.addEventListener('click', function () { zV2_sendMessage('👍'); });   // emoji nay tung bi xoa -> nut thanh nut chet
   }
   zV2_updateComposerButtons();
 };
@@ -5372,7 +5615,7 @@ function _zV2_scrollHandler(scrollEl, btn) {
         if (innerEl && !document.getElementById('zV2_load_more_indicator')) {
           var indicator = document.createElement('div');
           indicator.id = 'zV2_load_more_indicator';
-          indicator.style.cssText = 'text-align:center;padding:8px;color:var(--text-3);font-size:12px;';
+          indicator.style.cssText = 'text-align:center;padding:8px;color:var(--z-muted);font-size:13px;';
           indicator.textContent = 'Đang tải thêm tin nhắn...';
           innerEl.prepend(indicator);
         }
@@ -5396,17 +5639,9 @@ function _zV2_scrollHandler(scrollEl, btn) {
 }
 
 // ---------- Typing indicator ----------
-window.zV2_showTypingIndicator = function (senderName) {
-  var el = document.getElementById('zV2_typing_indicator');
-  if (!el) return;
-  el.innerHTML = '<span class="zV2_typing_label">' + zV2_escapeHtml(senderName) + ' đang soạn</span>' +
-    '<span class="zV2_typing_dots"><span></span><span></span><span></span></span>';
-  el.style.display = '';
-  if (_zV2._typingTimer) clearTimeout(_zV2._typingTimer);
-  _zV2._typingTimer = setTimeout(function () {
-    el.style.display = 'none';
-  }, 4000);
-};
+// Ban dinh nghia CU o day da bi xoa: no bi ban o cuoi file de (cung ten ham),
+// va ca hai deu sai giao uoc voi CSS/HTML. Ban dung duy nhat nam o muc
+// "TYPING INDICATOR" gan cuoi file.
 
 // ---------- Debounce renderConvList — tránh rebuild DOM liên tục khi nhiều SSE dồn ----------
 var _zV2ConvListTimer = null;
@@ -5426,6 +5661,10 @@ window.zV2_handleSSE = function (data) {
       var m = data.message || data.data || data;
       if (!m || !m.id) return;
       var rid = m.room_id;
+      // Da gui duoc tin = khong con dang soan nua
+      if (m.sender_username && window.zV2_clearTyping) {
+        window.zV2_clearTyping(rid, m.sender_username);
+      }
       _zV2.messages = _zV2.messages || {};
       _zV2.messages[rid] = _zV2.messages[rid] || [];
       if (!_zV2.messages[rid].some(function (x) { return String(x.id) === String(m.id); })) {
@@ -5506,7 +5745,7 @@ window.zV2_handleSSE = function (data) {
           if (delEl) {
             var delBubble = delEl.querySelector('.zV2_bubble');
             if (delBubble) {
-              delBubble.innerHTML = '<span style="color:var(--text-3);font-size:12px;font-style:italic;">Tin nhắn đã được thu hồi</span>';
+              delBubble.innerHTML = '<span style="color:var(--z-muted);font-size:13px;font-style:italic;">Tin nhắn đã được thu hồi</span>';
               delBubble.className = 'zV2_bubble zV2_bubble--deleted';
             }
             var delActions = delEl.querySelector('.zV2_msg_actions');
@@ -5540,7 +5779,7 @@ window.zV2_handleSSE = function (data) {
               if (!editEl.querySelector('.zV2_msg_edited')) {
                 var editedSpan = document.createElement('span');
                 editedSpan.className = 'zV2_msg_edited';
-                editedSpan.style.cssText = 'font-size:11px;color:var(--text-3);margin-left:4px;';
+                editedSpan.style.cssText = 'font-size:12px;color:var(--z-muted);margin-left:4px;';
                 editedSpan.textContent = '(đã sửa)';
                 textEl.appendChild(editedSpan);
               }
@@ -5600,9 +5839,12 @@ window.zV2_handleSSE = function (data) {
       break;
     }
     case 'typing': {
-      if (data.room_id !== _zV2.currentRoomId) break;
+      // Ham nhan (roomId, senderName, username) — truoc day cho goi truyen moi
+      // senderName vao vi tri roomId nen ham luon thoat ngay dong dau.
       if (data.username === me.username) break;
-      zV2_showTypingIndicator(data.sender_name || data.username || '');
+      zV2_showTypingIndicator(data.room_id,
+                              data.sender_name || data.username || '',
+                              data.username);
       break;
     }
     case 'read_receipt': {
@@ -5751,7 +5993,7 @@ window.zV2_openThread = async function (msgId, roomId) {
       '<div class="thr_content">' + zV2_escapeHtml((rootMsg.content || '[Đính kèm]').substring(0, 200)) + '</div>';
   }
   panel.classList.add('open');
-  if (scroll) scroll.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-3);font-size:12px;">Đang tải...</div>';
+  if (scroll) scroll.innerHTML = '<div style="text-align:center;padding:16px;color:var(--z-muted);font-size:13px;">Đang tải...</div>';
   try {
     var me = zV2_getCurrentUser();
     var url = '/api/chat/rooms/' + encodeURIComponent(_zV2Thread.roomId) +
@@ -5760,7 +6002,7 @@ window.zV2_openThread = async function (msgId, roomId) {
     if (!Array.isArray(replies)) replies = [];
     window.zV2_renderThreadReplies(replies, me);
   } catch (e) {
-    if (scroll) scroll.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-3);">Không tải được.</div>';
+    if (scroll) scroll.innerHTML = '<div style="text-align:center;padding:16px;color:var(--z-muted);">Không tải được.</div>';
   }
 };
 
@@ -5768,7 +6010,7 @@ window.zV2_renderThreadReplies = function (replies, me) {
   var scroll = document.getElementById('zV2_thread_scroll');
   if (!scroll) return;
   if (!replies.length) {
-    scroll.innerHTML = '<div style="text-align:center;padding:24px 16px;color:var(--text-3);font-size:12px;">Chưa có trả lời.<br>Hãy bắt đầu hội thoại!</div>';
+    scroll.innerHTML = '<div style="text-align:center;padding:24px 16px;color:var(--z-muted);font-size:13px;">Chưa có trả lời.<br>Hãy bắt đầu hội thoại!</div>';
     return;
   }
   var html = replies.map(function (r) {
@@ -5945,7 +6187,7 @@ if (typeof window.zV2_toast !== 'function') {
       t.textContent = msg;
       Object.assign(t.style, {
         position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
-        background: type === 'error' ? '#dc2626' : (type === 'success' ? '#16a34a' : 'var(--text-1)'),
+        background: type === 'error' ? 'var(--z-badge)' : (type === 'success' ? 'var(--z-ok)' : 'var(--z-text)'),
         color: '#fff', padding: '10px 16px', borderRadius: '8px', zIndex: 99999,
         fontSize: '14px', boxShadow: '0 4px 16px rgba(0,0,0,0.25)'
       });
@@ -5970,7 +6212,7 @@ function zV2_fmtDate(d) {
   } catch (e) { return ''; }
 }
 function zV2_avatarBg(name) {
-  var colors = ['var(--brand)', 'var(--success)', '#f59e0b', 'var(--danger)', 'var(--brand)', 'var(--brand)', 'var(--info)', 'var(--warning)'];
+  var colors = ['#0B63CE', '#1F6F72', '#2E7D4F', '#6B4E7D', '#B02A18', '#3D5A80', '#A02C5A', '#4A4A82'];
   var sum = 0; var s = String(name || '?');
   for (var i = 0; i < s.length; i++) sum += s.charCodeAt(i);
   return colors[sum % colors.length];
@@ -6046,7 +6288,7 @@ window.zV2_renderInfoPanel = function (roomId) {
   if (!panel) return;
   var room = ((_zV2 && _zV2.rooms) || []).find(function (r) { return r.id === roomId || r.room_id === roomId; });
   if (!room) {
-    panel.innerHTML = '<div style="padding:24px;color:var(--text-2)">Không tìm thấy phòng.</div>';
+    panel.innerHTML = '<div style="padding:24px;color:var(--z-text2)">Không tìm thấy phòng.</div>';
     return;
   }
   var displayName = room.display_name || room.name || room.title || 'Phòng chat';
@@ -6775,29 +7017,75 @@ window.zV2_setupPresencePolling = function () {
   });
 };
 
-var _zV2_typingTimers = {};
-window.zV2_showTypingIndicator = function (roomId, sender_name) {
-  if (!window._zV2 || roomId !== _zV2.currentRoomId) return;
-  var el = zV2_$('zV2_typing_indicator');
-  if (!el) return;
-  el.innerHTML = '<span class="zV2_typing_dots"><span></span><span></span><span></span></span>' +
-    '<span class="zV2_typing_name">' + zV2_escapeHtml(sender_name || '') + ' đang soạn...</span>';
-  el.classList.add('open');
-  if (_zV2_typingTimers[roomId]) clearTimeout(_zV2_typingTimers[roomId]);
-  _zV2_typingTimers[roomId] = setTimeout(function () {
-    if (el) el.classList.remove('open');
-  }, 4000);
+// ---------- TYPING INDICATOR (ban dung duy nhat) ----------
+// Giao uoc voi CSS/HTML — dung sai la tinh nang chet am tham:
+//   * hien/an bang CLASS `.visible`, KHONG phai el.style.display
+//     (CSS goc la display:none; gan style.display='' chi go inline style roi
+//      roi lai ve none — dung loi ma comment o zV2_updateComposerButtons da
+//      canh bao)
+//   * ba cham la 3 span san co class `.zV2_dot` trong HTML. TUYET DOI khong
+//     ghi de innerHTML cua ca khoi, lam vay la xoa mat chung + mat animation.
+//     Chi duoc set textContent cua `.zV2_typing_text`.
+// Ho tro nhieu nguoi cung go trong nhom, moi nguoi het han sau 5s.
+var _zV2_typingBy = {};      // { roomId: { username: {ten, luc} } }
+var _zV2_typingSweep = null;
+
+window.zV2_renderTyping = function () {
+  var el = (window.zV2_$ ? zV2_$('zV2_typing_indicator')
+                         : document.getElementById('zV2_typing_indicator'));
+  if (!el) return false;
+  var khoa = String((window._zV2 && _zV2.currentRoomId) || '');
+  var bay_gio = Date.now();
+  var m = _zV2_typingBy[khoa] || {};
+  var ten = Object.keys(m)
+    .filter(function (u) { return bay_gio - m[u].luc < 5000; })
+    .map(function (u) { return m[u].ten; });
+
+  if (!ten.length) { el.classList.remove('visible'); return false; }
+
+  var chu = ten.length === 1 ? ten[0] + ' đang soạn'
+          : ten.length === 2 ? ten[0] + ' và ' + ten[1] + ' đang soạn'
+          : ten[0] + ' và ' + (ten.length - 1) + ' người khác đang soạn';
+  var t = el.querySelector('.zV2_typing_text');
+  if (t) t.textContent = chu; else el.textContent = chu;
+  el.classList.add('visible');
+  return true;
+};
+
+// Quet 1s/lan de tu an khi het han HOAC khi doi phong; tu dung khi khong con ai.
+function _zV2_typingBatQuet() {
+  if (_zV2_typingSweep) return;
+  _zV2_typingSweep = setInterval(function () {
+    if (!window.zV2_renderTyping()) {
+      clearInterval(_zV2_typingSweep);
+      _zV2_typingSweep = null;
+    }
+  }, 1000);
+}
+
+window.zV2_showTypingIndicator = function (roomId, sender_name, username) {
+  if (!window._zV2) return;
+  var khoa = String(roomId);
+  var u = username || sender_name || '?';
+  _zV2_typingBy[khoa] = _zV2_typingBy[khoa] || {};
+  _zV2_typingBy[khoa][u] = { ten: sender_name || u, luc: Date.now() };
+  if (window.zV2_renderTyping()) _zV2_typingBatQuet();
+};
+
+// Nguoi ta gui tin roi thi thoi khong con "dang soan" — an ngay, khong doi 5s
+window.zV2_clearTyping = function (roomId, username) {
+  var khoa = String(roomId);
+  if (_zV2_typingBy[khoa]) delete _zV2_typingBy[khoa][username];
+  window.zV2_renderTyping();
 };
 
 // ---------- MOBILE BACK + HEADER WIRING ----------
-window.zV2_wireMobileBack = function () {
-  var back = zV2_$('zV2_main_header_back');
-  if (!back) return;
-  back.addEventListener('click', function () {
-    var panel = zV2_$('zV2_panel') || document.querySelector('.zV2_panel');
-    if (panel) panel.classList.remove('zV2_mobile_show_conv');
-  });
-};
+// zV2_wireMobileBack ĐÃ XOÁ — nó là code chết của một phiên bản markup khác,
+// sai cả ba định danh: tìm #zV2_main_header_back (thật là #zV2_main_back_btn),
+// tìm #zV2_panel (thật là #_chat_panel), gỡ class zV2_mobile_show_conv (thật
+// là show-main). Không khớp gì nên không làm gì.
+// Nút quay lại trên mobile được nối THẬT ở zV2_bind(): $mainBackBtn -> zV2_mobileBack.
+window.zV2_wireMobileBack = function () { /* giữ tên cho nơi gọi cũ, không làm gì */ };
 
 window.zV2_wireHeaderInfoBtn = function () {
   document.addEventListener('click', function (e) {
@@ -7067,7 +7355,7 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ── @MENTION AUTOCOMPLETE ─────────────────────────────────────────────────── */
 (function(){
   var _mStart=-1,_mIdx=0,_mList=[];
-  function _hc(s){var p=['var(--brand)','var(--success)','#f59e0b','var(--danger)','var(--brand)','var(--brand)','var(--info)','var(--warning)'];var h=0;s=String(s||'');for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return p[h%p.length];}
+  function _hc(s){var p=['#0B63CE','#1F6F72','#2E7D4F','#6B4E7D','#B02A18','#3D5A80','#A02C5A','#4A4A82'];var h=0;s=String(s||'');for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return p[h%p.length];}
   function _users(){return(window._zV2&&window._zV2.users)||[];}
   function _show(list,q){
     var dd=document.getElementById('zV2_mention_dd');if(!dd)return;
@@ -7081,8 +7369,8 @@ document.addEventListener('DOMContentLoaded', () => {
       var hl=q?name.replace(new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<b>$1</b>'):name;
       // Đặc biệt: @all → icon loa + nền vàng cảnh báo
       if(u._is_all){
-        return '<div class="zV2_mention_item'+(i===0?' active':'')+'" data-idx="'+i+'" data-name="all" style="background:var(--warning-soft);border-left:3px solid #f59e0b">'
-          +'<div class="zV2_mention_item_ava" style="background:#f59e0b;font-size:14px"></div>'
+        return '<div class="zV2_mention_item'+(i===0?' active':'')+'" data-idx="'+i+'" data-name="all" style="background:var(--warning-soft);border-left:3px solid var(--z-warn)">'
+          +'<div class="zV2_mention_item_ava" style="background:var(--z-warn);font-size:15px"></div>'
           +'<div><div class="zV2_mention_item_name" style="color:var(--warning-fg)">@all<span style="margin-left:6px;color:var(--warning-fg);font-weight:500">Tag cả phòng</span></div><div class="zV2_mention_item_dept">Thông báo đến mọi thành viên</div></div>'
           +'</div>';
       }
@@ -7156,7 +7444,7 @@ document.addEventListener('DOMContentLoaded', () => {
     var s=String(content).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     s=s.replace(/@([\wÀ-ɏḀ-ỿ]+(?:\s[\wÀ-ɏḀ-ỿ]+)?)/g,function(m,n){
       if(n.toLowerCase()==='all'){
-        return '<span class="zV2_mention" style="background:#fef3c7;color:var(--warning-fg);font-weight:700;border:1px solid var(--warning)">@all</span>';
+        return '<span class="zV2_mention" style="background:var(--warning-soft);color:var(--warning-fg);font-weight:700;border:1px solid var(--z-warn)">@all</span>';
       }
       return '<span class="zV2_mention">@'+n+'</span>';
     });
@@ -7215,32 +7503,32 @@ document.addEventListener('DOMContentLoaded', () => {
   function _ensureStyles(){
     if (document.getElementById('zV2_aiBrief_css')) return;
     var css = ''
-      + '.zV2_aiBrief_overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;animation:zV2_aiBrief_fade .18s ease;}'
+      + '.zV2_aiBrief_overlay{position:fixed;inset:0;background:rgba(51,33,15,.32);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;animation:zV2_aiBrief_fade .18s ease;}'
       + '@keyframes zV2_aiBrief_fade{from{opacity:0}to{opacity:1}}'
       + '.zV2_aiBrief_card{background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 18px 50px rgba(0,0,0,.25);overflow:hidden;}'
-      + '.zV2_aiBrief_head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--brand-soft);background:linear-var(--warning-soft);}'
-      + '.zV2_aiBrief_avatar{width:38px;height:38px;border-radius:50%;background:var(--warning);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0;}'
+      + '.zV2_aiBrief_head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--z-active);background:linear-var(--warning-soft);}'
+      + '.zV2_aiBrief_avatar{width:38px;height:38px;border-radius:50%;background:var(--z-warn);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;flex-shrink:0;}'
       + '.zV2_aiBrief_title{flex:1;min-width:0;}'
-      + '.zV2_aiBrief_title .name{font-weight:700;font-size:15px;color:var(--text-1);}'
-      + '.zV2_aiBrief_title .sub{font-size:12px;color:var(--text-2);}'
-      + '.zV2_aiBrief_close{background:transparent;border:none;font-size:22px;cursor:pointer;color:var(--text-2);padding:4px 8px;border-radius:8px;}'
+      + '.zV2_aiBrief_title .name{font-weight:700;font-size:16px;color:var(--z-text);}'
+      + '.zV2_aiBrief_title .sub{font-size:13px;color:var(--z-text2);}'
+      + '.zV2_aiBrief_close{background:transparent;border:none;font-size:22px;cursor:pointer;color:var(--z-text2);padding:4px 8px;border-radius:8px;}'
       + '.zV2_aiBrief_close:hover{background:rgba(0,0,0,.05);}'
-      + '.zV2_aiBrief_body{padding:18px 22px;overflow-y:auto;font-size:14px;line-height:1.55;color:var(--text-1);}'
-      + '.zV2_aiBrief_body h2{font-size:16px;margin:12px 0 6px;color:var(--text-1);}'
-      + '.zV2_aiBrief_body h3{font-size:15px;margin:10px 0 4px;color:var(--text-1);}'
-      + '.zV2_aiBrief_body h4{font-size:14px;margin:8px 0 4px;color:var(--text-1);}'
+      + '.zV2_aiBrief_body{padding:18px 22px;overflow-y:auto;font-size:15px;line-height:1.55;color:var(--z-text);}'
+      + '.zV2_aiBrief_body h2{font-size:17px;margin:12px 0 6px;color:var(--z-text);}'
+      + '.zV2_aiBrief_body h3{font-size:16px;margin:10px 0 4px;color:var(--z-text);}'
+      + '.zV2_aiBrief_body h4{font-size:15px;margin:8px 0 4px;color:var(--z-text);}'
       + '.zV2_aiBrief_body p{margin:6px 0;}'
       + '.zV2_aiBrief_body ul{margin:4px 0 8px 18px;padding:0;}'
       + '.zV2_aiBrief_body li{margin:2px 0;}'
-      + '.zV2_aiBrief_body code{background:var(--bg-page);padding:1px 5px;border-radius:4px;font-size:12px;}'
-      + '.zV2_aiBrief_body strong{color:var(--text-1);}'
-      + '.zV2_aiBrief_loading{padding:32px;text-align:center;color:var(--text-2);}'
-      + '.zV2_aiBrief_actions{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--brand-soft);background:var(--bg-page);}'
-      + '.zV2_aiBrief_btn{flex:1;padding:9px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}'
-      + '.zV2_aiBrief_btn_primary{background:var(--brand-soft);color:var(--brand-hover);}'
+      + '.zV2_aiBrief_body code{background:var(--z-hover);padding:1px 5px;border-radius:4px;font-size:13px;}'
+      + '.zV2_aiBrief_body strong{color:var(--z-text);}'
+      + '.zV2_aiBrief_loading{padding:32px;text-align:center;color:var(--z-text2);}'
+      + '.zV2_aiBrief_actions{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--z-active);background:var(--z-hover);}'
+      + '.zV2_aiBrief_btn{flex:1;padding:9px 14px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;}'
+      + '.zV2_aiBrief_btn_primary{background:var(--z-active);color:var(--z-blue-text);}'
       + '.zV2_aiBrief_btn_primary:hover{filter:brightness(.95);}'
-      + '.zV2_aiBrief_btn_secondary{background:var(--bg-page);color:var(--text-2);}'
-      + '.zV2_aiBrief_btn_secondary:hover{background:var(--border);}'
+      + '.zV2_aiBrief_btn_secondary{background:var(--z-hover);color:var(--z-text2);}'
+      + '.zV2_aiBrief_btn_secondary:hover{background:var(--z-border);}'
       ;
     var st = document.createElement('style');
     st.id = 'zV2_aiBrief_css';
@@ -7363,32 +7651,32 @@ document.addEventListener('DOMContentLoaded', () => {
 .zcall_avatar{width:104px;height:104px;border-radius:50%;margin:0 auto 16px;background:#0084FF;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;overflow:hidden}
 .zcall_avatar img{width:100%;height:100%;object-fit:cover}
 .zcall_name{font-size:22px;font-weight:600;margin-bottom:6px}
-.zcall_status{font-size:14px;opacity:.85;margin-bottom:26px}
+.zcall_status{font-size:15px;opacity:.85;margin-bottom:26px}
 .zcall_btns{display:flex;gap:30px;justify-content:center}
 .zcall_btn{width:62px;height:62px;border-radius:50%;border:none;cursor:pointer;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;transition:transform .1s}
 .zcall_btn:active{transform:scale(.92)}
-.zcall_accept{background:var(--success)}.zcall_reject,.zcall_hangup{background:var(--danger)}
-.zcall_mute{background:rgba(255,255,255,.18)}.zcall_mute.on{background:#fff;color:var(--text-1)}
-.zcall_lbl{font-size:11px;opacity:.7;margin-top:6px}
-#zcall_stage{position:absolute;inset:0;display:none;background:var(--text-1)}
+.zcall_accept{background:var(--z-ok)}.zcall_reject,.zcall_hangup{background:var(--z-badge)}
+.zcall_mute{background:rgba(255,255,255,.18)}.zcall_mute.on{background:#fff;color:var(--z-text)}
+.zcall_lbl{font-size:12px;opacity:.7;margin-top:6px}
+#zcall_stage{position:absolute;inset:0;display:none;background:var(--z-text)}
 #zcall_overlay.incall #zcall_stage{display:block}
 #zcall_overlay.incall .zcall_card,#zcall_overlay.ingroup .zcall_card{display:none}
-#zcall_remote{width:100%;height:100%;object-fit:cover;background:var(--text-1)}
-#zcall_local{position:absolute;right:14px;bottom:104px;width:120px;height:160px;object-fit:cover;border-radius:12px;border:2px solid rgba(255,255,255,.3);background:var(--text-1);z-index:2}
+#zcall_remote{width:100%;height:100%;object-fit:cover;background:var(--z-text)}
+#zcall_local{position:absolute;right:14px;bottom:104px;width:120px;height:160px;object-fit:cover;border-radius:12px;border:2px solid rgba(255,255,255,.3);background:var(--z-text);z-index:2}
 #zcall_audioface{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:1}
 #zcall_bar,#zcall_gbar{position:absolute;left:0;right:0;bottom:0;padding:20px;display:flex;gap:24px;justify-content:center;align-items:flex-start;background:rgba(0,0,0,.55);z-index:3}
-#zcall_timer{position:absolute;top:16px;left:0;right:0;text-align:center;font-size:14px;z-index:3;text-shadow:0 1px 4px rgba(0,0,0,.6)}
-#zcall_group{position:absolute;inset:0;display:none;flex-direction:column;background:var(--text-1)}
+#zcall_timer{position:absolute;top:16px;left:0;right:0;text-align:center;font-size:15px;z-index:3;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+#zcall_group{position:absolute;inset:0;display:none;flex-direction:column;background:var(--z-text)}
 #zcall_overlay.ingroup #zcall_group{display:flex}
-#zcall_ghead{padding:12px 16px;text-align:center;font-size:15px;font-weight:600}
+#zcall_ghead{padding:12px 16px;text-align:center;font-size:16px;font-weight:600}
 #zcall_grid{flex:1;display:grid;gap:6px;padding:6px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));align-content:center;overflow:auto}
-.zcall_tile{position:relative;background:var(--text-1);border-radius:12px;overflow:hidden;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
+.zcall_tile{position:relative;background:var(--z-text);border-radius:12px;overflow:hidden;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
 .zcall_tile video{width:100%;height:100%;object-fit:cover}
 .zcall_tile .zcall_tav{width:64px;height:64px;border-radius:50%;background:#0084FF;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;overflow:hidden}
 .zcall_tile .zcall_tav img{width:100%;height:100%;object-fit:cover}
-.zcall_tname{position:absolute;left:8px;bottom:6px;font-size:12px;background:rgba(0,0,0,.5);padding:2px 8px;border-radius:8px}
+.zcall_tname{position:absolute;left:8px;bottom:6px;font-size:13px;background:rgba(0,0,0,.5);padding:2px 8px;border-radius:8px}
 .zV2_call_log{display:flex;justify-content:center;margin:8px 0}
-.zV2_call_log_pill{background:var(--brand-soft);color:var(--text-2);font-size:12px;padding:5px 14px;border-radius:14px;max-width:80%}
+.zV2_call_log_pill{background:var(--z-active);color:var(--z-text2);font-size:13px;padding:5px 14px;border-radius:14px;max-width:80%}
 </style>
 <script>
 (function(){

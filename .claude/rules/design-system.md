@@ -17,8 +17,17 @@ Thao tác nằm ngoài các giới hạn dưới đây **không được tự l�
 chờ người dùng đồng ý.
 
 > Hệ này **kế thừa nguyên từ `qlpps-marketing`** — 4 app QLPPS dùng chung một hệ.
-> Nguồn sự thật gốc: `C:/PapasanIT/qlpps-marketing/.claude/rules/design-system.md`.
+> Nguồn sự thật gốc: tài liệu `HE-MAU-ERP.md` (bản chuẩn 06/08/2026, phát hành từ
+> app Marketing — không commit vào repo này, xin bản mới nhất từ Marketing).
 > Sửa token ở đây mà không sửa 3 app kia = bắt đầu trôi khỏi nhau.
+
+## Quyết định pastel (chốt 05/08/2026, áp vào ketoan 06/08/2026)
+
+Mọi nút/khối từng là **cam đặc + chữ trắng** đã chuyển sang **nền `--brand-soft`
++ chữ `--brand-hover`** (4.57:1 ✔ AA) — kể cả nút hành động chính, tab đang chọn,
+avatar, header bảng. Nền **đặc** chỉ còn ở: nút xoá/đăng xuất/từ chối
+(`--danger`), icon nhỏ + dải neo mỏng (chấm màu, thanh tiến trình, `::before`),
+và chuỗi màu biểu đồ. Hover **không thêm hex mới** — dùng `filter:brightness(.95)`.
 
 ## Giới hạn cứng — 7 điều
 
@@ -32,34 +41,49 @@ chờ người dùng đồng ý.
 
 ## Bảng token — nguồn: `static/css/theme.css`
 
+> ⚠️ **BẢN THỬ RIÊNG CỦA KETOAN — áp 08/08/2026.** Bảng dưới đây đã đổi sang
+> hệ **hổ phách & cà phê** rút từ logo. 6 app QLPPS kia vẫn ở bảng cũ
+> (`--brand:#D23C0E`, `--warning:#F59E0B`, `--info:#2563EB`). Đường lùi đầy đủ
+> ghi ở cuối `static/css/theme.css`. **Tên token không đổi một chữ nào** —
+> chỉ đổi giá trị, nên không template nào phải sửa.
+
 | Nhóm | Token | Giá trị | Dùng cho |
 |---|---|---|---|
-| Thương hiệu | `--brand` | `#D23C0E` | nút chính, tiêu đề, tab chọn, icon, avatar |
-| | `--brand-hover` | `#BF370D` | hover/active |
-| | `--brand-soft` | `#FDEEE8` | nền nhạt: hàng chọn, chip, tab |
+| Thương hiệu | `--brand` | `#9E5D09` | tiêu đề, chữ nhấn, icon, dải neo mỏng — **không đổ nền diện rộng** |
+| | `--brand-hover` | `#7F4B07` | hover/active; **chữ đặt trên nền `--brand-soft`** |
+| | `--brand-soft` | `#FBE7C6` | nền nhạt: nút chính, tab đang chọn, avatar, hàng chọn, chip |
 | Nền | `--bg-card` | `#FFFFFF` | thẻ, bảng, modal |
-| | `--bg-page` | `#FBF8F5` | nền trang, sọc bảng, vùng lõm |
-| Viền | `--border` | `#DFD2C6` | **mức duy nhất** |
-| | `--focus-ring` | `0 0 0 3px rgba(210,60,14,.25)` | nhận biết focus |
-| Chữ | `--text-1` | `#2A2521` | tiêu đề, số liệu (13.61:1) |
-| | `--text-2` | `#54483F` | nội dung (7.94:1) |
-| | `--text-3` | `#736659` | chú thích, nhãn (5.26:1) |
+| | `--bg-page` | `#FDF8F0` | nền trang, sọc bảng, vùng lõm |
+| Viền | `--border` | `#E7D7BE` | **mức duy nhất** |
+| | `--focus-ring` | `0 0 0 3px rgba(158,93,9,.28)` | nhận biết focus |
+| Chữ | `--text-1` | `#33210F` | tiêu đề, số liệu (15.38:1) |
+| | `--text-2` | `#5E452C` | nội dung (8.88:1) |
+| | `--text-3` | `#7D6248` | chú thích, nhãn (5.66:1 thẻ · 5.35:1 nền trang) |
 | | `--text-on-brand` | `#FFFFFF` | chữ trên nền brand |
-| Trạng thái | `--danger` / `-soft` / `-fg` | `#DC2626` `#FEE2E2` `#991B1B` | xoá, lỗi |
-| | `--success` / `-soft` / `-fg` | `#16A34A` `#DCFCE7` `#15803D` | thành công |
-| | `--warning` / `-soft` / `-fg` | `#F59E0B` `#FEF3C7` `#92400E` | cảnh báo |
-| | `--info` / `-soft` / `-fg` | `#2563EB` `#DBEAFE` `#1D4ED8` | thông tin |
+| Trạng thái | `--danger` / `-soft` / `-fg` | `#B02A18` `#F9E2DD` `#8A1F11` | xoá, lỗi |
+| | `--success` / `-soft` / `-fg` | `#2E7D4F` `#E1EFE5` `#1F5C39` | thành công |
+| | `--warning` / `-soft` / `-fg` | `#9E5D09` `#FBE7C6` `#7F4B07` | cảnh báo — **cố ý trùng brand** |
+| | `--info` / `-soft` / `-fg` | `#7D6248` `#F1E9DD` `#5E452C` | thông tin — **cố ý trung tính** |
 | Bên thứ ba | `--facebook` `--messenger` `--zalo` | `#0084FF` `#1877F2` `#0068FF` | **không đổi** |
-| Bóng | `--shadow-sm/md/lg` | ám nâu `rgba(90,48,16,…)` | không dùng đen thuần |
+| Bóng | `--shadow-sm/md/lg` | ám nâu `rgba(96,56,20,…)` | không dùng đen thuần |
 
-**Ba lý do đằng sau, đừng "tối ưu" lại:**
+**Bốn lý do đằng sau, đừng "tối ưu" lại:**
 
-- **`#D23C0E` chứ không phải `#F05424` của logo.** Logo với chữ trắng chỉ đạt
-  3.41:1 → trượt WCAG AA. `#D23C0E` giữ nguyên hue 14°, sat 87%, đạt 4.78:1.
-- **Xám ám NÂU, không ám xanh.** Xám lạnh (`#64748b`, `#94a3b8`) trên nền kem
-  ấm là nguyên nhân chính khiến màn hình trông đục.
+- **Màu rút từ LOGO, không phải chọn cho đẹp.** Đếm pixel
+  `static/papasan_icon_1024.png` ra đúng hai màu: `#FEB041` hổ phách (13.7%)
+  và `#603814` nâu cà phê (10.2%). Brand cũ `#D23C0E` **không có trong logo**
+  và lệch 21° hue khỏi nó. `#FEB041` nguyên bản chỉ đạt 1.9:1 trên nền trắng
+  nên không làm chữ được — hạ sáng cùng hue 35° tới `#9E5D09` (5.22:1).
+- **`--warning` cố ý DÙNG LẠI brand.** Hổ phách vốn đã nghĩa là "chú ý tôi";
+  thêm một sắc vàng thứ hai là thừa. Bớt được một cụm sắc, và sửa luôn một
+  lỗi thật: nền `--warning` cũ `#F59E0B` với chữ trắng chỉ **2.15:1** (badge
+  đếm việc trong `index.html` đang vi phạm), nay là 5.22:1.
+- **`--info` cố ý TRUNG TÍNH.** "Đang chờ người khác" thì nên lùi lại, không
+  nên hét lên. Bỏ được xanh dương lạnh vốn đâm vào nền kem ấm. Tổng cụm sắc
+  cạnh tranh trên một màn: **5 → 3** (hổ phách = cần bạn xử lý · lục = xong ·
+  đỏ = hỏng).
 - **Viền cố ý nhạt.** App nhiều bảng, viền đậm gây rối. Nhận biết focus dựa
-  vào `--focus-ring` màu cam, **không** dựa vào viền.
+  vào `--focus-ring`, **không** dựa vào viền.
 
 **Ngoại lệ được hard-code — bảng màu biểu đồ.** Các chuỗi dữ liệu trên cùng một
 biểu đồ phải phân biệt được với nhau, nên không gom về `--brand` được. Trong app
@@ -67,9 +91,31 @@ này ngoại lệ nằm ở **12 dòng** của `templates/index.html` — các o
 `{label:…, value:…, color:'#…'}` (dòng ~7637-7650 và ~8176-8181):
 
 ```js
-{label:'Tiền & TGNH', value:tien.total, color:'#1a3a6e'},
-{label:'Phải thu KH', value:ptKh.total, color:'#e67e22'},
+{label:'Tiền & TGNH', value:tien.total, color:'#9E5D09'},
+{label:'Phải thu KH', value:ptKh.total, color:'#1F6F72'},
 ```
+
+**Bộ màu biểu đồ đã làm lại 08/08/2026** cho khớp hệ hổ phách & cà phê. Đây là
+BA biểu đồ tròn riêng (4 · 5 · 6 lát), màu được phép lặp giữa các biểu đồ — chỉ
+cần phân biệt trong cùng một biểu đồ:
+
+| Màu | Dùng cho | Tương phản/trắng |
+|---|---|---|
+| `#603814` nâu cà phê (logo) | TSCĐ · Giá vốn | 10.13 |
+| `#2F2A24` than nâu | Vay & nợ · Thuế TNDN | 14.21 |
+| `#6B4E7D` mận | Lương | 6.97 |
+| `#B02A18` đỏ gạch | Phải trả NCC | 6.58 |
+| `#1F6F72` mòng két | Phải thu KH · Định phí | 5.87 |
+| `#9E5D09` hổ phách (logo) | Tiền & TGNH · Biến phí | 5.22 |
+| `#4A9B6B` lục | Vốn chủ sở hữu | 3.39 |
+| `#B0873C` cát | Tồn kho · Phải trả VC · Bán hàng | 3.29 |
+
+**Phân biệt bằng ĐỘ SÁNG, không chỉ bằng sắc** — mù màu đỏ-lục làm trộn sắc
+nhưng giữ nguyên độ sáng, nên thang tương phản trải từ 3.3 đến 14.2 là kênh
+phân biệt chính. Mọi màu đều ≥3:1 (WCAG 1.4.11 cho đối tượng đồ hoạ).
+Ngoại lệ đã chấp nhận: cặp hổ phách/cát cách nhau ΔE 20 (dưới mốc 24) — chấp
+nhận được vì legend đã ghi đủ nhãn + % + số tiền cho từng lát, màu chỉ là kênh
+phụ, và giữ hai sắc hổ phách là thứ neo biểu đồ vào logo.
 
 Cách phân biệt khi sửa: **hex nằm trọn trong nháy trên dòng có `label:`** = màu
 chuỗi dữ liệu, giữ nguyên. Mọi hex khác — kể cả trong chuỗi JS như
@@ -119,6 +165,12 @@ một CDN ngoài — đúng thứ giới hạn số 7 cấm.
 - **Ký tự chữ chức năng thì được**: `▾` (menu xổ), `☰`/`&#9776;` (menu mobile),
   `×`/`✕` (đóng), `→` (mũi tên trong câu), `•` (dấu phân cách). Đây là ký tự
   typographic, không phải hình vẽ — thang đo còn ghi rõ `22px` dành cho chúng.
+- **Bổ sung 08/08/2026 — người dùng đã chốt: `✓` `✗` `○` `◀` `▶` ĐƯỢC GIỮ.**
+  Chúng đang làm việc thật (badge trạng thái "✓ Đã nộp" / "✗ Từ chối", nút phân
+  trang "◀ Trước" / "Sau ▶") và chính ketoan cũng đang dùng 89 chỗ. Yêu cầu duy
+  nhất: **cỡ chữ đủ lớn để đọc rõ** — dùng `17px` khi đứng trong câu, `22px` khi
+  đứng một mình làm glyph. **Đừng quét xoá chúng như emoji** — đợt trước suýt gỡ
+  hết, sẽ làm badge trạng thái mất tín hiệu thị giác.
 
 Kiểm bằng:
 
@@ -141,20 +193,56 @@ grep -c 'class="bi \|bootstrap-icons\|font-awesome' templates/*.html | grep -v '
 grep -ohE 'font-weight:\s*[0-9a-z]+' templates/*.html | sort | uniq -c | sort -rn
 ```
 
-## Điều hướng — toàn bộ nằm ở header, không có sidebar
+## Điều hướng — SIDEBAR DỌC bên trái (đổi 08/08/2026)
 
-`index.html` **đã bỏ hẳn sidebar dọc**; cả 33 chức năng chuyển lên `_header.html`:
-5 menu thả xuống (Tổng Quan · Thu — Chi · Quản Lý · Liên Phòng Ban · Danh Mục)
-cho 23 trang SPA, phần còn lại nằm trong menu user.
+> Luật cũ ghi "toàn bộ nằm ở header, không có sidebar" và liệt "sidebar dọc"
+> vào mục cấm. **Người dùng đã quyết định đổi 08/08/2026.** Lý do: 35 đích đến
+> nhét trong 5 dropdown thì phải mở ra mới thấy — sidebar hiện thường trực nên
+> đặt được **số việc chờ duyệt ngay trên mục**, biến điều hướng thành hàng đợi
+> công việc. Với app kế toán mà việc chính là duyệt, đó là lý do quyết định.
 
-Cơ chế: mỗi mục mang `data-page="<tên>"` và `href="/app#<tên>"`.
-`showPage()` đã bỏ phụ thuộc `event.currentTarget` (bản cũ ném lỗi khi gọi từ
-deep-link) và đánh dấu mục đang chọn bằng `data-page`. `_header.html` lắng
-`hashchange` + chạy `abSpaSync()` sau `setTimeout 0` — phải chờ init của SPA
-xong vì header nằm đầu `<body>` nên listener của nó chạy trước.
+**Cấu trúc** (`_header.html`, khối `.ab-sb`):
 
-**Thêm trang SPA mới thì phải thêm mục vào `_header.html`**, nếu không sẽ không
-có đường nào tới nó nữa.
+- Rail cố định trái **196px**, thu gọn được xuống **52px** chỉ còn icon.
+  Trạng thái thu gọn + nhóm nào đang xổ lưu trong `localStorage`
+  (`ab_sb_min`, `ab_sb_mo`) nên đổi trang không mất.
+- `body{padding-left:var(--sb-w)}` — mọi trang include `_header.html` tự hưởng,
+  **không phải sửa từng trang**.
+- 8 nhóm xổ được + 1 mục phẳng: Tổng quan · Thu—Chi · Công nợ · Kho & giá vốn ·
+  Vốn & tài sản · Báo cáo · Liên phòng ban · Cá nhân · Danh mục.
+- **Icon CHỈ ở hàng nhóm**, hàng con thụt lề bằng vạch dẫn — tiết kiệm ~26px
+  mỗi dòng, giữ rail hẹp. Icon là **SVG inline** (mục "Không dùng icon" bên
+  dưới vẫn cấm emoji + icon font; SVG inline được phép, không kéo CDN nào).
+- **Badge số chờ duyệt** trên mục lá (`#ab-sb-bd-<key>`), nhóm cha cộng dồn.
+  Khi rail thu gọn, badge biến thành chấm 7px trên góc icon. Fail-soft: API
+  hỏng thì badge ở nguyên trạng thái ẩn, không chặn điều hướng.
+- **Dưới 1100px sidebar ẩn**, drawer nhận việc — `abBuildDrawer()` chiếu thẳng
+  cây `.ab-sb` (bản cũ đọc `.appbar .ab-nav`, nav đó đã gỡ).
+
+**Header nay gồm** (chốt 08/08/2026): logo · **tiêu đề trang** (`#page-title`) ·
+**kỳ kế toán** (`#month-picker`) · chuông · avatar. Trên mobile thêm nút drawer.
+
+- Thanh `.topbar` cũ của `index.html` (dải ngang thứ hai ngay dưới appbar,
+  chứa tiêu đề + chọn tháng) **đã gỡ hẳn** — nó là một tầng thừa.
+- Hai phần tử giữ **NGUYÊN id** khi dời lên header, nên không dòng JS nào
+  trong SPA phải sửa: `showPage()` vẫn ghi `#page-title`, `onMonthChange()`
+  vẫn bắt `#month-picker`.
+- **Kỳ kế toán chỉ render trên `/app`** (`{% if _path.startswith('/app') %}`)
+  vì `onMonthChange` do `index.html` định nghĩa; trang riêng không có hàm đó.
+  Handler vẫn bọc `typeof … === 'function'` cho chắc.
+- Trang riêng không có `showPage()` → `abInit()` lấy tiêu đề từ `document.title`
+  (cắt trước dấu `—`).
+- Dưới 768px ẩn tiêu đề trang và nhãn "KỲ" để nhường chỗ cho ô chọn + avatar.
+
+**Bẫy đã gặp khi làm**: `.ab-sb-g.open .ab-sb-sub` có 3 class nên THẮNG
+`body.sb-min .ab-sb-sub` (2 class + 1 thẻ) — nhóm đang mở vẫn lòi vạch dẫn ra
+ngoài rail 52px. Rule ẩn phải viết đủ đặc hiệu:
+`body.sb-min .ab-sb-g.open .ab-sb-sub{display:none}`.
+
+**Thêm trang mới thì phải thêm mục vào `.ab-sb` trong `_header.html`**, nếu
+không sẽ không có đường nào tới nó nữa. Cơ chế deep-link giữ nguyên: mỗi mục
+SPA mang `data-page="<tên>"` + `href="/app#<tên>"`; `abSbSync()` lắng
+`hashchange` để đánh dấu mục đang mở và tự xổ nhóm chứa nó.
 
 ## Thang đo — chọn trong danh sách, không nội suy
 
@@ -162,18 +250,43 @@ App nội bộ nhiều dữ liệu nên thang **đặc**, không thoáng.
 
 | | Giá trị được dùng (đo từ `templates/_header.html` ngày 01/08/2026) |
 |---|---|
-| Cỡ chữ | `8-9px` nhãn siêu nhỏ + mũi tên · `10px` nhãn nhóm · `11-12px` meta/tên user · `13px` nav + item menu + nội dung · `14-16px` tiêu đề + avatar lớn · `22px` icon glyph (☰, ✕) |
+| Cỡ chữ | `9-10px` nhãn siêu nhỏ + mũi tên · `11px` nhãn nhóm · `12-13px` meta/tên user · **`14px` nội dung chuẩn** + nav + item menu · `15-17px` tiêu đề + avatar lớn · `22px` icon glyph (☰, ✕) · `18-20px` số KPI tầng 2 · `25-29px` số KPI tầng 1 |
 | Độ đậm | `500` thường · `600-700` nhấn · `800-900` logo/tiêu đề |
 | Bo góc | `6px` nav · `8-9px` nút · `12px` menu/thẻ · `50%` avatar |
 | Đệm | `7px 12px` nav · `9px 15px` item menu · `14-16px` trong thẻ |
 | Hiệu ứng | `.12s`–`.25s`. Không animation trang trí |
 | Font | `'Segoe UI', sans-serif` — **không tải font ngoài** |
 
-Cần cỡ chữ không có trong bảng → dùng cỡ gần nhất. Không thêm `17px`, `20px`,
-và **không dùng cỡ lẻ `.5px`** (`10.5`, `12.5`, `15.5`… đang có đầy trong các
-template V1 — đó là vi phạm, không phải tiền lệ).
-`8-9px` và `22px` chỉ dành cho nhãn siêu nhỏ và icon glyph, **không dùng cho
+Cần cỡ chữ không có trong bảng → dùng cỡ gần nhất.
+**Không dùng cỡ lẻ `.5px`** (`10.5`, `12.5`… đó là vi phạm, không phải tiền lệ).
+`9-10px` và `22px` chỉ dành cho nhãn siêu nhỏ và icon glyph, **không dùng cho
 chữ người đọc**.
+
+**Thang đã NÂNG +1px toàn dải — chốt 08/08/2026** theo yêu cầu người dùng
+("cho chữ lớn hơn cho dễ nhìn"). 1 387 khai báo `font-size` đã đổi:
+`8→9 · 9→10 · 10→11 · 11→12 · 12→13 · 13→14 · 14→15 · 15→16 · 16→17`.
+Glyph `22px` và KPI `25/29px` giữ nguyên. **Nội dung chuẩn nay là `14px`,
+không còn là `13px`** — mọi chỗ tài liệu cũ nói "13px là chuẩn nội dung"
+đã lỗi thời. `17px` trước đây bị cấm, nay là cỡ tiêu đề lớn hợp lệ.
+
+**Trên mobile KHÔNG được thu nhỏ chữ.** Bản cũ hạ bảng xuống 12px và `th`
+xuống 10px ở breakpoint 768/480 — màn nhỏ là lúc cần chữ TO hơn. Bảng nhiều
+cột xử lý bằng cuộn ngang + cột đầu dính, không bằng cách bóp chữ. Chỉ
+`padding` được co.
+
+**Cỡ KPI — chốt 08/08/2026.** Thang cũ dừng ở `22px`, nhưng dashboard
+(`index.html` `.stats-row.tier-1`) đã dùng `29px` từ lâu và skill `ui-standards`
+cũng ghi `29/25/18-20`. Hai tài liệu mâu thuẫn với rule này; nay hợp nhất theo
+thực tế đang chạy:
+
+| Vai trò | Cỡ | Ví dụ thật |
+|---|---|---|
+| KPI tầng 1 — số quyết định của trang | `29px` (`25px` khi `max-height:820px`) | `.stats-row.tier-1 .value` |
+| KPI tầng 2 — chỉ số vận hành, dải card mỏng | `18-20px` (ketoan đang dùng `16px`, hợp lệ vì nằm trong thang) | `#s-don`, `#s-ads` |
+
+`25/29px` và `18-20px` **chỉ dành cho SỐ LIỆU KPI** — không dùng cho tiêu đề,
+nhãn, hay bất kỳ chữ người đọc nào. Cỡ `18/20px` gặp ở `chat_widget.html` và
+`giao_viec.html` hiện **không** phải KPI → vẫn là vi phạm, phải hạ về thang.
 
 ## Header — cấu trúc bắt buộc
 
@@ -226,8 +339,13 @@ tab chữ thuần, mục đang chọn dùng `--brand` + gạch chân 2px `--bran
 Ví dụ trong app này: `.tab-nav` ở `templates/products.html` (6 tab) — **đang
 dùng màu V1, cần đưa về hệ**.
 
-Không phát minh dạng thứ 3 (breadcrumb, sidebar dọc, tab dạng thẻ…) mà chưa hỏi.
-Sidebar 32 mục ở `index.html` là **ngoại lệ cũ chưa xử lý**, không phải mẫu.
+Không phát minh dạng thứ 3 (breadcrumb, tab dạng thẻ…) mà chưa hỏi.
+*Sidebar dọc đã được duyệt 08/08/2026 và nay là điều hướng CHÍNH — xem mục
+"Điều hướng" ở trên.*
+
+**Rail trái `.ab-subnav` (clone dropdown, duyệt 06/08/2026) ĐÃ BỊ THAY**
+08/08/2026 bằng **sidebar dọc `.ab-sb`** làm điều hướng chính — xem mục
+"Điều hướng" ở đầu file. `abBuildSubnav()` và CSS `.ab-subnav` đã gỡ hẳn.
 
 ## Điểm gãy — lấy từ đo đạc, không lấy từ tên thiết bị
 
@@ -248,7 +366,7 @@ desktop) vì không còn thanh ngang làm mốc.
 - Đổi màu Facebook/Messenger/Zalo — đó là nhận diện của họ.
 - Khai lại `esc`, `escHtml`, `initials` trong template — đã có toàn cục qua
   `/static/js/ui-common.js`, nạp sẵn trong `_header.html`.
-- Sửa `C:/PapasanIT/qlpps-marketing` để "cho khớp" — hệ đi một chiều từ đó sang.
+- Sửa `C:/PapasanIT/App_qlpps/qlpps-marketing` để "cho khớp" — hệ đi một chiều từ đó sang.
 
 ## Tự kiểm trước khi báo xong
 
@@ -256,7 +374,7 @@ desktop) vì không còn thanh ngang làm mốc.
 # 1. Có màu nào ngoài hệ lọt vào không?  (đã chạy thử 01/08/2026: _header.html
 #    ra RỖNG = sạch. dao_tao 51 / products 32 / xin_nghi 42 dòng = nợ V1.)
 grep -nE '#[0-9a-fA-F]{3,6}' templates/<file>.html | grep -v '&#' | grep -viE \
- 'D23C0E|BF370D|FDEEE8|FFFFFF|#fff|FBF8F5|DFD2C6|2A2521|54483F|736659|DC2626|FEE2E2|991B1B|16A34A|DCFCE7|15803D|F59E0B|FEF3C7|92400E|2563EB|DBEAFE|1D4ED8|0084FF|1877F2|0068FF|e67e22'
+ '9E5D09|7F4B07|FBE7C6|FFFFFF|#fff|FDF8F0|E7D7BE|33210F|5E452C|7D6248|B02A18|F9E2DD|8A1F11|2E7D4F|E1EFE5|1F5C39|F1E9DD|FEB041|603814|0084FF|1877F2|0068FF|e67e22'
 
 # 2. Cỡ chữ có nằm ngoài thang không?
 grep -oE 'font-size:[0-9]+px' templates/<file>.html | sort -u
@@ -270,3 +388,45 @@ grep -oE 'font-size:[0-9]+px' templates/<file>.html | sort -u
 
 Ra kết quả ngoài danh sách → **sửa lại cho vào hệ, hoặc hỏi người dùng**. Không
 tự nới giới hạn rồi báo là xong.
+
+## Riêng app này
+
+Bản này **là bản GỐC** mà bộ kit chung `papasan-erp-claude` nhân ra cho 6 app kia
+— sửa ở đây thì báo để đồng bộ ngược lên kit. Số liệu dưới đây **đếm lại bằng
+lệnh ngày 08/08/2026**, không chép từ tài liệu cũ.
+
+- **Layout kế thừa — hiện mới nửa đường.** `templates/base.html` (5 KB) là khung
+  chuẩn duy nhất, nhưng chỉ **2/15 trang** thật sự `{% extends "base.html" %}`:
+  `ho_so_ca_nhan.html`, `kt_duyet.html`. **13 trang còn lại vẫn standalone** —
+  tự viết `<html>`; 12 trong số đó `{% include "_header.html" %}` (`index.html`,
+  `products.html`, `xin_nghi.html`, `duyet_chi.html`, `giao_viec.html`,
+  `lich_lam_viec.html`, `cham_cong.html`, `phe_duyet.html`, `dao_tao.html`,
+  `de_nghi_tt.html`, `ncc_de_xuat.html`, `bao_cao_duyet_chi.html`), riêng
+  `login.html` cố ý không có header (chưa đăng nhập thì không có nav).
+  (`ls templates/*.html` = 18 file, trừ 3 file không phải trang: `base.html`
+  khung, `_header.html` partial, `chat_widget.html` partial do `index.html`
+  include → 15 trang.) **Trang MỚI luôn extends base.html**;
+  đừng chép khung standalone của trang cũ — đó là nợ, không phải mẫu.
+- **Thứ tự CSS trong `base.html` là bắt buộc**: `theme.css` → `base.css` →
+  `components.css` → `{% block page_css %}`. `{% set ASSET_V = '2' %}` là cách
+  phá cache thủ công (repo không có build step) — sửa CSS thì tăng số này.
+- **Nợ gradient ĐÃ TRẢ XONG.** `grep -c 'linear-gradient\|radial-gradient'
+  templates/*.html` ngày 08/08/2026 = **0 ở cả 18 file** (mục "Nợ CÒN LẠI" bên
+  trên nói 44 chỗ/10 file — đã lỗi thời, giữ lại làm lịch sử). Trong
+  `static/css/` chỉ còn 1 lần xuất hiện chữ "gradient" ở **comment**
+  `base.css:86`, không phải khai báo màu.
+- **Nợ V1 CÒN THẬT**: `.tab-nav` của `products.html` vẫn dùng màu V1; cỡ chữ lẻ
+  `.5px` còn rải trong các template V1 (lệnh tự kiểm số 2 dùng `[0-9]+` nên
+  không bắt được — đổi thành `[0-9.]+` khi soát); `index.html` nay **548 KB**
+  (không phải 560/564 KB) với JS inline — chỉ được grep theo tên hàm/id.
+- **`showPage()` NAY đã deep-link được** — bản hiện tại tra `document.getElementById`
+  và `data-page`, không còn `event.currentTarget`
+  ([index.html:3189](../../templates/index.html#L3189), comment ngay trong hàm nói rõ).
+  Hai chỗ tài liệu nói ngược (mục "Nav chỉ trỏ tới URL có thật" ở trên và comment
+  đầu `templates/_header.html` dòng 18-21) là **chú thích cũ chưa xoá** —
+  `_header.html:501,505` đang lắng `hashchange` + đọc `location.hash` thật.
+- **Ngoại lệ đã duyệt, giữ nguyên**: (1) **sidebar dọc `.ab-sb`** 196px là
+  điều hướng chính (duyệt 08/08/2026, thay rail clone `.ab-subnav` cũ — lệch
+  có chủ đích so với 6 app kia); (2) **15 dòng màu chuỗi biểu đồ** hard-code
+  trong `index.html`; (3) `<meta name="theme-color">` dùng hex thật `#9E5D09`
+  vì thuộc tính này không nhận `var()`; (4) **SVG inline** cho icon sidebar.

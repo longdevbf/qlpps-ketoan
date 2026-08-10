@@ -210,11 +210,11 @@
           overflow:hidden;
         }
         .qp-head{
-          background:var(--brand-soft, #FBE5D0);
-          color:var(--brand-hover, #BF370D); padding:24px 24px 18px; text-align:center;
+          background:var(--brand-soft, #FBE7C6);
+          color:var(--brand-hover, #7F4B07); padding:24px 24px 18px; text-align:center;
         }
         .qp-icon{
-          font-size:48px; line-height:1; margin-bottom:6px;
+          font-size:29px; line-height:1; margin-bottom:6px;
           display:inline-block; animation:_qpring 1.2s ease-in-out infinite;
         }
         @keyframes _qpring{
@@ -225,16 +225,16 @@
           60%{transform:rotate(5deg)}
         }
         .qp-title{font-size:18px; font-weight:800; letter-spacing:.2px}
-        .qp-body{padding:20px 24px 16px; color:var(--text-2, #54483F);
+        .qp-body{padding:20px 24px 16px; color:var(--text-2, #5E452C);
                  font-size:14px; line-height:1.55}
-        .qp-body b{color:var(--text-1, #2A2521)}
+        .qp-body b{color:var(--text-1, #33210F)}
         .qp-body br{line-height:1.8}
         .qp-foot{padding:8px 24px 22px; display:flex; flex-direction:column; gap:10px}
         .qp-btn{
           width:100%; padding:13px 18px; border:none; border-radius:10px;
           font-size:15px; font-weight:700; cursor:pointer;
           transition:transform .12s, box-shadow .15s;
-          background:var(--brand-soft, #FBE5D0); color:var(--brand-hover, #BF370D);
+          background:var(--brand-soft, #FBE7C6); color:var(--brand-hover, #7F4B07);
         }
         .qp-btn:hover{transform:translateY(-1px); filter:brightness(.95)}
         .qp-btn:active{transform:translateY(0)}
@@ -246,7 +246,7 @@
         @media (max-width:480px){
           .qp-box{border-radius:14px; max-width:96vw}
           .qp-head{padding:20px 18px 14px}
-          .qp-icon{font-size:40px}
+          .qp-icon{font-size:29px}
           .qp-title{font-size:16px}
           .qp-body{font-size:13px; padding:16px 18px 12px}
           .qp-foot{padding:6px 18px 18px}
@@ -255,7 +255,7 @@
       </style>
       <div class="qp-box" role="dialog" aria-modal="true" aria-labelledby="qp-title">
         <div class="qp-head" style="position:relative">
-          ${isDenied ? '<button type="button" id="qp-btn-close" aria-label="Đóng" title="Đóng" style="position:absolute;top:10px;right:12px;width:30px;height:30px;border:none;border-radius:50%;background:rgba(255,255,255,.5);color:var(--brand-hover, #BF370D);font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background .15s" onmouseover="this.style.background=\'rgba(255,255,255,.8)\'" onmouseout="this.style.background=\'rgba(255,255,255,.5)\'">×</button>' : ''}
+          ${isDenied ? '<button type="button" id="qp-btn-close" aria-label="Đóng" title="Đóng" style="position:absolute;top:10px;right:12px;width:30px;height:30px;border:none;border-radius:50%;background:rgba(255,255,255,.5);color:var(--brand-hover, #7F4B07);font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background .15s" onmouseover="this.style.background=\'rgba(255,255,255,.8)\'" onmouseout="this.style.background=\'rgba(255,255,255,.5)\'">×</button>' : ''}
           <div class="qp-icon">🔔</div>
           <div class="qp-title" id="qp-title">${title}</div>
         </div>
