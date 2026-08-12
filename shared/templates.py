@@ -21,30 +21,31 @@ from fastapi.templating import Jinja2Templates
 from shared.auth.jwt import JWTPayload
 
 
-# username → (ho_ten, phong_ban, email, chuc_vu, expires_at_epoch)
+# username → (ho_ten, phong_ban, email, chuc_vu, phong_ban_phu, expires_at_epoch)
 _USER_INFO_CACHE: dict = {}
 _CACHE_TTL_SEC = 300.0   # 5 phút
 
 
-def _lookup_user_info(username: str) -> tuple[str, str, str, str]:
-    """Trả `(ho_ten, phong_ban, email, chuc_vu)` cho 1 username.
+def _lookup_user_info(username: str) -> tuple[str, str, str, str, str]:
+    """Trả `(ho_ten, phong_ban, email, chuc_vu, phong_ban_phu)` cho 1 username.
 
     Ưu tiên `shared.users.full_name` (auth_service), fallback `hcns.employees`.
-    Cache 5 phút để tránh hit DB mỗi pageload. Trả `("", "", "", "")` khi miss.
+    Cache 5 phút để tránh hit DB mỗi pageload. Trả `("", "", "", "", "")` khi miss.
     """
     if not username:
-        return ("", "", "", "")
+        return ("", "", "", "", "")
     now = time.time()
     cached = _USER_INFO_CACHE.get(username)
-    # Cache mới có 5 phần tử (ho_ten, phong_ban, email, chuc_vu, exp).
-    # Skip cache cũ (4 phần tử) — sẽ tự rebuild lần đầu sau deploy.
-    if cached and len(cached) == 5 and cached[4] > now:
-        return cached[0], cached[1], cached[2], cached[3]
+    # Cache mới có 6 phần tử (ho_ten, phong_ban, email, chuc_vu, phong_ban_phu, exp).
+    # Skip cache cũ (5 phần tử trở xuống) — sẽ tự rebuild lần đầu sau deploy.
+    if cached and len(cached) == 6 and cached[5] > now:
+        return cached[0], cached[1], cached[2], cached[3], cached[4]
 
     ho_ten = ""
     phong_ban = ""
     email = ""
     chuc_vu = ""
+    phong_ban_phu = ""
     try:
         from shared.db import SessionLocal
         from sqlalchemy import text as _text
@@ -56,9 +57,15 @@ def _lookup_user_info(username: str) -> tuple[str, str, str, str]:
                 ho_ten = (row[0] or "").strip()
             # Anh Quang 2026-06-08: lấy thêm chuc_vu — user_ctx dùng nó để
             # promote vai_tro='leader' khi chuc_vu='Leader' dù role không phải.
+            # 2026-08-11: lấy thêm phong_ban_phu — user_ctx dùng nó để NV kiêm
+            # nhiệm Kinh Doanh (vd NV26007 Đỗ Quang Thắng, chính Quảng Cáo Ads;
+            # NV26003 Vũ Văn Huy, chính Mua Hàng) vẫn thấy nút on/off nhận lead
+            # ở baogia dù role hệ thống (mkt/mh/...) không nằm trong whitelist
+            # vai_tro cũ. Cùng convention với pool chia lead ở
+            # marketing/app/services/lead_distributor.py (Anh Quang 2026-07-06).
             row2 = db.execute(_text(
-                "SELECT ho_ten, phong_ban, email, chuc_vu FROM hcns.employees "
-                "WHERE LOWER(username) = LOWER(:u) LIMIT 1"
+                "SELECT ho_ten, phong_ban, email, chuc_vu, phong_ban_phu "
+                "FROM hcns.employees WHERE LOWER(username) = LOWER(:u) LIMIT 1"
             ), {"u": username}).first()
             if row2:
                 if not ho_ten and row2[0]:
@@ -66,13 +73,14 @@ def _lookup_user_info(username: str) -> tuple[str, str, str, str]:
                 phong_ban = (row2[1] or "").strip()
                 email = (row2[2] or "").strip()
                 chuc_vu = (row2[3] or "").strip()
+                phong_ban_phu = (row2[4] or "").strip()
     except Exception:
         pass
 
-    # Cache giữ chuc_vu ở slot 3, expires ở slot 4 (backward-compat: callers cũ
-    # đọc cached[3] sẽ chuyển sang đọc tuple length, không return từ cache.)
-    _USER_INFO_CACHE[username] = (ho_ten, phong_ban, email, chuc_vu, now + _CACHE_TTL_SEC)  # type: ignore[assignment]
-    return (ho_ten, phong_ban, email, chuc_vu)  # type: ignore[return-value]
+    _USER_INFO_CACHE[username] = (
+        ho_ten, phong_ban, email, chuc_vu, phong_ban_phu, now + _CACHE_TTL_SEC
+    )  # type: ignore[assignment]
+    return (ho_ten, phong_ban, email, chuc_vu, phong_ban_phu)  # type: ignore[return-value]
 
 
 def setup_jinja2(templates: Jinja2Templates) -> None:
@@ -103,7 +111,7 @@ def user_ctx(user: Optional[JWTPayload]) -> Optional[dict]:
         return None
     d = user.model_dump()
     username = d.get("username") or ""
-    ho_ten, phong_ban, email, chuc_vu = _lookup_user_info(username)
+    ho_ten, phong_ban, email, chuc_vu, phong_ban_phu = _lookup_user_info(username)
     # Compat aliases — V1 templates dùng các field này
     d["ho_ten"] = ho_ten or username or "U"
     d["full_name"] = ho_ten or username or ""   # alias cho hcns templates
@@ -113,6 +121,12 @@ def user_ctx(user: Optional[JWTPayload]) -> Optional[dict]:
     d["nhom"] = phong_ban   # alias V1: templates KD dùng user.nhom = phong_ban
     d["email"] = email
     d["chuc_vu"] = chuc_vu
+    d["phong_ban_phu"] = phong_ban_phu
+    # NV kiêm nhiệm Kinh Doanh qua phong_ban_phu dù phong_ban chính khác (vd
+    # Ads/Mua Hàng) — dùng để bù cho vai_tro (chỉ theo role hệ thống, không
+    # biết phong_ban_phu) ở những chỗ cần biết "có phải NV KD không kể kiêm
+    # nhiệm", vd nút on/off nhận lead ở baogia/_header.html.
+    d["_kiem_nhiem_kd"] = "kinh doanh" in (phong_ban_phu or "").lower()
     # Role flags (V1 base.html dùng _is_mgr / _is_ceo / _is_admin)
     role = d.get("role", "")
     d["_is_admin"] = role == "admin"

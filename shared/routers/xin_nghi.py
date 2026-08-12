@@ -234,6 +234,16 @@ def duyet_leave_request(
     rec = db.get(LeaveRequest, rid)
     if not rec:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đơn")
+    # KHÔNG tự duyệt đơn của CHÍNH MÌNH (anh Quang 2026-08-05): manager/leader duyệt
+    # đơn của chính họ = xung đột lợi ích → chặn, để Mai hoặc cấp trên duyệt. Super-role
+    # (admin/ceo/assistant_ceo) vẫn được (không có cấp trên). VD: NV26006 nv26006 (manager
+    # Kế Toán) tự duyệt phép của mình → chặn.
+    if (rec.username or "").lower() == (user.username or "").lower() \
+            and (user.role or "").lower() not in _SUPER_ROLES:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Không được tự duyệt đơn nghỉ của chính mình — để Mai hoặc cấp trên duyệt.",
+        )
     # Manager/leader chỉ duyệt được đơn của app trong scope. Admin/CEO bypass.
     scope = _approver_app_scope(user)
     if scope is not None and (rec.app_name or "").lower() not in scope:

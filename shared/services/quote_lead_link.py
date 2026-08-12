@@ -364,3 +364,122 @@ def propagate_lead_update_to_customer(
         return cust.id
     except Exception:
         return None
+
+
+# ============================================================
+# Field reconciliation — Customer (baogia) ↔ Lead (marketing)
+# Đối chiếu + bổ sung field còn TRỐNG 2 chiều. KHÔNG ghi đè field đã có.
+# ============================================================
+
+_SYNC_FIELDS = (
+    "ho_ten", "sdt", "email", "dia_chi", "ngay_sinh",
+    "nguon", "nhom_hang", "noi_dung", "ghi_chu",
+)
+
+
+def sync_missing_fields(db: Session, customer, lead) -> bool:
+    """Đối chiếu + bổ sung field còn TRỐNG giữa Customer và Lead — 2 chiều.
+
+    KHÔNG BAO GIỜ ghi đè field đã có giá trị (kể cả khi 2 bên khác nhau) —
+    chỉ điền vào ô đang rỗng. Trả True nếu có field nào được bổ sung (caller
+    tự quyết flush/commit). Fail-soft per-field — lỗi 1 field không chặn
+    field khác.
+    """
+    if customer is None or lead is None:
+        return False
+    changed = False
+    for f in _SYNC_FIELDS:
+        try:
+            cv = getattr(customer, f, None)
+            lv = getattr(lead, f, None)
+            cv_empty = cv is None or (isinstance(cv, str) and not cv.strip())
+            lv_empty = lv is None or (isinstance(lv, str) and not lv.strip())
+            if cv_empty and not lv_empty:
+                setattr(customer, f, lv)
+                changed = True
+            elif lv_empty and not cv_empty:
+                setattr(lead, f, cv)
+                changed = True
+        except Exception:
+            continue
+    return changed
+
+
+def sync_missing_fields_for_customer(db: Session, customer) -> bool:
+    """Tìm Lead liên kết với Customer (qua lead_id) rồi đối chiếu field 2 chiều.
+
+    Trả False nếu Customer chưa link lead hoặc lead không còn tồn tại.
+    """
+    if not getattr(customer, "lead_id", None):
+        return False
+    try:
+        from marketing.app.models import Lead  # cross-app lazy
+        lead = db.get(Lead, customer.lead_id)
+    except Exception:
+        return False
+    if lead is None:
+        return False
+    return sync_missing_fields(db, customer, lead)
+
+
+def sync_missing_fields_for_lead(db: Session, lead) -> bool:
+    """Tìm Customer liên kết với Lead (qua Customer.lead_id) rồi đối chiếu 2 chiều.
+
+    Trả False nếu chưa có Customer nào link tới lead này.
+    """
+    try:
+        from baogia.app.models import Customer  # cross-app lazy
+        customer = db.query(Customer).filter(Customer.lead_id == lead.id).first()
+    except Exception:
+        return False
+    if customer is None:
+        return False
+    return sync_missing_fields(db, customer, lead)
+
+
+# ============================================================
+# Auto tien_trinh — "Đã Mua" (KT duyệt cọc) / "Tiềm Năng" (lên báo giá có sđt)
+# ============================================================
+
+def mark_da_mua(db: Session, customer) -> None:
+    """Đặt tien_trinh = 'Đã Mua' cho Customer + mirror sang Lead liên kết.
+
+    Ghi đè bất kể giá trị cũ — 'Đã Mua' là trạng thái chốt cao nhất trong
+    phễu (không có gì "cao hơn" để tránh hạ cấp nhầm). Gọi khi KT duyệt cọc
+    thành công (kt_duyet action=approved). Fail-soft — lỗi không chặn luồng
+    duyệt cọc chính.
+    """
+    if customer is None:
+        return
+    try:
+        customer.tien_trinh = "Đã Mua"
+        if customer.lead_id:
+            from marketing.app.models import Lead  # cross-app lazy
+            lead = db.get(Lead, customer.lead_id)
+            if lead is not None:
+                lead.tien_trinh = "Đã Mua"
+    except Exception:
+        pass
+
+
+def mark_tiem_nang_if_new(db: Session, customer) -> None:
+    """Đặt tien_trinh = 'Tiềm Năng' cho Customer có sđt, CHỈ khi CHƯA từng
+    đạt 'Đã Mua' — không hạ cấp khách đã mua khi họ lên báo giá đợt sau.
+    Mirror sang Lead liên kết (nếu có, cùng điều kiện không hạ cấp).
+    Gọi khi tạo Quote mới. Fail-soft — lỗi không chặn luồng tạo báo giá.
+    """
+    if customer is None:
+        return
+    try:
+        if not (customer.sdt or "").strip():
+            return
+        if (customer.tien_trinh or "") == "Đã Mua":
+            return
+        customer.tien_trinh = "Tiềm Năng"
+        if customer.lead_id:
+            from marketing.app.models import Lead  # cross-app lazy
+            lead = db.get(Lead, customer.lead_id)
+            if lead is not None and (lead.tien_trinh or "") != "Đã Mua":
+                lead.tien_trinh = "Tiềm Năng"
+    except Exception:
+        pass

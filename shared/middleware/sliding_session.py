@@ -15,7 +15,11 @@ from datetime import datetime, timezone
 
 import jwt as pyjwt
 
-from shared.auth import access_ttl_min_for_role, create_access_token
+from shared.auth import (
+    access_ttl_min_for_role,
+    create_access_token,
+    is_token_force_logged_out,
+)
 from shared.config import settings
 
 
@@ -48,6 +52,10 @@ def _build_renewed_cookie(token: str) -> bytes | None:
     except pyjwt.PyJWTError:
         return None
     if payload.get("typ") != "access":
+        return None
+    # KHÔNG gia hạn token đã bị 'đăng xuất mọi thiết bị' — giữ iat cũ để current_user
+    # từ chối (nếu gia hạn, iat mới sẽ vượt mốc force-logout → lách mất). Fail-soft.
+    if is_token_force_logged_out(payload.get("username") or "", payload.get("iat") or 0):
         return None
     now = int(datetime.now(tz=timezone.utc).timestamp())
     exp = int(payload.get("exp", 0))

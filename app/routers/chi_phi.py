@@ -3,6 +3,7 @@
 Sprint M3 (2026-04-28): thêm `nhom_chi_phi` để phục vụ P&L
 (ban_hang | quan_ly | tai_chinh | khac).
 """
+import re
 from datetime import date as date_cls
 from typing import Annotated, Any, Optional
 
@@ -257,6 +258,10 @@ def create_chi_phi(
     # Pop journal-only fields
     tai_khoan_id = fields.pop("tai_khoan_id", None)
     cong_no_ncc_id = fields.pop("cong_no_ncc_id", None)
+    # Kỳ lương (Ứng Lương): 'YYYY-MM' → lưu cột ref_payroll_thang_pb để HCNS trừ đúng kỳ.
+    _ky = fields.pop("ky_luong", None)
+    if _ky and re.match(r"^\d{4}-\d{2}$", str(_ky)):
+        fields["ref_payroll_thang_pb"] = str(_ky)
 
     obj = ChiPhiPhatSinh(**fields, created_by=user.username)
     db.add(obj)
@@ -378,6 +383,10 @@ def update_chi_phi(
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, f"nhom_chi_phi phải thuộc {sorted(VALID_NHOM)}"
         )
+    # Kỳ lương (Ứng Lương) → cột ref_payroll_thang_pb ('YYYY-MM'); rỗng = xoá kỳ.
+    if "ky_luong" in fields:
+        _ky = fields.pop("ky_luong")
+        obj.ref_payroll_thang_pb = str(_ky) if (_ky and re.match(r"^\d{4}-\d{2}$", str(_ky))) else None
     for k, v in fields.items():
         setattr(obj, k, v)
     db.commit()

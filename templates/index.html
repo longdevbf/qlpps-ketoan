@@ -15,7 +15,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kế Toán">
-<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png?v=2">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 /* Alias V1 bắc cầu sang token. KHÔNG đè token hệ: --border từng bị đè thành
@@ -394,9 +394,10 @@ textarea.form-control{resize:vertical;min-height:70px}
       {# Tầng 2 — vận hành (layout-fix 08/08/2026): Biến/Định Phí đã nằm ở caption
          thẻ Tổng Chi Phí + trang P&L; Quỹ Lương chuyển sang trang Bảng Lương;
          Chi ADS giáng từ hàng tài chính xuống tầng vận hành. #}
-      <div class="stats-row" style="grid-template-columns:repeat(6,1fr);margin-bottom:16px">
+      <div class="stats-row" style="grid-template-columns:repeat(7,1fr);margin-bottom:16px">
         <div class="stat-card"><div class="label">Số Đơn Hàng</div><div class="value" style="font-size:17px" id="s-don">—</div></div>
         <div class="stat-card"><div class="label">Chi ADS MKT</div><div class="value" style="font-size:17px" id="s-ads">—</div></div>
+        <div class="stat-card"><div class="label">VAT Đầu Ra <span style="font-weight:400;color:var(--text2);font-size:10px">(đơn duyệt/tháng)</span></div><div class="value" style="font-size:17px;color:var(--brand)" id="s-vat">—</div></div>
         <div class="stat-card"><div class="label">Data MKT</div><div class="value" style="font-size:17px" id="s-dataMkt">—</div></div>
         <div class="stat-card"><div class="label">Inbox MKT</div><div class="value" style="font-size:17px" id="s-inboxMkt">—</div></div>
         <div class="stat-card"><div class="label">Tổng Nhân Sự</div><div class="value" style="font-size:17px" id="s-nv">—</div></div>
@@ -1656,10 +1657,71 @@ textarea.form-control{resize:vertical;min-height:70px}
         <div style="padding:10px 20px;background:var(--bg-page);border-bottom:1px solid var(--border)">
           <span style="font-size:14px">Tổng Quỹ Lương: <strong id="luong-total" style="color:var(--brand-hover)">0 đ</strong></span>
         </div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Mã NV</th><th>Họ Tên</th><th>Phòng Ban</th><th>Chức Vụ</th><th>Tháng</th><th>L. Cơ Bản</th><th>Hoa Hồng</th><th>BHXH</th><th>Thực Lãnh</th></tr></thead>
-            <tbody id="luong-tbody"><tr><td colspan="9" class="loading">Đang tải...</td></tr></tbody>
+        <div class="tbl-wrap" style="overflow-x:auto">
+          <table style="min-width:2200px;white-space:nowrap;font-size:12px">
+            <thead><tr>
+              <th>Mã NV</th><th>Họ Tên</th><th>Phòng Ban</th><th>Chức Vụ</th>
+              <th style="text-align:right">L. Cơ Bản</th><th style="text-align:center">Công</th>
+              <th style="text-align:right">+ Theo công</th><th style="text-align:right">+ Ăn trưa</th>
+              <th style="text-align:right">+ Trách nhiệm</th><th style="text-align:right">+ CT xưởng</th>
+              <th style="text-align:right">+ Hoa hồng</th><th style="text-align:right">+ OT</th>
+              <th style="text-align:right">+ Trực tối</th><th style="text-align:right">+ Tối ưu KD</th>
+              <th style="text-align:center">Đi muộn</th>
+              <th style="text-align:right">- BHXH</th><th style="text-align:right">- Đoàn phí</th>
+              <th style="text-align:right">- Ứng lương</th><th style="text-align:right">- Khấu trừ</th>
+              <th style="text-align:right">💰 Thực Nhận</th>
+              <th style="text-align:right">🗓️ Trả M5</th><th style="text-align:right">🗓️ Trả M15</th>
+            </tr></thead>
+            <tbody id="luong-tbody"><tr><td colspan="22" class="loading">Đang tải...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: BHXH -->
+    <div class="page" id="page-bhxh">
+      <div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;margin-bottom:14px;font-size:12.5px;color:#1e40af">
+        🛡️ <strong>Bảo hiểm xã hội</strong> — dữ liệu đồng bộ từ HCNS (chỉ đọc). Tổng phải nộp cơ quan BHXH hàng tháng =
+        <strong>NLĐ 10,5%</strong> (trừ vào lương NV) + <strong>NSDLĐ 21,5%</strong> (chi phí công ty đóng).
+      </div>
+
+      <!-- Summary cards -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px">
+        <div class="stat-card"><div class="label">👤 Số NV đóng BH</div><div class="value blue" id="bhxh-s-sonv">0</div></div>
+        <div class="stat-card"><div class="label">Tổng lương đóng BH</div><div class="value" id="bhxh-s-luong">0 ₫</div></div>
+        <div class="stat-card"><div class="label">NLĐ trừ lương (10,5%)</div><div class="value" style="color:#7c3aed" id="bhxh-s-nld">0 ₫</div></div>
+        <div class="stat-card"><div class="label">NSDLĐ công ty đóng (21,5%)</div><div class="value red" id="bhxh-s-nsdld">0 ₫</div></div>
+        <div class="stat-card" style="border-color:#16a34a;background:#f0fdf4"><div class="label">🎯 TỔNG nộp BHXH/tháng</div><div class="value green" id="bhxh-s-tong">0 ₫</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🛡️ Danh Sách Đóng BHXH — theo nhân viên</div>
+          <div class="card-actions">
+            <input class="search-box" type="text" id="bhxh-search" placeholder="Tìm mã NV, tên, phòng..." oninput="filterTable('bhxh-tbody','bhxh-search')">
+            <select id="bhxh-status" class="form-control" onchange="loadBHXH()" style="min-width:150px">
+              <option value="Đang đóng">Đang đóng</option>
+              <option value="">Tất cả trạng thái</option>
+              <option value="Chưa đóng">Chưa đóng</option>
+              <option value="Tạm dừng">Tạm dừng</option>
+              <option value="Đã nghỉ">Đã nghỉ</option>
+            </select>
+            <button class="btn btn-outline" onclick="loadBHXH()">🔄 Làm Mới</button>
+          </div>
+        </div>
+        <div class="tbl-wrap" style="overflow-x:auto">
+          <table style="min-width:1000px">
+            <thead>
+              <tr>
+                <th>Mã NV</th><th>Họ Tên</th><th>Phòng Ban</th>
+                <th style="text-align:right">Lương đóng BH</th>
+                <th style="text-align:right">NLĐ (10,5%)</th>
+                <th style="text-align:right">NSDLĐ (21,5%)</th>
+                <th style="text-align:right">Tổng nộp</th>
+                <th style="text-align:center">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody id="bhxh-tbody"><tr><td colspan="8" class="loading">Đang tải...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1667,6 +1729,15 @@ textarea.form-control{resize:vertical;min-height:70px}
 
     <!-- PAGE: ĐƠN HÀNG -->
     <div class="page" id="page-don-hang">
+      <!-- Tab bar: Đối chiếu | Tối ưu chiết khấu -->
+      <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:2px solid var(--border)">
+        <button id="dh-tabbtn-doichieu" onclick="dhSwitchTab('doichieu')"
+          style="padding:9px 18px;border:none;background:none;cursor:pointer;font-size:13.5px;font-weight:700;color:#64b5f6;border-bottom:3px solid #64b5f6;margin-bottom:-2px">🧾 Đối chiếu kế toán</button>
+        <button id="dh-tabbtn-toiuu" onclick="dhSwitchTab('toiuu')"
+          style="padding:9px 18px;border:none;background:none;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--text2);border-bottom:3px solid transparent;margin-bottom:-2px">🎯 Tối ưu chiết khấu</button>
+      </div>
+
+      <div id="dh-tab-doichieu">
       <!-- Stat row tổng — sync với dòng TỔNG dưới bảng -->
       <div id="dh-stats-wrap" style="margin-bottom:16px;display:none">
         <div style="font-size:12px;font-weight:700;color:var(--success-fg);margin:0 0 6px;text-transform:uppercase;letter-spacing:.5px">Phải thu</div>
@@ -1698,10 +1769,10 @@ textarea.form-control{resize:vertical;min-height:70px}
             <div style="display:flex;flex-direction:column;gap:3px">
               <label style="font-size:12px;color:var(--text2);font-weight:600">Trạng thái</label>
               <select id="dh-filter" class="form-control" onchange="loadDonHang()" style="min-width:205px">
+                <option value="all" selected>Tất cả đơn đã duyệt (khớp baogia)</option>
                 <option value="active">Đơn đang chạy (chưa hoàn thành)</option>
                 <option value="pending">Chờ đối chiếu (Đã giao)</option>
                 <option value="done">Đã xong (KT đã đối chiếu)</option>
-                <option value="all">Tất cả đơn đã duyệt</option>
               </select>
             </div>
             <div style="display:flex;flex-direction:column;gap:3px">
@@ -1713,8 +1784,9 @@ textarea.form-control{resize:vertical;min-height:70px}
             <div style="display:flex;flex-direction:column;gap:3px">
               <label style="font-size:12px;color:var(--text2);font-weight:600">Lọc theo</label>
               <select id="dh-date-basis" class="form-control" onchange="loadDonHang()" style="min-width:225px">
+                <option value="duyet">Ngày duyệt đơn (doanh số — khớp baogia)</option>
                 <option value="created">Ngày tạo đơn</option>
-                <option value="ketoan">Ngày KT hoàn thành (doanh số)</option>
+                <option value="ketoan">Ngày KT hoàn thành</option>
               </select>
             </div>
             <div style="display:flex;flex-direction:column;gap:3px">
@@ -1787,6 +1859,121 @@ textarea.form-control{resize:vertical;min-height:70px}
           </table>
         </div>
       </div>
+      </div><!-- /dh-tab-doichieu -->
+
+      <!-- ═══════════ TAB TỐI ƯU CHIẾT KHẤU ═══════════ -->
+      <div id="dh-tab-toiuu" style="display:none">
+        <div style="padding:10px 14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;margin-bottom:14px;font-size:12.5px;color:#7c2d12">
+          💡 <strong>Chính sách (theo cơ chế HCNS):</strong> trần chiết khấu <strong>Đồ Gỗ <span id="tu-mck-go">20</span>%</strong>
+          — <strong>Đồ Mây <span id="tu-mck-may">15</span>%</strong>. NV KD bán mà chiết khấu thực tế thấp hơn trần thì phần chưa dùng
+          = <strong>(trần − CK thực tế) × tạm tính</strong> = <strong>số tiền tối ưu</strong> (cơ sở thưởng).
+          Đơn tô <span style="color:var(--red);font-weight:700">đỏ</span> = chiết khấu <strong>vượt trần</strong>.
+          <span style="color:#3730a3;font-weight:600">🪑 Ghế Papasan miễn chính sách CK: đơn toàn Papasan → không tính tối ưu; đơn pha (Papasan + đồ mây khác) → chỉ tính 15% trên phần đồ mây khác (giảm giá phân bổ theo tỷ trọng).</span>
+        </div>
+
+        <!-- Tối ưu tách theo LOẠI ĐƠN — trần CK lấy từ cơ chế HCNS (co_che_toi_uu) -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px">
+          <div class="stat-card">
+            <div class="label">🌿 Tối ưu Đồ Mây <span id="tu-l-may-tran" style="font-weight:400;color:var(--text2)">(trần 15%)</span></div>
+            <div class="value green" id="tu-l-may">0 ₫</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:3px" id="tu-l-may-sub">0 đơn</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">🪵 Tối ưu Đồ Gỗ <span id="tu-l-go-tran" style="font-weight:400;color:var(--text2)">(trần 20%)</span></div>
+            <div class="value green" id="tu-l-go">0 ₫</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:3px" id="tu-l-go-sub">0 đơn</div>
+          </div>
+          <div class="stat-card" style="border-color:#16a34a;background:#f0fdf4">
+            <div class="label">🎯 TỔNG tối ưu <span style="font-weight:400;color:var(--text2)">(khớp HCNS)</span></div>
+            <div class="value green" id="tu-l-tong">0 ₫</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:3px" id="tu-l-tong-sub">Mây + Gỗ</div>
+          </div>
+        </div>
+
+        <!-- Summary cards -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px">
+          <div class="stat-card"><div class="label">Số đơn</div><div class="value blue" id="tu-s-sodon">0</div></div>
+          <div class="stat-card"><div class="label">Tổng tiền trước CK</div><div class="value" id="tu-s-tamtinh">0 ₫</div></div>
+          <div class="stat-card"><div class="label">Tổng tiền sau CK</div><div class="value" style="color:#0284c7" id="tu-s-sauck">0 ₫</div></div>
+          <div class="stat-card"><div class="label">CK trung bình</div><div class="value" style="color:#7c3aed" id="tu-s-cktb">0%</div></div>
+          <div class="stat-card"><div class="label">Tổng tối ưu <span style="font-weight:400;color:var(--text2)">(trừ đơn vượt trần)</span></div><div class="value green" id="tu-s-toiuu">0 ₫</div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🎯 Tối Ưu Chiết Khấu — theo đơn</div>
+            <div class="card-actions">
+              <input class="search-box" type="text" id="tu-search" placeholder="Tìm mã BG, khách, NV..." oninput="filterTable('tu-tbody','tu-search')">
+              <button class="btn btn-outline" onclick="loadDonHangToiUu()">🔄 Làm Mới</button>
+            </div>
+          </div>
+          <div style="padding:10px 16px;background:#f0f7ff;border-bottom:1px solid var(--border)">
+            <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <label style="font-size:11px;color:var(--text2);font-weight:600">👤 NV KD</label>
+                <select id="tu-nv-filter" class="form-control" onchange="loadDonHangToiUu()" style="min-width:175px">
+                  <option value="">Tất cả NV</option>
+                </select>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <label style="font-size:11px;color:var(--text2);font-weight:600">🗓 Thời gian</label>
+                <select id="tu-date-preset" class="form-control" onchange="tuOnDatePreset()" style="min-width:140px">
+                  <option value="all">Tất cả</option>
+                  <option value="today">Hôm nay</option>
+                  <option value="7d">7 ngày qua</option>
+                  <option value="month">Tháng này</option>
+                  <option value="last_month">Tháng trước</option>
+                  <option value="year">Năm nay</option>
+                  <option value="custom">Tuỳ chỉnh…</option>
+                </select>
+              </div>
+              <div id="tu-date-custom" style="display:none;flex-direction:column;gap:3px">
+                <label style="font-size:11px;color:var(--text2);font-weight:600">Khoảng ngày</label>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input type="date" id="tu-date-from" class="form-control" onchange="loadDonHangToiUu()" style="width:140px">
+                  <span style="color:var(--text2)">→</span>
+                  <input type="date" id="tu-date-to" class="form-control" onchange="loadDonHangToiUu()" style="width:140px">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tbl-wrap" style="overflow-x:auto">
+            <table style="min-width:1000px">
+              <thead>
+                <tr>
+                  <th>Mã BG</th><th>Khách</th><th>NV KD</th><th>Ngày duyệt</th>
+                  <th>Loại</th>
+                  <th style="text-align:right">Tạm tính</th>
+                  <th style="text-align:right">Đã giảm (₫)</th>
+                  <th style="text-align:right">CK thực tế</th>
+                  <th style="text-align:right">Mức tối ưu</th>
+                  <th style="text-align:right">Số tiền tối ưu</th>
+                </tr>
+              </thead>
+              <tbody id="tu-tbody"><tr><td colspan="10" class="loading">Đang tải...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tổng hợp theo NV KD -->
+        <div class="card" style="margin-top:16px">
+          <div class="card-header"><div class="card-title">👥 Tổng Hợp Tối Ưu Theo NV KD (cơ sở thưởng)</div></div>
+          <div class="tbl-wrap" style="overflow-x:auto">
+            <table style="min-width:600px">
+              <thead>
+                <tr>
+                  <th>NV KD</th>
+                  <th style="text-align:right">Số đơn</th>
+                  <th style="text-align:right">Tổng tạm tính</th>
+                  <th style="text-align:right">CK trung bình</th>
+                  <th style="text-align:right">Tổng tiền tối ưu</th>
+                </tr>
+              </thead>
+              <tbody id="tu-sp-tbody"><tr><td colspan="5" class="loading">Đang tải...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /dh-tab-toiuu -->
 
       <!-- ─── Modal: Chi tiết đơn hàng ─── -->
       <div class="modal-overlay" id="dh-modal-detail">
@@ -2370,7 +2557,14 @@ textarea.form-control{resize:vertical;min-height:70px}
       </div>
       <div class="form-row">
         <div class="form-group"><label>Loại Chi Phí <span style="color:var(--text2);font-size:12px">(lọc theo nhóm trên)</span></label>
-          <select class="form-control" id="cp-loai"></select></div>
+          <select class="form-control" id="cp-loai" onchange="toggleCpKyLuong()"></select></div>
+      </div>
+      <div class="form-row" id="cp-kyluong-row" style="display:none">
+        <div class="form-group">
+          <label>🗓️ Kỳ lương — ứng cho tháng lương nào</label>
+          <input type="month" class="form-control" id="cp-kyluong">
+          <small style="color:#64748b;font-size:11px">Chỉ dùng cho <b>Ứng Lương</b>: chọn tháng lương sẽ bị trừ khoản này (vd ứng đầu T8 cho lương T7 → chọn 2026-07). Bỏ trống = trừ theo ngày ghi nhận.</small>
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -3289,7 +3483,7 @@ function showPage(name) {
     'co-dinh':'Chi Phí Cố Định','cong-no':'Công Nợ','so-quy':'Sổ Quỹ & Ngân Hàng',
     'khoan-vay':'Quản Lý Vốn Vay',
     'tscd':'TSCĐ + Khấu Hao',
-    'luong':'Bảng Lương HCNS','don-hang':'Đơn Hàng','ads':'Chi Phí ADS',
+    'luong':'Bảng Lương HCNS','bhxh':'BHXH — Bảo Hiểm Xã Hội','don-hang':'Đơn Hàng','ads':'Chi Phí ADS',
     'cpa-ads':'ROI/CPA Ads',
     'loai-cp':'Danh Mục — Loại Chi Phí','tai-khoan-nh':'Danh Mục — Tài Khoản Ngân Hàng',
     'san-pham':'Danh Mục — Sản Phẩm',
@@ -3308,7 +3502,7 @@ function showPage(name) {
     'so-quy':()=>loadSoQuy(''),
     'khoan-vay': (typeof loadKhoanVay === 'function') ? loadKhoanVay : null,
     'tscd':     (typeof loadTSCD       === 'function') ? loadTSCD       : null,
-    'luong':loadLuongTabs,'don-hang':loadDonHang,'ads':loadAds,
+    'luong':loadLuongTabs,'bhxh':loadBHXH,'don-hang':loadDonHang,'ads':loadAds,
     'cpa-ads': (typeof loadCPAAds === 'function') ? loadCPAAds : null,
     'loai-cp':loadLoaiCP,'tai-khoan-nh':loadTaiKhoanNH,
     'san-pham':loadSanPham,
@@ -3321,7 +3515,7 @@ function showPage(name) {
 
 function onMonthChange() {
   currentMonth = document.getElementById('month-picker').value;
-  const reloaders = {'bao-cao':loadBaoCao,'doanh-thu':()=>loadDoanhThu(),'chi-phi':()=>loadChiPhi(),'co-dinh':()=>loadCoDinh(),'so-quy':()=>loadSoQuy(''),'quan-ly-quy':()=>(typeof loadQuanLyQuy==='function'?loadQuanLyQuy():null),'cong-no-ncc':()=>loadNccModule(_nccFilter)};
+  const reloaders = {'bao-cao':loadBaoCao,'doanh-thu':()=>loadDoanhThu(),'chi-phi':()=>loadChiPhi(),'co-dinh':()=>loadCoDinh(),'so-quy':()=>loadSoQuy(''),'quan-ly-quy':()=>(typeof loadQuanLyQuy==='function'?loadQuanLyQuy():null),'cong-no-ncc':()=>loadNccModule(_nccFilter),'don-hang':()=>{const tu=document.getElementById('dh-tab-toiuu');(tu&&tu.style.display!=='none')?loadDonHangToiUu():(typeof loadDonHang==='function'&&loadDonHang());}};
   if (reloaders[currentPage]) reloaders[currentPage]();
 }
 
@@ -3356,7 +3550,7 @@ function badgeHTML(text, color) { return `<span class="badge badge-${color}">${t
 // ── Báo Cáo ────────────────────────────────────────────────────────────────────
 async function loadBaoCao() {
   // Hiện loading
-  ['s-dt','s-cp','s-lng','s-lntt','s-ads','s-nv','s-don','s-dataMkt','s-inboxMkt','s-cn'].forEach(id => {
+  ['s-dt','s-cp','s-lng','s-lntt','s-ads','s-nv','s-don','s-vat','s-dataMkt','s-inboxMkt','s-cn'].forEach(id => {
     const el = document.getElementById(id); if(el) el.textContent = '...';
   });
 
@@ -3381,6 +3575,8 @@ async function loadBaoCao() {
   // KPIs phòng ban
   document.getElementById('s-nv').textContent = r.tong_nv || 0;
   document.getElementById('s-don').textContent = r.so_don || 0;
+  // VAT hiện ĐỦ SỐ (để khai thuế), không rút gọn.
+  document.getElementById('s-vat').textContent = Math.round(r.vat_dau_ra || 0).toLocaleString('vi-VN') + ' ₫';
   document.getElementById('s-dataMkt').textContent = (r.so_data_mkt||0).toLocaleString();
   document.getElementById('s-inboxMkt').textContent = (r.so_inbox_mkt||0).toLocaleString();
   document.getElementById('s-cn').textContent = fmtShort(r.tong_cong_no);
@@ -3656,6 +3852,12 @@ function openAddCP() {
   openModal('modal-cp');
 }
 
+function toggleCpKyLuong() {
+  const loai = (document.getElementById('cp-loai')?.value || '').trim();
+  const row = document.getElementById('cp-kyluong-row');
+  if (row) row.style.display = (loai === 'Ứng Lương') ? '' : 'none';
+}
+
 function editCP(id) {
   const r = _cpData.find(x => String(x.id) === String(id));
   if (!r) { toast('Không tìm thấy dòng để sửa', 'error'); return; }
@@ -3668,6 +3870,9 @@ function editCP(id) {
     updateCpLoaiByNhom();
   }
   set('cp-loai', r.loai_chi_phi || '');
+  // Kỳ lương (Ứng Lương): chỉ nhận dạng 'YYYY-MM' (bỏ qua 'PAYROLL-...')
+  set('cp-kyluong', (r.ref_payroll_thang_pb && /^\d{4}-\d{2}$/.test(r.ref_payroll_thang_pb)) ? r.ref_payroll_thang_pb : '');
+  if (typeof toggleCpKyLuong === 'function') toggleCpKyLuong();
   set('cp-tenkhoan', r.ten_khoan || '');
   set('cp-sotien', r.so_tien);
   set('cp-quy', r.quy || '');
@@ -3697,6 +3902,8 @@ async function submitChiPhi() {
     ma_don: document.getElementById('cp-madon').value || null,
     ngan_hang: document.getElementById('cp-nganhang').value || null,
     ghi_chu: document.getElementById('cp-ghichu').value || null,
+    ky_luong: ((document.getElementById('cp-loai').value||'').trim()==='Ứng Lương')
+      ? (document.getElementById('cp-kyluong').value||null) : null,
   };
   if (!body.so_tien || !body.loai_chi_phi || !body.ngay) { toast('Vui lòng điền đủ Ngày + Loại + Số tiền','error'); return; }
   const isEdit = !!_cpEditId;
@@ -4619,7 +4826,7 @@ async function loadLuong() {
     renderLuong(r.data || []);
   } catch (e) {
     document.getElementById('luong-tbody').innerHTML =
-      `<tr><td colspan="9"><div class="empty">Lỗi kết nối HCNS: ${e.message}</div></td></tr>`;
+      `<tr><td colspan="22"><div class="empty">Lỗi kết nối HCNS: ${e.message}</div></td></tr>`;
   }
   // 2 biểu đồ phòng ban (chuyển từ dashboard sang — layout-fix 08/08/2026).
   // Fail-soft: biểu đồ lỗi thì bảng lương vẫn hiển thị bình thường.
@@ -4632,24 +4839,46 @@ async function loadLuong() {
 }
 
 function renderLuong(data) {
-  const total = data.reduce((s, r) => s + (+r.luong_thuc_linh || 0), 0);
+  const total = data.reduce((s, r) => s + (+r.luong_thuc_nhan || +r.luong_thuc_linh || 0), 0);
   document.getElementById('luong-total').textContent = fmt(total);
   const tbody = document.getElementById('luong-tbody');
   if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty">Không có dữ liệu lương tháng này</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="22"><div class="empty">Không có dữ liệu lương tháng này</div></td></tr>`;
     return;
   }
-  tbody.innerHTML = data.map(r => `<tr>
-    <td><code>${r.ma_nv || ''}</code></td>
-    <td>${r.ho_ten || ''}</td>
-    <td>${r.phong_ban || ''}</td>
-    <td>${r.chuc_vu || ''}</td>
-    <td>${r.thang || ''}</td>
-    <td>${fmt(r.luong_co_ban || 0)}</td>
-    <td>${fmt(r.hoa_hong || 0)}</td>
-    <td>${fmt(r.bhxh_tru || 0)}</td>
-    <td><strong style="color:var(--blue2)">${fmt(r.luong_thuc_linh || 0)}</strong></td>
-  </tr>`).join('');
+  const num = v => Number(v || 0);
+  tbody.innerHTML = data.map(r => {
+    const tn = num(r.luong_thuc_nhan) || num(r.luong_thuc_linh);
+    // Trả M5 = lương cứng + ăn trưa − BHXH − ứng lương − đoàn phí; Trả M15 = còn lại
+    const m5 = num(r.luong_theo_cong) + num(r.an_trua) - num(r.bhxh_tru) - num(r.ung_luong) - num(r.doan_phi_tru);
+    const m15 = tn - m5;
+    const dm = num(r.di_muon_so_lan) ? `${r.di_muon_so_lan}${r.di_muon_tru_pct ? ` (−${r.di_muon_tru_pct}%)` : ''}` : '0';
+    const cong = (typeof r.so_ngay_cong === 'number') ? r.so_ngay_cong.toFixed(2) : (r.so_ngay_cong || 0);
+    return `<tr>
+      <td><code>${r.ma_nv || ''}</code></td>
+      <td>${r.ho_ten || ''}</td>
+      <td>${r.phong_ban || ''}</td>
+      <td>${r.chuc_vu || ''}</td>
+      <td style="text-align:right">${fmt(num(r.luong_co_ban))}</td>
+      <td style="text-align:center">${cong}</td>
+      <td style="text-align:right;color:#1e40af">${fmt(num(r.luong_theo_cong))}</td>
+      <td style="text-align:right;color:#15803d">${fmt(num(r.an_trua))}</td>
+      <td style="text-align:right">${fmt(num(r.trach_nhiem))}</td>
+      <td style="text-align:right">${fmt(num(r.cong_tac_xuong))}</td>
+      <td style="text-align:right">${fmt(num(r.hoa_hong))}</td>
+      <td style="text-align:right">${fmt(num(r.ot_ca_gay))}</td>
+      <td style="text-align:right">${fmt(num(r.truc_toi))}</td>
+      <td style="text-align:right;color:#155e75">${fmt(num(r.toi_uu_kd))}</td>
+      <td style="text-align:center;color:#9a3412">${dm}</td>
+      <td style="text-align:right;color:#b91c1c">${fmt(num(r.bhxh_tru))}</td>
+      <td style="text-align:right;color:#b91c1c">${fmt(num(r.doan_phi_tru))}</td>
+      <td style="text-align:right;color:#b91c1c">${fmt(num(r.ung_luong))}${num(r.ung_luong_so_lan) ? ` <small>(${r.ung_luong_so_lan})</small>` : ''}</td>
+      <td style="text-align:right;color:#b91c1c">${fmt(num(r.khau_tru_tay))}</td>
+      <td style="text-align:right"><strong style="color:#15803d">${fmt(tn)}</strong></td>
+      <td style="text-align:right;font-weight:600;color:#0e7490">${fmt(m5)}</td>
+      <td style="text-align:right;font-weight:600;color:#0369a1">${fmt(m15)}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ── Populate dropdown NV KD 1 lần (load when first open) ────────────────────
@@ -4705,6 +4934,213 @@ function dhOnDatePreset(){
   loadDonHang();
 }
 
+// ── BHXH — đọc từ HCNS (chỉ đọc) để kế toán nắm tổng tiền đóng ──────────────
+async function loadBHXH(){
+  const tbody = document.getElementById('bhxh-tbody');
+  if (!tbody) return;
+  const fmt = n => Math.round(+n||0).toLocaleString('vi-VN') + ' ₫';
+  const esc = s => (s==null?'':String(s)).replace(/</g,'&lt;');
+  const st = document.getElementById('bhxh-status')?.value ?? 'Đang đóng';
+  tbody.innerHTML = '<tr><td colspan="8" class="loading">Đang tải...</td></tr>';
+  try{
+    const p = new URLSearchParams(); p.set('trang_thai', st);
+    const r = await fetch(`/api/external/bhxh?${p}`).then(r=>r.json());
+    const T = r.totals || {};
+    document.getElementById('bhxh-s-sonv').textContent  = (T.so_nv || 0);
+    document.getElementById('bhxh-s-luong').textContent = fmt(T.luong_dong);
+    document.getElementById('bhxh-s-nld').textContent   = fmt(T.nld_tong);
+    document.getElementById('bhxh-s-nsdld').textContent = fmt(T.nsdld_tong);
+    document.getElementById('bhxh-s-tong').textContent  = fmt(T.tong_nop);
+    const _stBadge = s => {
+      const m = {
+        'Đang đóng': ['#dcfce7','#166534','#86efac'],
+        'Chưa đóng': ['#fef9c3','#854d0e','#fde047'],
+        'Tạm dừng':  ['#fee2e2','#991b1b','#fca5a5'],
+        'Đã nghỉ':   ['#f1f5f9','#475569','#cbd5e1'],
+      }[s] || ['#eef2ff','#3730a3','#c7d2fe'];
+      return `<span style="background:${m[0]};color:${m[1]};border:1px solid ${m[2]};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap">${esc(s||'—')}</span>`;
+    };
+    const data = r.data || [];
+    if (!data.length){
+      tbody.innerHTML = '<tr><td colspan="8"><div class="empty">Không có dữ liệu BHXH</div></td></tr>';
+      return;
+    }
+    let html = data.map(o => `<tr>
+        <td><code>${esc(o.ma_nv)}</code></td>
+        <td><strong>${esc(o.ho_ten)}</strong></td>
+        <td>${esc(o.phong_ban)||'—'}</td>
+        <td style="text-align:right">${fmt(o.luong_dong)}</td>
+        <td style="text-align:right;color:#7c3aed" title="BHXH ${fmt(o.nld_bhxh)} · BHYT ${fmt(o.nld_bhyt)} · BHTN ${fmt(o.nld_bhtn)}">${fmt(o.nld_tong)}</td>
+        <td style="text-align:right;color:var(--red)" title="BHXH ${fmt(o.nsdld_bhxh)} · BHYT ${fmt(o.nsdld_bhyt)} · BHTN ${fmt(o.nsdld_bhtn)}">${fmt(o.nsdld_tong)}</td>
+        <td style="text-align:right;font-weight:700;color:var(--green)">${fmt(o.tong)}</td>
+        <td style="text-align:center">${_stBadge(o.trang_thai)}</td>
+      </tr>`).join('');
+    // Dòng tổng
+    html += `<tr style="background:#f0fdf4;font-weight:800;border-top:2px solid #16a34a">
+        <td colspan="3">TỔNG (${T.so_nv||0} NV)</td>
+        <td style="text-align:right">${fmt(T.luong_dong)}</td>
+        <td style="text-align:right;color:#7c3aed">${fmt(T.nld_tong)}</td>
+        <td style="text-align:right;color:var(--red)">${fmt(T.nsdld_tong)}</td>
+        <td style="text-align:right;color:var(--green)">${fmt(T.tong_nop)}</td>
+        <td></td>
+      </tr>`;
+    tbody.innerHTML = html;
+  }catch(e){
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty">Lỗi tải dữ liệu BHXH</div></td></tr>';
+  }
+}
+
+// ── Đơn Hàng — Tab Tối Ưu Chiết Khấu ───────────────────────────────────────
+function dhSwitchTab(tab){
+  const isDC = tab === 'doichieu';
+  const dc = document.getElementById('dh-tab-doichieu');
+  const tu = document.getElementById('dh-tab-toiuu');
+  if (dc) dc.style.display = isDC ? '' : 'none';
+  if (tu) tu.style.display = isDC ? 'none' : '';
+  const b1 = document.getElementById('dh-tabbtn-doichieu');
+  const b2 = document.getElementById('dh-tabbtn-toiuu');
+  const on  = b => { if(!b) return; b.style.color='#64b5f6'; b.style.fontWeight='700'; b.style.borderBottomColor='#64b5f6'; };
+  const off = b => { if(!b) return; b.style.color='var(--text2)'; b.style.fontWeight='600'; b.style.borderBottomColor='transparent'; };
+  if (isDC) { on(b1); off(b2); }
+  else { off(b1); on(b2); loadDonHangToiUu(); }
+}
+
+function tuDateRange(){
+  const preset = document.getElementById('tu-date-preset')?.value || 'all';
+  const now = new Date(); const today = _dhFmtDate(now);
+  if (preset === 'custom') return [document.getElementById('tu-date-from')?.value || null,
+                                    document.getElementById('tu-date-to')?.value || null];
+  if (preset === 'today') return [today, today];
+  if (preset === '7d') { const s = new Date(now); s.setDate(s.getDate()-6); return [_dhFmtDate(s), today]; }
+  if (preset === 'month') return [`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`, today];
+  if (preset === 'last_month') {
+    const lm = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const le = new Date(now.getFullYear(), now.getMonth(), 0);
+    return [_dhFmtDate(lm), _dhFmtDate(le)];
+  }
+  if (preset === 'year') return [`${now.getFullYear()}-01-01`, today];
+  if (preset === 'all_time') return [null, null];
+  // Mặc định ('all') → lọc theo THÁNG đang chọn ở ô tháng global (#month-picker)
+  const _m = (typeof currentMonth === 'string' && /^\d{4}-\d{2}$/.test(currentMonth))
+    ? currentMonth : `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const _mp = _m.split('-'); const _last = new Date(+_mp[0], +_mp[1], 0).getDate();
+  return [`${_m}-01`, `${_m}-${String(_last).padStart(2,'0')}`];
+}
+function tuOnDatePreset(){
+  const preset = document.getElementById('tu-date-preset')?.value || 'all';
+  const box = document.getElementById('tu-date-custom');
+  if (box) box.style.display = (preset === 'custom') ? 'flex' : 'none';
+  loadDonHangToiUu();
+}
+
+let _tuNvLoaded = false;
+async function _tuLoadNv(){
+  if (_tuNvLoaded) return;
+  try{
+    const r = await fetch('/api/external/orders-kd-list').then(r=>r.json());
+    const sel = document.getElementById('tu-nv-filter');
+    if (!sel) return;
+    (r.data||[]).forEach(nv=>{
+      const o = document.createElement('option');
+      o.value = nv.name; o.textContent = nv.name + ' (' + nv.so_don + ')';
+      sel.appendChild(o);
+    });
+    _tuNvLoaded = true;
+  }catch(_){}
+}
+
+async function loadDonHangToiUu(){
+  _tuLoadNv();
+  const tbody  = document.getElementById('tu-tbody');
+  const spBody = document.getElementById('tu-sp-tbody');
+  if (!tbody) return;
+  const fmt = n => Math.round(+n||0).toLocaleString('vi-VN') + ' ₫';
+  const esc = s => (s==null?'':String(s)).replace(/</g,'&lt;');
+  const sp = document.getElementById('tu-nv-filter')?.value || '';
+  const [from, to] = tuDateRange();
+  try{
+    const p = new URLSearchParams();
+    if (sp) p.set('salesperson', sp);
+    if (from) p.set('tu_ngay', from);
+    if (to) p.set('den_ngay', to);
+    const r = await fetch(`/api/external/orders-optimization?${p}`).then(r=>r.json());
+    const T = r.totals || {};
+    document.getElementById('tu-s-sodon').textContent   = (T.so_don || 0);
+    document.getElementById('tu-s-tamtinh').textContent = fmt(T.tam_tinh);
+    document.getElementById('tu-s-sauck').textContent   = fmt(T.sau_ck);
+    document.getElementById('tu-s-cktb').textContent    = (T.ck_tb_pct || 0) + '%';
+    const toiuuEl = document.getElementById('tu-s-toiuu');
+    toiuuEl.textContent = fmt(T.toi_uu);
+    toiuuEl.className = 'value ' + ((T.toi_uu||0) < 0 ? 'red' : 'green');
+
+    // ── Tối ưu tách Mây / Gỗ / Tổng — trần CK & cách tính lấy theo cơ chế HCNS.
+    // Số hiển thị = `toi_uu_hcns` (chỉ cộng đơn còn dư trần), khớp HCNS Tối Ưu KD.
+    const _byLoai = r.by_loai || [];
+    const _gL = k => _byLoai.find(x => x.loai_don === k) || { so_don: 0, toi_uu_hcns: 0 };
+    const _setL = (id, a, tran) => {
+      const v = document.getElementById('tu-l-' + id);        if (v) v.textContent = fmt(a.toi_uu_hcns);
+      const s = document.getElementById('tu-l-' + id + '-sub'); if (s) s.textContent = (a.so_don || 0) + ' đơn';
+      const t = document.getElementById('tu-l-' + id + '-tran');
+      if (t && tran != null) t.textContent = '(trần ' + tran + '%)';
+    };
+    _setL('may', _gL('Đồ Mây'), r.max_ck_may);
+    _setL('go',  _gL('Đồ Gỗ'),  r.max_ck_go);
+    const _tongEl = document.getElementById('tu-l-tong');
+    if (_tongEl) _tongEl.textContent = fmt(T.toi_uu_hcns);
+    const _chua = _byLoai.find(x => x.loai_don === 'Chưa phân loại');
+    const _pap  = _byLoai.find(x => x.loai_don === 'Ghế Papasan');
+    const _tongSub = document.getElementById('tu-l-tong-sub');
+    if (_tongSub) _tongSub.textContent = 'Mây + Gỗ' +
+      (_pap  ? ` · ${_pap.so_don} đơn Ghế Papasan (miễn CK)` : '') +
+      (_chua ? ` · ${_chua.so_don} đơn chưa phân loại (áp trần gỗ)` : '');
+    const _go = document.getElementById('tu-mck-go');   if (_go)  _go.textContent  = (r.max_ck_go ?? 20);
+    const _may = document.getElementById('tu-mck-may'); if (_may) _may.textContent = (r.max_ck_may ?? 15);
+
+    const data = r.data || [];
+    const _badge = o => {
+      if (o.is_papasan) return '<span style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;padding:1px 6px;border-radius:10px;font-size:11px;white-space:nowrap">🪑 Papasan · miễn CK</span>';
+      if (o.is_papasan_mix) return '<span style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;padding:1px 6px;border-radius:10px;font-size:11px;white-space:nowrap">🌿 Mây · trừ Papasan</span>';
+      const l = o.loai_don;
+      return l === 'Đồ Mây' ? '<span style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;padding:1px 6px;border-radius:10px;font-size:11px;white-space:nowrap">🌿 Mây</span>'
+        : l === 'Đồ Gỗ' ? '<span style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;padding:1px 6px;border-radius:10px;font-size:11px;white-space:nowrap">🪵 Gỗ</span>'
+        : '<span style="color:var(--text2);font-size:11px">—</span>';
+    };
+    tbody.innerHTML = !data.length
+      ? '<tr><td colspan="10"><div class="empty">Không có đơn nào</div></td></tr>'
+      : data.map(o => {
+          const red = o.vuot_chinh_sach;
+          const pap = o.is_papasan;
+          const mixTitle = o.is_papasan_mix ? ` title="Đã trừ ghế Papasan ${fmt(o.papasan_base)} khỏi tạm tính; chỉ tính CK phần đồ mây khác"` : '';
+          return `<tr${red?' style="background:#fef2f2"':(pap?' style="background:#f5f7ff"':'')}>
+            <td><strong>${esc(o.ma_bg)}</strong></td>
+            <td>${esc(o.customer_name)}</td>
+            <td>${esc(o.salesperson)}</td>
+            <td>${(o.ngay_duyet||o.ngay_tao||'').slice(0,10)}</td>
+            <td>${_badge(o)}</td>
+            <td style="text-align:right"${mixTitle}>${fmt(o.tam_tinh)}</td>
+            <td style="text-align:right">${fmt(o.tong_giam)}</td>
+            <td style="text-align:right;color:#7c3aed;font-weight:600">${o.ck_pct}%</td>
+            <td style="text-align:right;color:${pap?'#3730a3':(red?'var(--red)':'var(--text2)')}">${pap?'miễn CK':o.toi_uu_pct+'%'}</td>
+            <td style="text-align:right;font-weight:700;color:${pap?'#3730a3':(red?'var(--red)':'var(--green)')}">${pap?'—':fmt(o.so_tien_toi_uu)}</td>
+          </tr>`;
+        }).join('');
+
+    const bysp = r.by_sp || [];
+    if (spBody) spBody.innerHTML = !bysp.length
+      ? '<tr><td colspan="5"><div class="empty">—</div></td></tr>'
+      : bysp.map(s => `<tr>
+          <td><strong>${esc(s.salesperson)}</strong></td>
+          <td style="text-align:right">${s.so_don}</td>
+          <td style="text-align:right">${fmt(s.tam_tinh)}</td>
+          <td style="text-align:right;color:#7c3aed">${s.ck_tb_pct}%</td>
+          <td style="text-align:right;font-weight:700;color:${(s.toi_uu||0)<0?'var(--red)':'var(--green)'}">${fmt(s.toi_uu)}</td>
+        </tr>`).join('');
+  }catch(e){
+    tbody.innerHTML = '<tr><td colspan="10"><div class="empty">Lỗi tải dữ liệu</div></td></tr>';
+    if (spBody) spBody.innerHTML = '<tr><td colspan="5"><div class="empty">Lỗi</div></td></tr>';
+  }
+}
+
 // ── Đơn Hàng — Overview đầy đủ (Đơn / Phải thu / Phải trả / Tiến trình) ─────
 /* Bat/tat nhom cot PHAI TRA cua bang Don Hang.
    Mac dinh TAT: 16 cot ep bang rong 1700px nen man nao cung phai cuon ngang,
@@ -4733,8 +5169,10 @@ function dhTogglePT(hien) {
 async function loadDonHang() {
   _dhLoadNv();
   const tbody = document.getElementById('dh-tbody');
-  const basis = document.getElementById('dh-date-basis')?.value || 'created';
-  // basis 'ketoan' = DOANH SỐ THỰC: chỉ đơn KT đã hoàn thành (done) + lọc theo ngày KT đối chiếu
+  // 'duyet' (mặc định) = lọc theo THÁNG DUYỆT (q.duyet_luc) — KHỚP quy ước doanh
+  // số & màn "Đơn Đã Lên Hệ Thống" bên baogia. 'created' = ngày tạo đơn.
+  // 'ketoan' = ngày KT hoàn thành (ép filter=done).
+  const basis = document.getElementById('dh-date-basis')?.value || 'duyet';
   const filter = basis === 'ketoan' ? 'done' : (document.getElementById('dh-filter')?.value || 'active');
   const sp     = document.getElementById('dh-nv-filter')?.value || '';
   // Khoá dropdown trạng thái khi lọc theo ngày KT hoàn thành (đã ép = done)
@@ -4742,8 +5180,8 @@ async function loadDonHang() {
   if (_stEl) { _stEl.disabled = (basis === 'ketoan'); _stEl.style.opacity = (basis === 'ketoan') ? '0.5' : ''; }
   // Đổi nhãn cột ngày theo basis
   const _hd = document.getElementById('dh-date-col-head');
-  if (_hd) _hd.textContent = (basis === 'ketoan') ? 'Ngày KT h.thành' : 'Ngày tạo';
-  const _dhField = (basis === 'ketoan') ? 'ketoan_approved_at' : 'ngay_tao';
+  if (_hd) _hd.textContent = (basis === 'ketoan') ? 'Ngày KT h.thành' : (basis === 'duyet' ? 'Ngày duyệt' : 'Ngày tạo');
+  const _dhField = (basis === 'ketoan') ? 'ketoan_approved_at' : (basis === 'duyet' ? 'ngay_duyet' : 'ngay_tao');
   try {
     const params = new URLSearchParams({filter});
     if(sp) params.set('salesperson', sp);
@@ -4780,8 +5218,10 @@ async function loadDonHang() {
       const thuDatCoc    = +row.thu_dat_coc    || 0;  // cọc thực nhận (để hiển thị breakdown)
       const thuThanhToan = +row.thu_thanh_toan || 0;  // thanh toán thực nhận
       const daThu        = +row.thu_thuc_te    || 0;  // tổng thực nhận
-      // Còn Thu = Tổng - Đã Cọc (q.deposit) - Đã Thu (tổng thực nhận)
-      const conThu = tongDon - datCoc - daThu;
+      // Còn Thu = Tổng − Đã Thu (thực nhận, ĐÃ gồm cọc đã ghi doanh thu) − phần cọc
+      // hợp đồng CHƯA ghi doanh thu. Tránh trừ CỌC 2 LẦN (deposit + thu_dat_coc nằm
+      // trong thu_thuc_te) làm còn-thu âm ở đơn đã thu đủ (anh Quang 2026-07-28).
+      const conThu = tongDon - daThu - Math.max(0, datCoc - thuDatCoc);
       const conThuClass = conThu <= 0 ? 'green' : (daThu === 0 && datCoc === 0 ? 'red' : 'amber');
 
       // PHẢI TRẢ = (cn phải trả NCC - đã trả NCC) + (phí VC - đã trả VC)

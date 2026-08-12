@@ -113,6 +113,7 @@ from hcns.app.routers.cong_trinh import router as cong_trinh_router
 from hcns.app.routers.ip_config import router as ip_config_router_hcns
 from hcns.app.routers.bao_cao_cong import router as bao_cao_cong_router
 from hcns.app.routers.profile_avatar import router as profile_avatar_router
+from hcns.app.routers.profile_workflow import router as profile_workflow_router
 from hcns.app.routers.chat import router as chat_router
 from shared.services.product_files import router as product_files_router
 
@@ -356,6 +357,7 @@ app.include_router(giao_viec_router, prefix="/api/giao-viec", tags=["giao-viec"]
 # Lịch Làm Việc — cross-app calendar
 app.include_router(calendar_router, prefix="/api/calendar", tags=["calendar"])
 app.include_router(cham_cong_router,      prefix="/api/cham-cong",    tags=["cham_cong"])
+app.include_router(profile_workflow_router, prefix="/api/profile-workflow", tags=["profile_workflow"])
 app.include_router(lenh_di_do_router,     prefix="/api/lenh-di-do",   tags=["lenh_di_do"])
 app.include_router(cong_trinh_router,     prefix="/api/cong-trinh",   tags=["cong_trinh"])
 app.include_router(ip_config_router_hcns, prefix="/api/ip-config",    tags=["ip_config"])

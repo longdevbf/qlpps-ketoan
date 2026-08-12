@@ -184,6 +184,7 @@ def bao_cao_dashboard(
     # Cross-app stats: NV count, đơn hàng count, marketing data/inbox
     tong_nv = 0
     so_don = 0
+    vat_dau_ra = 0.0
     so_data_mkt = 0
     so_inbox_mkt = 0
     nhansu_by_pb: list[tuple[str, int]] = []
@@ -205,13 +206,19 @@ def bao_cao_dashboard(
 
     try:
         from baogia.app.models import Quote  # noqa: WPS433
-        so_don = db.execute(
-            select(func.count(Quote.id))
+        # Số đơn + VAT ĐẦU RA (tien_thue) — theo THÁNG DUYỆT (khớp trang Đơn Hàng).
+        _row = db.execute(
+            select(
+                func.count(Quote.id),
+                func.coalesce(func.sum(Quote.tien_thue), 0),
+            )
             .where(Quote.duyet_status == "approved")
             .where(Quote.duyet_luc.isnot(None))
             .where(func.date(Quote.duyet_luc) >= tu)
             .where(func.date(Quote.duyet_luc) <= den)
-        ).scalar_one() or 0
+        ).one()
+        so_don = int(_row[0] or 0)
+        vat_dau_ra = float(_row[1] or 0)
     except Exception:
         pass
 
@@ -307,6 +314,7 @@ def bao_cao_dashboard(
         # KPIs
         "tong_nv": tong_nv,
         "so_don": int(so_don),
+        "vat_dau_ra": float(vat_dau_ra),
         "so_data_mkt": so_data_mkt,
         "so_inbox_mkt": so_inbox_mkt,
         "tong_cong_no": tong_cong_no,

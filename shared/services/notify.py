@@ -178,8 +178,13 @@ def notify(
     severity: str = "info",
     created_by: Optional[str] = None,
     publish: bool = True,
+    webpush: bool = True,
 ) -> Optional[Notification]:
-    """Tạo 1 noti row + publish Redis (cho SSE push). Caller phải db.commit()."""
+    """Tạo 1 noti row + publish Redis (cho SSE push). Caller phải db.commit().
+
+    webpush=False → vẫn tạo row + SSE (chuông realtime) nhưng KHÔNG đẩy OS Web Push
+    (dùng cho tin nhắn nhóm đông để tránh dội thông báo hệ điều hành).
+    """
     if not target:
         return None
     n = Notification(
@@ -213,11 +218,12 @@ def notify(
             },
         )
         # Web Push (OS-level notification + badge) — fail-soft, không break tx
-        _webpush_send(
-            db, target,
-            title=n.title, message=n.message, url=url,
-            ref_type=ref_type, ref_id=n.ref_id,
-        )
+        if webpush:
+            _webpush_send(
+                db, target,
+                title=n.title, message=n.message, url=url,
+                ref_type=ref_type, ref_id=n.ref_id,
+            )
     return n
 
 
@@ -510,6 +516,71 @@ def notify_order_ready_to_ship(db: Session, order, by: str) -> int:
         ref_id=getattr(order, "id", None),
         url="/?tab=van-chuyen",
         severity="warning",
+        created_by=by,
+    )
+
+
+def notify_quote_ttp_confirmed(db: Session, quote, po_id: Optional[str],
+                                mh_target: Optional[str], by: str) -> int:
+    """Baogia xác nhận đầy đủ 'thông tin phụ' — báo NV mua hàng phụ trách PO
+    (nếu đã có PO link với quote) + managers. Cross-app: target xem ở app
+    muahang → url phải absolute (khác domain nguồn baogia)."""
+    host = APP_HOST.get("muahang", "")
+    targets = [mh_target, *get_managers(db)] if po_id else list(get_managers(db))
+    if not targets:
+        return 0
+    return notify_many(
+        db,
+        targets=targets,
+        exclude=[by],
+        source_app="baogia",
+        event_type="quote:ttp_confirmed",
+        title=f"✅ Đã xác nhận đầy đủ thông tin phụ: {getattr(quote, 'quote_number', '')}",
+        message=f"Bởi: {_uname_to_name(db, by) or '—'}",
+        ref_type="order" if po_id else "quote",
+        ref_id=po_id or getattr(quote, "id", None),
+        url=(f"{host}/?order={po_id}" if po_id else None),
+        created_by=by,
+    )
+
+
+def notify_quote_ttp_missing(db: Session, quote, ly_do: str, by: str) -> int:
+    """Muahang báo thiếu thông tin phụ — báo NV Kinh Doanh phụ trách báo giá
+    + managers, xem ở app baogia (/duyet-don) → url absolute."""
+    host = APP_HOST.get("baogia", "")
+    targets = [getattr(quote, "salesperson", None), *get_managers(db)]
+    return notify_many(
+        db,
+        targets=targets,
+        exclude=[by],
+        source_app="muahang",
+        event_type="quote:ttp_missing",
+        title=f"⚠️ Thiếu thông tin phụ: {getattr(quote, 'quote_number', '')}",
+        message=f"Lý do: {ly_do or '—'}",
+        ref_type="quote",
+        ref_id=getattr(quote, "id", None),
+        url=f"{host}/duyet-don?quote_id={getattr(quote, 'id', '')}",
+        severity="warning",
+        created_by=by,
+    )
+
+
+def notify_quote_ttp_ack(db: Session, quote, by: str) -> int:
+    """Muahang xác nhận đã nhận đủ thông tin phụ — báo NV Kinh Doanh (đóng vòng
+    lặp, không cần chủ động vào lại xem)."""
+    host = APP_HOST.get("baogia", "")
+    targets = [getattr(quote, "salesperson", None), *get_managers(db)]
+    return notify_many(
+        db,
+        targets=targets,
+        exclude=[by],
+        source_app="muahang",
+        event_type="quote:ttp_ack",
+        title=f"✅ Mua Hàng đã xác nhận đủ thông tin: {getattr(quote, 'quote_number', '')}",
+        message=f"Bởi: {_uname_to_name(db, by) or '—'}",
+        ref_type="quote",
+        ref_id=getattr(quote, "id", None),
+        url=f"{host}/duyet-don?quote_id={getattr(quote, 'id', '')}",
         created_by=by,
     )
 

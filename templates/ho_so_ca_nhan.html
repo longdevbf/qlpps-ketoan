@@ -224,7 +224,7 @@ async function loadMyPayroll(){
   const thang = $('me-cc-month').value;
   if(!thang) return;
   $('me-summary').innerHTML = '';
-  $('me-payroll-detail').innerHTML = '<div class="empty"><div class="spinner"></div> Đang tải...</div>';
+    $('me-payroll-detail').innerHTML = '<div class="empty"><div class="spinner"></div> Đang tải...</div>';
   $('me-cham-cong-calendar').innerHTML = '<div class="empty"><div class="spinner"></div> Đang tải...</div>';
   try {
     const d = await api('GET', `/api/payroll/me?thang=${thang}`);
@@ -274,6 +274,7 @@ async function loadMyPayroll(){
       ['− Đoàn phí công đoàn', p.doan_phi_tru, 'var(--danger)'],
       ['− Ứng lương' + (p.ung_luong_so_lan?` (${p.ung_luong_so_lan} lần)`:''), p.ung_luong||0, 'var(--danger)'],
     ];
+    const _m5=(p.luong_theo_cong||0)+(p.an_trua||0)-(p.bhxh_tru||0)-(p.ung_luong||0)-(p.doan_phi_tru||0); const _m15=(p.luong_thuc_nhan||0)-_m5;
     $('me-payroll-detail').innerHTML = `
       <table style="width:100%;border-collapse:collapse;font-size:14px">
         <tbody>
@@ -284,6 +285,14 @@ async function loadMyPayroll(){
           <tr style="background:var(--success-soft)">
             <td style="padding:14px 12px;font-weight:800;color:var(--success-fg);font-size:15px">Lương thực nhận</td>
             <td style="padding:14px 12px;text-align:right;font-weight:900;color:var(--success-fg);font-size:17px;font-variant-numeric:tabular-nums">${fmtVnd(p.luong_thuc_nhan)}đ</td>
+          </tr>
+          <tr style="background:#eff6ff">
+            <td style="padding:12px;font-weight:800;color:#1e40af;font-size:13px">📅 Lương trả M5 <span style="font-weight:400;color:var(--text-3);font-size:10px">(cứng+ăn trưa−BHXH−ứng−CĐ)</span></td>
+            <td style="padding:12px;text-align:right;font-weight:900;color:#1e40af;font-size:16px;font-variant-numeric:tabular-nums">${fmtVnd(_m5)}đ</td>
+          </tr>
+          <tr style="background:#eff6ff">
+            <td style="padding:12px;font-weight:800;color:#0369a1;font-size:13px">📅 Lương trả M15 <span style="font-weight:400;color:var(--text-3);font-size:10px">(phần còn lại)</span></td>
+            <td style="padding:12px;text-align:right;font-weight:900;color:#0369a1;font-size:16px;font-variant-numeric:tabular-nums">${fmtVnd(_m15)}đ</td>
           </tr>
         </tbody>
       </table>

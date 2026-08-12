@@ -42,6 +42,66 @@ def _safe_rows_silent(db: Session, sql: str, **params) -> list[dict[str, Any]]:
         return []
 
 
+# -------------------- BHXH (HCNS) --------------------
+
+@router.get("/bhxh")
+def get_bhxh_external(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+    trang_thai: Optional[str] = Query("Đang đóng", description="Lọc trạng thái; '' = tất cả"),
+):
+    """Danh sách BHXH + TỔNG tiền đóng (đọc hcns.bhxh, READ-ONLY) để kế toán nắm
+    tổng phải nộp cơ quan BHXH = NLĐ (10.5%, trừ lương NV) + NSDLĐ (21.5%, công ty đóng).
+    NSDLĐ là CHI PHÍ công ty; NLĐ đã trừ vào lương (bhxh_tru ở bảng lương)."""
+    where = ""
+    params: dict[str, Any] = {}
+    st = (trang_thai or "").strip()
+    if st:
+        where = "WHERE trang_thai = :st"
+        params["st"] = st
+    sql = f"""
+        SELECT ma_nv, ho_ten, phong_ban, chuc_vu, muc_dong, trang_thai,
+               COALESCE(luong_dong,0)  AS luong_dong,
+               COALESCE(nld_bhxh,0)    AS nld_bhxh,   COALESCE(nld_bhyt,0)   AS nld_bhyt,
+               COALESCE(nld_bhtn,0)    AS nld_bhtn,   COALESCE(nld_tong,0)   AS nld_tong,
+               COALESCE(nsdld_bhxh,0)  AS nsdld_bhxh, COALESCE(nsdld_bhyt,0) AS nsdld_bhyt,
+               COALESCE(nsdld_bhtn,0)  AS nsdld_bhtn, COALESCE(nsdld_tong,0) AS nsdld_tong
+        FROM hcns.bhxh
+        {where}
+        ORDER BY phong_ban NULLS LAST, ho_ten
+    """
+    rows = _safe_rows(db, sql, **params)
+    if rows and rows[0].get("_error"):
+        return {"data": [], "totals": {}, "error": rows[0]["_error"]}
+
+    def _f(x):
+        try:
+            return float(x or 0)
+        except Exception:
+            return 0.0
+    _NUM = ("luong_dong", "nld_bhxh", "nld_bhyt", "nld_bhtn", "nld_tong",
+            "nsdld_bhxh", "nsdld_bhyt", "nsdld_bhtn", "nsdld_tong")
+    data: list[dict[str, Any]] = []
+    T: dict[str, Any] = {"so_nv": 0}
+    for k in _NUM:
+        T[k] = 0.0
+    for r in rows:
+        item = {
+            "ma_nv": r.get("ma_nv"), "ho_ten": r.get("ho_ten"),
+            "phong_ban": r.get("phong_ban"), "chuc_vu": r.get("chuc_vu"),
+            "muc_dong": r.get("muc_dong"), "trang_thai": r.get("trang_thai"),
+        }
+        for k in _NUM:
+            v = _f(r.get(k))
+            item[k] = v
+            T[k] += v
+        item["tong"] = item["nld_tong"] + item["nsdld_tong"]  # tổng nộp của NV này
+        data.append(item)
+        T["so_nv"] += 1
+    T["tong_nop"] = T["nld_tong"] + T["nsdld_tong"]  # tổng phải nộp cơ quan BHXH
+    return {"data": data, "totals": T, "trang_thai": st or "Tất cả"}
+
+
 # -------------------- LƯƠNG (HCNS) --------------------
 
 @router.get("/luong")
@@ -506,6 +566,7 @@ def orders_overview(
             -- ĐƠN
             q.quote_number AS ma_bg, q.customer_name, q.customer_phone,
             q.salesperson, q.created_at AS ngay_tao,
+            COALESCE(q.duyet_luc, q.created_at) AS ngay_duyet,
             q.tong_don, q.deposit, q.tien_thue,
 
             -- TIẾN TRÌNH
@@ -609,19 +670,25 @@ def orders_optimization(
                COALESCE(q.discount_amount, 0)  AS discount_amount,
                COALESCE(q.tien_thue, 0)        AS tien_thue,
                COALESCE(q.tong_don, 0)         AS tong_don,
-               c.loai_don
+               c.loai_don, c.papasan_base
         FROM baogia.quotes q
         LEFT JOIN hcns.employees e
                ON LOWER(e.ma_nv) = LOWER(substring(q.quote_number from '^(NV[0-9]+)'))
         LEFT JOIN LATERAL (
-            -- Loại đơn theo SP CHÍNH — KHỚP engine HCNS `co_che_toi_uu` (2026-07-15):
-            -- phụ kiện/dịch vụ trung lập; mây-và-không-gỗ → Mây; có gỗ → Gỗ.
-            SELECT CASE
-                     WHEN bool_or(p.nhom_master = 'Đồ Mây')
-                          AND NOT bool_or(p.nhom_master = 'Đồ Gỗ') THEN 'Đồ Mây'
-                     WHEN bool_or(p.nhom_master = 'Đồ Gỗ')        THEN 'Đồ Gỗ'
-                     ELSE NULL
-                   END AS loai_don
+            -- Loại đơn theo SP CHÍNH — KHỚP engine HCNS `co_che_toi_uu`:
+            -- phụ kiện/dịch vụ trung lập; có gỗ → Gỗ; mây → Mây.
+            -- GHẾ PAPASAN (anh Quang 2026-07-27): SP ghế Papasan MIỄN chính sách CK.
+            -- `papasan_base` = tổng giá trị dòng ghế Papasan (trước CK) → Python tách:
+            -- đơn TOÀN Papasan → 'Ghế Papasan' miễn; đơn PHA → 'Đồ Mây' nhưng chỉ tính
+            -- trần 15% trên phần đồ mây khác (loại giá trị Papasan ra theo tỷ trọng).
+            SELECT
+              CASE
+                WHEN bool_or(p.nhom_master = 'Đồ Gỗ')  THEN 'Đồ Gỗ'
+                WHEN bool_or(p.nhom_master = 'Đồ Mây') THEN 'Đồ Mây'
+                ELSE NULL
+              END AS loai_don,
+              COALESCE(SUM(COALESCE(qi.don_gia_tinh,0) * COALESCE(qi.so_luong,1))
+                       FILTER (WHERE qi.product_type ILIKE '%papasan%'), 0) AS papasan_base
             FROM baogia.quote_items qi
             JOIN shared.products p ON p.ten_sp = qi.product_type
             WHERE qi.quote_id = q.id
@@ -663,12 +730,44 @@ def orders_optimization(
             tam_tinh = chua_thue + amt
         tam_tinh = max(0.0, tam_tinh)
         tong_giam = max(0.0, tam_tinh - chua_thue)
-        ck_pct_eff = (tong_giam / tam_tinh * 100.0) if tam_tinh > 0 else 0.0
-        # Trần CK theo LOẠI ĐƠN: Đồ Mây 15%; Đồ Gỗ / chưa phân loại → 20%.
-        loai_don = (r.get("loai_don") or "").strip() or None
-        mck = max_ck_may if loai_don == "Đồ Mây" else max_ck_go
-        so_tien_toi_uu = (mck / 100.0) * tam_tinh - tong_giam
-        toi_uu_pct = mck - ck_pct_eff
+
+        # ── GHẾ PAPASAN — miễn chính sách chiết khấu (anh Quang 2026-07-27) ──
+        # papasan_base = giá trị dòng ghế Papasan (trước CK). Tách phần đồ mây khác
+        # CHỊU trần 15%; giảm giá phân bổ theo TỶ TRỌNG giá trị.
+        loai_base = (r.get("loai_don") or "").strip() or None
+        papasan_base = float(r.get("papasan_base") or 0)
+        is_papasan = False       # đơn TOÀN ghế Papasan → miễn hẳn
+        is_papasan_mix = False   # đơn PHA: Papasan + đồ mây khác
+        if loai_base == "Đồ Mây" and papasan_base > 0 and tam_tinh > 0:
+            eligible = tam_tinh - papasan_base   # phần đồ mây khác (chịu CK)
+            if eligible < 1000.0:                # coi như toàn Papasan (chừa sai số)
+                is_papasan = True
+            else:
+                is_papasan_mix = True
+
+        if is_papasan:
+            # Toàn Papasan: hiển thị nguyên đơn, tối ưu = 0.
+            loai_don = "Ghế Papasan"; mck = 0.0
+            so_tien_toi_uu = 0.0; toi_uu_pct = 0.0
+            ck_pct_eff = (tong_giam / tam_tinh * 100.0) if tam_tinh > 0 else 0.0
+            row_tam_tinh, row_tong_giam = tam_tinh, tong_giam
+        elif is_papasan_mix:
+            # Đơn pha: chỉ tính trần 15% trên phần đồ mây khác; giảm giá phân bổ
+            # theo tỷ trọng. Row hiển thị theo phần đồ mây khác (badge "trừ Papasan").
+            loai_don = "Đồ Mây"; mck = max_ck_may
+            frac = max(0.0, min(1.0, eligible / tam_tinh))
+            row_tam_tinh = eligible
+            row_tong_giam = tong_giam * frac
+            ck_pct_eff = (row_tong_giam / row_tam_tinh * 100.0) if row_tam_tinh > 0 else 0.0
+            so_tien_toi_uu = (mck / 100.0) * row_tam_tinh - row_tong_giam
+            toi_uu_pct = mck - ck_pct_eff
+        else:
+            loai_don = loai_base
+            mck = max_ck_may if loai_base == "Đồ Mây" else max_ck_go
+            ck_pct_eff = (tong_giam / tam_tinh * 100.0) if tam_tinh > 0 else 0.0
+            so_tien_toi_uu = (mck / 100.0) * tam_tinh - tong_giam
+            toi_uu_pct = mck - ck_pct_eff
+            row_tam_tinh, row_tong_giam = tam_tinh, tong_giam
         sp_canon = (r.get("salesperson") or "(không rõ)")
 
         orders.append({
@@ -678,13 +777,16 @@ def orders_optimization(
             "ngay_tao": r.get("ngay_tao"),
             "ngay_duyet": r.get("ngay_duyet"),
             "loai_don": loai_don or "Chưa phân loại",
+            "is_papasan": is_papasan,
+            "is_papasan_mix": is_papasan_mix,
+            "papasan_base": round(papasan_base),
             "max_ck_ap_dung": mck,
-            "tam_tinh": round(tam_tinh),
-            "tong_giam": round(tong_giam),
+            "tam_tinh": round(row_tam_tinh),
+            "tong_giam": round(row_tong_giam),
             "ck_pct": round(ck_pct_eff, 2),
             "toi_uu_pct": round(toi_uu_pct, 2),
             "so_tien_toi_uu": round(so_tien_toi_uu),
-            "vuot_chinh_sach": so_tien_toi_uu < 0,
+            "vuot_chinh_sach": (so_tien_toi_uu < 0) and not is_papasan,
         })
 
         a = sp_agg.setdefault(sp_canon, {
@@ -692,13 +794,13 @@ def orders_optimization(
             "tam_tinh": 0.0, "tong_giam": 0.0, "toi_uu": 0.0,
         })
         a["so_don"] += 1
-        a["tam_tinh"] += tam_tinh
-        a["tong_giam"] += tong_giam
+        a["tam_tinh"] += row_tam_tinh
+        a["tong_giam"] += row_tong_giam
         a["toi_uu"] += so_tien_toi_uu
 
         T["so_don"] += 1
-        T["tam_tinh"] += tam_tinh
-        T["tong_giam"] += tong_giam
+        T["tam_tinh"] += row_tam_tinh
+        T["tong_giam"] += row_tong_giam
         T["toi_uu"] += so_tien_toi_uu
 
         # Tách theo loại đơn. `toi_uu` = cộng có dấu (âm = vượt chính sách, giữ
@@ -710,8 +812,8 @@ def orders_optimization(
             "toi_uu": 0.0, "toi_uu_hcns": 0.0,
         })
         L["so_don"] += 1
-        L["tam_tinh"] += tam_tinh
-        L["tong_giam"] += tong_giam
+        L["tam_tinh"] += row_tam_tinh
+        L["tong_giam"] += row_tong_giam
         L["toi_uu"] += so_tien_toi_uu
         if so_tien_toi_uu > 0:
             L["toi_uu_hcns"] += so_tien_toi_uu
@@ -729,12 +831,13 @@ def orders_optimization(
     ck_tb_all = (T["tong_giam"] / T["tam_tinh"] * 100.0) if T["tam_tinh"] > 0 else 0.0
 
     # Tối ưu tách Mây / Gỗ / Tổng — thứ tự cố định để UI luôn hiển thị đủ ô.
+    # "Ghế Papasan" + "Chưa phân loại" chỉ hiện khi THỰC SỰ có đơn (miễn CK, tối ưu=0).
     by_loai = []
-    for key in ("Đồ Mây", "Đồ Gỗ", "Chưa phân loại"):
+    for key in ("Đồ Mây", "Đồ Gỗ", "Ghế Papasan", "Chưa phân loại"):
         a = T_loai.get(key)
         if not a:
-            if key == "Chưa phân loại":
-                continue  # chỉ hiện khi thực sự có đơn chưa phân loại
+            if key in ("Chưa phân loại", "Ghế Papasan"):
+                continue  # chỉ hiện khi thực sự có đơn loại này
             a = {"loai_don": key, "so_don": 0, "tam_tinh": 0.0, "tong_giam": 0.0,
                  "toi_uu": 0.0, "toi_uu_hcns": 0.0,
                  "max_ck": max_ck_may if key == "Đồ Mây" else max_ck_go}

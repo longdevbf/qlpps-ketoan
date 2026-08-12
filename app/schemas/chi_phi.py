@@ -22,6 +22,7 @@ class ChiPhiBase(BaseModel):
     mo_ta: Optional[str] = None
     ghi_chu: Optional[str] = None
     ref_vc: Optional[str] = None
+    ref_payroll_thang_pb: Optional[str] = None  # 'YYYY-MM' (ứng lương) hoặc 'PAYROLL-...' (bridge)
 
 
 class ChiPhiCreate(ChiPhiBase):
@@ -35,6 +36,9 @@ class ChiPhiCreate(ChiPhiBase):
     """
     tai_khoan_id: Optional[int] = None
     cong_no_ncc_id: Optional[str] = None
+    # Kỳ lương (chỉ dùng cho 'Ứng Lương'): 'YYYY-MM' — ứng cho tháng lương nào.
+    # Lưu vào cột ref_payroll_thang_pb; HCNS payroll trừ theo kỳ này (không theo ngày).
+    ky_luong: Optional[str] = None
 
 
 class ChiPhiUpdate(BaseModel):
@@ -52,6 +56,7 @@ class ChiPhiUpdate(BaseModel):
     hoa_don_url: Optional[str] = None
     mo_ta: Optional[str] = None
     ghi_chu: Optional[str] = None
+    ky_luong: Optional[str] = None  # 'YYYY-MM' → ref_payroll_thang_pb (ứng lương)
 
 
 class ChiPhiOut(ChiPhiBase):

@@ -115,8 +115,14 @@ def _sync_coc_to_soquy(db: Session, quote, username: str) -> None:
         nm = _quote_nhom_master(db, getattr(quote, "id", None)) or ""
         loai_dt = "Doanh thu đồ mây" if nm == "Đồ Mây" else "Doanh thu đồ gỗ lẻ"
 
+        # Ghi sổ quỹ theo NGÀY DUYỆT ĐƠN (anh Quang 2026-08-10): cọc lên sổ quỹ
+        # đúng ngày đơn được duyệt (duyet_luc) — khớp doanh số ghi nhận theo tháng
+        # duyệt; KHÔNG dùng coc_ngay/ngày tạo báo giá nữa. Fallback: kt_duyet_luc
+        # (luôn có lúc KT duyệt cọc) → coc_ngay → hôm nay.
+        _duyet = getattr(quote, "duyet_luc", None) or getattr(quote, "kt_duyet_luc", None)
+        _ngay_ghi = _duyet.date() if _duyet else (quote.coc_ngay or _date_cls.today())
         dt = DoanhThu(
-            ngay=quote.coc_ngay or _date_cls.today(),
+            ngay=_ngay_ghi,
             loai=loai_dt,
             so_tien=Decimal(str(so_tien)),
             nv_kinh_doanh=quote.salesperson or None,
@@ -136,6 +142,32 @@ def _sync_coc_to_soquy(db: Session, quote, username: str) -> None:
         import logging
         logging.getLogger(__name__).warning(
             "sync_coc_to_soquy failed qid=%s", getattr(quote, "id", None), exc_info=True
+        )
+
+
+def _mark_customer_da_mua(db: Session, quote) -> None:
+    """KT duyệt cọc → đặt tien_trinh khách hàng = 'Đã Mua' (Customer + Lead
+    liên kết, mirror qua shared.services.quote_lead_link.mark_da_mua).
+
+    Fail-soft — lỗi không chặn việc duyệt cọc. Transaction riêng, giống
+    _sync_coc_to_soquy.
+    """
+    cust_id = getattr(quote, "customer_id", None)
+    if not cust_id:
+        return
+    try:
+        from baogia.app.models import Customer
+        from shared.services.quote_lead_link import mark_da_mua
+
+        cust = db.get(Customer, cust_id)
+        if cust is not None:
+            mark_da_mua(db, cust)
+            db.commit()
+    except Exception:
+        db.rollback()
+        import logging
+        logging.getLogger(__name__).warning(
+            "mark_customer_da_mua failed qid=%s", getattr(quote, "id", None), exc_info=True
         )
 
 
@@ -263,6 +295,8 @@ def kt_duyet(
         })
         # Cọc chạy thẳng lên sổ quỹ (idempotent, fail-soft)
         _sync_coc_to_soquy(db, quote, user.username)
+        # Khách hàng → "Đã Mua" (Customer + Lead liên kết, idempotent, fail-soft)
+        _mark_customer_da_mua(db, quote)
 
     log_action(
         db, app="ketoan", action=f"kt_duyet_{body.action}", user=user, request=request,

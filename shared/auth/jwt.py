@@ -147,6 +147,14 @@ def current_user(token: Annotated[str, Depends(_extract_token)]) -> JWTPayload:
     except Exception:
         pass  # Fail-soft
 
+    # ── Đăng xuất mọi thiết bị ── token cấp TRƯỚC mốc force-logout → 401 (buộc login lại).
+    # Fail-soft: is_token_force_logged_out tự trả False nếu Redis lỗi → không chặn nhầm.
+    if is_token_force_logged_out(payload.username, payload.iat):
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Bạn đã được đăng xuất khỏi thiết bị này. Vui lòng đăng nhập lại.",
+        )
+
     # ── Presence tracking ── mọi request có JWT hợp lệ ở mọi app đều mark online
     try:
         from shared.utils.presence import mark_online
@@ -207,6 +215,54 @@ def _check_user_active_or_401(username: str) -> None:
         raise
     except Exception:
         pass  # Fail-soft
+
+
+def _force_logout_redis():
+    """Redis client cho cờ force-logout. None nếu lỗi (fail-soft)."""
+    import os
+    import redis as _redis_mod
+    url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+    return _redis_mod.Redis.from_url(
+        url, socket_timeout=2, socket_connect_timeout=2, decode_responses=True,
+    )
+
+
+def is_token_force_logged_out(username: str, iat: int) -> bool:
+    """True nếu access token (iat) được cấp TRƯỚC mốc 'đăng xuất mọi thiết bị'
+    của user (Redis auth:logout_after:{username}). Fail-soft: Redis lỗi → False."""
+    try:
+        val = _force_logout_redis().get(f"auth:logout_after:{username}")
+    except Exception:
+        return False
+    if not val:
+        return False
+    try:
+        return int(iat) < int(float(val))
+    except (TypeError, ValueError):
+        return False
+
+
+def force_logout_all(username: str) -> bool:
+    """ĐĂNG XUẤT user khỏi MỌI thiết bị: mọi access token cấp TRƯỚC thời điểm này
+    đều bị vô hiệu (current_user trả 401 + sliding-session không gia hạn) → user
+    phải đăng nhập lại. Cờ TTL 32 ngày (> max access TTL 30 ngày). True nếu set OK."""
+    try:
+        import time
+        _force_logout_redis().setex(
+            f"auth:logout_after:{username}", 32 * 24 * 3600, str(int(time.time())),
+        )
+        return True
+    except Exception:
+        return False
+
+
+def clear_force_logout(username: str) -> bool:
+    """Gỡ cờ force-logout của user (nếu cần khôi phục sớm)."""
+    try:
+        _force_logout_redis().delete(f"auth:logout_after:{username}")
+        return True
+    except Exception:
+        return False
 
 
 def require_role(*allowed_roles: str):

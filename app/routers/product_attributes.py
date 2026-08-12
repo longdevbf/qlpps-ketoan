@@ -325,6 +325,10 @@ def update_attribute(
             status.HTTP_404_NOT_FOUND, "Thuộc tính không tồn tại"
         )
     fields = body.model_dump(exclude_unset=True)
+    # Ghi nhớ coeff cũ + đây có phải dòng DEFAULT (product_id NULL) không —
+    # để propagate hệ số xuống các override per-product đang mirror default.
+    _old_coeff = obj.coeff
+    _is_default = obj.product_id is None
     for k, v in fields.items():
         setattr(obj, k, v)
     try:
@@ -336,10 +340,33 @@ def update_attribute(
             "Trùng giá trị trong cùng nhóm — không thể đổi",
         )
     db.refresh(obj)
+
+    # ── Propagate hệ số: khi đổi coeff của 1 dòng DEFAULT, cập nhật các bản
+    # override per-product ĐANG khớp default CŨ → giữ mirror đồng bộ (tránh lệch
+    # kiểu "kế toán 1.5 nhưng sale 1.0"). KHÔNG đụng override cố ý khác default.
+    propagated = 0
+    if (_is_default and "coeff" in fields and obj.coeff is not None
+            and _old_coeff is not None and obj.coeff != _old_coeff):
+        mirrors = db.execute(
+            select(ProductAttribute).where(
+                ProductAttribute.product_id.is_not(None),
+                ProductAttribute.nhom_master == obj.nhom_master,
+                ProductAttribute.attr_key == obj.attr_key,
+                ProductAttribute.attr_value == obj.attr_value,
+                ProductAttribute.coeff == _old_coeff,
+            )
+        ).scalars().all()
+        for m in mirrors:
+            m.coeff = obj.coeff
+            propagated += 1
+        if propagated:
+            db.commit()
+
     log_action(
         db, app="ketoan", action="update_product_attribute",
         user=user, request=request,
-        resource=f"product_attribute:{aid}", payload=fields,
+        resource=f"product_attribute:{aid}",
+        payload={**fields, "propagated_to_products": propagated},
     )
     return obj
 
