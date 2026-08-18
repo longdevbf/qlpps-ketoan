@@ -72,7 +72,7 @@ def _user_phong_ban(username: str) -> Optional[str]:
     """Lấy phong_ban của user từ hcns.employees (qua _lookup_user_info cache)."""
     if not username:
         return None
-    _, pb, _, _ = _lookup_user_info(username)
+    _, pb, _, _, _ = _lookup_user_info(username)
     return pb or None
 
 
@@ -427,7 +427,7 @@ def create_expense_request(
     if body.so_tien <= 0:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Số tiền phải > 0")
 
-    ho_ten, phong_ban, _, _ = _lookup_user_info(user.username)
+    ho_ten, phong_ban, _, _, _ = _lookup_user_info(user.username)
     host = request.headers.get("host", "")
     app_name = host.split(".")[0] if "." in host else (host or "internal")
 
@@ -535,7 +535,7 @@ def duyet_expense_request(
             f"Bạn không có quyền duyệt ở cấp này — cần {label}",
         )
 
-    ho_ten_duyet, _, _, _ = _lookup_user_info(user.username)
+    ho_ten_duyet, _, _, _, _ = _lookup_user_info(user.username)
     ho_ten_duyet = ho_ten_duyet or user.username
     now = datetime.now(timezone.utc)
     action = "approve" if body.trang_thai == "da_duyet" else "reject"

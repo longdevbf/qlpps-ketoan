@@ -4603,6 +4603,9 @@ async function submitCongNoTra() {
       closeModal('modal-cn-tra');
       _CN_TRA_CTX = null;
       loadCongNo('');
+      // Nếu đang ở tab Công Nợ NCC (modal traCongNo dùng chung) — refresh luôn
+      // để cột Ngày thanh toán cập nhật ngay, không cần đổi tab qua lại.
+      if (document.getElementById('ncc-module-tbody')) loadNccModule(_nccFilter);
     } else {
       toast(d.error || d.detail || `Lỗi (HTTP ${res.status})`, 'error');
     }
@@ -10769,16 +10772,25 @@ async function submitChangePassword() {
 // ── CÔNG NỢ NCC MODULE ────────────────────────────────────────────────────
 let _nccFilter = 'all';
 
-/* Bề rộng 7 cột dùng CHUNG cho bảng cha và mọi bảng con của trang Công nợ NCC
-   — nhờ vậy 3 cột tiền của dòng con thẳng hàng dọc với cột tiền dòng cha. */
+/* Cột riêng cho bảng con (chi tiết từng đơn) của trang Công nợ NCC.
+   Anh Quang 2026-08-13: TRƯỚC ĐÂY dùng chung colgroup 7 cột với bảng cha
+   nhưng dòng dữ liệu (rows bên dưới) lại render 8 <td> theo thứ tự
+   [mã đơn, số tiền, đã trả, còn lại, nhóm, trạng thái, thao tác] trong khi
+   <thead> chỉ có 7 <th> theo thứ tự KHÁC [mã đơn, số tiền, nhóm·trạng thái,
+   đã trả, còn lại, thao tác] → số liệu hiện lệch cột so với tiêu đề (user
+   báo cáo kèm ảnh chụp). Nay ĐỒNG BỘ thead/rows cùng 1 thứ tự + thêm cột
+   Ngày thanh toán, không cố ép thẳng hàng với bảng cha nữa (2 bảng biểu thị
+   khái niệm khác nhau — cha gộp Nợ Thực/Dự Kiến, con chỉ có Số tiền). */
 const NCC_COLS = '<colgroup>'
-  + '<col style="width:34px">'      /* mũi ▶ */
-  + '<col style="width:26%">'       /* NCC / Mã đơn */
-  + '<col style="width:15%">'       /* Nợ thực / Số tiền */
-  + '<col style="width:16%">'       /* Dự kiến / Nhóm · Trạng thái */
-  + '<col style="width:14%">'       /* Đã trả */
-  + '<col style="width:15%">'       /* Còn nợ / Còn lại */
-  + '<col style="width:12%">'       /* Số đơn / Thao tác */
+  + '<col style="width:30px">'   /* mũi (rỗng ở dòng con) */
+  + '<col style="width:22%">'    /* Mã đơn */
+  + '<col style="width:11%">'    /* Số tiền */
+  + '<col style="width:11%">'    /* Đã trả */
+  + '<col style="width:11%">'    /* Còn lại */
+  + '<col style="width:9%">'     /* Nhóm */
+  + '<col style="width:9%">'     /* Trạng thái */
+  + '<col style="width:12%">'    /* Ngày thanh toán */
+  + '<col style="width:15%">'    /* Thao tác */
   + '</colgroup>';
 
 async function loadNccModule(filter) {
@@ -10841,6 +10853,7 @@ async function loadNccModule(filter) {
           <td style="text-align:right;font-size:13px;${conLaiClass}"><b>${fmt(d.con_lai)}</b></td>
           <td style="text-align:center">${nhomBadge}</td>
           <td style="text-align:center">${ttBadge}</td>
+          <td style="text-align:center;font-size:13px">${d.ngay_tra ? d.ngay_tra.split('-').reverse().join('/') : '—'}</td>
           <td style="text-align:center">
             ${d.con_lai > 0 ? `<button class="btn btn-success btn-sm" onclick='traCongNo(${JSON.stringify({id:d.id,da_tra:d.da_tra,so_tien:d.so_tien,con_lai:d.con_lai,doi_tac:"${g.doi_tac}",ma_don:d.ma_don||"",loai:"phai_tra"})})' title="Ghi nhận trả">Ghi nhận trả</button>` : ''}
           </td>
@@ -10870,9 +10883,11 @@ async function loadNccModule(filter) {
           <thead><tr>
             <th></th><th>Mã đơn</th>
             <th style="text-align:right">Số tiền</th>
-            <th>Nhóm · Trạng thái</th>
             <th style="text-align:right">Đã trả</th>
             <th style="text-align:right">Còn lại</th>
+            <th style="text-align:center">Nhóm</th>
+            <th style="text-align:center">Trạng thái</th>
+            <th style="text-align:center">Ngày thanh toán</th>
             <th style="text-align:center">Thao tác</th>
           </tr></thead>
           <tbody>${rows}</tbody>

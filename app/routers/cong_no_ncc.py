@@ -409,6 +409,7 @@ def ncc_module(
         SELECT
             cn.id, cn.ngay, cn.doi_tac, cn.so_tien, cn.da_tra, cn.con_lai,
             cn.trang_thai, cn.ma_don, cn.ref_id, cn.ref_source, cn.ghi_chu, cn.han_thanh_toan,
+            cn.ngay_tra,
             q.quote_number, q.tien_trinh_mh, q.customer_name, q.salesperson, q.tong_don,
             vc.trang_thai AS vc_trang_thai, vc.ma_vh,
             po.id          AS po_id,
@@ -538,6 +539,7 @@ def ncc_module(
             "con_lai": con_lai_row,
             "trang_thai": r.get("trang_thai") or "",
             "han_thanh_toan": r.get("han_thanh_toan"),
+            "ngay_tra": r["ngay_tra"].isoformat() if r.get("ngay_tra") else None,
             "ghi_chu": r.get("ghi_chu") or "",
             "tien_trinh_mh": tt_mh,
             "vc_trang_thai": r.get("vc_trang_thai") or "",

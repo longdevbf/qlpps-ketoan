@@ -193,7 +193,7 @@ def _user_phong_ban(username: str) -> Optional[str]:
         return None
     try:
         from shared.templates import _lookup_user_info
-        _, pb, _, _ = _lookup_user_info(username)
+        _, pb, _, _, _ = _lookup_user_info(username)
         return pb or None
     except Exception:
         return None

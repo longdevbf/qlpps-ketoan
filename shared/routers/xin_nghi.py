@@ -162,7 +162,7 @@ def create_leave_request(
             "Lý do không được để trống",
         )
 
-    ho_ten, phong_ban, _, _ = _lookup_user_info(user.username)
+    ho_ten, phong_ban, _, _, _ = _lookup_user_info(user.username)
     so_ngay = _calc_so_ngay(body.ngay_bat_dau, body.ngay_ket_thuc, body.buoi)
 
     # Detect app name từ Host header (vd: marketing.qlpps.com → marketing)
@@ -252,7 +252,7 @@ def duyet_leave_request(
             f"Bạn không có quyền duyệt đơn của app '{rec.app_name}'",
         )
 
-    ho_ten_duyet, _, _, _ = _lookup_user_info(user.username)
+    ho_ten_duyet, _, _, _, _ = _lookup_user_info(user.username)
     rec.trang_thai = body.trang_thai
     rec.nguoi_duyet = user.username
     rec.ho_ten_nguoi_duyet = ho_ten_duyet or user.username
