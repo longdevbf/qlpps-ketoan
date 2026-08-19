@@ -247,6 +247,48 @@ def notify_many(
     return count
 
 
+def ketoan_team_usernames(db: Session) -> list[str]:
+    """Đội KẾ TOÁN — để bắn thông báo MỌI việc cần KT phê duyệt/đối chiếu
+    (anh Quang 2026-08-11). = active users có role kế toán (ke_toan/kt) HOẶC có
+    app 'ketoan' trong shared.users.apps. BAO GỒM cả CEO/admin (anh Quang muốn
+    sếp cũng thấy mọi việc chờ KT). Fail-soft → [] nếu lỗi."""
+    try:
+        from shared.models import User
+        from sqlalchemy import select
+        rows = db.execute(
+            select(User.username, User.role, User.apps).where(User.active.is_(True))
+        ).all()
+    except Exception:
+        return []
+    out: list[str] = []
+    for uname, role, apps in rows:
+        if not uname:
+            continue
+        r = (role or "").lower()
+        app_set = {str(a).lower() for a in (apps or [])}
+        if r in ("ke_toan", "kt") or "ketoan" in app_set:
+            out.append(uname)
+    return out
+
+
+def notify_ketoan(
+    db: Session, *, source_app: str, event_type: str, title: str,
+    message: Optional[str] = None, ref_type: Optional[str] = None,
+    ref_id=None, url: Optional[str] = None, severity: str = "info",
+    by: Optional[str] = None,
+) -> int:
+    """Bắn thông báo tới TOÀN ĐỘI KẾ TOÁN. Trả số noti đã tạo. Caller commit."""
+    targets = ketoan_team_usernames(db)
+    if not targets:
+        return 0
+    return notify_many(
+        db, targets, exclude=[by] if by else None,
+        source_app=source_app, event_type=event_type, title=title,
+        message=message, ref_type=ref_type, ref_id=ref_id, url=url,
+        severity=severity, created_by=by,
+    )
+
+
 # ─── Resolvers theo event ────────────────────────────────────────────────────
 # Đây là logic "ai cần biết về event này". Tách riêng để 3 app gọi được.
 
@@ -257,6 +299,8 @@ APP_HOST = {
     "marketing": _os.environ.get("HOST_MARKETING", "https://marketing.qlpps.com"),
     "baogia":    _os.environ.get("HOST_BAOGIA",    "https://baogia.qlpps.com"),
     "muahang":   _os.environ.get("HOST_MUAHANG",   "https://muahang.qlpps.com"),
+    "ketoan":    _os.environ.get("HOST_KETOAN",    "https://ketoan.qlpps.com"),
+    "saleadmin": _os.environ.get("HOST_SALEADMIN", "https://saleadmin.qlpps.com"),
 }
 
 

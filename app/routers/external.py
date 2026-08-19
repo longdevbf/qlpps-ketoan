@@ -575,6 +575,9 @@ def orders_overview(
             v.ma_vh, v.trang_thai AS vc_status, v.ngay_giao,
             v.don_vi_vc,
             v.ketoan_approved_at, v.ketoan_approved_by,
+            (COALESCE((SELECT MAX((e->>'ts')::timestamp) FROM jsonb_array_elements(COALESCE(v.tien_trinh,'[]'::jsonb)) e WHERE e->>'stage'='hoan_sla'), '1900-01-01'::timestamp)
+             > COALESCE((SELECT MAX((e->>'ts')::timestamp) FROM jsonb_array_elements(COALESCE(v.tien_trinh,'[]'::jsonb)) e WHERE e->>'stage'='bo_hoan_sla'), '1900-01-01'::timestamp)
+            ) AS sla_hoan,
             COALESCE(po.po_statuses, '—') AS po_status,
             COALESCE(po.so_po, 0) AS so_po,
 
@@ -598,7 +601,7 @@ def orders_overview(
         -- LATERAL JOIN: 1 báo giá có thể có NHIỀU lệnh vận chuyển (giao nhiều đợt).
         -- Để tránh đơn hàng hiển thị TRÙNG, chỉ lấy lệnh VC mới nhất per quote.
         LEFT JOIN LATERAL (
-            SELECT ma_vh, trang_thai, ngay_giao, don_vi_vc,
+            SELECT ma_vh, trang_thai, ngay_giao, don_vi_vc, tien_trinh,
                    ketoan_approved_at, ketoan_approved_by,
                    chi_phi_vc, da_tra_dvvc, tien_thu_ho, dvvc_da_thu
             FROM saleadmin.vanchuyen
@@ -1420,6 +1423,69 @@ def _deduct_inventory_fifo(db: Session, ma_don: str) -> dict:
         "cost_summary": cost_summary,
         "total_cogs": round(total_cogs, 2),
     }
+
+
+@router.post("/vanchuyen/{ma_vh}/hoan-sla")
+def toggle_hoan_sla(
+    ma_vh: str,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+    action: str = Query("hoan", description="hoan = chờ thu tiền (loại khỏi SLA2) / bo = bỏ hoãn"),
+    ly_do: Optional[str] = Query(None),
+):
+    """KT đánh dấu đơn ĐÃ GIAO nhưng CHƯA THU TIỀN → tạm HOÃN: loại khỏi tính trễ
+    SLA2 cho tới khi thu được tiền + đối chiếu (anh Quang 2026-08-18). Ghi mốc vào
+    tien_trinh (stage 'hoan_sla' / 'bo_hoan_sla'). action='hoan' hoặc 'bo'."""
+    import json as _json
+    row = db.execute(
+        text("SELECT trang_thai, ma_don FROM saleadmin.vanchuyen WHERE ma_vh = :mv"),
+        {"mv": ma_vh},
+    ).mappings().first()
+    if not row:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Không tìm thấy VC {ma_vh}")
+    if row["trang_thai"] != "da_giao":
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Chỉ hoãn được đơn đang 'Đã giao' (đơn này đang '{row['trang_thai']}')",
+        )
+    ma_don = row.get("ma_don") or ma_vh
+    _ly_do = ly_do or ("Chờ thu tiền — hoãn SLA" if action == "hoan" else "Bỏ hoãn — tính SLA lại")
+    stage = "hoan_sla" if action == "hoan" else "bo_hoan_sla"
+    entry = {
+        "stage": stage,
+        "ts": datetime.now().isoformat(),
+        "by": f"{user.username} (kế toán)",
+        "note": _ly_do,
+    }
+    db.execute(
+        text("UPDATE saleadmin.vanchuyen SET tien_trinh = COALESCE(tien_trinh,'[]'::jsonb) || CAST(:e AS jsonb), updated_at = NOW() WHERE ma_vh = :mv"),
+        {"e": _json.dumps(entry), "mv": ma_vh},
+    )
+    # Bấm HOÃN → báo lên CEO/admin (anh Quang 2026-08-18): đơn đã giao nhưng KT
+    # tạm hoãn (chưa thu tiền) → loại khỏi SLA, CEO cần nắm để tránh lạm dụng.
+    if action == "hoan":
+        try:
+            from shared.services.notify import notify_many
+            ceo_targets = [
+                r[0] for r in db.execute(text(
+                    "SELECT username FROM shared.users "
+                    "WHERE role IN ('ceo','assistant_ceo','admin') AND active = true"
+                )).all() if r[0]
+            ]
+            notify_many(
+                db, ceo_targets,
+                source_app="ketoan", event_type="kt_hoan_sla",
+                title=f"KT hoãn đơn {ma_don} (chờ thu tiền)",
+                message=f"Kế toán {user.username} hoãn đơn {ma_don} — {_ly_do}. "
+                        f"Đơn đã giao nhưng chưa thu tiền → tạm loại khỏi SLA hoàn thành.",
+                ref_type="vanchuyen", ref_id=ma_vh,
+                url="https://ketoan.qlpps.com/",
+                severity="warning", created_by=user.username,
+            )
+        except Exception:
+            pass  # fail-soft — không để lỗi noti chặn việc hoãn
+    db.commit()
+    return {"ok": True, "ma_vh": ma_vh, "hoan": action == "hoan"}
 
 
 @router.post("/vanchuyen/{ma_vh}/hoan-thanh")

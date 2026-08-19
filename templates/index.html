@@ -5263,8 +5263,12 @@ async function loadDonHang() {
       const canMarkDone = vcStatus === 'da_giao';
       const needKtApprove = vcStatus === 'hoan_thanh' && !row.ketoan_approved_at;
       const ktApproved = vcStatus === 'hoan_thanh' && !!row.ketoan_approved_at;
+      const isHoan = !!row.sla_hoan;
+      const hoanBtn = isHoan
+        ? `<button class="btn btn-sm" style="background:#fef3c7;color:#b45309" onclick="toggleHoanSla('${row.ma_vh}','bo')" title="Bỏ hoãn — tính SLA lại">▶ Bỏ hoãn</button>`
+        : `<button class="btn btn-sm" style="background:#f1f5f9;color:#475569" onclick="toggleHoanSla('${row.ma_vh}','hoan')" title="Đã giao nhưng chưa thu tiền — hoãn, loại khỏi tính SLA">⏸ Hoãn</button>`;
       const action = canMarkDone
-        ? `<button class="btn btn-sm btn-success" onclick="markVCDone('${row.ma_vh}','${maBG.replace(/'/g,"\\'")}')">Đối chiếu</button>`
+        ? `<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${isHoan?'<span style="font-size:11px;color:#b45309;font-weight:700">⏸ Đang hoãn</span>':''}<button class="btn btn-sm btn-success" onclick="markVCDone('${row.ma_vh}','${maBG.replace(/'/g,"\\'")}')">Đối chiếu</button>${hoanBtn}</div>`
         : needKtApprove
           ? `<button class="btn btn-sm" style="background:var(--brand-soft);color:var(--brand-hover)" onclick="ketoanApproveVC('${row.ma_vh}')" title="Duyệt cuối — chốt đơn đã giao xong">Duyệt KT</button>`
           : ktApproved
@@ -5538,6 +5542,19 @@ async function ketoanApproveVC(maVH) {
   }
 }
 
+async function toggleHoanSla(maVH, action) {
+  let lyDo = '';
+  if (action === 'hoan') {
+    lyDo = prompt('Lý do hoãn (đã giao nhưng chưa thu tiền):', 'Đã giao nhưng chưa thu tiền');
+    if (lyDo === null) return;
+  }
+  try {
+    const url = `/api/external/vanchuyen/${encodeURIComponent(maVH)}/hoan-sla?action=${action}` + (lyDo ? '&ly_do=' + encodeURIComponent(lyDo) : '');
+    const r = await fetch(url, {method: 'POST'});
+    if (r.ok) { toast(action === 'hoan' ? 'Đã hoãn — đơn tạm ra khỏi tính SLA' : 'Đã bỏ hoãn — tính SLA lại', 'success'); setTimeout(() => location.reload(), 600); }
+    else toast('Lỗi: HTTP ' + r.status, 'error');
+  } catch(e) { toast('Lỗi: ' + e.message, 'error'); }
+}
 async function markVCDone(maVH, maBG) {
   if (!confirm(`Xác nhận đối chiếu xong đơn ${maBG || maVH} và chuyển sang HOÀN THÀNH?\n\n• Vận chuyển: Đã Giao → Hoàn Thành\n• Báo giá tiến trình MH = "Hoàn Thành"\n• Trừ tồn kho FIFO theo SP trong đơn`)) return;
   const note = prompt("Ghi chú đối chiếu (tùy chọn):", "");

@@ -536,6 +536,9 @@ function showToast(msg, type='info'){
 }
 
 function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// Chứng từ do app saleadmin serve tại saleadmin.qlpps.com (url lưu tương đối /api/uploads/…).
+// Ketoan ở subdomain khác nên link tương đối sẽ 404 → trỏ tuyệt đối về saleadmin. Cookie .qlpps.com dùng chung nên auth OK.
+function _saUrl(u){ u = String(u||''); return u.startsWith('/api/uploads/') ? 'https://saleadmin.qlpps.com' + u : u; }
 
 function fmtDate(s){
   if(!s) return '—';
@@ -1025,7 +1028,7 @@ function openPdModalByRef(loai, id){
            + row('Ngày đề xuất', fmtDate(raw.ngay_de_xuat))
            + row('Hạn TT', raw.han_thanh_toan ? fmtDate(raw.han_thanh_toan) : '')
            + row('Ghi chú', raw.ghi_chu ? escHtml(raw.ghi_chu) : '')
-           + row('Chứng từ', raw.chung_tu_url ? `<a href="${escHtml(raw.chung_tu_url)}" target="_blank" style="color:var(--brand);text-decoration:underline">Xem file đính kèm ↗</a>` : '<span style="color:var(--text-3)">không có</span>')
+           + row('Chứng từ', raw.chung_tu_url ? `<a href="${escHtml(_saUrl(raw.chung_tu_url))}" target="_blank" style="color:var(--brand);text-decoration:underline">Xem file đính kèm ↗</a>` : '<span style="color:var(--text-3)">không có</span>')
            + row('Cấp duyệt hiện tại', `<span style="background:var(--warning-soft);color:var(--warning-fg);padding:1px 6px;border-radius:4px;font-weight:600">${escHtml(raw.approval_level||'?')}</span>`)
            + row('Trạng thái', `<span style="background:var(--bg-page);color:var(--text-2);padding:1px 6px;border-radius:4px">${escHtml(raw.trang_thai||'?')}</span>`);
     // Lịch sử duyệt
@@ -1457,7 +1460,7 @@ async function openDnttModal(id, action){
           <div style="font-size:13px;font-weight:700;color:var(--text-2);margin-bottom:8px">Chứng từ đính kèm (${atts.length})</div>
           <div style="display:flex;flex-direction:column;gap:6px">
             ${atts.map(a=>`
-              <a href="${escHtml(a.url)}" target="_blank" rel="noopener"
+              <a href="${escHtml(_saUrl(a.url))}" target="_blank" rel="noopener"
                  style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-page);border:1px solid var(--border);border-radius:7px;text-decoration:none;color:var(--brand);font-size:14px">
                 <span style="font-size:17px">${loaiIcon[a.loai]||''}</span>
                 <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(a.filename)}</span>
