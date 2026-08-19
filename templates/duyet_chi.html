@@ -357,7 +357,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
             <label for="form-chung-tu" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--bg-page);border:1.5px dashed var(--brand-soft);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--brand);transition:background .15s" onmouseover="this.style.background='var(--brand-soft)'" onmouseout="this.style.background='var(--bg-page)'">
               Chọn file
             </label>
-            <input type="file" id="form-chung-tu" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.gif" style="display:none" onchange="document.getElementById('form-chung-tu-name').textContent=this.files[0]?.name||''">
+            <input type="file" id="form-chung-tu" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.gif" multiple style="display:none" onchange="document.getElementById('form-chung-tu-name').textContent=this.files.length?(this.files.length>1?this.files.length+' file đã chọn':this.files[0].name):''">
             <span id="form-chung-tu-name" style="font-size:13px;color:var(--text-3);font-style:italic"></span>
           </div>
         </div>
@@ -550,6 +550,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
         <div style="margin-top:8px;font-size:14px;color:var(--text-2)" id="rv-muc-dich"></div>
       </div>
 
+      <div class="section-label">Chứng từ</div>
+      <div id="rv-chung-tu" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px"></div>
+      <button class="btn-review" style="margin-bottom:10px" onclick="pickChungTu(_reviewId)">Thêm file</button>
+
       <div class="section-label">Tiến trình duyệt</div>
       <div id="rv-timeline" class="timeline-wrap"></div>
 
@@ -568,7 +572,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
 </div>
 
 <!-- Hidden file input cho upload chứng từ -->
-<input type="file" id="chung-tu-file-input" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.gif" style="display:none">
+<input type="file" id="chung-tu-file-input" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.gif" multiple style="display:none">
 
 <!-- Toast container -->
 <div class="toast-wrap" id="toast-wrap"></div>
@@ -833,17 +837,47 @@ function _renderMyRow(d) {
 }
 
 
+// Chứng từ thanh toán: nhiều file. `chung_tu_urls` là danh sách (nguồn sự
+// thật), `chung_tu_url` chỉ giữ để tương thích ngược với đơn cũ 1 file.
+function _chungTuUrls(d) {
+  const urls = Array.isArray(d.chung_tu_urls) ? d.chung_tu_urls.slice() : [];
+  if (!urls.length && d.chung_tu_url) urls = [d.chung_tu_url];
+  return urls;
+}
+
+// Cell gọn trong bảng danh sách — "Xem (N)" mở file đầu tiên, xem đầy đủ tất
+// cả file (và xoá từng file) thì mở modal xét duyệt (renderChungTuList).
 function chungTuCell(d, canUpload) {
-  if (d.chung_tu_url) {
-    const view = `<a href="${escHtml(d.chung_tu_url)}" target="_blank" class="btn-review" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px">Xem</a>`;
-    const replace = canUpload ? `<button class="btn-review" style="margin-left:4px" onclick="pickChungTu(${d.id})" title="Thay file">Thay file</button>` : '';
-    const del = canUpload ? `<button class="btn-del" style="margin-left:4px" onclick="deleteChungTu(${d.id})" title="Xoá file">Xoá file</button>` : '';
-    return view + replace + del;
+  const urls = _chungTuUrls(d);
+  if (urls.length) {
+    const cnt = urls.length > 1 ? ` (${urls.length})` : '';
+    const view = `<a href="${escHtml(urls[0])}" target="_blank" class="btn-review" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px">Xem${cnt}</a>`;
+    const add = canUpload ? `<button class="btn-review" style="margin-left:4px" onclick="pickChungTu(${d.id})" title="Thêm file"><i class="bi bi-plus-lg"></i></button>` : '';
+    return view + add;
   }
   if (canUpload) {
     return `<button class="btn-review" onclick="pickChungTu(${d.id})">Upload</button>`;
   }
   return '<span style="color:var(--text-3)">—</span>';
+}
+
+// Danh sách đầy đủ trong modal xét duyệt — mọi file, xoá được từng file riêng.
+function renderChungTuList(d, canUpload) {
+  const urls = _chungTuUrls(d);
+  if (!urls.length) {
+    return '<span style="color:var(--warning-fg);font-size:12.5px;background:var(--warning-soft);border:1px solid var(--warning);border-radius:6px;padding:5px 9px">Chưa có chứng từ đính kèm</span>';
+  }
+  return urls.map(u => {
+    const safe = escHtml(u);
+    const base = String(u).split('?')[0];
+    const fname = base.split('/').pop() || '';
+    const isImg = /\.(jpg|jpeg|png|webp|gif|bmp|heic)$/i.test(base);
+    const del = canUpload ? `<button class="btn-del" style="margin-left:2px;vertical-align:middle" onclick="deleteChungTu(${d.id},'${fname.replace(/'/g, "\\'")}')" title="Xoá file này"><i class="bi bi-x"></i></button>` : '';
+    const body = isImg
+      ? `<a href="${safe}" target="_blank" title="Mở ảnh đầy đủ"><img src="${safe}" style="height:84px;width:84px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"></a>`
+      : `<a href="${safe}" target="_blank" class="btn-review" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px">${escHtml(fname)} ↗</a>`;
+    return `<span style="display:inline-flex;align-items:center;gap:2px">${body}${del}</span>`;
+  }).join('');
 }
 
 function pickChungTu(rid) {
@@ -860,27 +894,48 @@ async function _uploadChungTuFile(rid, file) {
     const r = await fetch(`/api/duyet-chi/${rid}/chung-tu`, {
       method:'POST', credentials:'include', body: fd,
     });
-    if (r.ok) {
-      showToast('Đã tải lên chứng từ', 'success');
-      await loadMy();
-      if (IS_APPROVER) await loadPending();
-    } else {
-      const err = await r.json().catch(() => ({}));
-      showToast(err.detail || 'Lỗi upload', 'error');
-    }
+    if (r.ok) return await r.json();
+    const err = await r.json().catch(() => ({}));
+    showToast(err.detail || 'Lỗi upload', 'error');
   } catch(e) { showToast('Lỗi kết nối', 'error'); }
+  return null;
 }
 
-async function deleteChungTu(rid) {
-  if (!confirm('Xoá file chứng từ?')) return;
+// Upload nhiều file: tuần tự (không song song) vì backend append vào
+// chung_tu_urls kiểu đọc-sửa-ghi — upload song song dễ làm mất file do race.
+async function _uploadChungTuFiles(rid, files) {
+  let last = null;
+  for (const f of files) {
+    const rec = await _uploadChungTuFile(rid, f);
+    if (rec) last = rec;
+  }
+  if (last) {
+    showToast('Đã tải lên chứng từ', 'success');
+    await loadMy();
+    if (IS_APPROVER) await loadPending();
+    if (_reviewId && (_reviewId === last.id)) {
+      document.getElementById('rv-chung-tu').innerHTML =
+        renderChungTuList(last, last.username === MY_USERNAME || IS_APPROVER);
+    }
+  }
+}
+
+async function deleteChungTu(rid, filename) {
+  if (!confirm('Xoá file chứng từ này?')) return;
   try {
-    const r = await fetch(`/api/duyet-chi/${rid}/chung-tu`, {
+    const qs = filename ? `?filename=${encodeURIComponent(filename)}` : '';
+    const r = await fetch(`/api/duyet-chi/${rid}/chung-tu${qs}`, {
       method:'DELETE', credentials:'include',
     });
     if (r.ok) {
+      const rec = await r.json().catch(() => null);
       showToast('Đã xoá chứng từ', 'success');
       await loadMy();
       if (IS_APPROVER) await loadPending();
+      if (rec && _reviewId && _reviewId === rec.id) {
+        document.getElementById('rv-chung-tu').innerHTML =
+          renderChungTuList(rec, rec.username === MY_USERNAME || IS_APPROVER);
+      }
     } else {
       const err = await r.json().catch(() => ({}));
       showToast(err.detail || 'Lỗi xoá', 'error');
@@ -986,10 +1041,10 @@ async function submitDeXuat() {
     });
     if (r.ok) {
       const created = await r.json();
-      // Auto-upload chứng từ nếu user đã chọn file
+      // Auto-upload chứng từ nếu user đã chọn file (có thể nhiều file)
       const fileInp = document.getElementById('form-chung-tu');
       if (fileInp?.files?.length && created?.id) {
-        await _uploadChungTuFile(created.id, fileInp.files[0]);
+        await _uploadChungTuFiles(created.id, Array.from(fileInp.files));
       }
       showToast('Đã gửi đề xuất chi thành công!', 'success');
       document.getElementById('tieu_de').value = '';
@@ -1043,6 +1098,8 @@ function openReview(d) {
   document.getElementById('rv-muc-dich').textContent = d.muc_dich;
   document.getElementById('rv-han-tt').value = d.han_thanh_toan || '';
   document.getElementById('rv-nhan-xet').value = '';
+  document.getElementById('rv-chung-tu').innerHTML =
+    renderChungTuList(d, d.username === MY_USERNAME || IS_APPROVER);
   // Timeline
   const tl = document.getElementById('rv-timeline');
   if (tl) tl.innerHTML = renderTimeline(d);
@@ -1095,8 +1152,8 @@ document.getElementById('ngay_de_xuat').valueAsDate = new Date();
 // Wire file input → upload khi user chọn file
 document.getElementById('chung-tu-file-input').addEventListener('change', function(e) {
   const rid = this.dataset.rid;
-  const file = this.files && this.files[0];
-  if (rid && file) _uploadChungTuFile(rid, file);
+  const files = this.files && Array.from(this.files);
+  if (rid && files && files.length) _uploadChungTuFiles(rid, files);
 });
 
 // ── Init ───────────────────────────────────────────────────────────────────
