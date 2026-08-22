@@ -3,6 +3,9 @@ paths:
   - "app/services/**/*.py"
 description: Quy tắc cho tầng service — nơi chứa nghiệp vụ kế toán thật
 ---
+<!-- SINH TỰ ĐỘNG — ĐỪNG sửa file này.
+     Sửa `claude-kit/core/rules/services-nghiepvu.md` (chung 7 app) hoặc `claude-kit/overlay/ketoan/rules/services-nghiepvu.md` (riêng app này),
+     rồi chạy: cd d:\PapaSanIT\claude-kit && python sync.py -->
 
 # Service — nơi chứa nghiệp vụ
 

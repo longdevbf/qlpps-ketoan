@@ -1,82 +1,51 @@
 ---
 paths:
   - "app/models/**/*.py"
+  - "shared/models/**/*.py"
   - "alembic/**/*.py"
-description: Quy tắc cho model SQLAlchemy 2 và migration Alembic
 ---
+<!-- SINH TỰ ĐỘNG — ĐỪNG sửa file này.
+     Sửa `claude-kit/core/rules/models-migrations.md` (chung 7 app) hoặc `claude-kit/overlay/ketoan/rules/models-migrations.md` (riêng app này),
+     rồi chạy: cd d:\PapaSanIT\claude-kit && python sync.py -->
 
-# Model & Migration — chỉ những điều khác mặc định
+# Sửa model và migration
 
-## Khung chuẩn của một model
+## Schema nào thuộc về ai
 
-```python
-from decimal import Decimal
-from typing import Optional
+App này sở hữu schema `ketoan`. Schema `shared` là dùng chung. Các schema
+của 6 app còn lại thuộc app khác — code ở đây
+chỉ **đọc** chúng bằng raw SQL, không được tạo/sửa bảng của chúng.
 
-from sqlalchemy import String, Numeric, Date, Integer, Text, Index
-from sqlalchemy.orm import Mapped, mapped_column
+`alembic/env.py` lọc `include_object` theo `obj.schema == "ketoan"`, nên
+migration sinh tự động sẽ **bỏ qua** mọi thay đổi ở schema khác.
 
-from shared.db import Base
+## Trước khi tin là bảng tồn tại
 
-
-class SoQuy(Base):
-    __tablename__ = "so_quy"
-    __table_args__ = (
-        Index("ix_sq_ngay", "ngay"),
-        {"schema": "ketoan"},        # LUÔN là phần tử CUỐI CÙNG
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    so_tien: Mapped[Decimal] = mapped_column(Numeric(15, 2), server_default="0", nullable=False)
-    tai_khoan: Mapped[Optional[str]] = mapped_column(String(128))
-```
-
-## Bắt buộc
-
-- **Cú pháp SQLAlchemy 2**: `Mapped[...]` + `mapped_column(...)`. Không dùng cú pháp cũ
-  `Column(...)` kiểu 1.x.
-- **`Mapped[Optional[str]]` cho cột nullable, `Mapped[str]` cho cột NOT NULL.** Đây không chỉ là
-  gợi ý cho editor — SQLAlchemy 2 suy ra `nullable` từ chính annotation đó.
-- **`__table_args__` luôn kết thúc bằng `{"schema": "ketoan"}`.** Nếu `__table_args__` chỉ có
-  mỗi dict thì viết `__table_args__ = {"schema": "ketoan"}`; nếu có Index thì dùng tuple và đặt
-  dict ở cuối. Đặt sai chỗ → SQLAlchemy báo lỗi khó hiểu lúc import.
-- **Tiền = `Numeric(15, 2)`**, không `Float`. Không có `Float` nào trong `app/models/` — giữ vậy.
-- Đặt tên Index ngắn theo tiền tố bảng: `ix_sq_ngay`, `ix_sq_ma_don` (`sq` = so_quy).
-
-## Migration — quy tắc quan trọng nhất của repo này
-
-**Thêm/đổi cột trong model thì PHẢI có một alembic revision đi kèm trong cùng lần sửa.**
-Repo đang có 2 chỗ drift (model khai mà DB không có: `so_quy.ref_sepay`, bảng
-`sepay_transactions`) và hậu quả là `GET /api/so-quy` trả 500 `UndefinedColumn`.
-
-Lý do drift gây 500: SQLAlchemy sinh câu `SELECT id, ngay, ..., ref_sepay FROM ketoan.so_quy` —
-**liệt kê mọi cột có trong model**, chứ không phải `SELECT *`. Model có cột mà DB chưa có là lỗi
-ngay lập tức, không phải "cột đó trả null".
+Chuỗi migration của mọi app trong hệ này đều có lỗ hổng: có bảng chỉ do SQL thô
+trong `lifespan` của `app/main.py` tạo, có bảng chỉ tồn tại dưới dạng
+`op.execute("CREATE TABLE …")` nên `Base.metadata.create_all()` bỏ sót. Kiểm
+tra trực tiếp trước khi kết luận endpoint hỏng:
 
 ```bash
-# Tạo revision (alembic.ini nằm ở devrun)
-cd /c/PapasanIT/App_qlpps/ketoan-devrun
-"$PY" -m alembic -c alembic.ini revision -m "them cot ref_sepay vao so_quy"
-# → file mới trong alembic/versions/ của REPO, tự viết upgrade()/downgrade()
-"$PY" -m alembic -c alembic.ini upgrade head
-"$PY" -m alembic -c alembic.ini current      # xác nhận đã lên head
+docker exec qlpps_pg psql -U qlpps -d qlpps_dev -Atc   "SELECT to_regclass('ketoan.<ten_bang>')"
 ```
 
-- Đặt tên file revision theo quy ước sẵn có: `q<N>_<YYYY>_<MM>_<DD>_<mo_ta_khong_dau>.py`
-  (ví dụ `q5_2026_05_19_tscd_chi_phi_lap_dat.py`). Hiện có 28 revision, head = `q5_2026_05_19`.
-- Mọi `op.add_column` / `op.create_table` phải truyền `schema="ketoan"`.
-- **Luôn viết `downgrade()` thật**, không để `pass`. Migration không lùi được là migration không
-  dám chạy trên production.
-- **KHÔNG thêm `ALTER TABLE` vào `lifespan` trong `main.py`.** Chỗ đó đã có sẵn vài lệnh như vậy
-  nhưng đó là nợ kỹ thuật cũ, không phải mẫu để theo.
+Trả rỗng nghĩa là bảng không tồn tại. Dựng lại toàn bộ schema + dữ liệu ảo:
+`docker compose run --rm seeder` ở thư mục workspace (xem `README-DEV.md`).
 
-## Trước khi kết luận "endpoint hỏng"
+## Thêm cột / đổi enum
 
-So model với DB thật đã, đừng đoán:
+Giá trị hợp lệ được khai ở **hai chỗ phải khớp nhau**: `CheckConstraint` trong
+model và `Literal[...]` trong `app/schemas/`. Sửa một chỗ mà quên chỗ kia thì
+BE trả 422 hoặc DB từ chối ghi — và thông báo lỗi không chỉ ra chỗ lệch.
 
-```sql
-SELECT column_name FROM information_schema.columns
-WHERE table_schema = 'ketoan' AND table_name = 'so_quy' ORDER BY ordinal_position;
-```
+Quy ước đặt tên **không nhất quán giữa các module**: có bảng dùng tiếng Anh
+(`draft|pending_approval|approved|completed|cancelled`), có bảng dùng tiếng
+Việt (`cho_duyet|da_duyet`). Đọc model trước, đừng suy từ module khác.
 
-Đối chiếu với `Base.metadata.tables["ketoan.so_quy"].columns` — lệch chỗ nào là drift chỗ đó.
+## Kiểu khoá ngoại
+
+Ví dụ có thật: `marketing.leads.id` là `String(64)` (`'LEAD-2026-001'`), **không phải** số.
+Mọi bảng tham chiếu tới lead phải dùng `text`/`varchar`. Đây từng làm vỡ cả
+câu SQL của `/api/cskh/list` khi `COALESCE(po.id, l.id)` ghép `bigint` với
+`varchar`.

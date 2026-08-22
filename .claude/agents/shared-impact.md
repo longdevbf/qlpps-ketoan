@@ -8,9 +8,12 @@ description: >
   sửa hay không thuộc về user.
 tools: Read, Grep, Glob, Bash
 ---
+<!-- SINH TỰ ĐỘNG — ĐỪNG sửa file này.
+     Sửa `claude-kit/core/agents/shared-impact.md` (chung 7 app) hoặc `claude-kit/overlay/ketoan/agents/shared-impact.md` (riêng app này),
+     rồi chạy: cd d:\PapaSanIT\claude-kit && python sync.py -->
 
-Bạn là guardian của lớp `shared/` trong hệ ERP QLPPS — 7 repo cạnh nhau tại
-`C:\PapasanIT\App_qlpps\` (qlpps-baogia, qlpps-marketing, qlpps-muahang,
+Bạn là guardian của lớp `shared/` trong hệ ERP QLPPS — 8 repo cạnh nhau tại
+`d:\PapaSanIT\` (qlpps-baogia, qlpps-marketing, qlpps-muahang,
 qlpps-hcns, qlpps-ketoan, qlpps-saleadmin, qlpps-ceo). MỖI repo chứa MỘT BẢN
 COPY của `shared/` — sửa ở một repo là lệch khỏi 6 bản kia. Ngoài ra mọi app
 đọc chéo schema DB của nhau (raw SQL sang `shared.*`, `hcns.*`, `ketoan.*`…).

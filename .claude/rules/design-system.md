@@ -5,6 +5,9 @@ paths:
   - "shared/templates/**/*.html"
   - "shared/static/**/*.css"
 ---
+<!-- SINH TỰ ĐỘNG — ĐỪNG sửa file này.
+     Sửa `claude-kit/core/rules/design-system.md` (chung 7 app) hoặc `claude-kit/overlay/ketoan/rules/design-system.md` (riêng app này),
+     rồi chạy: cd d:\PapaSanIT\claude-kit && python sync.py -->
 
 # Design system — GIỚI HẠN CỨNG
 
@@ -430,3 +433,20 @@ lệnh ngày 08/08/2026**, không chép từ tài liệu cũ.
   có chủ đích so với 6 app kia); (2) **15 dòng màu chuỗi biểu đồ** hard-code
   trong `index.html`; (3) `<meta name="theme-color">` dùng hex thật `#9E5D09`
   vì thuộc tính này không nhận `var()`; (4) **SVG inline** cho icon sidebar.
+
+## Tóm tắt đợt chuẩn hoá UI 08/08/2026
+
+Đọc **`BAN-GIAO-UI.md`** ở gốc repo trước bất kỳ việc UI nào. Tóm tắt:
+
+- Hệ màu **hổ phách & cà phê** rút từ logo (`--brand:#9E5D09`) — `HE-MAU-ERP.md`
+  chung **không còn đúng** cho app này. `.claude/rules/design-system.md` của
+  repo này là bản riêng, không đồng bộ với 6 app kia.
+- Điều hướng ở **sidebar dọc** `.ab-sb` (196px, thu gọn 52px), không còn 5
+  dropdown trên header.
+- **Thang chữ +1px toàn dải**, nội dung chuẩn `14px`. **Mobile không được thu
+  nhỏ chữ.** Nền trang là **trắng**; `--bg-page` chỉ dùng cho bề mặt lõm.
+- Hàm dùng chung ở `static/js/ui-common.js`: `fmtVnd` `fmtShort` `fmtSo`
+  `fmtDate` `fmtDateTime` `toast` `khoiLoi` `loiNguoiDoc` `esc` `initials` —
+  **cấm khai lại trong template**.
+- Nợ lớn nhất: **31 chỗ đổ `e.message` thô ra màn hình** — sửa bằng
+  `khoiLoi(e, 'tenHamTaiLai')`.

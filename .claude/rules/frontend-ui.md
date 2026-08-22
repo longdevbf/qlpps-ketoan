@@ -3,14 +3,17 @@ paths:
   - "templates/**/*.html"
   - "static/**/*.css"
   - "static/**/*.js"
+  - "shared/templates/**/*.html"
 ---
+<!-- SINH TỰ ĐỘNG — ĐỪNG sửa file này.
+     Sửa `claude-kit/core/rules/frontend-ui.md` (chung 7 app) hoặc `claude-kit/overlay/ketoan/rules/frontend-ui.md` (riêng app này),
+     rồi chạy: cd d:\PapaSanIT\claude-kit && python sync.py -->
 
-# Luật Frontend PAPASAN — 10 luật cứng
+# Luật Frontend PAPASAN — 10 luật cứng (chung 7 app QLPPS)
 
-Nguồn: bộ `papasan-frontend-claude` (cài 08/08/2026, cập nhật bản layout cùng
-ngày), đã điều chỉnh cho khớp ketoan. Vi phạm là **lỗi**, không phải "tuỳ chọn
-thẩm mỹ". Chi tiết kỹ thuật: skill `ui-standards`. Trước khi báo xong việc UI:
-chạy `/ui-check`.
+Nguồn: bộ `papasan-erp-claude` (chuẩn hoá từ app Kế Toán 08/08/2026). Vi phạm là
+**lỗi**, không phải "tuỳ chọn thẩm mỹ". Chi tiết kỹ thuật: skill `ui-standards`.
+Trước khi báo xong việc UI: chạy `/ui-check`.
 
 Thay đổi vị trí/số lượng phần tử trên màn hình: đọc skill `layout-rules` —
 skill này cho quyền TỰ quyết bố cục theo thuật toán phân tầng, chỉ cần báo lại
@@ -24,8 +27,8 @@ quyết định (lệnh nhanh: `/layout-fix <trang>`).
 
 2. **Cấm lộ tên biến kỹ thuật ra giao diện.** `nhan_su`, `created_at`,
    `cho_duyet`… không bao giờ xuất hiện trên màn hình. Mọi key đi qua map nhãn
-   (mẫu tốt: `STATUS_LABEL` trong `ncc_de_xuat.html`). Key thiếu nhãn → fallback
-   "Chưa đặt tên" + `console.warn`, không render key thô.
+   (`STATUS_LABEL`). Key thiếu nhãn → fallback "Chưa đặt tên" + `console.warn`,
+   không render key thô.
 
 3. **Màu là ngôn ngữ.** Chỉ dùng `var(--token)` từ `theme.css` (xem
    `design-system.md`). Ngữ nghĩa cố định: lục = tốt/tăng · đỏ = xấu/lỗ/xoá ·
@@ -53,9 +56,8 @@ quyết định (lệnh nhanh: `/layout-fix <trang>`).
 
 8. **Mobile & accessibility mặc định.** Vùng bấm ≥ 44×44px trên mobile.
    Contrast ≥ 4.5:1 (hệ màu đã đo — đừng chế màu mới). Cỡ chữ theo THANG của
-   `design-system.md` (**14px** là chuẩn nội dung app nội bộ từ 08/08/2026 —
-   thang đã nâng +1px toàn dải; vẫn KHÔNG áp "≥16px" của web công cộng).
-   **Mobile không được thu nhỏ chữ** — bảng rộng thì cuộn ngang, đừng bóp chữ. `button` là button, không `div onclick`. Test 375px trước
+   `design-system.md` (13px là chuẩn nội dung app nội bộ — KHÔNG áp "≥16px" của
+   web công cộng). `button` là button, không `div onclick`. Test 375px trước
    desktop.
 
 9. **Hiệu năng là trải nghiệm.** Ảnh có width/height + lazy load dưới fold.

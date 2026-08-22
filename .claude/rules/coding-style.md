@@ -1,76 +1,89 @@
----
-description: Quy tắc style áp dụng cho toàn dự án (không giới hạn thư mục)
----
+<!-- SINH TỰ ĐỘNG — ĐỪNG sửa file này.
+     Sửa `claude-kit/core/rules/coding-style.md` (chung 7 app) hoặc `claude-kit/overlay/ketoan/rules/coding-style.md` (riêng app này),
+     rồi chạy: cd d:\PapaSanIT\claude-kit && python sync.py -->
+# Quy tắc viết code — toàn dự án
 
-# Quy tắc style toàn dự án
-
-Chỉ ghi những điều **khác mặc định**. Cái gì không nói ở đây thì theo PEP 8.
+Chỉ ghi những điều **khác mặc định** của repo này. Quy tắc theo tầng nằm ở
+`routers.md`, `templates.md`, `models-migrations.md` — không lặp lại ở đây.
 
 ## Ngôn ngữ
 
-- **Tên nghiệp vụ = tiếng Việt không dấu**: `doanh_thu`, `so_tien`, `ngay_tra`, `cong_no`,
-  `so_quy`, `chi_phi_phat_sinh`. Áp dụng cho tên bảng, tên cột, tên biến, tên hàm nghiệp vụ.
-  **Không** dịch sang tiếng Anh, kể cả khi thấy "revenue" tự nhiên hơn.
-- **Tên kỹ thuật = tiếng Anh**: `session`, `payload`, `router`, `response_model`, `db`, `user`.
-- **Docstring và comment viết tiếng Việt.** Comment giải thích *tại sao*, không lặp lại *cái gì*
-  code đã nói rõ.
+Tiếng Việt là ngôn ngữ chính của **định danh, tên cột DB, slug route, comment,
+text UI**. `ho_ten`, `tien_trinh`, `khuyen_mai`, `/dang-ky-truc`.
+
+- Viết **không dấu, snake_case** cho định danh Python và cột DB: `ngay_bat_dau`,
+  không phải `ngày_bắt_đầu` hay `startDate`.
+- **Có dấu** cho text hiển thị và comment: `"Chưa gọi"`, `# Bỏ qua lead đã chốt`.
+- Không "chuẩn hoá" tên tiếng Việt có sẵn sang tiếng Anh. Một lần đổi tên là
+  một lần vỡ template hoặc vỡ query raw SQL đang tham chiếu nó.
+- Tên tiếng Anh chỉ dùng khi đó là thuật ngữ kỹ thuật thật: `router`, `schema`,
+  `response_model`, `session`.
+
+## Comment
+
+Comment giải thích **tại sao**, không mô tả lại code đang làm gì.
 
 ```python
-# ĐÚNG
-def tinh_cong_no_con_lai(db: Session, khach_hang_id: int) -> Decimal:
-    """Tính số tiền khách còn nợ = tổng phải thu - tổng đã trả."""
+# ĐÚNG — nói lý do, đọc xong biết vì sao không được sửa
+# Dùng CAST vì :frm::date không bind được trong text() của SQLAlchemy.
+sql = text("... WHERE ngay >= CAST(:frm AS date)")
 
-# SAI — dịch tên nghiệp vụ sang tiếng Anh
-def calculate_remaining_debt(...)
+# SAI — chép lại code bằng tiếng Việt, không thêm thông tin gì
+# Tạo câu SQL rồi gán vào biến sql
 ```
 
-## Session là ĐỒNG BỘ, không phải async
+Với người đang học: khi viết một đoạn dùng pattern lạ (dependency injection,
+JSONB, `selectinload`), thêm **một** dòng comment nói pattern đó là gì. Một
+dòng thôi — comment dài quá sẽ không ai cập nhật khi code đổi.
 
-Repo dùng `Session` của `sqlalchemy.orm` (đồng bộ), **không** `AsyncSession`. Endpoint khai
-`db: Session = Depends(get_db)` và gọi `db.execute(...)` **không có `await`**. Endpoint có thể
-là `async def` nhưng lời gọi DB bên trong vẫn đồng bộ — đừng thêm `await` vào `db.execute`.
+## Định dạng
+
+Không có formatter (`black`/`ruff` đều không được cấu hình), nên định dạng là
+**giữ giống code xung quanh**, không áp chuẩn cá nhân:
+
+- 4 space, không tab.
+- Dòng ~100 ký tự — repo hiện tại không nhất quán, đừng đi xuống dòng lại
+  những dòng bạn không sửa (làm diff phình ra, che mất thay đổi thật).
+- Import: thư viện chuẩn → thư viện ngoài → `shared.*` → `ketoan.app.*`.
+- **Đừng chạy formatter lên cả file.** Diff sẽ toàn nhiễu và người đọc không
+  tìm được thay đổi thật.
+
+## Kiểu dữ liệu và Pydantic
+
+- Endpoint mới **phải** có `response_model`. Repo mới có 220/449 route làm
+  được điều này — đừng làm tỉ lệ đó tệ hơn.
+- Giá trị enum (`trang_thai`, `loai`…) khai ở **hai chỗ phải khớp nhau**:
+  `CheckConstraint` trong model và `Literal[...]` trong `app/schemas/`. Sửa một
+  chỗ mà quên chỗ kia thì lỗi chỉ lộ ra lúc chạy, dạng 422 hoặc lỗi ràng buộc DB.
+- Tập giá trị **không nhất quán giữa các module** (chỗ tiếng Anh, chỗ tiếng
+  Việt). **Luôn đọc model trước khi ghi giá trị**, không suy đoán theo module khác.
+
+## Xử lý lỗi
+
+**Không viết `except SQLAlchemyError: return []`.** Đây là lỗi tốn thời gian
+nhất trong repo: query hỏng trông y hệt "không có dữ liệu" — không log, không
+toast, không dấu vết. Để lỗi nổi lên cho error handler chung xử lý.
+
+Cần bắt lỗi thật thì bắt hẹp và **luôn log**:
 
 ```python
-cn = db.execute(
-    select(CongNo).where(CongNo.ma_don == ma_don).where(CongNo.loai == "phai_thu")
-).scalar_one_or_none()          # KHÔNG await
+except IntegrityError as e:
+    logger.warning("Trùng khoá khi tạo lead: %s", e)
+    raise HTTPException(409, "Lead đã tồn tại")
 ```
 
-## Import
+## Bảo mật
 
-- **Trong `app/` dùng import TƯƠNG ĐỐI** — `from ..models import DoanhThu`, `from ..services
-  import so_quy_auto`. Đây là quy ước thực tế của repo (200 chỗ dùng tương đối, 0 chỗ dùng
-  `from app.`). Viết `from app.models import ...` sẽ nạp model thành 2 bản (một qua `ketoan.app`,
-  một qua `app`) và nổ vì trùng tên bảng — cùng nguyên nhân với lỗi ASGI target sai.
-- **Import package anh em (`muahang`, `baogia`, `hcns`...) phải LAZY** — đặt bên trong hàm, không
-  ở đầu file. Lý do: `baogia`/`muahang` là stub trên máy này, import ở module level sẽ làm cả app
-  chết lúc khởi động chứ không phải lúc gọi endpoint.
+- Không log/print secret, token, mật khẩu — kể cả khi debug.
+- Không hard-code chuỗi kết nối, khoá API. Đọc qua `shared/config.py`.
+- Không nới lỏng `Depends(require_app("ketoan"))` để "cho dễ test".
+- Query raw SQL **luôn dùng bind param**, không nối chuỗi:
+  `text("... WHERE id = :id")`, không phải `text(f"... WHERE id = {id}")`.
 
-```python
-async def lay_don_mua(db, po_id: int):
-    from muahang.app.models import PurchaseOrder   # lazy: stub thì chỉ hàm này hỏng
-    ...
-```
+## Phạm vi thay đổi
 
-## Kiểu dữ liệu tiền tệ
+Một task = một chủ đề. Sửa thêm thứ không được yêu cầu (đổi tên biến, sắp lại
+import, xoá code chết chỗ khác) làm diff khó review — với người đang học thì
+diff khó review nghĩa là **bỏ qua không đọc**, và đó là mất cơ hội học.
 
-- Tiền dùng `Decimal` / `Numeric`, **không dùng `float`**. `float` làm tròn nhị phân sai số →
-  cộng dồn nhiều dòng sổ quỹ sẽ lệch vài đồng, và với app kế toán đó là lỗi thật.
-
-## Fail-soft vs fail-hard
-
-Dự án này phân biệt rõ 2 loại lỗi — bắt chước đúng loại:
-
-- **Fail-soft** (bọc `try/except`, log rồi đi tiếp): sync sổ quỹ, cache Redis, đọc cross-app,
-  emit event. Những thứ này hỏng thì nghiệp vụ chính vẫn phải chạy.
-- **Fail-hard** (để exception bay lên): validate dữ liệu, ghi bản ghi nghiệp vụ chính, phân quyền.
-  Nuốt lỗi ở đây = ghi sai sổ mà không ai biết.
-
-Không bao giờ viết `except Exception: pass` trống — tối thiểu phải log.
-
-## Không được làm
-
-- Không thêm dependency mới vào `requirements.txt` khi chưa hỏi.
-- Không tự chạy formatter hàng loạt (repo chưa có formatter; reformat cả file làm diff không đọc được).
-- Không sửa `shared/` cho nhu cầu riêng của ketoan — 5 app khác đang dùng chung.
-- Không sửa `app/pages.py` (code chết, không được import ở đâu). File thật là `app/routers/pages.py`.
+Thấy vấn đề ngoài phạm vi thì báo một dòng ở cuối câu trả lời, không tự sửa.

@@ -1,28 +1,36 @@
 ---
 name: erp-architecture
-description: Kiến trúc & luật phạm vi hệ ERP QLPPS — 7 repo tách từ monorepo App_V2, import chéo package anh em, thư viện shared/ vendored trong từng repo, scaffolding *-devrun, cross-app qua raw SQL fail-soft. LUÔN đọc trước khi sửa file chạm shared/, import package anh em, hoặc làm task liên phân hệ.
+description: Kiến trúc & luật phạm vi hệ ERP QLPPS — 8 repo tách từ monorepo App_V2, import chéo package anh em, thư viện shared/ vendored trong từng repo, scaffolding *-devrun, cross-app qua raw SQL fail-soft. LUÔN đọc trước khi sửa file chạm shared/, import package anh em, hoặc làm task liên phân hệ.
 ---
+<!-- SINH TỰ ĐỘNG — ĐỪNG sửa file này.
+     Sửa `claude-kit/core/skills/erp-architecture/SKILL.md` (chung 7 app) hoặc `claude-kit/overlay/ketoan/skills/erp-architecture/SKILL.md` (riêng app này),
+     rồi chạy: cd d:\PapaSanIT\claude-kit && python sync.py -->
 
-# ERP Architecture — QLPPS (7 app, tách từ monorepo App_V2)
+# ERP Architecture — QLPPS (8 app, tách từ monorepo App_V2)
 
-## 1. Cấu trúc thật — 7 repo cạnh nhau, KHÔNG phải monorepo
+## 1. Cấu trúc thật — 8 repo cạnh nhau, KHÔNG phải monorepo
 
 ```
-C:\PapasanIT\App_qlpps\
-  qlpps-baogia\      ← package `baogia`    · Báo giá        · port 8001
-  qlpps-marketing\   ← package `marketing` · Marketing      · port 8002
-  qlpps-muahang\     ← package `muahang`   · Mua hàng       · port 8003
-  qlpps-hcns\        ← package `hcns`      · HC Nhân sự     · port 8004
-  qlpps-ketoan\      ← package `ketoan`    · Kế toán        · port 8005
-  qlpps-saleadmin\   ← package `saleadmin` · Sale Admin     · port 8006
-  qlpps-ceo\         ← package `ceo`       · CEO Dashboard  · port 8007
-  *-devrun\          ← scaffolding chạy dev cho từng app (một số nằm ngoài App_qlpps)
-  papasan-erp-claude\← bộ kit .claude chuẩn (nguồn nhân bản)
+d:\PapaSanIT\
+  qlpps-baogia\      ← package `baogia`    · Báo giá        · 8001 · schema baogia
+  qlpps-marketing\   ← package `marketing` · Marketing      · 8002 · schema marketing
+  qlpps-muahang\     ← package `muahang`   · Mua hàng       · 8003 · schema muahang
+  qlpps-hcns\        ← package `hcns`      · HC Nhân sự     · 8004 · schema hcns
+  qlpps-ketoan\      ← package `ketoan`    · Kế toán        · 8005 · schema ketoan
+  qlpps-saleadmin\   ← package `saleadmin` · Sale Admin     · 8006 · schema saleadmin
+  qlpps-ceo\         ← package `ceo`       · CEO Dashboard  · 8007 · KHÔNG có schema
+  qlpps-congnghe\    ← package `congnghe`  · Công Nghệ      · 8008 · schema congnghe
+                         (tên miền itque.qlpps.com, image Docker RIÊNG)
+  claude-kit\        ← nguồn gốc bộ .claude của cả 8 app (sửa ở đây rồi chạy sync)
+  seed\ docker\ docker-compose.yml   ← Postgres + dữ liệu ảo (xem README-DEV.md)
 ```
 
-Mỗi repo **chính là** package cùng tên (root có `__init__.py` hoặc được alias
-qua devrun). Chúng tách từ monorepo `App_V2` — **`App_V2` KHÔNG tồn tại trên
-máy này**; README/hướng dẫn cũ nào bảo `cd App_V2` là lỗi thời, đừng làm theo.
+`qlpps-ceo` là app **chỉ đọc**: không có `app/models/`, không có schema riêng,
+không có migration — nó tổng hợp số từ 7 schema kia.
+
+Mỗi repo **chính là** package cùng tên. Chúng tách từ monorepo `App_V2` —
+**`App_V2` KHÔNG tồn tại trên máy này**; README/hướng dẫn cũ nào bảo
+`cd App_V2` là lỗi thời, đừng làm theo.
 
 **Ba hệ quả sống còn:**
 
@@ -30,9 +38,9 @@ máy này**; README/hướng dẫn cũ nào bảo `cd App_V2` là lỗi thời, 
    không bao giờ `app.main:app` — sai tên sẽ nạp mọi SQLAlchemy model thành
    2 bản và nổ vì trùng bảng.
 2. **`app/main.py` import package anh em ở module level** (không try/except ở
-   nhiều chỗ) — thiếu package là chết ngay lúc import. Vì vậy app chạy qua
-   scaffolding `*-devrun` (alias package, auth stub cổng 8010, env.sh, run.sh)
-   — đọc `HUONG-DAN.md` trong devrun tương ứng, và CLAUDE.md của repo.
+   nhiều chỗ) — thiếu package là chết ngay lúc import. Trên máy này **chưa có
+   scaffolding chạy app**: DB đã dựng sẵn (xem skill `chay-app`) nhưng chưa có
+   auth stub và chưa có alias package. Đừng hứa "chạy thử rồi" khi chưa chạy.
 3. **Import package anh em trong code MỚI phải LAZY** (trong hàm, không đầu
    file) — trên máy dev một số package chỉ là stub; import module level làm
    cả app chết lúc khởi động thay vì chỉ hỏng 1 endpoint.
@@ -41,7 +49,7 @@ máy này**; README/hướng dẫn cũ nào bảo `cd App_V2` là lỗi thời, 
 
 Mỗi repo chứa một bản `shared/` (auth JWT SSO, db Base/session, config, audit,
 events, middleware, models schema `shared`, routers cross-app: xin-nghi,
-duyet-chi, giao-viec, calendar…). Đây là **code dùng chung của cả 7 app** —
+duyet-chi, giao-viec, calendar…). Đây là **code dùng chung của cả 8 app** —
 sửa `shared/` ở một repo là lệch khỏi 6 bản còn lại.
 
 Khi task yêu cầu sửa `shared/`:
@@ -55,9 +63,16 @@ Khi task yêu cầu sửa `shared/`:
 ## 3. Database — 1 Postgres, mỗi app một schema
 
 Schema: `shared` (users, notifications, products, calendar, approvals…) +
-`baogia`, `marketing`, `muahang`, `hcns`, `ketoan`, `saleadmin`. Model khai
+`baogia`, `marketing`, `muahang`, `hcns`, `ketoan`, `saleadmin`, `congnghe`.
+Model khai
 `__table_args__` kết thúc `{"schema": "<tên>"}`. Alembic mỗi app filter đúng
-schema của mình; `alembic.ini` thường nằm ở devrun, không ở repo.
+schema của mình. **`alembic.ini` KHÔNG có trong repo nào** — bản dùng được nằm ở
+`d:/PapaSanIT/docker/seeder/alembic.ini` (7 section, mỗi app một
+`script_location`).
+
+Schema `shared` **không app nào migrate** — `include_object` của cả 6 app đều
+lọc theo schema riêng. Bảng `shared` thuộc repo `auth_service` không có ở đây;
+chúng được dựng bằng `metadata.create_all` trong bộ seeder.
 
 **Cross-app đọc dữ liệu — 2 cách, ưu tiên cách 1:**
 1. Raw SQL `text()` **fail-soft** (bọc try/except, log, trả rỗng) — chạy được

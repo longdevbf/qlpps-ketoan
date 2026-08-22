@@ -2,6 +2,9 @@
 name: layout-fix
 description: Tự phân tích và tái cấu trúc bố cục một trang theo luật phân tầng layout-rules. Dùng khi người dùng gõ /layout-fix <trang> hoặc nói "trang rối quá", "nhiều thẻ quá", "sắp xếp lại trang".
 ---
+<!-- SINH TỰ ĐỘNG — ĐỪNG sửa file này.
+     Sửa `claude-kit/core/skills/layout-fix/SKILL.md` (chung 7 app) hoặc `claude-kit/overlay/ketoan/skills/layout-fix/SKILL.md` (riêng app này),
+     rồi chạy: cd d:\PapaSanIT\claude-kit && python sync.py -->
 
 # /layout-fix — tái cấu trúc bố cục trang
 

@@ -2,6 +2,9 @@
 name: ui-check
 description: Checklist QC giao diện 6 nhóm — chạy trước khi báo xong mọi thay đổi UI. Dùng khi người dùng gõ /ui-check hoặc khi kết thúc task UI.
 ---
+<!-- SINH TỰ ĐỘNG — ĐỪNG sửa file này.
+     Sửa `claude-kit/core/skills/ui-check/SKILL.md` (chung 7 app) hoặc `claude-kit/overlay/ketoan/skills/ui-check/SKILL.md` (riêng app này),
+     rồi chạy: cd d:\PapaSanIT\claude-kit && python sync.py -->
 
 # /ui-check — QC giao diện trước khi báo xong
 
@@ -22,9 +25,9 @@ Chạy đủ 6 nhóm, báo kết quả **pass/fail từng mục** kèm bằng ch
 ## 3. Màu & token (lệnh từ design-system.md)
 
 ```bash
-# Hex ngoài hệ (rỗng = sạch; 12 dòng màu biểu đồ index.html là ngoại lệ hợp lệ)
+# Hex ngoài hệ (rỗng = sạch; màu chuỗi biểu đồ là ngoại lệ hợp lệ)
 grep -nE '#[0-9a-fA-F]{3,6}' templates/<file>.html | grep -v '&#' | grep -viE \
- '9E5D09|7F4B07|FBE7C6|FFFFFF|#fff|FDF8F0|E7D7BE|33210F|5E452C|7D6248|B02A18|F9E2DD|8A1F11|2E7D4F|E1EFE5|1F5C39|F1E9DD|FEB041|603814|0084FF|1877F2|0068FF|e67e22'
+ 'D23C0E|BF370D|FBE5D0|FFFFFF|#fff|FBF8F5|DFD2C6|2A2521|54483F|736659|DC2626|FEE2E2|991B1B|16A34A|DCFCE7|15803D|F59E0B|FEF3C7|92400E|2563EB|DBEAFE|1D4ED8|0084FF|1877F2|0068FF|e67e22'
 # Gradient & cỡ chữ lạ
 grep -c 'linear-gradient\|radial-gradient' templates/<file>.html
 grep -oE 'font-size:[0-9.]+px' templates/<file>.html | sort -u
@@ -49,7 +52,7 @@ grep -oE 'font-size:[0-9.]+px' templates/<file>.html | sort -u
 
 ## 6. Kiểm bằng mắt thật (bắt buộc — mục 9 HE-MAU-ERP)
 
-- [ ] Chụp screenshot thật (Playwright ở scratchpad, mẫu script các phiên trước)
-- [ ] Bắt cả `console.error` LẪN `pageerror`
+- [ ] Chụp screenshot thật (Playwright/Chrome — dùng công cụ chụp sẵn có của app nếu có)
+- [ ] Bắt cả `console.error` LẪN `pageerror` — hai loại khác nhau
 - [ ] Test nheo mắt: làm mờ ảnh — thứ còn nhận ra phải là ý chính của trang
 - [ ] Thử ở 375px nếu sửa layout

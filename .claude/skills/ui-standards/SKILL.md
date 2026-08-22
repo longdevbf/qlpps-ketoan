@@ -1,12 +1,16 @@
 ---
 name: ui-standards
-description: Chuẩn kỹ thuật UI ketoan — design token, màu ngữ nghĩa, thang chữ, format tiền VN, 4 trạng thái, label map, dashboard 2 tầng. Đọc trước khi viết bất kỳ giao diện nào.
+description: Chuẩn kỹ thuật UI PAPASAN ERP — design token, màu ngữ nghĩa, thang chữ, format tiền VN, 4 trạng thái, label map, dashboard 2 tầng. Đọc trước khi viết bất kỳ giao diện nào.
 ---
+<!-- SINH TỰ ĐỘNG — ĐỪNG sửa file này.
+     Sửa `claude-kit/core/skills/ui-standards/SKILL.md` (chung 7 app) hoặc `claude-kit/overlay/ketoan/skills/ui-standards/SKILL.md` (riêng app này),
+     rồi chạy: cd d:\PapaSanIT\claude-kit && python sync.py -->
 
-# UI Standards — PAPASAN Kế Toán
+# UI Standards — PAPASAN ERP (chung 7 app)
 
 Bổ trợ cho `.claude/rules/frontend-ui.md` (10 luật) và
 `.claude/rules/design-system.md` (giới hạn hệ màu). Xung đột → design-system thắng.
+Nguồn sự thật về màu: `HE-MAU-ERP.md` ở gốc repo.
 
 ## 1. Design tokens — nguồn duy nhất: `static/css/theme.css`
 
@@ -46,30 +50,17 @@ Gọi `var(--token)`, không hex tự chế. Tóm tắt (chi tiết + tương ph
 
 ## 3. Thang chữ & khối (theo design-system, KHÔNG nội suy)
 
-- Cỡ chữ (thang đã +1px, chốt 08/08/2026): `11` nhãn nhóm · `12-13` meta ·
-  **`14` nội dung chuẩn** · `15-17` tiêu đề · KPI hero `29/25/18-20`.
-  Weight: `500` thường · `600-700` nhấn · `800` tiêu đề.
-  Mobile: **không thu nhỏ chữ**, bảng rộng thì cuộn ngang.
+- Cỡ chữ: `10` nhãn nhóm · `11-12` meta · `13` nội dung chuẩn · `14-16` tiêu đề
+  · KPI hero `29/25/18-20`. Weight: `500` thường · `600-700` nhấn · `800` tiêu đề.
 - Bo góc `6/8-9/12`, đệm thẻ `14-16px`, hiệu ứng `.12s–.25s`.
 
 ## 4. Format tiền & số — MỘT hàm dùng chung
 
-**Đã có hàm toàn cục trong `/static/js/ui-common.js`** (thêm 08/08/2026, nạp sẵn
-qua `_header.html`). **Cấm khai lại trong template** — dùng thẳng:
-
-| Hàm | Dùng cho | Đầu ra |
-|---|---|---|
-| `fmtVnd(n)` | bảng chi tiết, dòng tiền | `1.250.000 đ` |
-| `fmtShort(n)` | KPI card | `1,3 tỷ` · `1,25 tr` · `250.000 đ` |
-| `fmtSo(n, 'data')` | số ĐẾM, không phải tiền | `2.520 data` |
-| `fmtDate(s)` | ngày | `08/08/2026` |
-| `fmtDateTime(s)` | ngày giờ | `08/08/2026 10:30` |
-
-- **Đơn vị chốt là `đ`, không phải `₫`** (theo `frontend-ui.md` luật 6).
-  Giá trị rỗng → `—`, không phải `0 đ`.
-- Không trộn 2 chuẩn (`fmtVnd` và `fmtShort`) trong cùng một dải card.
-- Trang cũ còn khai hàm cùng tên trong `<script>` của nó thì bản local vẫn
-  thắng — không gãy, nhưng **dọn khi sửa tới trang đó**.
+- Dùng lại hàm format sẵn có của app (tìm `fmt(`/`fmtVnd(` trước khi viết mới),
+  đừng rải `toLocaleString` khắp nơi. Trang mới: 1 hàm `fmtVnd()` đầu file.
+- Chuẩn hiển thị: bảng chi tiết = `1.250.000 đ`; KPI card = rút gọn `1,25 tr`.
+  Không trộn 2 chuẩn trong cùng một dải card.
+- Số đếm kèm đơn vị chữ: `2.520 data`, `4.768 tin`, `35 đơn`.
 
 ## 5. Bốn trạng thái — mẫu markup
 
@@ -97,46 +88,10 @@ Tầng 1: 3–4 KPI chính (card lớn, số 29px). Tầng 2: dải card mỏng 
 hành. Biểu đồ đặt sau KPI. Tổng các phần trong biểu đồ = số trên KPI card —
 lệch thì hiện cảnh báo, không im lặng.
 
-## 8. Riêng ketoan — bối cảnh Jinja, không SPA framework
+## 8. Bối cảnh chung — Jinja server-render, không SPA framework
 
-- Trang mới extends `templates/base.html` (đọc chú thích 3 bẫy Jinja đầu file).
+- Không React/Vue/build step. Trang mới theo khung layout sẵn có của app
+  (base.html / _header.html — xem mục "Riêng app này").
 - Icon: KHÔNG emoji/icon font; nút dùng chữ (`Sửa`, `Xoá`); SVG inline được phép.
-- Header/subnav tự động từ `_header.html` — trang mới phải thêm mục vào dropdown.
-
-## 9. Nợ đang dọn — hệ màu bóng & hàm format local (đo 08/08/2026)
-
-Hai món nợ này là lý do đợt chuẩn hoá UI đang chạy. Sửa tới trang nào thì dọn
-trang đó, **đừng chép sang trang mới**.
-
-**a) Hệ màu bóng — 11 template tự khai token riêng.** Đợt retheme trước làm bằng
-cách *alias* token V1 sang token hệ, nên màu ra đúng và mọi lệnh tự kiểm đều
-pass — nhưng code vẫn nói ngôn ngữ V1:
-
-| Số token riêng | File |
-|---|---|
-| 27 | `xin_nghi` · `phe_duyet` · `giao_viec` · `duyet_chi` · `cham_cong` · `bao_cao_duyet_chi` |
-| 24 | `lich_lam_viec` |
-| 13 | `chat_widget` |
-| 9 | `index` · `ncc_de_xuat` |
-
-Hậu quả cụ thể, tất cả đều là bẫy cho người sửa sau:
-
-- `--navy` `--navy-d` `--primary` `--primary-d` → **4 tên cho 1 màu brand**
-- `--blue-txt: var(--brand)` → **token tên "blue" render ra màu cam**
-- `--purple-*` `--cyan-*` `--blue-*` → **9 tên cho 1 bộ `--info`**
-- Hex thật còn sót trong chính khối alias: `--amber-bg:#fef3c7`,
-  `--green-bg:#dcfce7`, `--blue-bg:#dbeafe` — lệnh tự kiểm không bắt vì
-  whitelist đúng những mã đó. Vẫn vi phạm giới hạn 5 (cấm hard-code hex).
-- `giao_viec.html` tham chiếu 8 token `--gray-*` **không định nghĩa ở đâu** —
-  không gãy vì mọi chỗ đều có fallback (`var(--gray-600, var(--text-2))`),
-  nhưng fallback đang gánh toàn bộ. Xoá lớp `--gray-*`, giữ token hệ.
-
-Cách dọn: xoá khối `:root{}` alias của trang, thay mỗi `var(--alias)` bằng
-token hệ tương ứng. Màu **không đổi** — alias vốn đã trỏ đúng.
-
-**b) `#fff` hard-code: 315 chỗ / 17 file** (index 44 · giao_viec 37 · phe_duyet
-28 · cham_cong 25 · duyet_chi 24). Thay bằng `var(--bg-card)`.
-
-**c) Hàm format local đã bị thay bằng bản toàn cục** (xem mục 4). Trang cũ vẫn
-còn `fmtMoney` ×4, `fmtVnd` ×3, `fmt` ×1, `fmtDate` ×8 — bản local thắng nên
-không gãy, xoá dần. `esc` / `escHtml` / `initials` cũng **đã có toàn cục**.
+- Trang mới phải đăng ký điều hướng vào header/nav — trang không có đường vào
+  là trang "mồ côi".

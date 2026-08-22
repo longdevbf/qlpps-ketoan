@@ -1,70 +1,89 @@
 ---
 name: learn-log
-description: Ghi nhật ký học tập vào docs/LEARNING.md từ git diff và hội thoại gần đây — hôm nay làm gì, khái niệm mới nào xuất hiện, câu hỏi nào nên tự tìm hiểu. Dùng khi người dùng gõ /learn-log, thường vào cuối buổi làm việc.
-argument-hint: (không cần tham số)
+description: Ghi nhật ký học qua dự án vào docs/LEARNING.md — hôm nay làm gì, khái niệm mới nào xuất hiện, câu hỏi nên tự tìm hiểu. Dùng khi người dùng gõ /learn-log, thường vào cuối một buổi làm việc hoặc sau khi xong một task đáng kể.
+allowed-tools: Bash, Read, Write, Edit, Grep, Glob
 ---
+<!-- SINH TỰ ĐỘNG — ĐỪNG sửa file này.
+     Sửa `claude-kit/core/skills/learn-log/SKILL.md` (chung 7 app) hoặc `claude-kit/overlay/ketoan/skills/learn-log/SKILL.md` (riêng app này),
+     rồi chạy: cd d:\PapaSanIT\claude-kit && python sync.py -->
 
 # /learn-log — nhật ký học qua dự án
 
-Đây là **nhật ký học tập cá nhân** của người dùng, không phải changelog kỹ thuật. Viết cho họ đọc
-lại sau 3 tháng và vẫn hiểu mình đã học được gì.
+Đây **không phải** changelog và **không phải** báo cáo công việc. Người đọc duy
+nhất là chính người dùng, 3 tháng sau, khi quên gần hết. Viết cho người đó.
 
-## Cách thực hiện
+## Bước 1 — thu thập nguyên liệu
 
-**Bước 1 — thu thập dữ liệu thật.** Chạy:
 ```bash
 git status --short
 git diff --stat
 git diff
 git log --oneline -5
 ```
-Nếu không có thay đổi nào chưa commit, xem commit gần nhất trong ngày (`git log --since=midnight`).
-Không có gì cả thì nói thẳng "hôm nay chưa có thay đổi nào để ghi" và dừng — **đừng bịa nội dung**.
 
-**Bước 2 — soi lại hội thoại phiên này**, tìm:
-- Khái niệm/thuật ngữ đã xuất hiện (dependency injection, idempotency, N+1, migration head,
-  fail-soft, `Decimal` vs `float`, partial index...).
-- Chỗ người dùng hỏi lại, hiểu nhầm, hoặc bạn phải giải thích thêm → đó chính là chỗ đáng ghi nhất.
-- Lỗi đã gặp và cách xử lý.
+Cộng thêm **hội thoại trong phiên này**: người dùng đã hỏi gì, vướng ở đâu, đã
+chọn phương án nào, đã hiểu sai điều gì rồi được đính chính. Phần này quan
+trọng hơn `git diff` — diff nói *cái gì đổi*, hội thoại nói *người dùng đã học gì*.
 
-**Bước 3 — tạo/nối vào `docs/LEARNING.md`.**
-- Thư mục `docs/` chưa có thì tạo.
-- File chưa có thì tạo với tiêu đề `# Nhật ký học — Kế Toán V2`.
-- **Luôn THÊM mục mới lên ĐẦU** (sau tiêu đề), không ghi đè, không xoá mục cũ.
-- Ngày lấy từ `git log -1 --format=%ad --date=short` hoặc hỏi người dùng — **không tự bịa ngày**.
+Không có thay đổi **và** không có gì đáng kể trong hội thoại → nói thẳng
+"hôm nay chưa có gì để ghi" và dừng. Đừng viết mục rỗng cho có.
 
-## Khuôn một mục
+## Bước 2 — ghi vào `docs/LEARNING.md`
+
+Chưa có file thì tạo (`docs/` chưa có thì tạo luôn), mở đầu bằng:
 
 ```markdown
-## YYYY-MM-DD
+# Nhật ký học — qlpps-ketoan
 
-### Hôm nay làm gì
-- <việc 1 — kèm file đã sửa, viết theo kiểu kể lại, không phải liệt kê diff>
+Ghi bằng `/learn-log`. Mục mới nhất ở TRÊN CÙNG.
+```
+
+**Luôn chèn mục mới lên đầu**, ngay dưới dòng giới thiệu — không append xuống
+cuối. Ngày lấy từ hệ thống, định dạng `dd/mm/yyyy`.
+
+```markdown
+---
+
+## 01/08/2026
+
+### Đã làm
+- <việc 1 — một dòng, nói kết quả chứ không kể thao tác>
 - <việc 2>
 
 ### Khái niệm mới gặp
-- **<tên khái niệm>** — <giải thích 1-2 câu bằng lời của người học>.
-  Gặp ở: `file.py:dòng`.
+- **<tên khái niệm>** — <1-2 câu giải thích> · gặp ở `<file:dòng>`
 
-### Vướng ở đâu
-- <lỗi/hiểu nhầm cụ thể> → <nguyên nhân thật> → <cách xử lý>.
-  (Bỏ mục này nếu hôm nay không vướng gì.)
+### Bẫy đã dính (hoặc suýt dính)
+- <triệu chứng thấy được> → <nguyên nhân thật> → <cách nhận biết lần sau>
 
-### Câu hỏi tự tìm hiểu
-- [ ] <câu hỏi cụ thể, tra được — không phải "học thêm SQLAlchemy">
-- [ ] <câu hỏi 2>
+### Câu hỏi nên tự tìm hiểu
+- [ ] <câu hỏi cụ thể, trả lời được trong 15 phút>
 
-### Một điều nhớ nhất
-<một câu duy nhất>
+### Đọng lại
+<Một câu. Nếu chỉ nhớ được một điều từ hôm nay thì nhớ điều này.>
 ```
 
-## Quy tắc
+## Quy tắc viết
 
-- **Tiếng Việt**, giọng kể lại cho chính mình, không phải báo cáo cho sếp.
-- Mục "Câu hỏi tự tìm hiểu" dùng `- [ ]` để lần sau tick được. Câu hỏi phải **cụ thể**:
-  ✅ "Vì sao `flush()` lấy được id mà chưa commit?"
-  ❌ "Tìm hiểu thêm về transaction."
-- Tối đa **5 gạch đầu dòng mỗi mục con** — dài quá thì không ai đọc lại.
-- Chỉ ghi những gì **thật sự xảy ra trong phiên này**. Không suy diễn, không thêm khái niệm chưa
-  từng xuất hiện chỉ để mục cho đầy đặn.
-- Ghi xong báo lại: đã thêm mục ngày nào, và nhắc còn bao nhiêu câu hỏi chưa tick trong cả file.
+- **Chỉ ghi khái niệm THỰC SỰ xuất hiện hôm nay.** Không liệt kê thứ hay ho mà
+  người dùng chưa chạm vào — nhật ký phồng lên là nhật ký không ai đọc lại.
+- **Luôn kèm `file:dòng`.** Nhật ký không dẫn được về code thật thì vô dụng.
+- **Câu hỏi phải cụ thể và trả lời được.** "Học thêm về SQLAlchemy" là câu hỏi
+  hỏng; "vì sao `selectinload` tránh được N+1 mà `joinedload` thì không?" là được.
+- Mục "Bẫy" là mục giá trị nhất. Đủ ba phần: *triệu chứng nhìn thấy* →
+  *nguyên nhân thật* → *dấu hiệu nhận biết lần sau*. Chỉ có nguyên nhân mà
+  không có triệu chứng thì lần sau không nhận ra được.
+- Tiếng Việt, ngắn. Mỗi mục 1-2 dòng.
+- **Không sửa các mục ngày cũ.** Hôm nay phát hiện hôm qua hiểu sai thì ghi vào
+  mục hôm nay: "hôm qua tôi tưởng X, thật ra là Y". Đó chính là dấu vết tiến bộ.
+
+## Bước 3 — báo lại
+
+In ra phần vừa ghi và một dòng:
+
+```
+Đã ghi vào docs/LEARNING.md — <n> khái niệm mới, <n> câu hỏi mở.
+Câu hỏi cũ chưa đánh dấu xong: <n>  (xem các dòng [ ] trong file)
+```
+
+**Không tự commit** `docs/LEARNING.md`. Muốn commit thì người dùng gọi `/commit`.

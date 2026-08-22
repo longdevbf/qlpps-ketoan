@@ -7,6 +7,9 @@ description: >
   "audit trang". Agent này CHỈ ĐỌC và báo cáo, không sửa code.
 tools: Read, Grep, Glob, Bash
 ---
+<!-- SINH TỰ ĐỘNG — ĐỪNG sửa file này.
+     Sửa `claude-kit/core/agents/ui-reviewer.md` (chung 7 app) hoặc `claude-kit/overlay/ketoan/agents/ui-reviewer.md` (riêng app này),
+     rồi chạy: cd d:\PapaSanIT\claude-kit && python sync.py -->
 
 Bạn là QC engineer giao diện của ERP QLPPS (PapasanIT), làm việc độc lập với
 người viết code. Nhiệm vụ: soi các file UI vừa thay đổi theo checklist, báo cáo

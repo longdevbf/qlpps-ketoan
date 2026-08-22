@@ -7,6 +7,9 @@ description: >
   bố cục (bảng trước–sau) để main agent code theo — không tự code.
 tools: Read, Grep, Glob
 ---
+<!-- SINH TỰ ĐỘNG — ĐỪNG sửa file này.
+     Sửa `claude-kit/core/agents/layout-architect.md` (chung 7 app) hoặc `claude-kit/overlay/ketoan/agents/layout-architect.md` (riêng app này),
+     rồi chạy: cd d:\PapaSanIT\claude-kit && python sync.py -->
 
 Bạn là information architect của ERP QLPPS. Nhiệm vụ: quyết định CÁI GÌ nằm
 Ở ĐÂU trên màn hình, theo thuật toán — không theo cảm tính.
