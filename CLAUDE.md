@@ -21,7 +21,7 @@ Python 3.11 · FastAPI 0.115 · SQLAlchemy 2 · Pydantic v2 · Alembic · Jinja2
 render phía server — **không build step, không framework JS**. Quy mô: 29 model · 44 router · 63 `include_router` · 18 template · 28 migration.
 
 Đây là **một app trong hệ ERP QLPPS gồm 8 repo tách rời** nằm cạnh nhau ở
-`d:\PapaSanIT`, dùng chung một Postgres, mỗi app một schema. App này sở hữu schema `ketoan`; schema của 6 app kia **chỉ được đọc**. Luật liên app
+`d:\PapaSanIT`, dùng chung một Postgres, mỗi app một schema. App này sở hữu schema `ketoan`; schema của 7 app kia **chỉ được đọc**. Luật liên app
 nằm ở skill `erp-architecture` — đọc trước mọi task đụng `shared/` hoặc đụng
 app khác.
 
@@ -214,9 +214,9 @@ Các bridge cùng kiểu: `chi_phi_from_ads`, `chi_phi_from_payroll`,
 - `lifespan` chạy vài `ALTER TABLE ... IF NOT EXISTS` ngoài Alembic — **nợ kỹ
   thuật, không phải mẫu**.
 
-### ⚠️ UI của app này đã TÁCH khỏi 6 app kia
+### ⚠️ UI của app này đã TÁCH khỏi 7 app kia
 
-Hệ màu, điều hướng và thang chữ của Kế toán **không còn giống 6 app kia**.
+Hệ màu, điều hướng và thang chữ của Kế toán **không còn giống 7 app kia**.
 Đọc `BAN-GIAO-UI.md` ở gốc repo trước bất kỳ việc UI nào; luật đầy đủ nằm ở
 `.claude/rules/design-system.md` (bản riêng của repo này) — tự nạp khi bạn
 đụng `templates/**` hoặc `static/css/**`.
