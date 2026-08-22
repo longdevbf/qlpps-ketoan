@@ -242,6 +242,10 @@ class ExpenseOut(BaseModel):
     ho_ten_nguoi_duyet: Optional[str]
     nhan_xet_duyet: Optional[str]
     ngay_duyet: Optional[datetime]
+    da_chi: bool = False
+    chi_phi_id: Optional[int] = None
+    tai_khoan_chi: Optional[str] = None
+    ngay_chi: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
@@ -828,3 +832,106 @@ def expense_report(
         "sla_hours_avg": sla_avg,
         "sla_sample_size": len(sla_hours),
     }
+
+
+# ── CHI (Kế Toán chi đề xuất đã duyệt xong → sổ quỹ) ─────────────────────────
+# anh Quang 2026-08-11: sau khi CEO duyệt (approval_level='done'), KT bấm "Chi"
+# tại đề xuất → tạo ketoan.chi_phi_phat_sinh (→ tự sinh SoQuy chi, trừ tài khoản)
+# + đánh dấu da_chi. Idempotent (không chi 2 lần).
+_LOAI_CHI_MAP = {
+    "di_chuyen":  ("Chi phí đi lại", "quan_ly"),
+    "van_phong":  ("Chi phí văn phòng", "quan_ly"),
+    "tiep_thi":   ("Chi phí tiếp thị", "ban_hang"),
+    "dao_tao":    ("Chi phí đào tạo", "quan_ly"),
+    "khach_hang": ("Chi phí khách hàng", "ban_hang"),
+    "khac":       ("Chi phí khác", "khac"),
+}
+
+
+class ChiBody(BaseModel):
+    tai_khoan: str
+    ghi_chu: Optional[str] = None
+
+
+def _can_chi(user: JWTPayload, db: Session) -> bool:
+    """Được bấm Chi: CEO/admin HOẶC người có app 'ketoan' (đội kế toán)."""
+    role = (user.role or "").lower()
+    return role in _CEO_ROLES or "ketoan" in _user_apps(db, user.username)
+
+
+@router.post("/{rid}/chi", response_model=ExpenseOut)
+def chi_expense(
+    rid: int,
+    body: ChiBody,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+):
+    if not _can_chi(user, db):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Chỉ Kế Toán được chi đề xuất")
+    rec = db.get(ExpenseRequest, rid)
+    if not rec:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đề xuất")
+    if (rec.approval_level or "") != "done":
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            "Đề xuất chưa duyệt xong (cần CEO duyệt) — chưa thể chi")
+    if getattr(rec, "da_chi", False):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Đề xuất này đã chi rồi")
+    tk = (body.tai_khoan or "").strip()
+    if not tk:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Vui lòng chọn tài khoản chi")
+
+    try:
+        from ketoan.app.models import ChiPhiPhatSinh
+        from ketoan.app.services.so_quy_auto import sync_so_quy_from_chi_phi
+    except Exception as e:  # pragma: no cover
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            f"Không nạp được module Kế Toán: {e}")
+
+    loai_ten, nhom = _LOAI_CHI_MAP.get((rec.loai_chi or "").strip(),
+                                       ("Chi phí khác", "khac"))
+    _gc = f"Chi đề xuất #{rec.id} • {rec.username}"
+    if body.ghi_chu:
+        _gc += f" • {body.ghi_chu.strip()}"
+    cp = ChiPhiPhatSinh(
+        ngay=date.today(),
+        so_tien=rec.so_tien,
+        loai_chi_phi=loai_ten,
+        ten_khoan=(rec.tieu_de or "")[:255],
+        nhom_chi_phi=nhom,
+        phong_ban=rec.phong_ban,
+        nguoi_chi=rec.ho_ten,
+        ngan_hang=tk,
+        mo_ta=rec.muc_dich,
+        ghi_chu=_gc,
+        created_by=user.username,
+    )
+    db.add(cp)
+    db.flush()  # cần cp.id để đánh dấu + sync sổ quỹ
+    # Đánh dấu đã chi TRƯỚC sync để cùng 1 transaction: sync commit hết, hoặc lỗi
+    # thì rollback hết (nguyên tử — không có chuyện da_chi=True mà không ra sổ quỹ).
+    rec.da_chi = True
+    rec.chi_phi_id = cp.id
+    rec.tai_khoan_chi = tk
+    rec.ngay_chi = datetime.now(tz=timezone.utc)
+    sync_so_quy_from_chi_phi(db, cp)   # _upsert SoQuy chi + db.commit() (hoặc rollback)
+    db.refresh(rec)
+    if not rec.da_chi:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            "Chi thất bại — không ghi được sổ quỹ, vui lòng thử lại")
+
+    # Báo người đề xuất: đã được chi
+    try:
+        from shared.services.notify import notify
+        notify(
+            db, target=rec.username, source_app="ketoan",
+            event_type="expense:da_chi",
+            title=f"💸 Đề xuất '{rec.tieu_de}' đã được chi",
+            message=f"{int(rec.so_tien):,}đ • qua {tk}",
+            ref_type="expense_request", ref_id=rec.id, severity="success",
+            created_by=user.username,
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+    return rec

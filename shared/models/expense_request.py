@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import Date, DateTime, Index, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Index, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -60,6 +60,13 @@ class ExpenseRequest(Base):
     ho_ten_nguoi_duyet: Mapped[Optional[str]] = mapped_column(String(128))
     nhan_xet_duyet: Mapped[Optional[str]] = mapped_column(Text)
     ngay_duyet: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+    # CHI (anh Quang 2026-08-11): sau khi CEO duyệt (approval_level='done'), Kế Toán
+    # bấm "Chi" → tạo ketoan.chi_phi_phat_sinh (→ sổ quỹ chi). Chống chi 2 lần.
+    da_chi: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
+    chi_phi_id: Mapped[Optional[int]] = mapped_column(Integer)        # link ketoan.chi_phi_phat_sinh.id
+    tai_khoan_chi: Mapped[Optional[str]] = mapped_column(String(64))  # TK trừ tiền (Tiền Mặt/ACB/BIDV/VPB)
+    ngay_chi: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

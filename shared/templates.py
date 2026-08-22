@@ -86,6 +86,23 @@ def _lookup_user_info(username: str) -> tuple[str, str, str, str, str]:
 def setup_jinja2(templates: Jinja2Templates) -> None:
     """Inject Flask-compat helpers vào Jinja2 env."""
     env = templates.env
+
+    # Thêm `shared/templates` làm FALLBACK loader cho MỌI app (anh Quang 2026-08-20):
+    # template dùng chung (vd chat_widget.html) đặt 1 bản duy nhất ở shared/templates.
+    # App vẫn ưu tiên bản trong templates/ của mình; chỉ khi app KHÔNG có bản riêng
+    # (đã xoá bản copy) thì include mới rơi về bản shared → 1 nguồn, sửa 1 nơi.
+    try:
+        import os as _os
+        from jinja2 import ChoiceLoader as _CL, FileSystemLoader as _FSL
+        _shared_tpl = _os.path.join(_os.path.dirname(__file__), "templates")
+        if _os.path.isdir(_shared_tpl) and env.loader is not None:
+            # tránh add trùng khi setup_jinja2 gọi 2 lần
+            if not getattr(env, "_shared_tpl_added", False):
+                env.loader = _CL([env.loader, _FSL(_shared_tpl)])
+                env._shared_tpl_added = True
+    except Exception:
+        pass
+
     # V1 Flask helper — V2 không dùng flash, return empty list cho compat
     env.globals["get_flashed_messages"] = lambda *a, **kw: []
     # url_for KHÔNG wrap — Starlette tự handle qua jinja_pass_arg(request).

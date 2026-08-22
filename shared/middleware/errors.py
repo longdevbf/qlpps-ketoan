@@ -39,8 +39,10 @@ def register_error_handlers(app: FastAPI) -> None:
             if location:
                 return RedirectResponse(location, status_code=exc.status_code)
         if _wants_json(request):
+            # Kèm cả `detail` lẫn `error`: nhiều frontend đọc `.detail` (chuẩn
+            # FastAPI), số khác đọc `.error`. Trả cả hai để câu báo lỗi luôn hiện.
             return JSONResponse(
-                {"error": exc.detail, "code": exc.status_code},
+                {"error": exc.detail, "detail": exc.detail, "code": exc.status_code},
                 status_code=exc.status_code,
             )
         return HTMLResponse(
