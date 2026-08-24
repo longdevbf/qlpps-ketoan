@@ -5257,10 +5257,9 @@ function dhRenderTable(){
       // ĐỐI CHIẾU GIÁ: giá theo công thức bảng giá vs đơn giá NV bán (chỉ SP đã
       // bắt được giá công thức). So ở mức đơn giá (trước CK/VAT). chênh = bán − CT:
       // >0 xanh (bán cao hơn công thức), <0 đỏ (bán THẤP hơn — soi), =0 đúng giá.
-      const giaCT     = +row.gia_cong_thuc   || 0;
-      const giaBanM   = +row.gia_ban_matched || 0;
-      const ctItems   = +row.gia_ct_items       || 0;
-      const ctItemsTot= +row.gia_ct_items_total || 0;
+      const giaCT   = +row.gia_cong_thuc   || 0;
+      const giaBanM = +row.gia_ban_matched || 0;
+      const nLech   = +row.gia_ct_items    || 0;   // số SP NV sửa tay lệch giá công thức
 
       // PHẢI THU — tách cọc thực nhận / thanh toán thực nhận (không double-count)
       const thuDatCoc    = +row.thu_dat_coc    || 0;  // cọc thực nhận (để hiển thị breakdown)
@@ -5337,16 +5336,16 @@ function dhRenderTable(){
             : '');
       // Ô "Giá công thức" + badge chênh (bán − công thức)
       let giaCTCell;
-      if (ctItems <= 0) {
-        giaCTCell = `<span style="color:var(--text2)" title="Đơn cũ / chưa bắt được giá công thức lúc lên đơn">—</span>`;
+      if (giaCT <= 0) {
+        giaCTCell = `<span style="color:var(--text2)" title="Đơn không có dòng giá">—</span>`;
       } else {
         const chenh = giaBanM - giaCT;
-        const partial = (ctItemsTot > ctItems) ? `<br><small style="color:var(--text2);font-size:11px">${ctItems}/${ctItemsTot} SP</small>` : '';
+        const lechNote = nLech > 0 ? ` — ${nLech} SP lệch giá` : '';
         let badge;
-        if (chenh > 0.5)       badge = `<br><small style="color:var(--green);font-size:11px" title="NV bán cao hơn giá công thức">▲ +${fmt(chenh)}</small>`;
-        else if (chenh < -0.5) badge = `<br><small style="color:var(--red);font-weight:700;font-size:11px" title="NV bán THẤP hơn giá công thức — soi lại">▼ ${fmt(Math.abs(chenh))}</small>`;
+        if (chenh > 0.5)       badge = `<br><small style="color:var(--green);font-size:11px" title="NV bán cao hơn giá công thức${lechNote}">▲ +${fmt(chenh)}</small>`;
+        else if (chenh < -0.5) badge = `<br><small style="color:var(--red);font-weight:700;font-size:11px" title="NV bán THẤP hơn giá công thức — soi lại${lechNote}">▼ ${fmt(Math.abs(chenh))}</small>`;
         else                   badge = `<br><small style="color:var(--text2);font-size:11px">đúng giá</small>`;
-        giaCTCell = `<strong>${fmt(giaCT)}</strong>${badge}${partial}`;
+        giaCTCell = `<strong>${fmt(giaCT)}</strong>${badge}`;
       }
       return `<tr>
         <td ${openDetail}>${cmtDot}<code><strong style="color:var(--blue);text-decoration:underline">${maBG || '—'}</strong></code></td>

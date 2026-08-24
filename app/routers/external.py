@@ -621,14 +621,18 @@ def orders_overview(
         LEFT JOIN doanh_thu_agg dta ON dta.ma_don = q.quote_number
         LEFT JOIN cong_no_agg cn ON cn.ma_don = q.quote_number
         LEFT JOIN cmt_agg cmt ON cmt.ma_bg = q.quote_number
-        -- Giá theo công thức bảng giá vs giá NV bán (chỉ SP đã bắt được giá công thức)
+        -- Giá theo công thức bảng giá vs giá NV bán.
+        -- gia_cong_thuc = tổng list-price MỌI dòng: dùng don_gia_he_thong (giá công
+        -- thức bắt lúc lưu) nơi CÓ; SP ngoài công thức (chưa bắt được) auto cộng
+        -- don_gia_tinh vào → khớp "Tạm tính" trên báo giá, phủ ~100% đơn.
+        -- gia_ban_matched = tổng đơn giá NV bán (don_gia_tinh). chênh = ban − CT chỉ
+        -- khác 0 khi NV sửa tay lệch giá công thức. gia_ct_items = SỐ SP lệch giá.
         LEFT JOIN LATERAL (
             SELECT
-              SUM(COALESCE(qi.don_gia_he_thong,0) * COALESCE(qi.so_luong,1))
-                FILTER (WHERE qi.don_gia_he_thong IS NOT NULL AND qi.don_gia_he_thong > 0) AS gia_cong_thuc,
-              SUM(COALESCE(qi.don_gia_tinh,0) * COALESCE(qi.so_luong,1))
-                FILTER (WHERE qi.don_gia_he_thong IS NOT NULL AND qi.don_gia_he_thong > 0) AS gia_ban_matched,
-              COUNT(*) FILTER (WHERE qi.don_gia_he_thong IS NOT NULL AND qi.don_gia_he_thong > 0) AS gia_ct_items,
+              SUM(COALESCE(NULLIF(qi.don_gia_he_thong,0), qi.don_gia_tinh, 0) * COALESCE(qi.so_luong,1)) AS gia_cong_thuc,
+              SUM(COALESCE(qi.don_gia_tinh,0) * COALESCE(qi.so_luong,1)) AS gia_ban_matched,
+              COUNT(*) FILTER (WHERE qi.don_gia_he_thong IS NOT NULL AND qi.don_gia_he_thong > 0
+                               AND ABS(COALESCE(qi.don_gia_tinh,0) - qi.don_gia_he_thong) > 0.5) AS gia_ct_items,
               COUNT(*) AS gia_ct_items_total
             FROM baogia.quote_items qi WHERE qi.quote_id = q.id
         ) gc ON TRUE
