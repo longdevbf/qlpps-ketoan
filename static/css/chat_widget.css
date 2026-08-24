@@ -1,0 +1,2491 @@
+/* ============================================================
+   ZALO V2 CHAT WIDGET — SKELETON CSS
+   Scope: #_chat_widget_root (palette vars) + #_chat_panel layout
+   ============================================================ */
+
+#_chat_widget_root {
+  /* ══ HỆ MÀU RIÊNG CỦA Ô CHAT — XANH & TRẮNG ══
+     CỐ Ý không dùng hệ hổ phách/cà phê của app kế toán: đây là công cụ nhắn
+     tin, người dùng đã quen quy ước xanh-trắng của Zalo/Messenger.
+     Muốn đổi màu chat thì SỬA ĐÚNG 14 DÒNG DƯỚI ĐÂY, đừng đụng hex rải trong
+     file — cả widget đã dồn hết về lớp token này. */
+  --z-blue:        #0084FF;   /* nền nhấn: bong bóng mình gửi, FAB, nút chính */
+  --z-blue-text:   #0B63CE;   /* KHI LÀM CHỮ trên nền trắng — #0084FF chỉ 3,1:1, không đạt AA */
+  --z-blue-dark:   #0068D9;   /* hover của nền nhấn */
+  --z-blue-darker: #0B3D6B;   /* rail dọc bên trái */
+  --z-white:       #FFFFFF;
+  --z-bg:          #F0F2F5;   /* nền phụ (khung danh sách) */
+  --z-hover:       #F2F3F5;   /* hover hàng */
+  --z-active:      #E7F3FF;   /* hàng đang chọn — xanh rất nhạt */
+  --z-border:      #E4E6EB;
+  --z-text:        #050505;   /* chữ chính */
+  --z-text2:       #4B4F56;   /* chữ phụ */
+  --z-muted:       #65676B;   /* chú thích */
+  --z-badge:       #E41E3F;   /* badge chưa đọc, lỗi */
+  --z-ok:          #31A24C;   /* chấm online, đã gửi */
+  --z-warn:        #F7B928;   /* highlight kết quả tìm kiếm */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  color: var(--z-text);
+  font-size: 15px;
+}
+
+#_chat_widget_root *,
+#_chat_widget_root *::before,
+#_chat_widget_root *::after {
+  box-sizing: border-box;
+}
+
+/* ============================================================
+   FAB (giữ ID cũ #_chat_fab — base.html không cần đổi)
+   ============================================================ */
+#_chat_fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--z-blue);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  z-index: 99998;
+  user-select: none;
+  transition: transform .18s ease, box-shadow .18s ease;
+  border: none;
+}
+#_chat_fab:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 10px 26px rgba(0, 132, 255, .42), 0 3px 8px rgba(0, 0, 0, .16);
+}
+#_chat_fab:active { transform: translateY(0) scale(.98); }
+.zV2_fab_icon { display: flex; align-items: center; justify-content: center; }
+#_chat_fab .zV2_fab_badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--z-badge);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+}
+#_chat_fab.has-unread .zV2_fab_badge { display: inline-flex; }
+
+/* ── FAB KÉO THẢ ĐƯỢC (08/08/2026) ─────────────────────────────
+   Vị trí do JS ghi vào 2 biến --zfab-x/--zfab-y; class .zV2_fab_moved chỉ bật
+   khi người dùng đã tự đặt chỗ, nên mặc định vẫn là góc dưới-phải như cũ.
+   Bộ chọn #id.class có độ đặc hiệu (1,1,0) — CỐ Ý cao hơn rule
+   `#_chat_fab{bottom:80px!important}` ở media query mobile dòng ~860 (1,0,0).
+   Thiếu `!important` ở đây thì kéo xong trên mobile nút sẽ nhảy về chỗ cũ.
+   `touch-action:none` để trình duyệt không nuốt thao tác kéo thành cuộn trang. */
+#_chat_fab { touch-action: none; }
+#_chat_fab.zV2_fab_moved {
+  left:   var(--zfab-x) !important;
+  top:    var(--zfab-y) !important;
+  right:  auto !important;
+  bottom: auto !important;
+}
+#_chat_fab.zV2_fab_dragging {
+  cursor: grabbing;
+  transition: none;
+  /* Chặn transform của :hover/:active — translateY(-2px) làm nút lệch khỏi con trỏ */
+  transform: none;
+  box-shadow: 0 12px 30px rgba(0, 132, 255, .46), 0 4px 10px rgba(0, 0, 0, .20);
+}
+
+/* ============================================================
+   PANEL — 3 column desktop
+   ============================================================ */
+#_chat_panel {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  width: min(1080px, calc(100vw - 32px));
+  height: auto;
+  max-height: calc(100vh - 32px);
+  background: var(--z-white);
+  border-radius: 14px;
+  overflow: hidden;
+  display: none;
+  flex-direction: row;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .22), 0 8px 24px rgba(0, 0, 0, .10);
+  z-index: 99999;
+  transform-origin: bottom right;
+}
+#_chat_panel.open {
+  display: flex;
+  animation: zV2_slideup .28s cubic-bezier(.4, 0, .2, 1);
+}
+@keyframes zV2_slideup {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ============================================================
+   LEFT RAIL (64px)
+   ============================================================ */
+#zV2_rail {
+  /* 76px chứ không phải 64px: nhãn "Tin nhắn" phải nằm trọn MỘT dòng.
+     Nút 64px + 6px chừa mỗi bên. Đổi bề rộng này thì sửa luôn `left` của
+     vạch .zV2_rail_btn.active::before cho nó bám đúng mép rail. */
+  width: 76px;
+  background: var(--z-blue-darker);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 8px;
+  flex-shrink: 0;
+}
+#zV2_rail_logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.15);
+}
+.zV2_rail_btn {
+  position: relative;
+  width: 64px;
+  height: 44px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, .72);
+  /* Nhãn chữ thay icon — icon cũ là entity bị regex phá */
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;        /* "Tin nhắn" phải một dòng, không được ngắt */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color .15s ease;
+}
+.zV2_rail_btn:hover { color: #fff; }
+/* Mục đang chọn phân biệt bằng VẠCH BÊN CẠNH + chữ sáng lên, KHÔNG tô mảng nền.
+   (Trước đây có thêm background rgba(255,255,255,.20) — đã bỏ theo yêu cầu.) */
+.zV2_rail_btn.active { color: #fff; }
+.zV2_rail_btn.active::before {
+  content: "";
+  position: absolute;
+  left: -6px;                 /* bám mép trái rail: (76 - 64) / 2 = 6 */
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: #fff;
+}
+.zV2_rail_btn .zV2_rail_tooltip {
+  position: absolute;
+  left: 72px;                 /* nút 64px + 8px hở; sửa bề rộng nút thì sửa đây */
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--z-text);
+  color: #fff;
+  font-size: 13px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s ease;
+  z-index: 5;
+}
+.zV2_rail_btn:hover .zV2_rail_tooltip { opacity: 1; }
+.zV2_rail_btn .zV2_rail_badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--z-badge);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--z-blue-darker);
+}
+.zV2_rail_btn.has-unread .zV2_rail_badge { display: inline-flex; }
+#zV2_rail_spacer { flex: 1; }
+
+/* ============================================================
+   MIDDLE COLUMN (320px) — conv list / contacts
+   ============================================================ */
+#zV2_col_middle {
+  width: 320px;
+  flex-shrink: 0;
+  background: var(--z-white);
+  border-right: 1px solid var(--z-border);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+#zV2_mid_header {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 10px;
+  border-bottom: 1px solid var(--z-border);
+  flex-shrink: 0;
+}
+#zV2_mid_header_avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--z-active);
+  color: var(--z-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+#zV2_mid_header_avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+#zV2_mid_header_name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#zV2_btn_new_group {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  color: var(--z-text);
+  transition: background .12s ease;
+}
+#zV2_btn_new_group:hover { background: var(--z-hover); }
+
+#zV2_search_wrap {
+  height: 44px;
+  padding: 6px 12px;
+  flex-shrink: 0;
+}
+#zV2_search_box {
+  width: 100%;
+  height: 32px;
+  border-radius: 16px;
+  border: none;
+  background: var(--z-hover);
+  padding: 0 14px;
+  font-size: 14px;
+  color: var(--z-text);
+  outline: none;
+  transition: background .12s ease, box-shadow .12s ease;
+}
+#zV2_search_box::placeholder { color: var(--z-muted); }
+#zV2_search_box:focus {
+  background: var(--z-white);
+  box-shadow: 0 0 0 1px var(--z-blue) inset;
+}
+
+#zV2_tabs_filter {
+  height: 36px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.zV2_tab_filter_btn {
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 13px;
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--z-muted);
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease;
+}
+.zV2_tab_filter_btn:hover { background: var(--z-hover); color: var(--z-text); }
+.zV2_tab_filter_btn.active {
+  background: var(--z-active);
+  color: var(--z-blue);
+}
+
+#zV2_conv_list,
+#zV2_contacts_list {
+  flex: 1 1 0;
+  min-height: 0; /* cho phép flex shrink để scroll hoạt động */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 0;
+}
+#zV2_contacts_list { display: none; }
+
+.zV2_conv_item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background .12s ease;
+}
+.zV2_conv_item:hover { background: var(--z-hover); }
+.zV2_conv_item.active { background: var(--z-active); }
+.zV2_conv_avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--z-active);
+  color: var(--z-blue);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 16px;
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.zV2_conv_avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.zV2_conv_avatar .zV2_online_dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--z-ok);
+  border: 2px solid #fff;
+}
+.zV2_conv_body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.zV2_conv_name_row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.zV2_conv_name {
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--z-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zV2_conv_time {
+  font-size: 12px;
+  color: var(--z-muted);
+  flex-shrink: 0;
+}
+.zV2_conv_preview_row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.zV2_conv_preview {
+  font-size: 14px;
+  color: var(--z-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* === UNREAD state cho conv item (Zalo-style highlight) === */
+.zV2_conv_item--unread .zV2_conv_name {
+  font-weight: 700 !important;
+  color: var(--z-text) !important;
+}
+.zV2_conv_item--unread .zV2_conv_preview {
+  color: var(--z-text) !important;
+  font-weight: 600 !important;
+}
+.zV2_conv_item--unread .zV2_conv_time {
+  color: #0068FF !important;
+  font-weight: 700 !important;
+}
+.zV2_conv_item--unread .zV2_conv_avatar {
+  box-shadow: 0 0 0 2px var(--z-badge);
+}
+.zV2_conv_badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--z-badge);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+/* Background nhẹ cho item chưa đọc */
+.zV2_conv_item--unread:not(.zV2_conv_item--active) {
+  background: rgba(0, 104, 255, 0.04);
+}
+
+/* ============================================================
+   MAIN COLUMN (flex:1)
+   ============================================================ */
+#zV2_col_main {
+  flex: 1;
+  background: var(--z-bg);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-width: 0;
+}
+
+#zV2_main_header {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  padding: 0 60px 0 16px; /* right padding chừa chỗ cho close btn (top-right panel) */
+  gap: 12px;
+  background: var(--z-white);
+  border-bottom: 1px solid var(--z-border);
+  flex-shrink: 0;
+  z-index: 3;
+}
+#zV2_main_back_btn {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--z-text);
+  align-items: center;
+  justify-content: center;
+}
+#zV2_main_back_btn:hover { background: var(--z-hover); }
+#zV2_main_avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--z-active);
+  color: var(--z-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+#zV2_main_avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+#zV2_main_titlewrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+#zV2_main_title {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--z-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#zV2_main_meta {
+  font-size: 13px;
+  color: var(--z-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#zV2_main_actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.zV2_main_action_btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  font-size: 17px;
+  cursor: pointer;
+  color: var(--z-text2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .12s ease;
+}
+.zV2_main_action_btn:hover { background: var(--z-hover); color: var(--z-blue); }
+.zV2_main_action_btn > * { pointer-events: none; } /* click luôn rơi vào button, không bị SVG ăn */
+.zV2_main_action_btn.active { background: var(--z-active); color: var(--z-blue); }
+
+#zV2_messages_scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  /* Cuộn mượt: chỉ áp dụng smooth cho scrollTo programmatic, để wheel/trackpad tự do bằng auto */
+  scroll-behavior: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  will-change: scroll-position;
+}
+/* Scroll perf nhẹ (KHÔNG dùng transform vì gây layout bug trên iOS Safari) */
+.zV2_msg_row { contain: layout style; }
+/* Optimistic messages (chưa được server confirm) */
+.zV2_msg_row[data-msg-id^="-"] .zV2_bubble { opacity: 0.65; }
+#zV2_messages_inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 100%;
+}
+
+#zV2_typing_indicator {
+  position: absolute;
+  bottom: 88px;
+  left: 16px;
+  background: var(--z-white);
+  color: var(--z-muted);
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+  display: none;
+  align-items: center;
+  gap: 6px;
+  z-index: 4;
+}
+#zV2_typing_indicator.visible { display: flex; }
+#zV2_typing_indicator .zV2_dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--z-muted);
+  animation: zV2_blink 1.2s infinite ease-in-out;
+}
+/* Cac cham la con thu 2,3,4 (con thu 1 la .zV2_typing_text) — truoc day
+   viet nth-child(2),(3) nen cham DAU tien bi tre .2s va cham CUOI khong tre,
+   song chay sai nhip. */
+#zV2_typing_indicator .zV2_dot:nth-child(3) { animation-delay: .2s; }
+#zV2_typing_indicator .zV2_dot:nth-child(4) { animation-delay: .4s; }
+@keyframes zV2_blink {
+  0%, 60%, 100% { opacity: .3; }
+  30% { opacity: 1; }
+}
+
+#zV2_scroll_bottom_btn {
+  position: absolute;
+  bottom: 100px;
+  right: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--z-white);
+  border: 1px solid var(--z-border);
+  color: var(--z-text);
+  font-size: 17px;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .10);
+  z-index: 4;
+}
+#zV2_scroll_bottom_btn.visible { display: flex; }
+#zV2_scroll_bottom_btn:hover { background: var(--z-hover); }
+#zV2_scroll_bottom_btn .zV2_scroll_badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--z-badge);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+}
+#zV2_scroll_bottom_btn.has-unread .zV2_scroll_badge { display: inline-flex; }
+
+/* ============================================================
+   REPLY STRIP & COMPOSER
+   ============================================================ */
+/* ── Paste image preview (hiện trước khi gửi) ── */
+#zV2_paste_preview {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--z-active);
+  border-top: 1px solid var(--z-border);
+  flex-shrink: 0;
+}
+#zV2_paste_preview.visible { display: flex; }
+#zV2_paste_thumb {
+  height: 56px;
+  width: auto;
+  max-width: 80px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--z-border);
+}
+#zV2_paste_meta { flex: 1; min-width: 0; }
+#zV2_paste_name {
+  font-size: 13px;
+  color: var(--z-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#zV2_paste_hint { font-size: 12px; color: var(--z-muted); margin-top: 2px; }
+#zV2_paste_clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--z-muted);
+  font-size: 22px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+#zV2_paste_clear:hover { background: var(--z-hover); color: var(--z-text); }
+
+#zV2_reply_strip {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--z-white);
+  border-top: 1px solid var(--z-border);
+  font-size: 13px;
+}
+#zV2_reply_strip.visible { display: flex; }
+#zV2_reply_strip .zV2_reply_bar {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  background: var(--z-blue);
+}
+#zV2_reply_strip .zV2_reply_body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+#zV2_reply_strip .zV2_reply_to {
+  color: var(--z-blue);
+  font-weight: 600;
+  font-size: 12px;
+}
+#zV2_reply_strip .zV2_reply_text {
+  color: var(--z-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#zV2_reply_strip .zV2_reply_close {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--z-muted);
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#zV2_reply_strip .zV2_reply_close:hover { background: var(--z-hover); }
+
+#zV2_compose_wrap {
+  padding: 12px;
+  background: var(--z-white);
+  border-top: 1px solid var(--z-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+
+  position: relative;}
+#zV2_compose_tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.zV2_compose_tool_btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--z-text2);
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .12s ease, color .12s ease, transform .1s ease;
+}
+.zV2_compose_tool_btn:hover { background: var(--z-hover); color: var(--z-blue); }
+.zV2_compose_tool_btn:active { transform: scale(.92); }
+
+#zV2_compose_row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+#zV2_compose_input {
+  flex: 1;
+  min-height: 40px;
+  max-height: 140px;
+  padding: 10px 16px;
+  border-radius: 22px;
+  background: var(--z-hover);
+  border: none;
+  outline: none;
+  resize: none;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--z-text);
+  font-family: inherit;
+  transition: background .12s ease;
+}
+#zV2_compose_input::placeholder { color: var(--z-muted); }
+#zV2_compose_input:focus { background: var(--z-hover); }
+
+#zV2_compose_send_wrap {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+#zV2_thumbs_btn,
+#zV2_send_btn {
+  position: absolute;
+  inset: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 17px;
+  color: #fff;
+  background: var(--z-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+}
+#zV2_thumbs_btn:hover,
+#zV2_send_btn:hover {
+  transform: scale(1.06);
+  box-shadow: 0 4px 12px rgba(0, 132, 255, .35);
+}
+#zV2_send_btn { display: none; }
+#zV2_compose_send_wrap.has-text #zV2_send_btn { display: flex; }
+#zV2_compose_send_wrap.has-text #zV2_thumbs_btn { display: none; }
+#zV2_thumbs_btn > *, #zV2_send_btn > * { pointer-events: none; }
+
+/* Mobile: nút gửi to hơn để dễ chạm */
+@media (max-width: 768px) {
+  #zV2_compose_send_wrap { width: 44px; height: 44px; }
+  #zV2_thumbs_btn, #zV2_send_btn { width: 44px; height: 44px; }
+  #zV2_compose_input { min-height: 44px; font-size: 17px; padding: 11px 16px; }
+  #zV2_compose_tools { padding: 2px 0; }
+  .zV2_compose_tool_btn { width: 40px; height: 40px; }
+  /* Nâng FAB lên cao hơn để không đè lên nội dung */
+  #_chat_fab { bottom: 80px !important; right: 16px !important; }
+}
+
+/* ============================================================
+   MESSAGE BUBBLES
+   ============================================================ */
+.zV2_msg_row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 1px 0;
+  position: relative;
+}
+.zV2_msg_row--own { flex-direction: row-reverse; }
+.zV2_msg_row--first_of_group { margin-top: 10px; }
+.zV2_msg_row--last_of_group { margin-bottom: 10px; }
+.zV2_msg_avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--z-active);
+  color: var(--z-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 13px;
+  overflow: hidden;
+  flex-shrink: 0;
+  visibility: visible;
+}
+/* avatar always visible for other users */
+.zV2_msg_row--own .zV2_msg_avatar { display: none; }
+.zV2_msg_avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.zV2_msg_avatar_initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+}
+/* @mention highlight trong tin nhắn */
+.zV2_mention {
+  color: var(--info-fg);
+  font-weight: 600;
+  background: var(--info-soft);
+  border-radius: 3px;
+  padding: 0 3px;
+  cursor: pointer;
+}
+.zV2_mention:hover { background: var(--z-active); }
+/* Mention dropdown */
+#zV2_mention_dd {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1.5px solid var(--z-border);
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 -4px 16px rgba(0,0,0,.1);
+  max-height: 220px;
+  overflow-y: auto;
+  display: none;
+  z-index: 10;
+}
+#zV2_mention_dd.open { display: block; }
+.zV2_mention_item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background .1s;
+}
+.zV2_mention_item:hover, .zV2_mention_item.active { background: var(--z-active); }
+.zV2_mention_item_ava {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.zV2_mention_item_name { font-weight: 600; color: var(--z-blue-text); }
+.zV2_mention_item_dept { font-size: 12px; color: var(--z-muted); }
+/* avatar always visible */
+.zV2_msg_row--own .zV2_msg_avatar { display: none; }
+
+.zV2_msg_body {
+  display: flex;
+  flex-direction: column;
+  max-width: 70%;
+  position: relative;
+}
+.zV2_msg_row--own .zV2_msg_body { align-items: flex-end; }
+
+.zV2_msg_sender {
+  font-size: 12px;
+  color: var(--z-muted);
+  padding: 0 14px 2px;
+  display: none;
+}
+.zV2_msg_row--first_of_group:not(.zV2_msg_row--own) .zV2_msg_sender { display: block; }
+
+.zV2_bubble {
+  position: relative;
+  max-width: 100%;
+  background: var(--z-white);
+  color: var(--z-text);
+  padding: 9px 14px;
+  border-radius: 18px 18px 18px 4px;
+  font-size: 15px;
+  line-height: 1.5;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+}
+.zV2_msg_row--own .zV2_bubble {
+  background: var(--z-blue);
+  color: #fff;
+  border-radius: 18px 18px 4px 18px;
+}
+.zV2_bubble a { color: inherit; text-decoration: underline; }
+.zV2_bubble--recalled {
+  font-style: italic;
+  color: var(--z-muted);
+  background: transparent !important;
+  border: 1px dashed var(--z-border);
+  box-shadow: none;
+}
+.zV2_bubble--edited::after {
+  content: " (đã chỉnh sửa)";
+  font-size: 12px;
+  color: var(--z-muted);
+  font-style: italic;
+}
+.zV2_msg_row--own .zV2_bubble--edited::after { color: rgba(255, 255, 255, .75); }
+
+.zV2_bubble_reply_quote {
+  background: rgba(0, 0, 0, .05);
+  border-left: 3px solid var(--z-blue);
+  padding: 5px 8px;
+  margin-bottom: 6px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--z-muted);
+}
+.zV2_msg_row--own .zV2_bubble_reply_quote {
+  background: rgba(255, 255, 255, .18);
+  border-left-color: #fff;
+  color: rgba(255, 255, 255, .9);
+}
+
+.zV2_bubble_reactions {
+  position: absolute;
+  bottom: -10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--z-white);
+  border: 1px solid var(--z-border);
+  padding: 1px 6px;
+  border-radius: 12px;
+  font-size: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+  z-index: 1;
+}
+.zV2_msg_row:not(.zV2_msg_row--own) .zV2_bubble_reactions { right: 8px; }
+.zV2_msg_row--own .zV2_bubble_reactions { left: 8px; }
+
+.zV2_msg_actions {
+  position: absolute;
+  bottom: 100%;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--z-white);
+  border: 1px solid var(--z-border);
+  border-radius: 18px;
+  padding: 2px 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .10);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s ease;
+  z-index: 2;
+}
+.zV2_msg_row:not(.zV2_msg_row--own) .zV2_msg_actions { left: 8px; }
+.zV2_msg_row--own .zV2_msg_actions { right: 8px; }
+.zV2_msg_row:hover .zV2_msg_actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.zV2_msg_action_btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  color: var(--z-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .10s ease;
+}
+.zV2_msg_action_btn:hover { background: var(--z-hover); color: var(--z-blue); }
+.zV2_msg_action_btn > * { pointer-events: none; }
+
+.zV2_msg_time {
+  font-size: 12px;
+  color: var(--z-muted);
+  margin-top: 3px;
+  padding: 0 4px;
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+.zV2_msg_row:hover .zV2_msg_time { opacity: 1; }
+.zV2_msg_row--last_of_group .zV2_msg_time { opacity: 1; }
+
+.zV2_msg_status {
+  font-size: 12px;
+  color: var(--z-muted);
+  margin-top: 2px;
+  padding: 0 4px;
+}
+
+/* Date divider */
+.zV2_date_divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--z-muted);
+  letter-spacing: .3px;
+  font-weight: 500;
+}
+.zV2_date_divider::before,
+.zV2_date_divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--z-border);
+}
+
+/* System message */
+.zV2_sys_msg {
+  text-align: center;
+  font-size: 13px;
+  color: var(--z-muted);
+  padding: 6px 0;
+}
+
+/* Empty states */
+#zV2_empty_main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--z-muted);
+  text-align: center;
+  padding: 40px 24px;
+  gap: 12px;
+}
+#zV2_empty_main .zV2_empty_icon {
+  font-size: 29px;
+  opacity: .55;
+}
+#zV2_empty_main .zV2_empty_title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--z-text);
+}
+#zV2_empty_main .zV2_empty_sub {
+  font-size: 14px;
+  color: var(--z-muted);
+  max-width: 340px;
+  line-height: 1.5;
+}
+#zV2_empty_list {
+  padding: 40px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--z-muted);
+}
+
+/* ============================================================
+   INFO PANEL (slide-in from right inside main column)
+   ============================================================ */
+#zV2_info_panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 340px;
+  background: var(--z-white);
+  border-left: 1px solid var(--z-border);
+  z-index: 10;
+  transform: translateX(100%);
+  transition: transform .28s cubic-bezier(.4, 0, .2, 1);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 18px rgba(0, 0, 0, .06);
+}
+#zV2_info_panel.open { transform: translateX(0); }
+#zV2_info_header {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 10px;
+  border-bottom: 1px solid var(--z-border);
+  flex-shrink: 0;
+}
+#zV2_info_title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 16px;
+}
+#zV2_info_close_btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 17px;
+  color: var(--z-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#zV2_info_close_btn:hover { background: var(--z-hover); }
+#zV2_info_tabs {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--z-border);
+  flex-shrink: 0;
+}
+.zV2_info_tab_btn {
+  flex: 1;
+  height: 40px;
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  color: var(--z-muted);
+  font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  transition: color .12s ease;
+}
+.zV2_info_tab_btn:hover { color: var(--z-text); }
+.zV2_info_tab_btn.active { color: var(--z-blue); }
+.zV2_info_tab_btn.active::after {
+  content: "";
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--z-blue);
+}
+#zV2_info_body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+}
+.zV2_info_tab_panel { display: none; }
+.zV2_info_tab_panel.active { display: block; }
+
+/* ============================================================
+   CLOSE PANEL BUTTON (top right of panel above main header)
+   ============================================================ */
+#zV2_panel_close_btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--z-white);
+  border: 1px solid var(--z-border);
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--z-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
+}
+#zV2_panel_close_btn:hover { background: var(--z-hover); }
+
+/* ============================================================
+   RESPONSIVE — tablet 600..1023px
+   ============================================================ */
+@media (min-width: 600px) and (max-width: 1100px) {
+  #_chat_panel {
+    width: calc(100vw - 24px);
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    max-height: calc(100vh - 24px);
+  }
+  #zV2_rail { display: none; }
+  #zV2_col_middle { width: 280px; }
+}
+
+/* ============================================================
+   RESPONSIVE — mobile <600px
+   ============================================================ */
+@media (max-width: 768px) {
+  #_chat_panel {
+    inset: 0;
+    width: 100vw;
+    height: 100vh;        /* fallback */
+    height: 100dvh;       /* dynamic viewport, override khi support */
+    max-height: 100dvh;
+    border-radius: 0;
+    flex-direction: column;
+    overflow: hidden;     /* container chính ko cuộn — chỉ messages_scroll cuộn */
+  }
+  #zV2_col_main {
+    overflow: hidden;
+    min-height: 0;        /* CHO PHÉP flex shrink — bắt buộc để scroll trong */
+  }
+  #zV2_messages_scroll {
+    flex: 1 1 0;
+    min-height: 0;        /* same — flex item phải có min-height:0 để overflow hoạt động */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  /* Compose chừa safe-area dưới (home indicator iPhone) + đệm tránh Safari nav bar che */
+  #_chat_panel #zV2_compose_wrap {
+    /* env(safe-area-inset-bottom) = 0 ở Safari thường, ~34px ở iPhone home indicator */
+    /* max() đảm bảo TỐI THIỂU 28px breathing room dù không có safe-area */
+    padding-bottom: max(28px, calc(12px + env(safe-area-inset-bottom)));
+    flex-shrink: 0;
+    z-index: 5;
+  }
+  /* Rail → thanh ngang ở TOP, chỉ giữ 2 tab Tin nhắn / Danh bạ */
+  #zV2_rail {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: auto;
+    padding: 6px 8px;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+    background: var(--zalo);
+    border-bottom: none;
+    flex-shrink: 0;
+  }
+  #zV2_rail_logo { display: none; }
+  #zV2_rail_spacer { display: none; }
+  #zV2_rail_btn_settings { display: none; }
+  #zV2_rail .zV2_rail_btn {
+    flex: 1;
+    max-width: 160px;
+    height: 38px;
+    border-radius: 19px;
+  }
+  /* Mobile: rail nằm ngang. Cũng KHÔNG tô mảng nền cho mục đang chọn — phân
+     biệt bằng gạch chân + chữ sáng, cho khớp desktop. */
+  #zV2_rail .zV2_rail_btn.active {
+    background: transparent;
+    color: #fff;
+  }
+  #zV2_rail .zV2_rail_btn.active::before {
+    left: 12px; right: 12px;
+    top: auto; bottom: 0;
+    width: auto; height: 3px;
+  }
+  #zV2_rail .zV2_rail_tooltip { display: none; }
+  #zV2_col_middle {
+    width: 100%;
+    border-right: none;
+    flex: 1;
+  }
+  #zV2_col_main {
+    width: 100%;
+    display: none;
+    flex: 1;
+  }
+  /* Khi xem chat: ẩn rail + middle, chỉ chat full screen */
+  #_chat_panel.show-main #zV2_rail { display: none; }
+  #_chat_panel.show-main #zV2_col_middle { display: none; }
+  #_chat_panel.show-main #zV2_col_main { display: flex; }
+  #main_back_btn,
+  #zV2_main_back_btn { display: flex; }
+  #zV2_info_panel { width: 100%; }
+  #zV2_panel_close_btn { top: 8px; right: 8px; }
+  /* Ẩn nút × close panel khi đang xem chat (để dành space cho back btn) */
+  #_chat_panel.show-main #zV2_panel_close_btn { display: none; }
+}
+
+/* ============================================================
+   SCROLLBARS — slim
+   ============================================================ */
+#_chat_widget_root *::-webkit-scrollbar { width: 6px; height: 6px; }
+#_chat_widget_root *::-webkit-scrollbar-track { background: transparent; }
+#_chat_widget_root *::-webkit-scrollbar-thumb {
+  background: var(--z-border);
+  border-radius: 3px;
+}
+#_chat_widget_root *::-webkit-scrollbar-thumb:hover { background: var(--z-muted); }
+
+/* ============================================================
+   ZALO V2 — DANH BẠ (giống Zalo mobile: avatar to + call/video icons)
+   ============================================================ */
+#_chat_widget_root .zV2_contact_group_header {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 2;
+  padding: 8px 16px 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--z-text2);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  border-bottom: 1px solid var(--z-border);
+}
+#_chat_widget_root .zV2_contact_item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 10px 16px;
+  cursor: pointer;
+  transition: background .12s ease;
+  position: relative;
+}
+#_chat_widget_root .zV2_contact_item::after {
+  content: '';
+  position: absolute;
+  left: 76px; right: 14px; bottom: 0;
+  height: 1px;
+  background: var(--z-hover);
+}
+#_chat_widget_root .zV2_contact_item:last-child::after { display: none; }
+#_chat_widget_root .zV2_contact_item:hover { background: var(--z-hover); }
+#_chat_widget_root .zV2_contact_avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: 17px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+#_chat_widget_root .zV2_contact_avatar img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+#_chat_widget_root .zV2_contact_avatar .zV2_conv_dot_online {
+  position: absolute;
+  bottom: 2px; right: 2px;
+  width: 12px; height: 12px;
+  background: var(--z-ok);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  display: block;
+}
+#_chat_widget_root .zV2_contact_body {
+  flex: 1;
+  min-width: 0;
+}
+#_chat_widget_root .zV2_contact_name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--z-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#_chat_widget_root .zV2_contact_sub {
+  font-size: 13px;
+  color: var(--z-blue-text);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#_chat_widget_root .zV2_contact_actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+#_chat_widget_root .zV2_contact_btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 17px;
+  color: var(--z-text2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .12s, color .12s;
+}
+#_chat_widget_root .zV2_contact_btn:hover { background: var(--z-active); color: var(--z-blue); }
+#_chat_widget_root .zV2_contact_btn:active { transform: scale(.92); }
+
+/* ── Image bubble (Zalo-like compact size + lightbox cursor) ── */
+.zV2_msg_img {
+  max-width: 240px;
+  max-height: 300px;
+  height: auto;
+  border-radius: 10px;
+  display: block;
+  cursor: zoom-in;
+  object-fit: cover;
+  border: none;
+  outline: none;
+}
+/* Bubble chứa chỉ ảnh: bỏ background/shadow/padding để chỉ thấy ảnh */
+.zV2_bubble.zV2_bubble--image {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border: none !important;
+}
+.zV2_bubble.zV2_bubble--image .zV2_msg_text { padding: 6px 12px 0; }
+/* Khi nằm trong bubble — bo viền theo bubble */
+.zV2_bubble > .zV2_msg_img,
+.zV2_bubble .zV2_msg_text + .zV2_msg_img {
+  margin: 2px 0;
+}
+/* Mobile: hẹp hơn */
+@media (max-width: 768px) {
+  .zV2_msg_img { max-width: 180px; max-height: 240px; }
+}
+
+/* ── Sender name (group chat — khác biệt với nội dung tin) ── */
+.zV2_msg_sender_name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--success-fg);
+  padding: 0 14px 3px 14px;
+  margin-bottom: 1px;
+  letter-spacing: .15px;
+  line-height: 1.3;
+  display: block;
+}
+.zV2_msg_row--own .zV2_msg_sender_name { display: none !important; }
+
+/* ── Skeleton loading khi chờ tin nhắn ── */
+.zV2_msg_skel_wrap { padding: 16px 12px; display: flex; flex-direction: column; gap: 12px; }
+.zV2_msg_skel {
+  height: 38px; border-radius: 18px; background: var(--z-hover);
+  background-size: 200% 100%; animation: zV2_skelShimmer 1.4s infinite; max-width: 65%;
+}
+.zV2_msg_skel--in  { align-self: flex-start; margin-left: 44px; }
+.zV2_msg_skel--out { align-self: flex-end; background: var(--z-active); background-size: 200% 100%; animation: zV2_skelShimmer 1.4s infinite; }
+.zV2_msg_skel--short { max-width: 38%; height: 32px; }
+@keyframes zV2_skelShimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* ── Lightbox (popup ảnh lớn) ── */
+.zV2_lightbox_overlay {
+  position: fixed;
+  inset: 0;
+  background:rgba(51,33,15,.32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  cursor: zoom-out;
+  animation: zV2_lightboxFade .15s ease-out;
+  padding: 24px;
+  box-sizing: border-box;
+}
+@keyframes zV2_lightboxFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.zV2_lightbox_img {
+  max-width: 95vw;
+  max-height: 92vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 10px 60px rgba(0, 0, 0, .6);
+  user-select: none;
+  cursor: default;
+  animation: zV2_lightboxZoom .18s cubic-bezier(.2, .9, .3, 1.2);
+}
+@keyframes zV2_lightboxZoom {
+  from { transform: scale(.92); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+.zV2_lightbox_close {
+  position: fixed;
+  top: 18px;
+  right: 22px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+  border: 0;
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s, transform .15s;
+  backdrop-filter: blur(8px);
+  z-index: 1;
+}
+.zV2_lightbox_close:hover {
+  background: rgba(255, 255, 255, .25);
+  transform: scale(1.05);
+}
+.zV2_lightbox_close:active {
+  transform: scale(.95);
+}
+
+/* ── Recalled message text ── */
+.zV2_deleted_text {
+  font-style: italic;
+  color: var(--z-muted);
+}
+.zV2_msg_row--own .zV2_bubble--recalled .zV2_deleted_text { color: rgba(255, 255, 255, .85); }
+
+/* File card */
+.zV2_msg_file_card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,.6);
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+  border: 1px solid rgba(0,0,0,.06);
+}
+.zV2_bubble--own .zV2_msg_file_card {
+  background: rgba(255,255,255,.15);
+  border-color: rgba(255,255,255,.2);
+}
+.zV2_msg_file_icon { font-size: 22px; }
+.zV2_msg_file_name { font-size: 14px; font-weight: 600; }
+.zV2_msg_file_meta { font-size: 12px; opacity: .7; }
+
+/* ── Dropdown menu cho ℹ️ trên header (Ghim / Ẩn / Xoá) ── */
+.zV2_info_menu {
+  position: fixed;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18), 0 2px 6px rgba(0,0,0,.06);
+  padding: 6px 0;
+  min-width: 220px;
+  z-index: 100000;
+  animation: zV2_menu_in .15s ease;
+}
+@keyframes zV2_menu_in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.zV2_info_menu_item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 15px;
+  color: var(--z-text);
+  cursor: pointer;
+  transition: background .12s;
+}
+.zV2_info_menu_item:hover { background: var(--z-hover); }
+.zV2_info_menu_item.danger { color: var(--z-badge); }
+.zV2_info_menu_item.danger:hover { background: var(--danger-soft); }
+.zV2_info_menu_item svg { flex-shrink: 0; }
+
+/* ── Compose emoji picker (8 cột grid) ── */
+.zV2_compose_emoji_pop {
+  position: fixed;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(0,0,0,.18), 0 2px 6px rgba(0,0,0,.06);
+  padding: 8px;
+  width: 312px;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  z-index: 100000;
+  animation: zV2_menu_in .15s ease;
+  /* 8 hàng cần 8*34 + 7*2 gap + 16 padding = 302px. max-height cũ là 280px nên
+     hàng cuối bị cắt — có cuộn được nhưng nhìn như bảng đã hết, không ai biết
+     còn hàng nữa. Để 310px cho vừa trọn; màn thấp thì rơi về 60vh và cuộn. */
+  max-height: min(310px, 60vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;   /* cuộn hết bảng thì đừng cuộn lây khung tin nhắn */
+}
+.zV2_compose_emoji_btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0;
+  transition: transform .12s, background .12s;
+}
+.zV2_compose_emoji_btn:hover {
+  background: var(--z-hover);
+  transform: scale(1.2);
+}
+
+/* ── Emoji picker popup (mềm, bo, shadow) ── */
+.zV2_emoji_picker_pop {
+  background: #fff;
+  border-radius: 28px;
+  box-shadow: 0 12px 36px rgba(0,0,0,.18), 0 2px 6px rgba(0,0,0,.06);
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--z-border);
+  animation: zV2_emoji_pop_in .2s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes zV2_emoji_pop_in {
+  from { opacity: 0; transform: translateY(8px) scale(.85); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.zV2_emoji_btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  cursor: pointer;
+  transition: transform .15s cubic-bezier(.34,1.56,.64,1), background .12s;
+  padding: 0;
+  line-height: 1;
+}
+.zV2_emoji_btn:hover {
+  transform: scale(1.4);
+  background: var(--z-hover);
+}
+.zV2_emoji_btn:active { transform: scale(1.1); }
+
+/* ── Modal chung (Tạo nhóm / Thêm thành viên / Đổi tên / ...) ── */
+.zV2_modal_overlay {
+  position: fixed;
+  inset: 0;
+  background:rgba(51,33,15,.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2147483040;
+  animation: zV2_modal_in .18s ease;
+  padding: 16px;
+}
+@keyframes zV2_modal_in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.zV2_modal_card {
+  background: #fff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 680px;
+  min-width: 320px;
+  height: 80vh;
+  max-height: 720px;
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(0,0,0,.25);
+  animation: zV2_modal_card_in .22s cubic-bezier(.4,0,.2,1);
+}
+@media (max-width: 768px) {
+  .zV2_modal_card {
+    height: calc(100dvh - 32px);
+    max-height: calc(100dvh - 32px);
+    min-height: 0;
+  }
+}
+@keyframes zV2_modal_card_in {
+  from { opacity: 0; transform: translateY(14px) scale(.96); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.zV2_modal_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--z-text);
+  border-bottom: 1px solid var(--z-border);
+  flex-shrink: 0;
+}
+.zV2_modal_close {
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  color: var(--z-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 50%;
+  line-height: 1;
+}
+.zV2_modal_close:hover { background: var(--z-hover); color: var(--z-text); }
+.zV2_modal_body {
+  padding: 18px 22px;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.zV2_modal_overlay .zV2_modal_field { display: flex; flex-direction: column; gap: 6px; }
+.zV2_modal_overlay .zV2_modal_field label { font-size: 14px; font-weight: 600; color: var(--z-text2); display: block; }
+.zV2_modal_overlay .zV2_modal_field input,
+.zV2_modal_overlay .zV2_picker_search,
+.zV2_modal_overlay .zV2_picker_groupname,
+.zV2_modal_overlay input[type="text"] {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box;
+  padding: 10px 14px !important;
+  border: 1px solid var(--z-border) !important;
+  border-radius: 10px !important;
+  font-size: 15px !important;
+  background: var(--z-hover) !important;
+  outline: none !important;
+  font-family: inherit !important;
+  color: var(--z-text) !important;
+  height: auto !important;
+  min-height: 40px;
+  margin: 0;
+}
+.zV2_modal_overlay .zV2_modal_field input:focus,
+.zV2_modal_overlay .zV2_picker_search:focus,
+.zV2_modal_overlay .zV2_picker_groupname:focus {
+  background: #fff !important;
+  border-color: #0084FF !important;
+}
+.zV2_picker_list {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 -4px;
+  padding: 4px;
+}
+.zV2_picker_group { margin-bottom: 8px; }
+.zV2_picker_group_label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--z-text2);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  padding: 6px 4px;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+}
+.zV2_picker_row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.zV2_picker_row:hover { background: var(--z-hover); }
+.zV2_picker_cb { width: 18px; height: 18px; flex-shrink: 0; accent-color: #0084FF; cursor: pointer; }
+.zV2_picker_avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.zV2_picker_info { flex: 1; min-width: 0; }
+.zV2_picker_name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--z-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.zV2_picker_sub {
+  font-size: 13px;
+  color: var(--z-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.zV2_modal_footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 22px;
+  border-top: 1px solid var(--z-border);
+  flex-shrink: 0;
+}
+.zV2_btn_primary,
+.zV2_btn_secondary,
+.zV2_btn_danger {
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all .12s;
+}
+.zV2_btn_primary {
+  background: var(--z-active);
+  color: var(--z-blue-text);
+}
+.zV2_btn_primary:hover:not(:disabled) { filter: brightness(.95); }
+.zV2_btn_primary:disabled { opacity: .5; cursor: not-allowed; }
+.zV2_btn_secondary {
+  background: var(--z-hover);
+  color: var(--z-text2);
+}
+.zV2_btn_secondary:hover { background: var(--z-hover); }
+.zV2_btn_danger {
+  background: var(--danger-soft);
+  color: var(--danger-fg);
+}
+.zV2_btn_danger:hover { background: var(--danger-soft); }
+.zV2_empty_hint { padding: 24px; text-align: center; color: var(--z-muted); font-size: 14px; }
+
+/* Info panel — header rebuild bởi renderInfoPanel (class .zV2_info_*) */
+#zV2_info_panel .zV2_info_header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 14px 16px !important;
+  border-bottom: 1px solid var(--z-border) !important;
+  flex-shrink: 0;
+  height: auto !important;
+}
+#zV2_info_panel .zV2_info_close {
+  background: transparent !important;
+  border: none !important;
+  font-size: 15px !important;
+  color: #0084FF !important;
+  cursor: pointer;
+  padding: 4px 8px !important;
+  border-radius: 6px;
+  font-weight: 600;
+}
+#zV2_info_panel .zV2_info_close:hover { background: var(--z-active) !important; }
+#zV2_info_panel .zV2_info_title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--z-text);
+}
+#zV2_info_panel .zV2_info_hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 20px 20px;
+  gap: 10px;
+  border-bottom: 8px solid var(--z-border);
+  text-align: center;
+  background: #fff;
+}
+#zV2_info_panel .zV2_info_avatar_wrap {
+  position: relative;
+  width: 96px;
+  height: 96px;
+}
+#zV2_info_panel .zV2_info_avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 29px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(0,0,0,.12);
+}
+#zV2_info_panel .zV2_info_avatar_cam {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--z-text2);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all .15s;
+}
+#zV2_info_panel .zV2_info_avatar_cam:hover {
+  background: #0068FF;
+  color: #fff;
+  transform: scale(1.1);
+}
+#zV2_info_panel .zV2_info_name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--z-text);
+  margin-top: 8px;
+  letter-spacing: -.2px;
+}
+#zV2_info_panel .zV2_info_meta {
+  font-size: 14px;
+  color: var(--z-blue-text);
+}
+#zV2_info_panel .zV2_btn_rename_room {
+  margin-top: 10px;
+  padding: 9px 16px !important;
+  font-size: 14px !important;
+  background: var(--z-hover) !important;
+  color: #0068FF !important;
+  border: none;
+  border-radius: 22px;
+  cursor: pointer;
+  font-weight: 600;
+}
+#zV2_info_panel .zV2_btn_rename_room:hover { background: var(--z-active) !important; }
+#zV2_info_panel .zV2_info_tabs {
+  display: flex;
+  border-bottom: 1px solid var(--z-border);
+  padding: 0;
+  flex-shrink: 0;
+  background: #fff;
+}
+#zV2_info_panel .zV2_info_tab_btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 14px 4px;
+  font-size: 14px;
+  color: var(--z-text2);
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+  transition: color .12s;
+}
+#zV2_info_panel .zV2_info_tab_btn:hover { color: #0068FF; }
+#zV2_info_panel .zV2_info_tab_btn.active {
+  color: #0068FF;
+  border-bottom-color: #0068FF;
+}
+/* Section labels — Zalo style: tách nền xám 8px giữa các block */
+#zV2_info_panel .zV2_info_section {
+  padding: 14px 16px;
+  background: #fff;
+  border-bottom: 8px solid var(--z-border);
+}
+#zV2_info_panel .zV2_info_section_label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--z-text);
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 0 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+/* Tuỳ chọn buttons — full width Zalo style */
+#zV2_info_panel .zV2_btn_search_msg,
+#zV2_info_panel .zV2_btn_create_task,
+#zV2_info_panel .zV2_btn_leave_room,
+#zV2_info_panel .zV2_btn_delete_dm {
+  display: flex !important;
+  align-items: center;
+  width: 100% !important;
+  padding: 12px 14px !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  border: none !important;
+  border-radius: 10px;
+  cursor: pointer;
+  margin: 4px 0 !important;
+  background: transparent !important;
+  color: var(--z-text) !important;
+  text-align: left !important;
+  gap: 12px;
+  transition: background .12s;
+}
+#zV2_info_panel .zV2_btn_search_msg:hover,
+#zV2_info_panel .zV2_btn_create_task:hover { background: var(--z-hover) !important; }
+#zV2_info_panel .zV2_btn_leave_room,
+#zV2_info_panel .zV2_btn_delete_dm {
+  color: var(--z-badge) !important;
+  font-weight: 600 !important;
+}
+#zV2_info_panel .zV2_btn_leave_room:hover,
+#zV2_info_panel .zV2_btn_delete_dm:hover { background: var(--danger-soft) !important; }
+/* Mute toggle — label wrap inline với checkbox */
+#zV2_info_panel .zV2_toggle_row {
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 15px;
+  color: var(--z-text);
+  cursor: pointer;
+}
+#zV2_info_panel .zV2_toggle_row .zV2_toggle_mute,
+#zV2_info_panel input.zV2_toggle_mute {
+  width: 18px !important;
+  height: 18px !important;
+  accent-color: #0068FF;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin: 0;
+}
+#zV2_info_panel #zV2_info_panes,
+#zV2_info_panel .zV2_info_panes {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+/* Ẩn nút × close PANEL CHAT khi info panel mở (để không đè header info) */
+#zV2_info_panel.open ~ #zV2_panel_close_btn,
+#_chat_panel:has(#zV2_info_panel.open) #zV2_panel_close_btn { display: none; }
+
+/* Members tab trong info panel */
+.zV2_info_section { padding: 12px 0; }
+.zV2_info_section_label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--z-text2);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  padding: 6px 16px 10px;
+}
+.zV2_btn_add_member {
+  padding: 6px 14px !important;
+  font-size: 14px !important;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.zV2_member_list {
+  display: flex;
+  flex-direction: column;
+}
+.zV2_member_row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  transition: background .12s;
+}
+.zV2_member_row:hover { background: var(--z-hover); }
+.zV2_member_avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+  object-fit: cover;
+}
+.zV2_member_info { flex: 1; min-width: 0; }
+.zV2_member_name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--z-text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.zV2_member_sub {
+  font-size: 13px;
+  color: var(--z-blue-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.zV2_admin_chip {
+  display: inline-block;
+  background: var(--warning-soft);
+  color: var(--warning-fg);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 8px;
+  text-transform: uppercase;
+}
+.zV2_member_remove {
+  background: transparent;
+  border: 1px solid var(--z-border);
+  color: var(--z-badge);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .12s;
+  flex-shrink: 0;
+}
+.zV2_member_remove:hover { background: var(--danger-soft); border-color: var(--z-badge); }
+
+/* Phòng ban dropdown trong picker — gọn, không chiếm chỗ */
+.zV2_dept_dropdown_wrap {
+  position: relative;
+}
+.zV2_dept_dropdown_btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--z-active);
+  border: 1.5px solid var(--z-active);
+  color: #0068FF;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s;
+}
+.zV2_dept_dropdown_btn:hover { background: var(--z-active); }
+.zV2_dept_dropdown_label { flex: 1; text-align: left; }
+.zV2_dept_count {
+  background: #0068FF;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 10px;
+  min-width: 22px;
+  text-align: center;
+  display: none;
+}
+.zV2_dept_caret { font-size: 12px; color: #0068FF; }
+.zV2_dept_dropdown_menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--z-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  z-index: 100;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.zV2_dept_item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.zV2_dept_item:hover { background: var(--z-active); }
+.zV2_dept_cb { width: 18px; height: 18px; accent-color: #0068FF; flex-shrink: 0; cursor: pointer; }
+.zV2_dept_item_name { flex: 1; font-size: 15px; color: var(--z-text); }
+.zV2_dept_item_count {
+  font-size: 13px;
+  color: var(--z-muted);
+  background: var(--z-hover);
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+/* Wrapper cho bubble + reactions + actions — anchor cho absolute children */
+.zV2_bubble_outer { position: relative; display: inline-block; max-width: 100%; }
+.zV2_msg_bubble_wrap { display: flex; flex-direction: column; }
+
+/* Reaction chip — lồi vào góc dưới bubble (Zalo style) */
+.zV2_bubble_reactions {
+  /* position:absolute + bottom:-10 đã set ở skeleton — giữ nguyên đè lên bubble */
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: #fff;
+  border: 1px solid var(--z-border);
+  border-radius: 14px;
+  padding: 2px 6px;
+  font-size: 13px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.10);
+  cursor: pointer;
+  z-index: 2;
+  transition: transform .1s;
+}
+.zV2_bubble_reactions:hover { transform: scale(1.05); }
+.zV2_bubble_reactions:active { transform: scale(.94); }
+
+.zV2_reaction_chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.zV2_reaction_chip--mine { color: #0068FF; font-weight: 600; }
+.zV2_reaction_count { font-size: 12px; opacity: .85; }
+
+/* Tabs trên Danh bạ: Tất cả X / Mới truy cập Y */
+#_chat_widget_root .zV2_contacts_topbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px 6px;
+  background: #fff;
+  border-bottom: 1px solid var(--z-border);
+}
+#_chat_widget_root .zV2_contacts_chip {
+  padding: 6px 14px;
+  border-radius: 18px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--z-hover);
+  color: var(--z-text2);
+  cursor: pointer;
+  border: none;
+}
+#_chat_widget_root .zV2_contacts_chip.active {
+  background: var(--z-active);
+  color: var(--z-blue);
+}
+
+/* ── Thread panel (hội thoại độc lập) ── */
+#zV2_thread_panel {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: 320px; background: #fff;
+  border-left: 1px solid var(--z-border);
+  display: flex; flex-direction: column;
+  z-index: 25; box-shadow: -4px 0 16px rgba(0,0,0,.08);
+  transform: translateX(100%); transition: transform .22s ease;
+}
+#zV2_thread_panel.open { transform: translateX(0); }
+#zV2_thread_header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 13px 16px; border-bottom: 1px solid var(--z-border);
+  font-weight: 600; font-size: 15px; color: var(--z-text); flex-shrink: 0;
+}
+#zV2_thread_close {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  color: var(--z-muted); font-size: 22px; padding: 4px 8px; border-radius: 6px; line-height: 1;
+}
+#zV2_thread_close:hover { background: var(--z-hover); color: var(--z-text); }
+#zV2_thread_root_wrap {
+  padding: 10px 14px; background: var(--z-active);
+  border-bottom: 1px solid var(--z-border); flex-shrink: 0;
+  font-size: 14px; color: var(--z-text); max-height: 100px; overflow: hidden;
+}
+#zV2_thread_root_wrap .thr_sender { font-weight: 600; color: var(--z-blue); font-size: 12px; margin-bottom: 2px; }
+#zV2_thread_root_wrap .thr_content { color: var(--z-text); line-height: 1.4; }
+#zV2_thread_scroll {
+  flex: 1; overflow-y: auto; padding: 10px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.zV2_thr_reply {
+  background: var(--z-bg); border-radius: 10px; padding: 7px 11px;
+  font-size: 14px; line-height: 1.45; max-width: 90%;
+}
+.zV2_thr_reply--own { background: var(--z-active); align-self: flex-end; }
+.zV2_thr_reply_sender { font-weight: 600; font-size: 12px; color: var(--z-blue); margin-bottom: 2px; }
+.zV2_thr_reply_time { font-size: 11px; color: var(--z-muted); margin-top: 3px; }
+#zV2_thread_compose_wrap {
+  border-top: 1px solid var(--z-border); padding: 9px 12px;
+  display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0;
+}
+#zV2_thread_input {
+  flex: 1; border: 1px solid var(--z-border); border-radius: 18px;
+  padding: 7px 13px; font-size: 14px; resize: none; outline: none;
+  font-family: inherit; max-height: 90px; min-height: 34px; line-height: 1.4;
+  overflow-y: auto;
+}
+#zV2_thread_input:focus { border-color: var(--z-blue); }
+#zV2_thread_send_btn {
+  width: 34px; height: 34px; border-radius: 50%; background: var(--z-blue);
+  color: #fff; border: none; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0;
+}
+#zV2_thread_send_btn:hover { background: var(--z-blue-dark); }
+.zV2_thread_badge {
+  font-size: 12px; color: var(--z-blue); cursor: pointer; margin-top: 3px;
+  display: inline-block; padding: 1px 0;
+}
+.zV2_thread_badge:hover { text-decoration: underline; }
+@media (max-width: 768px) {
+  #zV2_thread_panel { width: 100%; border-left: none; }
+}
+
+/* ── Search trong chat (toggled by zV2_btn_msg_search) ── */
+#zV2_msg_search_bar {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--z-hover);
+  border-bottom: 1px solid var(--z-active);
+  flex-shrink: 0;
+}
+#zV2_msg_search_bar.active { display: flex; }
+#zV2_msg_search_bar .zV2_msg_search_icon { color: var(--z-muted); flex-shrink: 0; }
+#zV2_msg_search_input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--z-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 14px;
+  background: #fff;
+  outline: none;
+}
+#zV2_msg_search_input:focus { border-color: var(--z-blue); }
+.zV2_msg_search_count {
+  font-size: 13px;
+  color: var(--z-muted);
+  min-width: 38px;
+  text-align: center;
+  user-select: none;
+}
+.zV2_msg_search_count.no-match { color: var(--z-badge); }
+.zV2_msg_search_nav, .zV2_msg_search_close {
+  width: 26px; height: 26px;
+  border: none; background: transparent;
+  border-radius: 4px;
+  cursor: pointer; color: var(--z-muted);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 15px; line-height: 1;
+}
+.zV2_msg_search_nav:hover, .zV2_msg_search_close:hover { background: var(--z-active); color: var(--z-blue-text); }
+.zV2_msg_search_nav:disabled { opacity: .35; cursor: not-allowed; }
+.zV2_msg_search_close { font-size: 22px; }
+
+/* Highlight matches trong bubble */
+.zV2_bubble mark.zV2_search_hit {
+  background: var(--z-warn); color: inherit; padding: 0 1px; border-radius: 2px;
+}
+.zV2_bubble mark.zV2_search_hit.zV2_search_hit_active {
+  background: var(--z-warn); color: #fff;
+}
+
+#zcall_overlay{position:fixed;inset:0;z-index:2147483000;display:none;align-items:center;justify-content:center;background:rgba(15,20,30,.94);color:#fff;font-family:inherit}
+#zcall_overlay.show{display:flex}
+.zcall_card{width:min(420px,92vw);text-align:center;padding:28px 22px}
+.zcall_avatar{width:104px;height:104px;border-radius:50%;margin:0 auto 16px;background:#0084FF;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;overflow:hidden}
+.zcall_avatar img{width:100%;height:100%;object-fit:cover}
+.zcall_name{font-size:22px;font-weight:600;margin-bottom:6px}
+.zcall_status{font-size:15px;opacity:.85;margin-bottom:26px}
+.zcall_btns{display:flex;gap:30px;justify-content:center}
+.zcall_btn{width:62px;height:62px;border-radius:50%;border:none;cursor:pointer;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;transition:transform .1s}
+.zcall_btn:active{transform:scale(.92)}
+.zcall_accept{background:var(--z-ok)}.zcall_reject,.zcall_hangup{background:var(--z-badge)}
+.zcall_mute{background:rgba(255,255,255,.18)}.zcall_mute.on{background:#fff;color:var(--z-text)}
+.zcall_lbl{font-size:12px;opacity:.7;margin-top:6px}
+#zcall_stage{position:absolute;inset:0;display:none;background:var(--z-text)}
+#zcall_overlay.incall #zcall_stage{display:block}
+#zcall_overlay.incall .zcall_card,#zcall_overlay.ingroup .zcall_card{display:none}
+#zcall_remote{width:100%;height:100%;object-fit:cover;background:var(--z-text)}
+#zcall_local{position:absolute;right:14px;bottom:104px;width:120px;height:160px;object-fit:cover;border-radius:12px;border:2px solid rgba(255,255,255,.3);background:var(--z-text);z-index:2}
+#zcall_audioface{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:1}
+#zcall_bar,#zcall_gbar{position:absolute;left:0;right:0;bottom:0;padding:20px;display:flex;gap:24px;justify-content:center;align-items:flex-start;background:rgba(0,0,0,.55);z-index:3}
+#zcall_timer{position:absolute;top:16px;left:0;right:0;text-align:center;font-size:15px;z-index:3;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+#zcall_group{position:absolute;inset:0;display:none;flex-direction:column;background:var(--z-text)}
+#zcall_overlay.ingroup #zcall_group{display:flex}
+#zcall_ghead{padding:12px 16px;text-align:center;font-size:16px;font-weight:600}
+#zcall_grid{flex:1;display:grid;gap:6px;padding:6px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));align-content:center;overflow:auto}
+.zcall_tile{position:relative;background:var(--z-text);border-radius:12px;overflow:hidden;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
+.zcall_tile video{width:100%;height:100%;object-fit:cover}
+.zcall_tile .zcall_tav{width:64px;height:64px;border-radius:50%;background:#0084FF;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;overflow:hidden}
+.zcall_tile .zcall_tav img{width:100%;height:100%;object-fit:cover}
+.zcall_tname{position:absolute;left:8px;bottom:6px;font-size:13px;background:rgba(0,0,0,.5);padding:2px 8px;border-radius:8px}
+.zV2_call_log{display:flex;justify-content:center;margin:8px 0}
+.zV2_call_log_pill{background:var(--z-active);color:var(--z-text2);font-size:13px;padding:5px 14px;border-radius:14px;max-width:80%}
