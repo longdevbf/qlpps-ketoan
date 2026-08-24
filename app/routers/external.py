@@ -569,6 +569,15 @@ def orders_overview(
             COALESCE(q.duyet_luc, q.created_at) AS ngay_duyet,
             q.tong_don, q.deposit, q.tien_thue,
 
+            -- ĐỐI CHIẾU GIÁ (anh Quang 2026-08-24): so đơn giá NV bán vs giá theo
+            -- công thức bảng giá (don_gia_he_thong bắt lúc lưu). CHỈ tính trên SP đã
+            -- bắt được giá công thức → trung thực (đơn cũ chưa có = "—"). So ở mức
+            -- đơn giá (trước CK/VAT), khớp cơ chế chênh-giá ở màn duyệt cọc.
+            COALESCE(gc.gia_cong_thuc, 0)   AS gia_cong_thuc,
+            COALESCE(gc.gia_ban_matched, 0) AS gia_ban_matched,
+            COALESCE(gc.gia_ct_items, 0)    AS gia_ct_items,
+            COALESCE(gc.gia_ct_items_total, 0) AS gia_ct_items_total,
+
             -- TIẾN TRÌNH
             q.duyet_status AS bg_status,
             q.tien_trinh_mh,
@@ -612,6 +621,17 @@ def orders_overview(
         LEFT JOIN doanh_thu_agg dta ON dta.ma_don = q.quote_number
         LEFT JOIN cong_no_agg cn ON cn.ma_don = q.quote_number
         LEFT JOIN cmt_agg cmt ON cmt.ma_bg = q.quote_number
+        -- Giá theo công thức bảng giá vs giá NV bán (chỉ SP đã bắt được giá công thức)
+        LEFT JOIN LATERAL (
+            SELECT
+              SUM(COALESCE(qi.don_gia_he_thong,0) * COALESCE(qi.so_luong,1))
+                FILTER (WHERE qi.don_gia_he_thong IS NOT NULL AND qi.don_gia_he_thong > 0) AS gia_cong_thuc,
+              SUM(COALESCE(qi.don_gia_tinh,0) * COALESCE(qi.so_luong,1))
+                FILTER (WHERE qi.don_gia_he_thong IS NOT NULL AND qi.don_gia_he_thong > 0) AS gia_ban_matched,
+              COUNT(*) FILTER (WHERE qi.don_gia_he_thong IS NOT NULL AND qi.don_gia_he_thong > 0) AS gia_ct_items,
+              COUNT(*) AS gia_ct_items_total
+            FROM baogia.quote_items qi WHERE qi.quote_id = q.id
+        ) gc ON TRUE
         WHERE {where_clause}
         ORDER BY q.created_at DESC
         LIMIT 200
@@ -673,6 +693,7 @@ def orders_optimization(
                COALESCE(q.discount_amount, 0)  AS discount_amount,
                COALESCE(q.tien_thue, 0)        AS tien_thue,
                COALESCE(q.tong_don, 0)         AS tong_don,
+               COALESCE(q.phan_khuc_duyet,'')  AS phan_khuc_duyet,
                c.loai_don, c.papasan_base
         FROM baogia.quotes q
         LEFT JOIN hcns.employees e
@@ -712,8 +733,14 @@ def orders_optimization(
         _cfg_tu = _load_tu_cfg(db, _thang_cfg)
         max_ck_go = float(_cfg_tu.get("max_ck_go", _cfg_tu.get("max_ck", max_ck)))
         max_ck_may = float(_cfg_tu.get("max_ck_may", 15.0))
+        # Gỗ 'Hàng Trạm' trần riêng 15% (anh Quang 2026-08-19) — KHÔNG hồi tố, chỉ
+        # áp từ tháng `max_ck_go_tram_ap_tu` trở đi.
+        max_ck_go_tram = float(_cfg_tu.get("max_ck_go_tram", 15.0))
+        _tram_ap_tu = str(_cfg_tu.get("max_ck_go_tram_ap_tu", "2026-08"))
     except Exception:
-        max_ck_go, max_ck_may = float(max_ck), 15.0
+        max_ck_go, max_ck_may, max_ck_go_tram = float(max_ck), 15.0, 15.0
+        _tram_ap_tu = "2026-08"
+    _tram_hieu_luc = _thang_cfg >= _tram_ap_tu
 
     orders: list[dict[str, Any]] = []
     sp_agg: dict[str, dict[str, Any]] = {}
@@ -766,7 +793,16 @@ def orders_optimization(
             toi_uu_pct = mck - ck_pct_eff
         else:
             loai_don = loai_base
-            mck = max_ck_may if loai_base == "Đồ Mây" else max_ck_go
+            # Đồ Mây 15%; Đồ Gỗ 20% — RIÊNG Gỗ 'Hàng Trạm' chỉ 15% (anh Quang 2026-08-19).
+            if loai_base == "Đồ Mây":
+                mck = max_ck_may
+            elif (loai_base == "Đồ Gỗ" and _tram_hieu_luc
+                  and (r.get("phan_khuc_duyet") or "").strip()
+                      not in ("", "Bản Tiêu Chuẩn", "Bản Plus")):
+                # Gỗ khác Tiêu Chuẩn/Plus (Trạm, Nghệ Nhân, phân khúc mới) → 15%.
+                mck = max_ck_go_tram
+            else:
+                mck = max_ck_go
             ck_pct_eff = (tong_giam / tam_tinh * 100.0) if tam_tinh > 0 else 0.0
             so_tien_toi_uu = (mck / 100.0) * tam_tinh - tong_giam
             toi_uu_pct = mck - ck_pct_eff

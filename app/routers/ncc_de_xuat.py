@@ -89,6 +89,9 @@ def _to_dict(e, name_map: Optional[dict] = None) -> dict:
         "nguoi_duyet_ten": nm.get(e.nguoi_duyet) if e.nguoi_duyet else None,
         "ngay_duyet": e.ngay_duyet.isoformat() if e.ngay_duyet else None,
         "ghi_chu_duyet": e.ghi_chu_duyet,
+        "da_chi": bool(getattr(e, "da_chi", False)),
+        "tai_khoan_chi": getattr(e, "tai_khoan_chi", None),
+        "ngay_chi": e.ngay_chi.isoformat() if getattr(e, "ngay_chi", None) else None,
         "created_at": e.created_at.isoformat() if e.created_at else None,
     }
 
@@ -217,6 +220,95 @@ def kt_approve(
         db, app="ketoan", action="kt_approve_congno_dexuat", user=user, request=request,
         resource=f"congno:{cid}", payload={"kt_ghi_chu": body.kt_ghi_chu},
     )
+    return _to_dict(e, _build_name_map(db, [e]))
+
+
+class ChiNCCBody(BaseModel):
+    tai_khoan: str
+    ghi_chu: Optional[str] = None
+
+
+@router.post("/api/ncc-de-xuat/{cid}/chi")
+def chi_ncc(
+    cid: str,
+    body: ChiNCCBody,
+    request: Request,
+    user: Annotated[JWTPayload, Depends(_REQ)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """KT CHI đề xuất trả NCC đã DUYỆT XONG (trang_thai='duyet') → tạo sổ quỹ chi
+    (trừ tài khoản) + đánh dấu da_chi → CÔNG NỢ NCC giảm (anh Quang 2026-08-20).
+    Công nợ CHỈ giảm khi bấm Chi, không phải lúc duyệt. Idempotent (không chi 2 lần)."""
+    if user.role not in _KT_ROLES and user.role not in _CEO_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Chỉ Kế Toán/CEO được chi")
+    e = _get_or_404(db, cid)
+    if (e.loai or "") != "de_xuat_tra":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Không phải đề xuất trả NCC")
+    if (e.trang_thai or "") != "duyet":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Đề xuất đang '{e.trang_thai}' — chỉ chi khi ĐÃ DUYỆT XONG (CEO duyệt)",
+        )
+    if getattr(e, "da_chi", False):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Đề xuất này đã chi rồi")
+    tk = (body.tai_khoan or "").strip()
+    if not tk:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Vui lòng chọn tài khoản chi")
+
+    from datetime import date as _date_cls
+    from decimal import Decimal
+    try:
+        from ..services.so_quy_auto import _upsert_so_quy
+    except Exception as ex:  # pragma: no cover
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"Không nạp được sổ quỹ: {ex}")
+
+    _gc = (body.ghi_chu or "").strip()
+    # Đánh dấu đã chi + tạo sổ quỹ chi TRONG CÙNG transaction (commit hết hoặc rollback hết).
+    e.da_chi = True
+    e.tai_khoan_chi = tk
+    e.ngay_chi = datetime.now(tz=timezone.utc)
+    try:
+        _upsert_so_quy(
+            db,
+            lien_quan="cong_no",
+            ref_id=f"mh-dexuat-{e.id}",   # KHỚP ref bridge muahang approve_congno →
+            ngay=_date_cls.today(),        # idempotent, KHÔNG tạo dòng sổ quỹ thứ 2
+            loai="chi",
+            so_tien=Decimal(str(e.so_tien or 0)),
+            tai_khoan=tk,
+            noi_dung=f"Chi trả NCC {e.ncc_name or e.ncc_id or ''} — đề xuất {e.id}".strip(),
+            mo_ta=((e.mo_ta or "") + (f" • {_gc}" if _gc else "")).strip() or None,
+            phan_loai_cf="tra_ncc",
+        )
+        db.commit()
+    except Exception as ex:
+        db.rollback()
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"Chi thất bại — sổ quỹ lỗi: {ex}")
+    db.refresh(e)
+    # Khoá Đề Nghị TT liên kết (nếu có) — đã chi ở trang NCC → TT không chi lại được.
+    _dntt = getattr(e, "dntt_id", None)
+    if _dntt:
+        try:
+            from sqlalchemy import text as _sqltext
+            db.execute(
+                _sqltext("UPDATE saleadmin.denghitt SET da_chi_ngoai = TRUE WHERE id = :d"),
+                {"d": _dntt},
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+    log_action(
+        db, app="ketoan", action="chi_congno_dexuat", user=user, request=request,
+        resource=f"congno:{cid}", payload={"tai_khoan": tk, "so_tien": str(e.so_tien)},
+    )
+    _safe_notify(
+        db, target=(e.nguoi_tao or e.nv_mua_hang), by=user.username,
+        source_app="muahang", event_type="congno:da_chi",
+        title=f"[Trả NCC] Đã chi — {e.ncc_name or e.ncc_id or ''}",
+        message=f"{int(e.so_tien or 0):,}đ qua {tk} • công nợ đã giảm",
+        ref_type="congno", ref_id=e.id, url=f"{_MUAHANG_HOST}/", severity="success",
+    )
+    db.commit()
     return _to_dict(e, _build_name_map(db, [e]))
 
 

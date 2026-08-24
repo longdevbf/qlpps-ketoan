@@ -1760,7 +1760,7 @@ textarea.form-control{resize:vertical;min-height:70px}
         <div class="card-header">
           <div class="card-title">Đơn Hàng — Đối chiếu kế toán</div>
           <div class="card-actions">
-            <input class="search-box" type="text" id="dh-search" placeholder="Tìm mã BG, khách..." oninput="filterTable('dh-tbody','dh-search')">
+            <input class="search-box" type="text" id="dh-search" placeholder="Tìm mã BG, khách..." oninput="dhOnSearch()">
             <button class="btn btn-outline" onclick="loadDonHang()">Làm Mới</button>
           </div>
         </div>
@@ -1791,13 +1791,14 @@ textarea.form-control{resize:vertical;min-height:70px}
             </div>
             <div style="display:flex;flex-direction:column;gap:3px">
               <label style="font-size:12px;color:var(--text2);font-weight:600">Thời gian</label>
-              <select id="dh-date-preset" class="form-control" onchange="dhOnDatePreset()" style="min-width:140px">
-                <option value="all">Tất cả</option>
+              <select id="dh-date-preset" class="form-control" onchange="dhOnDatePreset()" style="min-width:160px">
+                <option value="all" selected>Theo Kỳ đang chọn</option>
                 <option value="today">Hôm nay</option>
                 <option value="7d">7 ngày qua</option>
                 <option value="month">Tháng này</option>
                 <option value="last_month">Tháng trước</option>
                 <option value="year">Năm nay</option>
+                <option value="all_time">Tất cả (mọi kỳ)</option>
                 <option value="custom">Tuỳ chỉnh…</option>
               </select>
             </div>
@@ -1831,7 +1832,7 @@ textarea.form-control{resize:vertical;min-height:70px}
           <table id="dh-table" class="pt-off">
             <thead>
               <tr style="background:var(--bg-page)">
-                <th colspan="5" style="text-align:center;border-right:2px solid var(--border);background:var(--bg-card)">ĐƠN HÀNG</th>
+                <th colspan="6" style="text-align:center;border-right:2px solid var(--border);background:var(--bg-card)">ĐƠN HÀNG</th>
                 <th colspan="3" style="text-align:center;border-right:2px solid var(--border);background:var(--success-soft)">PHẢI THU</th>
                 <th class="pt-col" colspan="4" style="text-align:center;border-right:2px solid var(--border);background:var(--bg-card)">PHẢI TRẢ</th>
                 <th colspan="3" style="text-align:center;border-right:2px solid var(--border);background:var(--bg-card)">TIẾN TRÌNH</th>
@@ -1839,7 +1840,8 @@ textarea.form-control{resize:vertical;min-height:70px}
               </tr>
               <tr>
                 <th>Mã BG</th><th>Khách</th><th>NV KD</th><th id="dh-date-col-head">Ngày tạo</th>
-                <th style="text-align:right;border-right:2px solid var(--border)">Tổng đơn</th>
+                <th style="text-align:right">Tổng đơn</th>
+                <th style="text-align:right;border-right:2px solid var(--border)" title="Giá theo công thức bảng giá (bắt lúc lên đơn). So với đơn giá NV bán để soi bán đúng giá. Chỉ tính trên SP đã bắt được giá công thức — đơn cũ chưa có = '—'.">Giá công thức</th>
 
                 <th style="text-align:right">Đã cọc</th>
                 <th style="text-align:right">Đã thu</th>
@@ -1855,9 +1857,10 @@ textarea.form-control{resize:vertical;min-height:70px}
                 <th></th>
               </tr>
             </thead>
-            <tbody id="dh-tbody"><tr><td colspan="16" class="loading">Đang tải...</td></tr></tbody>
+            <tbody id="dh-tbody"><tr><td colspan="17" class="loading">Đang tải...</td></tr></tbody>
           </table>
         </div>
+        <div id="dh-pager" style="padding:10px 16px;display:none;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap;border-top:1px solid var(--border)"></div>
       </div>
       </div><!-- /dh-tab-doichieu -->
 
@@ -4920,7 +4923,13 @@ function dhDateRange(){
     return [_dhFmtDate(lm), _dhFmtDate(le)];
   }
   if (preset === 'year') return [`${now.getFullYear()}-01-01`, today];
-  return [null, null];
+  if (preset === 'all_time') return [null, null];
+  // Mặc định ('all') → lọc theo KỲ đang chọn ở ô tháng global (#month-picker)
+  // — "toàn bộ trang chạy theo Kỳ" (anh Quang 2026-08-24).
+  const _m = (typeof currentMonth === 'string' && /^\d{4}-\d{2}$/.test(currentMonth))
+    ? currentMonth : `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const _mp = _m.split('-'); const _last = new Date(+_mp[0], +_mp[1], 0).getDate();
+  return [`${_m}-01`, `${_m}-${String(_last).padStart(2,'0')}`];
 }
 function dhInRange(iso, from, to){
   if (!from && !to) return true;
@@ -5195,27 +5204,63 @@ async function loadDonHang() {
       dhInRange(o[_dhField], _dhFrom, _dhTo) &&
       (_tax === 'all' || ((_tax === 'co_thue') === ((+o.tien_thue || 0) > 0)))
     );
-    const wrap = document.getElementById('dh-stats-wrap');
-    if (!data.length) {
-      const spLbl = sp ? ` · NV: ${sp}` : '';
-      const dtLbl = (_dhFrom || _dhTo) ? ` · ${_dhFrom || '…'} → ${_dhTo || '…'}` : '';
-      tbody.innerHTML = `<tr><td colspan="16"><div class="empty">Không có đơn nào (filter: ${filter}${spLbl}${dtLbl})</div></td></tr>`;
-      if (wrap) wrap.style.display = 'none';
-      return;
-    }
-    if (wrap) wrap.style.display = '';
-    const VC_LABELS = {
-      'cho_lay': 'Chờ Lấy', 'da_lay': 'Đã Lấy', 'dang_giao': 'Đang Giao',
-      'da_giao': 'Đã Giao', 'hoan_thanh': 'Hoàn Thành', 'hoan': '↩️ Hoàn'
-    };
-    // Accumulator cho dòng tổng
-    const T = {tongDon:0, tienVAT:0, datCoc:0, daThu:0, conThu:0,
-               cnPhaiTra:0, cnDaTra:0, phiVC:0, tongPhaiTra:0};
-    tbody.innerHTML = data.map(row => {
+    // Lưu để tìm kiếm + phân trang re-render KHÔNG phải gọi lại API.
+    _dhAllData = data;
+    _dhFieldName = _dhField;
+    _dhFilterMeta = { filter, sp };
+    _dhPage = 1;
+    dhRenderTable();
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="17"><div class="empty">Lỗi kết nối: ${e.message}</div></td></tr>`;
+  }
+}
+
+// Trạng thái bảng đối chiếu (tìm kiếm + phân trang client-side)
+let _dhAllData = [], _dhFieldName = 'ngay_duyet', _dhFilterMeta = {}, _dhPage = 1;
+const _DH_PAGE_SIZE = 25;
+
+// Render bảng theo tìm kiếm hiện tại + trang hiện tại. TỔNG + stat card tính trên
+// TOÀN BỘ dòng khớp (mọi trang), chỉ hiển thị slice của trang đang xem.
+function dhRenderTable(){
+  const tbody = document.getElementById('dh-tbody');
+  const pager = document.getElementById('dh-pager');
+  const wrap  = document.getElementById('dh-stats-wrap');
+  if (!tbody) return;
+  const _dhField = _dhFieldName;
+  const term = (document.getElementById('dh-search')?.value || '').trim().toLowerCase();
+  let data = _dhAllData || [];
+  if (term) data = data.filter(o =>
+    [o.ma_bg, o.customer_name, o.salesperson, o.customer_phone]
+      .some(x => String(x || '').toLowerCase().includes(term)));
+  if (!data.length) {
+    const spLbl = (_dhFilterMeta && _dhFilterMeta.sp) ? ` · NV: ${_dhFilterMeta.sp}` : '';
+    tbody.innerHTML = `<tr><td colspan="17"><div class="empty">Không có đơn nào${term ? ` khớp “${term}”` : ''}${spLbl}</div></td></tr>`;
+    if (wrap)  wrap.style.display = 'none';
+    if (pager) pager.style.display = 'none';
+    return;
+  }
+  if (wrap) wrap.style.display = '';
+  const VC_LABELS = {
+    'cho_lay': 'Chờ Lấy', 'da_lay': 'Đã Lấy', 'dang_giao': 'Đang Giao',
+    'da_giao': 'Đã Giao', 'hoan_thanh': 'Hoàn Thành', 'hoan': '↩️ Hoàn'
+  };
+  // Accumulator cho dòng tổng (trên TOÀN BỘ dòng khớp, không chỉ trang hiện tại)
+  const T = {tongDon:0, tienVAT:0, datCoc:0, daThu:0, conThu:0,
+             cnPhaiTra:0, cnDaTra:0, phiVC:0, tongPhaiTra:0,
+             giaCongThuc:0, giaBanMatched:0};
+  const rowsHtml = data.map(row => {
       // ĐƠN
       const maBG    = row.ma_bg || '';
       const tongDon = +row.tong_don || 0;
       const datCoc  = +row.deposit  || 0;   // cọc theo hợp đồng (hiển thị)
+
+      // ĐỐI CHIẾU GIÁ: giá theo công thức bảng giá vs đơn giá NV bán (chỉ SP đã
+      // bắt được giá công thức). So ở mức đơn giá (trước CK/VAT). chênh = bán − CT:
+      // >0 xanh (bán cao hơn công thức), <0 đỏ (bán THẤP hơn — soi), =0 đúng giá.
+      const giaCT     = +row.gia_cong_thuc   || 0;
+      const giaBanM   = +row.gia_ban_matched || 0;
+      const ctItems   = +row.gia_ct_items       || 0;
+      const ctItemsTot= +row.gia_ct_items_total || 0;
 
       // PHẢI THU — tách cọc thực nhận / thanh toán thực nhận (không double-count)
       const thuDatCoc    = +row.thu_dat_coc    || 0;  // cọc thực nhận (để hiển thị breakdown)
@@ -5238,6 +5283,8 @@ async function loadDonHang() {
       const traClass = tongPhaiTra <= 0 ? 'green' : 'red';
       // Cộng dồn vào tổng (skip negatives → conThu kẹp tại 0 cho tổng dễ hiểu)
       T.tongDon     += tongDon;
+      T.giaCongThuc += giaCT;
+      T.giaBanMatched += giaBanM;
       T.tienVAT     += (+row.tien_thue || 0);
       T.datCoc      += datCoc;
       T.daThu       += daThu;
@@ -5288,12 +5335,26 @@ async function loadDonHang() {
         : (cmtCount > 0
             ? `<span title="${cmtCount} tin nhắn" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text-3);margin-right:5px;vertical-align:middle"></span>`
             : '');
+      // Ô "Giá công thức" + badge chênh (bán − công thức)
+      let giaCTCell;
+      if (ctItems <= 0) {
+        giaCTCell = `<span style="color:var(--text2)" title="Đơn cũ / chưa bắt được giá công thức lúc lên đơn">—</span>`;
+      } else {
+        const chenh = giaBanM - giaCT;
+        const partial = (ctItemsTot > ctItems) ? `<br><small style="color:var(--text2);font-size:11px">${ctItems}/${ctItemsTot} SP</small>` : '';
+        let badge;
+        if (chenh > 0.5)       badge = `<br><small style="color:var(--green);font-size:11px" title="NV bán cao hơn giá công thức">▲ +${fmt(chenh)}</small>`;
+        else if (chenh < -0.5) badge = `<br><small style="color:var(--red);font-weight:700;font-size:11px" title="NV bán THẤP hơn giá công thức — soi lại">▼ ${fmt(Math.abs(chenh))}</small>`;
+        else                   badge = `<br><small style="color:var(--text2);font-size:11px">đúng giá</small>`;
+        giaCTCell = `<strong>${fmt(giaCT)}</strong>${badge}${partial}`;
+      }
       return `<tr>
         <td ${openDetail}>${cmtDot}<code><strong style="color:var(--blue);text-decoration:underline">${maBG || '—'}</strong></code></td>
         <td ${openDetail}><strong>${row.customer_name || '—'}</strong>${row.customer_phone ? `<br><small>${row.customer_phone}</small>` : ''}</td>
         <td>${row.salesperson || ''}</td>
         <td><small>${row[_dhField] ? String(row[_dhField]).slice(0,10) : ''}</small></td>
-        <td style="text-align:right;border-right:2px solid var(--border)"><strong>${fmt(tongDon)}</strong></td>
+        <td style="text-align:right"><strong>${fmt(tongDon)}</strong></td>
+        <td style="text-align:right;border-right:2px solid var(--border)">${giaCTCell}</td>
 
         <td style="text-align:right">${fmt(datCoc)}</td>
         <td style="text-align:right;color:var(--green)"><strong>${fmt(daThu)}</strong><br>
@@ -5314,10 +5375,12 @@ async function loadDonHang() {
 
         <td>${action}</td>
       </tr>`;
-    }).join('') + `
+    });  // → rowsHtml (mảng chuỗi HTML từng dòng)
+    const totalRow = `
       <tr style="background:var(--bg-page);font-weight:700;border-top:1px solid var(--border)">
         <td colspan="4" style="text-align:right;color:var(--warning-fg)">TỔNG (${data.length} đơn) · VAT: <span style="color:var(--brand)">${fmt(T.tienVAT)}</span></td>
-        <td style="text-align:right;border-right:2px solid var(--border);color:var(--warning-fg)">${fmt(T.tongDon)}</td>
+        <td style="text-align:right;color:var(--warning-fg)">${fmt(T.tongDon)}</td>
+        <td style="text-align:right;border-right:2px solid var(--border)">${T.giaCongThuc > 0 ? `${fmt(T.giaCongThuc)}${(()=>{const d=T.giaBanMatched-T.giaCongThuc; return d>0.5?`<br><small style="color:var(--green);font-size:11px">▲ +${fmt(d)}</small>`:(d<-0.5?`<br><small style="color:var(--red);font-size:11px">▼ ${fmt(Math.abs(d))}</small>`:'');})()}` : '<span style="color:var(--text2)">—</span>'}</td>
         <td style="text-align:right">${fmt(T.datCoc)}</td>
         <td style="text-align:right;color:var(--success-fg)">${fmt(T.daThu)}</td>
         <td style="text-align:right;border-right:2px solid var(--border);color:var(--danger-fg)">${fmt(T.conThu)}</td>
@@ -5327,6 +5390,15 @@ async function loadDonHang() {
         <td class="pt-col" style="text-align:right;border-right:2px solid var(--border);color:var(--danger-fg)">${fmt(T.tongPhaiTra)}</td>
         <td colspan="4"></td>
       </tr>`;
+    // Phân trang client-side — TỔNG/stat vẫn tính trên toàn bộ, chỉ hiển thị 1 trang.
+    const PAGE = _DH_PAGE_SIZE;
+    const totalPages = Math.max(1, Math.ceil(rowsHtml.length / PAGE));
+    if (_dhPage > totalPages) _dhPage = totalPages;
+    if (_dhPage < 1) _dhPage = 1;
+    const start = (_dhPage - 1) * PAGE;
+    const slice = rowsHtml.slice(start, start + PAGE);
+    tbody.innerHTML = slice.join('') + totalRow;
+    dhRenderPager(rowsHtml.length, totalPages, start, slice.length);
 
     // Sync stat cards trên đầu trang
     const setS = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = fmt(v); };
@@ -5339,9 +5411,47 @@ async function loadDonHang() {
     setS('dh-s-cndatra',   T.cnDaTra);
     setS('dh-s-phivc',     T.phiVC);
     setS('dh-s-tongtra',   T.tongPhaiTra);
-  } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="16"><div class="empty">Lỗi kết nối: ${e.message}</div></td></tr>`;
+}
+
+// Tìm kiếm → về trang 1 (lọc trên TẤT CẢ đơn đã tải, không chỉ trang hiện tại)
+function dhOnSearch(){ _dhPage = 1; dhRenderTable(); }
+function dhGoPage(p){
+  _dhPage = p; dhRenderTable();
+  const el = document.getElementById('dh-table');
+  if (el) el.scrollIntoView({block:'start', behavior:'smooth'});
+}
+
+// Thanh phân trang: ‹ 1 … p-1 p p+1 … last › + "x–y / N đơn"
+function dhRenderPager(total, totalPages, start, shown){
+  const pager = document.getElementById('dh-pager');
+  if (!pager) return;
+  pager.style.display = 'flex';
+  if (totalPages <= 1){
+    pager.innerHTML = `<span style="color:var(--text2);font-size:13px">${total} đơn</span>`;
+    return;
   }
+  const p = _dhPage;
+  const btn = (label, page, opts={}) => {
+    const dis = opts.disabled ? 'opacity:.4;pointer-events:none;' : '';
+    const active = opts.active
+      ? 'background:var(--brand);color:#fff;border-color:var(--brand);'
+      : 'background:var(--bg-card);color:var(--text);';
+    return `<button onclick="dhGoPage(${page})" style="min-width:34px;padding:5px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;${active}${dis}">${label}</button>`;
+  };
+  const nums = [];
+  const push = n => { if (n>=1 && n<=totalPages && !nums.includes(n)) nums.push(n); };
+  push(1); push(2); push(p-1); push(p); push(p+1); push(totalPages-1); push(totalPages);
+  nums.sort((a,b)=>a-b);
+  let html = btn('‹', p-1, {disabled: p<=1});
+  let prev = 0;
+  nums.forEach(n => {
+    if (prev && n - prev > 1) html += `<span style="color:var(--text2);padding:0 2px">…</span>`;
+    html += btn(String(n), n, {active: n===p});
+    prev = n;
+  });
+  html += btn('›', p+1, {disabled: p>=totalPages});
+  html += `<span style="color:var(--text2);font-size:13px;margin-left:8px">${start+1}–${start+shown} / ${total} đơn</span>`;
+  pager.innerHTML = html;
 }
 
 // ── Tin nhắn đơn hàng: lưu mốc "đã xem" trong localStorage ─────────

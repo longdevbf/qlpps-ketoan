@@ -165,6 +165,35 @@
     </div>
   </div>
 </div>
+
+<div class="modal-overlay" id="modal-chi">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="chi-title">
+    <div class="modal-head"><span id="chi-title">💸 Chi trả nhà cung cấp</span>
+      <button type="button" class="modal-close" onclick="closeModals()" aria-label="Đóng">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="chi-info" class="card-body" style="background:var(--bg-page);border-radius:var(--radius-xs);margin-bottom:14px"></div>
+      <div class="field">
+        <label for="chi-tk">Chi từ tài khoản <span style="color:var(--danger-fg)">*</span></label>
+        <select id="chi-tk">
+          <option value="Tiền Mặt">Tiền Mặt</option>
+          <option value="ACB Hộ Kinh Doanh">ACB — Hộ Kinh Doanh</option>
+          <option value="BIDV - Công ty">BIDV — Công ty</option>
+          <option value="VPB">VPB</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="chi-note">Ghi chú (tuỳ chọn)</label>
+        <textarea id="chi-note" placeholder="Số phiếu chi, ghi chú..."></textarea>
+      </div>
+      <div class="meta" style="margin-top:6px">Bấm Chi → tạo <b>sổ quỹ chi</b> (trừ đúng tài khoản) + <b>giảm công nợ NCC</b>. Không hoàn tác.</div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-outline" onclick="closeModals()">Huỷ</button>
+      <button type="button" class="btn btn-primary" id="chi-submit">✅ Xác nhận chi</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -269,7 +298,11 @@ function render() {
     const actions = r.trang_thai === 'cho_duyet'
       ? `<button type="button" class="btn btn-primary btn-sm" onclick="openApprove('${esc(r.id)}')">Duyệt</button>
          <button type="button" class="btn btn-outline btn-sm" onclick="openReject('${esc(r.id)}')">Từ chối</button>`
-      : '<span class="meta">—</span>';
+      : (r.trang_thai === 'duyet'
+          ? (r.da_chi
+              ? `<span class="badge badge-ok">✅ Đã chi</span><div class="meta">${esc(r.tai_khoan_chi||'')}${r.ngay_chi ? ' · ' + fmtDateTime(r.ngay_chi) : ''}</div>`
+              : `<button type="button" class="btn btn-primary btn-sm" onclick="openChi('${esc(r.id)}')">💸 Chi</button>`)
+          : '<span class="meta">—</span>');
 
     /* Một cột "Duyệt" hai dòng, mỗi dòng có nhãn cấp — thay 2 cột riêng.
        Chưa tới cấp nào thì KHÔNG render dòng đó, không hiện "CEO: —" thừa. */
@@ -383,6 +416,25 @@ document.getElementById('reject-submit').addEventListener('click', () => {
     thanhCong: 'Đã từ chối — Mua Hàng sẽ thấy lý do',
   });
 });
+
+function openChi(id) {
+  const r = allRows.find(x => x.id === id);
+  if (!r) return;
+  actionId = id;
+  document.getElementById('chi-info').innerHTML =
+    `<b>${esc(id)}</b> — NCC ${esc(r.ncc_name || r.ncc_id || '')} — <b class="money">${fmtVnd(r.so_tien)}</b><br>Mô tả: ${esc(r.mo_ta || '—')}`;
+  document.getElementById('chi-note').value = '';
+  document.getElementById('modal-chi').classList.add('show');
+}
+document.getElementById('chi-submit').addEventListener('click', () => submitAction({
+  btnId: 'chi-submit',
+  endpoint: 'chi',
+  body: {
+    tai_khoan: document.getElementById('chi-tk').value,
+    ghi_chu: document.getElementById('chi-note').value || null,
+  },
+  thanhCong: 'Đã chi — sổ quỹ trừ tiền, công nợ NCC giảm',
+}));
 
 document.querySelectorAll('#filters .tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
