@@ -158,12 +158,40 @@ body.sb-min .ab-sb{width:var(--sb-min)}
 .ab-sb-g.has-active > .ab-sb-gb{color:var(--brand-hover);font-weight:700}
 .ab-sb-g.has-active > .ab-sb-gb .ab-sb-ic{color:var(--brand-hover)}
 
-/* Badge số việc chờ — lý do chính để đổi sang sidebar */
+/* Badge số việc chờ — lý do chính để đổi sang sidebar.
+   24/08/2026 (bản sau): người dùng chốt ĐỎ ĐẶC + chữ trắng, bỏ bản pastel
+   viền mỏng làm trước đó trong ngày. Đây KHÔNG phải màu tự nghĩ ra — hcns đã
+   dùng đúng cặp token này ở `.ab-sb-bd` từ trước, nay Kế Toán khớp theo.
+   Vì sao nền đặc ở đây không phá "quyết định pastel" của design-system: luật
+   đó chừa ngoại lệ cho icon nhỏ, và badge đếm là ký hiệu báo động chứ không
+   phải nút bấm — nó phải đập vào mắt kể cả khi liếc qua. Pastel + viền mỏng
+   ở cỡ 11px thì viền mảnh hơn 1px sau khi trình duyệt làm mượt, nhìn ra thành
+   ô xám nhạt, đúng thứ badge không được phép trở thành.
+   Đỏ đặc `--danger` trên chữ trắng đo được ~6,6:1 (bảng màu chính) và ~4,8:1
+   (bảng thay thế) — cả hai đều đạt AA cho cỡ chữ này.
+   Đặt height cố định + inline-flex để một chữ số ra hình TRÒN; từ hai chữ số
+   trở lên `min-width` nhả ra thành viên thuốc, không bị bóp méo. */
 .ab-sb-bd,.ab-sb-gbd{
-  flex:0 0 auto;min-width:18px;padding:1px 6px;border-radius:999px;
-  background:var(--brand-hover);color:var(--text-on-brand);
-  font-size:11px;font-weight:700;text-align:center;line-height:1.5;
+  flex:0 0 auto;
+  display:inline-flex;align-items:center;justify-content:center;
+  /* BẮT BUỘC: `box-sizing:border-box` trong file này chỉ khai cho `.appbar *`,
+     mà <aside class="ab-sb"> là ANH EM của .appbar chứ không nằm trong — sidebar
+     vẫn đang là content-box. Thiếu dòng này thì min-width 18 + padding 10 = 28px
+     ngang / 18px dọc, badge một chữ số ra hình viên thuốc chứ không tròn. */
+  box-sizing:border-box;
+  min-width:18px;height:18px;padding:0 5px;border-radius:999px;
+  background:var(--danger);color:var(--text-on-brand);
+  font-size:11px;font-weight:700;line-height:1;
+  /* Số cùng bề rộng — badge không nhảy ngang khi đếm đổi 1 -> 7 */
+  font-variant-numeric:tabular-nums;
 }
+/* BẮT BUỘC đi kèm dòng `display:inline-flex` ở trên. Thuộc tính `hidden` của
+   HTML chỉ ẩn được nhờ luật `[hidden]{display:none}` nằm trong stylesheet của
+   TRÌNH DUYỆT — mà mọi khai báo `display` của tác giả đều thắng nguồn đó, bất
+   kể độ đặc hiệu. Bản badge cũ không khai `display` nên `hidden` còn tác dụng;
+   thêm `inline-flex` vào là `el.hidden = true` trong abSbBadge() hết ăn thua và
+   badge rỗng hiện thành chấm đỏ trơn ở MỌI nhóm chưa có việc. */
+.ab-sb-bd[hidden],.ab-sb-gbd[hidden]{display:none}
 .ab-sb-gbd{margin-left:auto}
 
 /* Nút thu gọn, ghim đáy */
@@ -449,7 +477,7 @@ body.sb-min .ab-sb-g,body.sb-min .ab-sb-top{position:relative}
     <a class="ab-sb-a ab-sb-child" data-page="bhxh" href="/app#bhxh" title="BHXH"><span class="ab-sb-tx">BHXH</span></a>
     <a class="ab-sb-a ab-sb-child" data-page="ads" href="/app#ads" title="Chi phí ADS"><span class="ab-sb-tx">Chi phí ADS</span></a>
     <a class="ab-sb-a ab-sb-child" href="/duyet-chi" title="Duyệt chi"><span class="ab-sb-tx">Duyệt chi</span><span class="ab-sb-bd" id="ab-sb-bd-chi" hidden>0</span></a>
-    <a class="ab-sb-a ab-sb-child" href="/de-nghi-tt" title="Đề nghị TT"><span class="ab-sb-tx">Đề nghị TT</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/de-nghi-tt" title="Đề nghị TT"><span class="ab-sb-tx">Đề nghị TT</span><span class="ab-sb-bd" id="ab-sb-bd-dntt" hidden>0</span></a>
     {% if _mgr %}<a class="ab-sb-a ab-sb-child" href="/phe-duyet" title="Phê duyệt"><span class="ab-sb-tx">Phê duyệt</span><span class="ab-sb-bd" id="ab-sb-bd-pd" hidden>0</span></a>{% endif %}
     </div>
   </div>
@@ -820,10 +848,39 @@ body.sb-min .ab-sb-g,body.sb-min .ab-sb-top{position:relative}
         if (gb){ gb.textContent = tong || ''; gb.hidden = !tong; }
       }
     }
-    fetch('/api/ncc-de-xuat/summary', {credentials:'include'})
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(d){ if (d) dat('ncc', d.cho_duyet || 0); })
-      .catch(function(){});
+    /* Mỗi nguồn tự đi, tự hỏng — một endpoint chết không kéo theo badge khác.
+       Luồng duyệt ở cả 3 phân hệ đều là `cho_duyet` → `kt_duyet` → `duyet`,
+       nên số CHỜ KẾ TOÁN luôn là ô `cho_duyet`. Key vắng mặt nghĩa là 0
+       (summary chỉ trả những trạng thái ĐANG có bản ghi), nên `|| 0` là bắt
+       buộc chứ không phải phòng hờ. */
+    function nguon(url, key, lay){
+      fetch(url, {credentials:'include'})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){ if (d) dat(key, lay(d) || 0); })
+        .catch(function(){});
+    }
+
+    /* Đề xuất trả NCC — Mua Hàng gửi sang, KT duyệt cấp 1 */
+    nguon('/api/ncc-de-xuat/summary', 'ncc', function(d){ return d.cho_duyet; });
+
+    /* Duyệt chi — hệ đề xuất chi liên phòng ban (shared.expense_requests).
+       Lấy `pending_ketoan`: số đơn đang dừng ĐÚNG Ở CẤP KẾ TOÁN. Không dùng
+       `pending_all` (gồm cả đơn chờ manager/CEO — không phải việc của KT), cũng
+       không dùng `pending_for_me` (rỗng với người không phải approver, nên
+       badge sẽ biến mất tuỳ người đăng nhập). */
+    nguon('/api/duyet-chi/stats', 'chi', function(d){ return d.pending_ketoan; });
+
+    /* Đề nghị thanh toán — Sale Admin gửi sang */
+    nguon('/api/de-nghi-tt/summary', 'dntt', function(d){ return d.cho_duyet; });
+
+    /* Phê duyệt báo giá — chưa có endpoint đếm, phải tự đếm từ danh sách.
+       `/api/kt-duyet/list` trả CẢ `kt_pending` lẫn `kt_rejected`; chỉ
+       `kt_pending` mới là việc phải làm, nên lọc trước khi đếm. */
+    nguon('/api/kt-duyet/list', 'pd', function(d){
+      return Array.isArray(d)
+        ? d.filter(function(q){ return q.duyet_status === 'kt_pending'; }).length
+        : 0;
+    });
   }
 
   function abInit(){
