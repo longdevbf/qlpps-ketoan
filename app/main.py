@@ -153,6 +153,8 @@ from .routers import (
     profile,
     # KT xác nhận cọc
     kt_duyet,
+    # KT duyệt cọc BỔ SUNG (lần 2,3…) từ baogia.quote_deposits
+    coc_bo_sung,
     # Báo cáo Duyệt Chi (page dashboard)
     bao_cao_duyet_chi,
     # KT phê duyệt cấp 1 Đề Nghị Thanh Toán từ saleadmin
@@ -245,6 +247,7 @@ app.include_router(pages.router, tags=["pages"])
 from shared.routers.payroll_me import router as payroll_me_router
 app.include_router(payroll_me_router, prefix="/api/payroll", tags=["payroll_me"])
 app.include_router(kt_duyet.router, tags=["kt_duyet"])
+app.include_router(coc_bo_sung.router, tags=["coc_bo_sung"])
 app.include_router(bao_cao_duyet_chi.router, tags=["bao_cao_duyet_chi"])
 app.include_router(de_nghi_tt.router, tags=["de_nghi_tt"])
 app.include_router(ncc_de_xuat.router, tags=["ncc_de_xuat"])

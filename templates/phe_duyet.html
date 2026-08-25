@@ -417,6 +417,48 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
         </table>
       </div>
     </div>
+
+    <!-- ── Cọc BỔ SUNG (lần 2, 3…) chờ KT duyệt ── -->
+    <div style="margin-top:22px">
+      <h3 style="display:flex;align-items:center;gap:8px;font-size:15px;margin:0 0 10px">
+        💰 Cọc bổ sung chờ duyệt (lần 2, 3…)
+        <span id="cocbs-cnt" style="background:var(--warning-soft);color:var(--warning-fg);border:1px solid var(--warning);border-radius:20px;padding:1px 10px;font-size:13px;font-weight:700">0</span>
+      </h3>
+      <div class="tbl-wrap"><div class="tbl-scroll">
+        <table class="data-table">
+          <thead><tr>
+            <th>Số BG</th><th>Khách hàng</th><th>NV KD</th><th>Lần</th>
+            <th style="text-align:right">Cọc thêm</th><th>Ngày</th><th>Ghi chú</th>
+            <th style="text-align:center;min-width:170px">Thao tác</th>
+          </tr></thead>
+          <tbody id="cocbs-tbody">
+            <tr class="empty-row"><td colspan="8" style="color:var(--text-3)">Đang tải...</td></tr>
+          </tbody>
+        </table>
+      </div></div>
+      <div style="margin-top:8px;font-size:12.5px;color:var(--text-3);padding:7px 11px;background:var(--warning-soft);border-left:3px solid var(--warning);border-radius:4px">
+        Duyệt là tạo doanh thu "Đặt cọc" + lên <b>Sổ Quỹ</b> ngay, cộng dồn vào tổng đã cọc của đơn.
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal duyệt cọc bổ sung (chọn tài khoản) -->
+  <div id="cocbs-modal" style="display:none;position:fixed;inset:0;background:rgba(51,33,15,.32);z-index:9100;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;width:min(420px,92vw);padding:20px;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+      <div style="font-size:16px;font-weight:700;color:var(--brand-hover);margin-bottom:6px">Duyệt cọc bổ sung</div>
+      <div id="cocbs-modal-info" style="font-size:13.5px;color:var(--text-2);margin-bottom:14px"></div>
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:5px">Tài khoản thực nhận</label>
+      <select id="cocbs-modal-tk" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px">
+        <option value="Tiền Mặt">Tiền Mặt</option>
+        <option value="ACB Hộ Kinh Doanh" selected>ACB Hộ Kinh Doanh</option>
+        <option value="BIDV - Công ty">BIDV - Công ty</option>
+        <option value="VPB">VPB</option>
+      </select>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
+        <button type="button" class="btn btn-outline" onclick="cocbsCloseModal()" style="padding:7px 14px">Hủy</button>
+        <button type="button" id="cocbs-modal-ok" class="btn-approve" onclick="cocbsDoApprove()" style="padding:7px 16px">Duyệt + lên sổ quỹ</button>
+      </div>
+    </div>
   </div>
 
   <!-- ── Lệnh không check-in ─────────────────────────────────────── -->
@@ -1186,9 +1228,85 @@ async function loadKtCoc(){
     if(el){ el.textContent=waitCnt; el.style.display=waitCnt?'':'none'; }
     document.getElementById('pd-cnt-coc').textContent = waitCnt || '—';
     renderKtCoc();
+    loadCocBs();            // cọc bổ sung (lần 2,3…) chờ duyệt
   } catch(e){
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:32px">Lỗi: ${escHtml(e.message)}</td></tr>`;
   }
+}
+
+// ── Cọc bổ sung (lần 2, 3…) ─────────────────────────────────────────────
+let _cocBsData = [];
+let _cocBsSel = null;
+async function loadCocBs(){
+  const tbody = document.getElementById('cocbs-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="8" style="color:var(--text-3)">Đang tải...</td></tr>';
+  try{
+    const r = await fetch('/api/coc-bo-sung/pending');
+    const j = await r.json();
+    _cocBsData = j.items || [];
+    const cnt = document.getElementById('cocbs-cnt');
+    if(cnt) cnt.textContent = _cocBsData.length;
+    if(!_cocBsData.length){
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8" style="text-align:center;color:var(--text-3);padding:24px">Không có cọc bổ sung nào chờ duyệt</td></tr>';
+      return;
+    }
+    tbody.innerHTML = _cocBsData.map(d=>`
+      <tr>
+        <td><b>${escHtml(d.quote_number||'')}</b></td>
+        <td>${escHtml(d.customer_name||'—')}</td>
+        <td>${escHtml(d.salesperson||'—')}</td>
+        <td style="text-align:center">Lần ${d.lan}</td>
+        <td style="text-align:right;font-weight:700;color:var(--warning-fg)">${(+d.so_tien).toLocaleString('vi-VN')}đ</td>
+        <td>${d.ngay||'—'}</td>
+        <td style="max-width:180px;color:var(--text-3)">${escHtml(d.ghi_chu||'')}</td>
+        <td style="text-align:center;white-space:nowrap">
+          <button class="btn-approve" style="padding:5px 12px" onclick="cocbsOpenApprove(${d.id})">Duyệt</button>
+          <button class="btn-reject" style="padding:5px 12px" onclick="cocbsReject(${d.id})">Từ chối</button>
+        </td>
+      </tr>`).join('');
+  }catch(e){
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger);padding:20px">Lỗi: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+function cocbsOpenApprove(id){
+  const d = _cocBsData.find(x=>x.id===id); if(!d) return;
+  _cocBsSel = d;
+  document.getElementById('cocbs-modal-info').innerHTML =
+    `Đơn <b>${escHtml(d.quote_number)}</b> — ${escHtml(d.customer_name||'')}<br>Cọc bổ sung lần ${d.lan}: <b>${(+d.so_tien).toLocaleString('vi-VN')}đ</b>`;
+  const tk = document.getElementById('cocbs-modal-tk');
+  if(tk) tk.value = (d.hinh_thuc==='tien_mat') ? 'Tiền Mặt' : 'ACB Hộ Kinh Doanh';
+  document.getElementById('cocbs-modal').style.display = 'flex';
+}
+function cocbsCloseModal(){ document.getElementById('cocbs-modal').style.display='none'; _cocBsSel=null; }
+async function cocbsDoApprove(){
+  if(!_cocBsSel) return;
+  const btn = document.getElementById('cocbs-modal-ok'); btn.disabled = true;
+  try{
+    const tk = document.getElementById('cocbs-modal-tk').value;
+    const r = await fetch(`/api/coc-bo-sung/${_cocBsSel.id}/duyet`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'duyet', tai_khoan: tk})
+    });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok){ alert('Lỗi: '+(j.detail||r.status)); btn.disabled=false; return; }
+    cocbsCloseModal(); loadCocBs();
+    if(typeof toast==='function') toast('Đã duyệt — cọc đã lên sổ quỹ'); else alert('Đã duyệt — cọc đã lên sổ quỹ');
+  }catch(e){ alert('Lỗi: '+e.message); }
+  btn.disabled = false;
+}
+async function cocbsReject(id){
+  const gc = prompt('Lý do từ chối (tuỳ chọn):', '');
+  if(gc === null) return;
+  try{
+    const r = await fetch(`/api/coc-bo-sung/${id}/duyet`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'tu_choi', ghi_chu: gc})
+    });
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok){ alert('Lỗi: '+(j.detail||r.status)); return; }
+    loadCocBs();
+  }catch(e){ alert('Lỗi: '+e.message); }
 }
 
 function renderKtCoc(){
