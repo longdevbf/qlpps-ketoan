@@ -4,6 +4,7 @@ Không sửa code 4 app khác. Dùng raw SQL để fail-soft khi schema chưa kh
 """
 import json
 from datetime import date as date_cls, datetime
+from decimal import Decimal
 from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -601,6 +602,15 @@ def orders_overview(
             COALESCE(cn.cn_phai_tra, 0) AS cn_phai_tra,
             COALESCE(cn.cn_da_tra, 0) AS cn_da_tra,
             v.chi_phi_vc, v.da_tra_dvvc, v.tien_thu_ho, v.dvvc_da_thu,
+            v.delivery_cod_received,
+
+            -- SA ĐÃ BÀN GIAO (anh Quang 2026-08-24): TRUE nếu tien_trinh có stage
+            -- 'sa_ban_giao' — Sale Admin đã báo cáo thực thu. KT chỉ được "Nhận thực"
+            -- (duyệt lên sổ quỹ) khi cờ này TRUE; số tiền lấy từ delivery_cod_received.
+            EXISTS (
+                SELECT 1 FROM jsonb_array_elements(COALESCE(v.tien_trinh, '[]'::jsonb)) e
+                WHERE e->>'stage' = 'sa_ban_giao'
+            ) AS sa_ban_giao,
 
             -- TIN NHẮN
             COALESCE(cmt.comment_count, 0) AS comment_count,
@@ -612,7 +622,8 @@ def orders_overview(
         LEFT JOIN LATERAL (
             SELECT ma_vh, trang_thai, ngay_giao, don_vi_vc, tien_trinh,
                    ketoan_approved_at, ketoan_approved_by,
-                   chi_phi_vc, da_tra_dvvc, tien_thu_ho, dvvc_da_thu
+                   chi_phi_vc, da_tra_dvvc, tien_thu_ho, dvvc_da_thu,
+                   delivery_cod_received
             FROM saleadmin.vanchuyen
             WHERE ma_don = q.quote_number
             ORDER BY created_at DESC LIMIT 1
@@ -1535,6 +1546,7 @@ def mark_vanchuyen_completed(
     user: Annotated[JWTPayload, _AUTH],
     note: Optional[str] = Query(None),
     tai_khoan: Optional[str] = Query(None, description="TK sổ quỹ cho tiền thu nốt (Tiền Mặt/ACB.../BIDV.../VPB); mặc định Tiền Mặt"),
+    so_tien_thuc_nhan: Optional[Decimal] = Query(None, description="Số tiền THỰC NHẬN do KT xác nhận khi đối chiếu — ghi CẢ doanh thu LẪN sổ quỹ. Trống → dùng COD lái xe khai, cuối cùng fallback con_lai."),
 ):
     """Kế toán xác nhận đối chiếu thu/chi xong → chuyển VC sang `hoan_thanh`.
 
@@ -1551,7 +1563,7 @@ def mark_vanchuyen_completed(
     """
     # Validate VC exists + status
     row = db.execute(
-        text("SELECT id, trang_thai, ma_don, tien_trinh FROM saleadmin.vanchuyen WHERE ma_vh = :mv"),
+        text("SELECT id, trang_thai, ma_don, tien_trinh, delivery_cod_received FROM saleadmin.vanchuyen WHERE ma_vh = :mv"),
         {"mv": ma_vh},
     ).mappings().first()
     if not row:
@@ -1577,10 +1589,12 @@ def mark_vanchuyen_completed(
             UPDATE saleadmin.vanchuyen
             SET trang_thai = 'hoan_thanh',
                 tien_trinh = COALESCE(tien_trinh, '[]'::jsonb) || CAST(:stage AS jsonb),
+                ketoan_approved_at = NOW(),
+                ketoan_approved_by = :by,
                 updated_at = NOW()
             WHERE ma_vh = :mv
         """),
-        {"mv": ma_vh, "stage": json.dumps(new_stage)},
+        {"mv": ma_vh, "stage": json.dumps(new_stage), "by": user.username},
     )
 
     # 2. Sync baogia.quotes.tien_trinh_mh
@@ -1625,6 +1639,19 @@ def mark_vanchuyen_completed(
             """), {"mn": ma_don}).scalar() or 0)
             con_lai = round(max(0.0, dt_thuan - coc_da_ghi), 2)
 
+            # QUYẾT ĐỊNH NGHIỆP VỤ (anh Quang 2026-08-24): sổ quỹ VÀ doanh thu ghi
+            # theo TIỀN THỰC NHẬN KT xác nhận, KHÔNG theo con_lai báo giá. Phần khách
+            # trả thiếu tự hiện ở "Còn thu" trang Đơn Hàng (không tách công nợ riêng).
+            #   so_ghi_nhan = COALESCE(KT nhập, COD lái xe khai, con_lai)
+            _cod_khai = row["delivery_cod_received"]
+            if so_tien_thuc_nhan is not None:
+                so_ghi_nhan = round(float(so_tien_thuc_nhan), 2)
+            elif _cod_khai is not None:
+                so_ghi_nhan = round(float(_cod_khai), 2)
+            else:
+                so_ghi_nhan = con_lai
+            so_ghi_nhan = round(max(0.0, so_ghi_nhan), 2)
+
             # Loại doanh thu theo nhóm SP CHÍNH Mây/Gỗ (shared.products.nhom_master)
             _nm = db.execute(text("""
                 SELECT DISTINCT p.nhom_master FROM baogia.quote_items qi
@@ -1640,7 +1667,7 @@ def mark_vanchuyen_completed(
 
             # 4a. Ghi doanh thu phần CÒN LẠI + đẩy SỔ QUỸ (idempotent qua
             # ma_don + loai_thanh_toan='Thanh Toán').
-            if con_lai > 0:
+            if so_ghi_nhan > 0:
                 existed = db.execute(text("""
                     SELECT id FROM ketoan.doanh_thu
                     WHERE ma_don = :mn AND loai_thanh_toan = 'Thanh Toán' LIMIT 1
@@ -1652,7 +1679,7 @@ def mark_vanchuyen_completed(
                     _dt = _DoanhThu(
                         ngay=today,
                         loai=loai_dt,
-                        so_tien=_Dec(str(con_lai)),
+                        so_tien=_Dec(str(so_ghi_nhan)),
                         nv_kinh_doanh=q["salesperson"],
                         ma_don=ma_don,
                         nguon="kd",
@@ -1660,20 +1687,21 @@ def mark_vanchuyen_completed(
                         loai_thanh_toan="Thanh Toán",
                         ghi_chu=(
                             f"Đơn hoàn thành {ma_don} — KH: {q['customer_name'] or '?'} "
-                            f"— NV: {q['salesperson'] or '?'} (thu nốt sau cọc)"
+                            f"— NV: {q['salesperson'] or '?'} (tiền thực nhận KT xác nhận)"
                         ),
                         created_by=user.username,
                     )
                     db.add(_dt)
                     db.flush()
                     try:
-                        _sync_sq(db, _dt)  # → ketoan.so_quy (thu), tai_khoan = _tk_sq
+                        _sync_sq(db, _dt)  # → ketoan.so_quy (thu), so_tien=so_ghi_nhan, tai_khoan=_tk_sq
                     except Exception:
                         pass
                     revenue_info = {
-                        "created": True, "id": _dt.id, "so_tien": con_lai,
+                        "created": True, "id": _dt.id, "so_tien": so_ghi_nhan,
                         "ma_don": ma_don, "loai": loai_dt,
                         "coc_da_tru": coc_da_ghi, "tai_khoan": _tk_sq,
+                        "dt_thuan_bao_gia": dt_thuan, "con_lai_bao_gia": con_lai,
                     }
                 else:
                     revenue_info = {
@@ -1725,8 +1753,9 @@ def mark_vanchuyen_completed(
                 journal_lines = []
                 rev_id = revenue_info.get("id")
                 rev_id_int = int(rev_id) if isinstance(rev_id, int) else None
-                if dt_thuan > 0 and revenue_info.get("created"):
-                    # Bút toán DT
+                if so_ghi_nhan > 0 and revenue_info.get("created"):
+                    # Bút toán DT — ghi theo TIỀN THỰC NHẬN (so_ghi_nhan), khớp
+                    # doanh thu + sổ quỹ (anh Quang 2026-08-24).
                     je_dt = post_journal(
                         db, ngay=today,
                         mo_ta=f"Ghi nhận DT đơn {ma_don} hoàn thành (VC {ma_vh})",
@@ -1735,11 +1764,11 @@ def mark_vanchuyen_completed(
                         lines=[
                             {"loai": "no", "account_code": "131",
                              "ref_table": "doanh_thu", "ref_id": rev_id_int,
-                             "so_tien": dt_thuan,
+                             "so_tien": so_ghi_nhan,
                              "ghi_chu": f"Phải thu KH — {ma_don}"},
                             {"loai": "co", "account_code": "511",
                              "ref_table": "doanh_thu", "ref_id": rev_id_int,
-                             "so_tien": dt_thuan,
+                             "so_tien": so_ghi_nhan,
                              "ghi_chu": f"DT bán hàng — {ma_don}"},
                         ],
                     )

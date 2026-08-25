@@ -171,6 +171,19 @@ def duyet_chi_page(
     )
 
 
+@router.get("/chi-tap-trung", response_class=HTMLResponse, name="chi_tap_trung")
+def chi_tap_trung_page(
+    request: Request,
+    user: Annotated[JWTPayload, Depends(_require_user_redirect)],
+):
+    """Trung tâm Chi — gom mọi khoản chờ chi (đề xuất chi, trả NCC) về 1 nơi,
+    KT bấm Chi ở từng tab → tự lên sổ quỹ (anh Quang 2026-08-24)."""
+    return templates.TemplateResponse(
+        "chi_tap_trung.html",
+        {"request": request, "user": user_ctx(user)},
+    )
+
+
 @router.get("/giao-viec", response_class=HTMLResponse, name="giao_viec")
 def giao_viec_page(
     request: Request,

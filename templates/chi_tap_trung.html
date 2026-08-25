@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chi Tập Trung — Kế Toán</title>
+<link rel="icon" href="/static/icon/favicon.ico">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg-card);color:var(--text-1);font-size:15px}
+  .container{max-width:1400px;margin:24px auto;padding:0 16px}
+  h1.page-title{font-size:22px;font-weight:700;color:var(--text-1);margin-bottom:4px}
+  .page-sub{color:var(--text-2);font-size:13.5px;margin-bottom:18px}
+  .summary{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+  .stat{background:#fff;padding:14px 20px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);min-width:180px}
+  .stat .label{color:var(--text-2);font-size:12.5px;text-transform:uppercase;letter-spacing:.3px}
+  .stat .value{font-size:22px;font-weight:700;margin-top:4px;color:var(--warning-fg)}
+  .stat.total .value{color:var(--danger)}
+  .stat .sub{font-size:12px;color:var(--text-3);margin-top:2px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;border-bottom:2px solid var(--border)}
+  .tab{padding:10px 20px;border:0;background:none;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-2);border-bottom:3px solid transparent;margin-bottom:-2px;font-family:inherit;display:inline-flex;align-items:center;gap:7px}
+  .tab.active{color:var(--brand-hover);border-bottom-color:var(--brand-hover)}
+  .tab .cnt{background:var(--warning);color:#fff;border-radius:10px;padding:1px 8px;font-size:12px;font-weight:700}
+  .panel{display:none}
+  .panel.active{display:block}
+  .card{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden}
+  .tbl-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--bg-page);font-size:14px;vertical-align:middle}
+  th{background:var(--bg-page);color:var(--text-2);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+  tr:hover td{background:var(--bg-page)}
+  .money{text-align:right;font-weight:700;color:var(--warning-fg);white-space:nowrap}
+  .btn{padding:6px 14px;border:0;border-radius:7px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit}
+  .btn-chi{background:var(--danger,#dc3545);color:#fff}
+  .btn-chi:hover{filter:brightness(1.06)}
+  .btn-ghost{background:var(--bg-page);color:var(--text-2)}
+  .badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:12px;font-weight:600}
+  .b-done{background:var(--success-soft);color:var(--success-fg)}
+  .empty{padding:34px;text-align:center;color:var(--text-3)}
+  .hint{font-size:12.5px;color:var(--text-3);padding:9px 14px;background:var(--warning-soft);border-left:3px solid var(--warning);border-radius:4px;margin-top:10px}
+  /* modal */
+  .ov{display:none;position:fixed;inset:0;background:rgba(51,33,15,.34);z-index:9000;align-items:center;justify-content:center;padding:16px}
+  .ov.open{display:flex}
+  .modal{background:#fff;border-radius:12px;width:min(440px,94vw);padding:22px;box-shadow:0 10px 40px rgba(0,0,0,.22)}
+  .modal h3{font-size:17px;color:var(--brand-hover);margin-bottom:6px}
+  .modal .info{font-size:13.5px;color:var(--text-2);margin-bottom:14px}
+  .modal label{font-size:13px;font-weight:600;display:block;margin:10px 0 5px}
+  .modal select,.modal input{width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;font-family:inherit}
+  .modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+</style>
+</head>
+<body>
+{% include "_header.html" %}
+
+<div class="container">
+  <h1 class="page-title">💸 Chi Tập Trung</h1>
+  <div class="page-sub">Tất cả khoản chờ chi ở một nơi — Kế Toán bấm <b>Chi</b> ở từng tab, tiền tự động lên Sổ Quỹ.</div>
+
+  <div class="summary">
+    <div class="stat"><div class="label">Đề xuất chi chờ chi</div><div class="value" id="s-dx">—</div><div class="sub" id="s-dx-tien">0 đ</div></div>
+    <div class="stat"><div class="label">Trả NCC chờ chi</div><div class="value" id="s-ncc">—</div><div class="sub" id="s-ncc-tien">0 đ</div></div>
+    <div class="stat"><div class="label">Đề Nghị TT chờ chi</div><div class="value" id="s-dntt">—</div><div class="sub" id="s-dntt-tien">0 đ</div></div>
+    <div class="stat total"><div class="label">Tổng chờ chi</div><div class="value" id="s-tong">0 đ</div><div class="sub">Cần Kế Toán chi</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-dx" onclick="ctSwitch('dx')">💸 Đề xuất chi <span class="cnt" id="c-dx" style="display:none">0</span></button>
+    <button class="tab" id="tab-ncc" onclick="ctSwitch('ncc')">🏭 Trả NCC <span class="cnt" id="c-ncc" style="display:none">0</span></button>
+    <button class="tab" id="tab-dntt" onclick="ctSwitch('dntt')">🚚 Đề Nghị TT <span class="cnt" id="c-dntt" style="display:none">0</span></button>
+    <button class="tab" id="tab-done" onclick="ctSwitch('done')">✅ Đã chi gần đây</button>
+  </div>
+
+  <!-- TAB: Đề xuất chi -->
+  <div class="panel active" id="panel-dx">
+    <div class="card"><div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Tiêu đề</th><th>Người ĐX</th><th>Phòng ban</th><th>Loại</th><th style="text-align:right">Số tiền</th><th style="text-align:center">Thao tác</th></tr></thead>
+        <tbody id="tb-dx"><tr><td colspan="6" class="empty">Đang tải…</td></tr></tbody>
+      </table>
+    </div></div>
+    <div class="hint">Chỉ hiện đề xuất đã được <b>CEO duyệt xong</b>. Bấm <b>Chi</b> → tạo chi phí + lên Sổ Quỹ, đánh dấu đã chi (không chi 2 lần).</div>
+  </div>
+
+  <!-- TAB: Trả NCC -->
+  <div class="panel" id="panel-ncc">
+    <div class="card"><div class="tbl-wrap">
+      <table>
+        <thead><tr><th>NCC</th><th>Mã đơn</th><th>Nội dung</th><th>Người ĐX</th><th style="text-align:right">Số tiền</th><th style="text-align:center">Thao tác</th></tr></thead>
+        <tbody id="tb-ncc"><tr><td colspan="6" class="empty">Đang tải…</td></tr></tbody>
+      </table>
+    </div></div>
+    <div class="hint">Chỉ hiện đề xuất trả NCC đã <b>CEO duyệt</b>. Bấm <b>Chi</b> → lên Sổ Quỹ chi + giảm công nợ NCC (đánh dấu đã chi).</div>
+  </div>
+
+  <!-- TAB: Đề Nghị TT -->
+  <div class="panel" id="panel-dntt">
+    <div class="card"><div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Mã ĐN</th><th>ĐVVC / Nhà xe</th><th>Mã đơn</th><th>Lý do</th><th style="text-align:right">Số tiền</th><th style="text-align:center">Thao tác</th></tr></thead>
+        <tbody id="tb-dntt"><tr><td colspan="6" class="empty">Đang tải…</td></tr></tbody>
+      </table>
+    </div></div>
+    <div class="hint">Chỉ hiện đề nghị đã <b>CEO duyệt cuối</b>. Bấm <b>Chi</b> → lên Sổ Quỹ chi + chi phí phải trả ĐVVC (nếu nối đề xuất NCC thì giảm công nợ luôn).</div>
+  </div>
+
+  <!-- TAB: Đã chi -->
+  <div class="panel" id="panel-done">
+    <div class="card"><div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Nguồn</th><th>Nội dung</th><th style="text-align:right">Số tiền</th><th>Tài khoản</th><th>Ngày chi</th></tr></thead>
+        <tbody id="tb-done"><tr><td colspan="5" class="empty">Đang tải…</td></tr></tbody>
+      </table>
+    </div></div>
+  </div>
+</div>
+
+<!-- Modal Chi -->
+<div class="ov" id="chi-ov">
+  <div class="modal">
+    <h3>Xác nhận Chi</h3>
+    <div class="info" id="chi-info"></div>
+    <label>Tài khoản chi tiền</label>
+    <select id="chi-tk">
+      <option value="Tiền Mặt">Tiền Mặt</option>
+      <option value="ACB Hộ Kinh Doanh" selected>ACB Hộ Kinh Doanh</option>
+      <option value="BIDV - Công ty">BIDV - Công ty</option>
+      <option value="VPB">VPB</option>
+    </select>
+    <label>Ghi chú (tuỳ chọn)</label>
+    <input id="chi-gc" type="text" placeholder="VD: đã CK cho NCC">
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="ctCloseModal()">Hủy</button>
+      <button class="btn btn-chi" id="chi-ok" onclick="ctDoChi()">Chi + lên Sổ Quỹ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const fmt = n => (Math.round(+n||0)).toLocaleString('vi-VN') + ' đ';
+const esc = s => (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let _dx = [], _ncc = [], _dntt = [];
+let _chiSel = null;   // {flow:'dx'|'ncc'|'dntt', id, label}
+
+function ctSwitch(t){
+  ['dx','ncc','dntt','done'].forEach(k=>{
+    document.getElementById('tab-'+k).classList.toggle('active', k===t);
+    document.getElementById('panel-'+k).classList.toggle('active', k===t);
+  });
+  if(t==='done') loadDone();
+}
+
+async function loadDx(){
+  const tb = document.getElementById('tb-dx');
+  try{
+    const all = await fetch('/api/duyet-chi?approval_level=done').then(r=>r.json());
+    _dx = (all||[]).filter(x=>!x.da_chi);
+    const tien = _dx.reduce((s,x)=>s+(+x.so_tien||0),0);
+    document.getElementById('s-dx').textContent = _dx.length;
+    document.getElementById('s-dx-tien').textContent = fmt(tien);
+    const c = document.getElementById('c-dx'); c.textContent=_dx.length; c.style.display=_dx.length?'':'none';
+    if(!_dx.length){ tb.innerHTML = '<tr><td colspan="6" class="empty">Không có đề xuất nào chờ chi 🎉</td></tr>'; ctTotal(); return; }
+    tb.innerHTML = _dx.map(x=>`
+      <tr>
+        <td><b>${esc(x.tieu_de)}</b>${x.muc_dich?`<br><small style="color:var(--text-3)">${esc(x.muc_dich)}</small>`:''}</td>
+        <td>${esc(x.ho_ten||x.username)}</td>
+        <td>${esc(x.phong_ban||'—')}</td>
+        <td>${esc(x.loai_chi||'—')}</td>
+        <td class="money">${fmt(x.so_tien)}</td>
+        <td style="text-align:center"><button class="btn btn-chi" onclick="ctOpenChi('dx',${x.id})">Chi</button></td>
+      </tr>`).join('');
+    ctTotal();
+  }catch(e){ tb.innerHTML = `<tr><td colspan="6" class="empty">Lỗi: ${esc(e.message)}</td></tr>`; }
+}
+
+async function loadNcc(){
+  const tb = document.getElementById('tb-ncc');
+  try{
+    const r = await fetch('/api/ncc-de-xuat?trang_thai=duyet').then(r=>r.json());
+    const items = r.items || r || [];
+    _ncc = items.filter(x=>!x.da_chi);
+    const tien = _ncc.reduce((s,x)=>s+(+x.so_tien||0),0);
+    document.getElementById('s-ncc').textContent = _ncc.length;
+    document.getElementById('s-ncc-tien').textContent = fmt(tien);
+    const c = document.getElementById('c-ncc'); c.textContent=_ncc.length; c.style.display=_ncc.length?'':'none';
+    if(!_ncc.length){ tb.innerHTML = '<tr><td colspan="6" class="empty">Không có đề xuất trả NCC nào chờ chi 🎉</td></tr>'; ctTotal(); return; }
+    tb.innerHTML = _ncc.map(x=>`
+      <tr>
+        <td><b>${esc(x.ncc_name||'—')}</b></td>
+        <td>${esc(x.ref_order_id||'—')}</td>
+        <td style="max-width:260px">${esc(x.mo_ta||'')}</td>
+        <td>${esc(x.nguoi_tao_ten||x.nv_mua_hang_ten||x.nguoi_tao||'—')}</td>
+        <td class="money">${fmt(x.so_tien)}</td>
+        <td style="text-align:center"><button class="btn btn-chi" onclick="ctOpenChi('ncc','${x.id}')">Chi</button></td>
+      </tr>`).join('');
+    ctTotal();
+  }catch(e){ tb.innerHTML = `<tr><td colspan="6" class="empty">Lỗi: ${esc(e.message)}</td></tr>`; }
+}
+
+async function loadDntt(){
+  const tb = document.getElementById('tb-dntt');
+  try{
+    const r = await fetch('/api/de-nghi-tt?trang_thai=duyet').then(r=>r.json());
+    const items = Array.isArray(r) ? r : (r.items||[]);
+    _dntt = items.filter(x=>!x.da_chi && !x.da_chi_ngoai);
+    const tien = _dntt.reduce((s,x)=>s+(+x.so_tien||0),0);
+    document.getElementById('s-dntt').textContent = _dntt.length;
+    document.getElementById('s-dntt-tien').textContent = fmt(tien);
+    const c = document.getElementById('c-dntt'); c.textContent=_dntt.length; c.style.display=_dntt.length?'':'none';
+    if(!_dntt.length){ tb.innerHTML = '<tr><td colspan="6" class="empty">Không có đề nghị TT nào chờ chi 🎉</td></tr>'; ctTotal(); return; }
+    tb.innerHTML = _dntt.map(x=>`
+      <tr>
+        <td><b>${esc(x.id)}</b></td>
+        <td>${esc(x.don_vi_vc||'—')}</td>
+        <td>${esc(x.ma_don||'—')}</td>
+        <td style="max-width:240px">${esc(x.ly_do||'')}</td>
+        <td class="money">${fmt(x.so_tien)}</td>
+        <td style="text-align:center"><button class="btn btn-chi" onclick="ctOpenChi('dntt','${x.id}')">Chi</button></td>
+      </tr>`).join('');
+    ctTotal();
+  }catch(e){ tb.innerHTML = `<tr><td colspan="6" class="empty">Lỗi: ${esc(e.message)}</td></tr>`; }
+}
+
+function ctTotal(){
+  const sum = a => a.reduce((s,x)=>s+(+x.so_tien||0),0);
+  document.getElementById('s-tong').textContent = fmt(sum(_dx)+sum(_ncc)+sum(_dntt));
+}
+
+async function loadDone(){
+  const tb = document.getElementById('tb-done');
+  tb.innerHTML = '<tr><td colspan="5" class="empty">Đang tải…</td></tr>';
+  try{
+    const [dxAll, nccR, dnttR] = await Promise.all([
+      fetch('/api/duyet-chi?approval_level=done').then(r=>r.json()).catch(()=>[]),
+      fetch('/api/ncc-de-xuat?trang_thai=duyet').then(r=>r.json()).catch(()=>({items:[]})),
+      fetch('/api/de-nghi-tt?trang_thai=duyet').then(r=>r.json()).catch(()=>[]),
+    ]);
+    const rows = [];
+    (dxAll||[]).filter(x=>x.da_chi).forEach(x=>rows.push({src:'Đề xuất chi', nd:x.tieu_de, tien:x.so_tien, tk:x.tai_khoan_chi, ngay:x.ngay_chi}));
+    ((nccR.items||nccR||[])).filter(x=>x.da_chi).forEach(x=>rows.push({src:'Trả NCC', nd:(x.ncc_name||'')+' · '+(x.ref_order_id||''), tien:x.so_tien, tk:x.tai_khoan_chi, ngay:x.ngay_chi}));
+    (Array.isArray(dnttR)?dnttR:(dnttR.items||[])).filter(x=>x.da_chi).forEach(x=>rows.push({src:'Đề Nghị TT', nd:(x.id||'')+' · '+(x.don_vi_vc||''), tien:x.so_tien, tk:x.tai_khoan_chi, ngay:x.ngay_chi}));
+    rows.sort((a,b)=>String(b.ngay||'').localeCompare(String(a.ngay||'')));
+    if(!rows.length){ tb.innerHTML = '<tr><td colspan="5" class="empty">Chưa có khoản nào đã chi</td></tr>'; return; }
+    tb.innerHTML = rows.slice(0,100).map(r=>`
+      <tr>
+        <td><span class="badge b-done">${esc(r.src)}</span></td>
+        <td>${esc(r.nd)}</td>
+        <td class="money" style="color:var(--danger)">${fmt(r.tien)}</td>
+        <td>${esc(r.tk||'—')}</td>
+        <td>${r.ngay?esc(String(r.ngay).slice(0,10)):'—'}</td>
+      </tr>`).join('');
+  }catch(e){ tb.innerHTML = `<tr><td colspan="5" class="empty">Lỗi: ${esc(e.message)}</td></tr>`; }
+}
+
+function ctOpenChi(flow, id){
+  let label = '';
+  if(flow==='dx'){ const x=_dx.find(v=>v.id===id); if(!x) return; label=`${x.tieu_de} — ${fmt(x.so_tien)}`; }
+  else if(flow==='dntt'){ const x=_dntt.find(v=>String(v.id)===String(id)); if(!x) return; label=`${x.id} · ${x.don_vi_vc||''} — ${fmt(x.so_tien)}`; }
+  else { const x=_ncc.find(v=>String(v.id)===String(id)); if(!x) return; label=`${x.ncc_name||''} — ${fmt(x.so_tien)}`; }
+  _chiSel = {flow, id, label};
+  document.getElementById('chi-info').innerHTML = esc(label);
+  document.getElementById('chi-gc').value = '';
+  document.getElementById('chi-ov').classList.add('open');
+}
+function ctCloseModal(){ document.getElementById('chi-ov').classList.remove('open'); _chiSel=null; }
+
+async function ctDoChi(){
+  if(!_chiSel) return;
+  const btn = document.getElementById('chi-ok'); btn.disabled = true;
+  const tk = document.getElementById('chi-tk').value;
+  const gc = document.getElementById('chi-gc').value || null;
+  const url = _chiSel.flow==='dx'
+    ? `/api/duyet-chi/${_chiSel.id}/chi`
+    : _chiSel.flow==='dntt'
+      ? `/api/de-nghi-tt/${encodeURIComponent(_chiSel.id)}/chi`
+      : `/api/ncc-de-xuat/${encodeURIComponent(_chiSel.id)}/chi`;
+  try{
+    const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({tai_khoan: tk, ghi_chu: gc})});
+    const j = await r.json().catch(()=>({}));
+    if(!r.ok){ alert('Chi thất bại: ' + (j.detail||r.status)); btn.disabled=false; return; }
+    ctCloseModal();
+    await Promise.all([loadDx(), loadNcc(), loadDntt()]);
+    alert('Đã chi — tiền đã lên Sổ Quỹ.');
+  }catch(e){ alert('Lỗi: ' + e.message); }
+  btn.disabled = false;
+}
+
+loadDx(); loadNcc(); loadDntt();
+</script>
+</body>
+</html>

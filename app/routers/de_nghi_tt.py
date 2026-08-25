@@ -11,7 +11,7 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, text as _text
 from sqlalchemy.orm import Session
 
 from shared.audit import log_action
@@ -33,6 +33,14 @@ class KTApproveBody(BaseModel):
 
 class KTRejectBody(BaseModel):
     ly_do: str = Field(..., min_length=1)
+
+
+class ChiBody(BaseModel):
+    tai_khoan: Optional[str] = None
+    ghi_chu: Optional[str] = None
+
+
+_CHI_ROLES = ("manager", "admin", "ceo", "assistant_ceo")
 
 
 def _denghitt_to_dict(e, name_map: Optional[dict] = None) -> dict:
@@ -63,6 +71,11 @@ def _denghitt_to_dict(e, name_map: Optional[dict] = None) -> dict:
         "nguoi_duyet_ten": nm.get(e.nguoi_duyet) if e.nguoi_duyet else None,
         "ngay_duyet": e.ngay_duyet.isoformat() if e.ngay_duyet else None,
         "chung_tu_url": e.chung_tu_url,
+        "ref_congno": getattr(e, "ref_congno", None),
+        "da_chi": bool(getattr(e, "da_chi", False)),
+        "da_chi_ngoai": bool(getattr(e, "da_chi_ngoai", False)),
+        "tai_khoan_chi": getattr(e, "tai_khoan_chi", None),
+        "ngay_chi": e.ngay_chi.isoformat() if getattr(e, "ngay_chi", None) else None,
         "created_at": e.created_at.isoformat() if e.created_at else None,
     }
 
@@ -221,5 +234,76 @@ def kt_reject(
     log_action(
         db, app="ketoan", action="kt_reject_denghitt", user=user, request=request,
         resource=f"denghitt:{did}", payload={"ly_do": body.ly_do},
+    )
+    return _denghitt_to_dict(e, _build_name_map(db, [e]))
+
+
+@router.post("/api/de-nghi-tt/{did}/chi")
+def chi_denghitt(
+    did: str,
+    body: ChiBody,
+    request: Request,
+    user: Annotated[JWTPayload, Depends(_REQ)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """KT bấm CHI 1 Đề Nghị TT đã CEO duyệt → tạo sổ quỹ chi + ChiPhí + đánh dấu
+    da_chi (đồng nhất với Đề xuất chi + Trả NCC). Idempotent: chỉ chi khi
+    trang_thai='duyet' + chưa da_chi + chưa da_chi_ngoai (chưa chi ở trang NCC).
+    Nếu DNTT nối từ đề xuất NCC (ref_congno) → giảm công nợ NCC luôn.
+    """
+    if user.role not in _CHI_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Chỉ Kế Toán/CEO được chi")
+    e = _get_or_404(db, did)
+    if (e.trang_thai or "") != "duyet":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"DNTT trạng thái {e.trang_thai!r} — chỉ chi khi CEO đã duyệt cuối (duyet).",
+        )
+    if getattr(e, "da_chi", False):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Đề nghị này đã được chi rồi.")
+    if getattr(e, "da_chi_ngoai", False):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Khoản này đã được chi ở trang Duyệt ĐX Trả NCC — không chi lại.",
+        )
+
+    tk = (body.tai_khoan or "").strip() or None
+
+    # Tạo sổ quỹ chi + ChiPhí phai_tra ĐVVC (idempotent qua ref_dntt), rồi đánh dấu.
+    try:
+        from ketoan.app.services.from_saleadmin import sync_so_quy_chi_phi_from_denghitt
+        sync_so_quy_chi_phi_from_denghitt(db, e, tai_khoan=tk)
+        e.da_chi = True
+        e.tai_khoan_chi = tk
+        e.ngay_chi = datetime.now(tz=timezone.utc)
+        e.chi_boi = user.username
+        db.commit()
+        db.refresh(e)
+    except Exception as ex:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR, f"Chi thất bại — sổ quỹ lỗi: {ex}"
+        )
+    if not getattr(e, "da_chi", False):
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Chi chưa ghi được")
+
+    # Nối NCC: DNTT từ đề xuất trả NCC → giảm công nợ NCC (đánh dấu congno.da_chi).
+    _ref_cn = getattr(e, "ref_congno", None)
+    if _ref_cn:
+        try:
+            db.execute(
+                _text("""UPDATE muahang.congno
+                         SET da_chi = TRUE, tai_khoan_chi = :tk, ngay_chi = now()
+                         WHERE id = :c AND da_chi = FALSE"""),
+                {"tk": tk, "c": _ref_cn},
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+
+    log_action(
+        db, app="ketoan", action="chi_denghitt", user=user, request=request,
+        resource=f"denghitt:{did}",
+        payload={"tai_khoan": tk, "so_tien": float(e.so_tien or 0)},
     )
     return _denghitt_to_dict(e, _build_name_map(db, [e]))

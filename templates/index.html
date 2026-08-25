@@ -1733,6 +1733,8 @@ textarea.form-control{resize:vertical;min-height:70px}
       <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:2px solid var(--border)">
         <button id="dh-tabbtn-doichieu" onclick="dhSwitchTab('doichieu')"
           style="padding:9px 18px;border:none;background:none;cursor:pointer;font-size:13.5px;font-weight:700;color:#64b5f6;border-bottom:3px solid #64b5f6;margin-bottom:-2px">🧾 Đối chiếu kế toán</button>
+        <button id="dh-tabbtn-bangiao" onclick="dhSwitchTab('bangiao')"
+          style="padding:9px 18px;border:none;background:none;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--text2);border-bottom:3px solid transparent;margin-bottom:-2px">📦 Bàn giao trong ngày</button>
         <button id="dh-tabbtn-toiuu" onclick="dhSwitchTab('toiuu')"
           style="padding:9px 18px;border:none;background:none;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--text2);border-bottom:3px solid transparent;margin-bottom:-2px">🎯 Tối ưu chiết khấu</button>
       </div>
@@ -1977,6 +1979,25 @@ textarea.form-control{resize:vertical;min-height:70px}
           </div>
         </div>
       </div><!-- /dh-tab-toiuu -->
+
+      <!-- ═══════════ TAB BÀN GIAO TRONG NGÀY ═══════════ -->
+      <div id="dh-tab-bangiao" style="display:none">
+        <div style="padding:10px 14px;background:#f0f7ff;border:1px solid #bae6fd;border-radius:8px;margin-bottom:14px;font-size:12.5px;color:#075985">
+          📦 Đơn <strong>Đã Giao</strong> gom theo <strong>ngày giao</strong>. Mỗi ngày hiện tổng COD lái xe khai + tiền cần thu.
+          Bấm <strong>Đối chiếu (nhập tiền thực nhận)</strong> để ghi sổ quỹ + doanh thu theo tiền THỰC NHẬN và chuyển đơn sang Hoàn Thành.
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📦 Bàn giao trong ngày — chờ đối chiếu</div>
+            <div class="card-actions">
+              <input type="date" id="bg-date" class="form-control" onchange="loadDonHangBanGiao()" style="width:150px" title="Lọc theo 1 ngày giao (trống = tất cả)">
+              <button class="btn btn-outline" onclick="document.getElementById('bg-date').value='';loadDonHangBanGiao()">Tất cả ngày</button>
+              <button class="btn btn-outline" onclick="loadDonHangBanGiao()">🔄 Làm Mới</button>
+            </div>
+          </div>
+          <div id="bg-content" style="padding:14px 16px"><div class="loading">Đang tải...</div></div>
+        </div>
+      </div><!-- /dh-tab-bangiao -->
 
       <!-- ─── Modal: Chi tiết đơn hàng ─── -->
       <div class="modal-overlay" id="dh-modal-detail">
@@ -5004,17 +5025,88 @@ async function loadBHXH(){
 
 // ── Đơn Hàng — Tab Tối Ưu Chiết Khấu ───────────────────────────────────────
 function dhSwitchTab(tab){
-  const isDC = tab === 'doichieu';
-  const dc = document.getElementById('dh-tab-doichieu');
-  const tu = document.getElementById('dh-tab-toiuu');
-  if (dc) dc.style.display = isDC ? '' : 'none';
-  if (tu) tu.style.display = isDC ? 'none' : '';
-  const b1 = document.getElementById('dh-tabbtn-doichieu');
-  const b2 = document.getElementById('dh-tabbtn-toiuu');
+  const tabs = ['doichieu', 'bangiao', 'toiuu'];
   const on  = b => { if(!b) return; b.style.color='#64b5f6'; b.style.fontWeight='700'; b.style.borderBottomColor='#64b5f6'; };
   const off = b => { if(!b) return; b.style.color='var(--text2)'; b.style.fontWeight='600'; b.style.borderBottomColor='transparent'; };
-  if (isDC) { on(b1); off(b2); }
-  else { off(b1); on(b2); loadDonHangToiUu(); }
+  tabs.forEach(t => {
+    const pane = document.getElementById('dh-tab-' + t);
+    if (pane) pane.style.display = (t === tab) ? '' : 'none';
+    const btn = document.getElementById('dh-tabbtn-' + t);
+    (t === tab) ? on(btn) : off(btn);
+  });
+  if (tab === 'toiuu') loadDonHangToiUu();
+  else if (tab === 'bangiao') loadDonHangBanGiao();
+}
+
+// ── Đơn Hàng — Tab Bàn Giao Trong Ngày ─────────────────────────────────────
+// Đơn 'da_giao' (chờ đối chiếu) gom theo ngày giao. KT DUYỆT một chạm: nút
+// "✓ Nhận thực" chỉ hiện khi SA đã bàn giao (sa_ban_giao) — số tiền lấy từ SA
+// báo cáo (delivery_cod_received), KT chỉ chọn TK + xác nhận, KHÔNG gõ số. + "⏸ Hoãn".
+async function loadDonHangBanGiao(){
+  const wrap = document.getElementById('bg-content');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="loading">Đang tải...</div>';
+  try{
+    const r = await fetch('/api/external/orders-overview?filter=pending').then(r => r.json());
+    let data = (r.data || []).filter(o => o.vc_status === 'da_giao');
+    const pickDay = o => (o.ngay_giao ? String(o.ngay_giao).slice(0,10) : '');
+    const dsel = document.getElementById('bg-date')?.value || '';
+    if (dsel) data = data.filter(o => pickDay(o) === dsel);
+    if (!data.length){
+      wrap.innerHTML = `<div class="empty">Không có đơn Đã Giao chờ đối chiếu${dsel ? ` ngày ${dsel}` : ''}</div>`;
+      return;
+    }
+    // Gom theo ngày giao (mới nhất trước)
+    const groups = {};
+    data.forEach(o => { const d = pickDay(o) || '(chưa có ngày giao)'; (groups[d] = groups[d] || []).push(o); });
+    const days = Object.keys(groups).sort((a,b) => b.localeCompare(a));
+    let html = '';
+    days.forEach(d => {
+      const rows = groups[d];
+      const totCod = rows.reduce((s,o) => s + (+o.delivery_cod_received || 0), 0);
+      const totThu = rows.reduce((s,o) => s + (+o.tien_thu_ho || 0), 0);
+      html += `<div style="margin-bottom:18px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 12px;background:var(--bg-page);border-bottom:1px solid var(--border)">
+          <div style="font-weight:700">📅 ${d} · ${rows.length} đơn</div>
+          <div style="font-size:13px">Thực thu SA báo: <strong style="color:var(--brand)">${fmt(totCod)}</strong> · Cần thu: <strong>${fmt(totThu)}</strong></div>
+        </div>
+        <div class="tbl-wrap" style="overflow-x:auto"><table style="font-size:13px">
+          <thead><tr>
+            <th>Mã BG</th><th>Khách</th><th>NV KD</th>
+            <th style="text-align:right">Cần thu</th>
+            <th style="text-align:right">Thực thu SA báo</th>
+            <th>Hành động</th>
+          </tr></thead><tbody>`;
+      rows.forEach(o => {
+        const cod = +o.delivery_cod_received || 0;
+        const thu = +o.tien_thu_ho || 0;
+        const maBG = (o.ma_bg || '').replace(/'/g, "\\'");
+        const isHoan = !!o.sla_hoan;
+        const saBG = !!o.sa_ban_giao;
+        const selId = 'tkbg-' + _bgUid(o.ma_vh);
+        const hoanBtn = isHoan
+          ? `<button class="btn btn-sm" style="background:#fef3c7;color:#b45309" onclick="toggleHoanSla('${o.ma_vh}','bo')" title="Bỏ hoãn — tính SLA lại">▶ Bỏ hoãn</button>`
+          : `<button class="btn btn-sm" style="background:#f1f5f9;color:#475569" onclick="toggleHoanSla('${o.ma_vh}','hoan')" title="Đã giao nhưng chưa thu tiền — hoãn, loại khỏi tính SLA">⏸ Hoãn</button>`;
+        // Chỉ cho "Nhận thực" khi SA đã bàn giao (báo cáo thực thu). KT chọn TK + xác nhận,
+        // KHÔNG gõ số tiền — backend lấy đúng số SA báo (delivery_cod_received).
+        const doneCtl = saBG
+          ? `${_bgTkSelect(selId)}<button class="btn btn-sm btn-success" onclick="markVCDone('${o.ma_vh}','${maBG}',${cod},true,'${selId}')" title="Nhận thực số SA báo cáo → lên sổ quỹ">✓ Nhận thực ${fmt(cod)}</button>`
+          : `<span style="font-size:12px;color:#b45309;font-weight:700" title="Chờ Sale Admin báo cáo thực thu (stage sa_ban_giao)">⏳ Chờ SA bàn giao</span>`;
+        html += `<tr>
+          <td><code><strong style="color:var(--blue)">${o.ma_bg || '—'}</strong></code></td>
+          <td><strong>${o.customer_name || '—'}</strong>${o.customer_phone ? `<br><small>${o.customer_phone}</small>` : ''}</td>
+          <td>${o.salesperson || ''}</td>
+          <td style="text-align:right">${fmt(thu)}</td>
+          <td style="text-align:right;color:var(--brand)">${saBG ? `<strong>${fmt(cod)}</strong>` : '<small style="color:var(--text2)">—</small>'}</td>
+          <td><div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${isHoan ? '<span style="font-size:11px;color:#b45309;font-weight:700">⏸ Đang hoãn</span>' : ''}${doneCtl}${hoanBtn}</div></td>
+        </tr>`;
+      });
+      html += `</tbody></table></div></div>`;
+    });
+    wrap.innerHTML = html;
+  }catch(e){
+    wrap.innerHTML = `<div class="empty">Lỗi kết nối: ${e.message}</div>`;
+  }
 }
 
 function tuDateRange(){
@@ -5313,8 +5405,16 @@ function dhRenderTable(){
       const hoanBtn = isHoan
         ? `<button class="btn btn-sm" style="background:#fef3c7;color:#b45309" onclick="toggleHoanSla('${row.ma_vh}','bo')" title="Bỏ hoãn — tính SLA lại">▶ Bỏ hoãn</button>`
         : `<button class="btn btn-sm" style="background:#f1f5f9;color:#475569" onclick="toggleHoanSla('${row.ma_vh}','hoan')" title="Đã giao nhưng chưa thu tiền — hoãn, loại khỏi tính SLA">⏸ Hoãn</button>`;
+      // KT DUYỆT một chạm: chỉ khi SA đã bàn giao (báo cáo thực thu). Chọn TK + xác nhận,
+      // KHÔNG gõ số tiền — backend lấy delivery_cod_received (số SA báo cáo).
+      const saBG = !!row.sa_ban_giao;
+      const codSA = +row.delivery_cod_received || 0;
+      const selId = 'tkdc-' + _bgUid(row.ma_vh);
+      const doneCtl = saBG
+        ? `${_bgTkSelect(selId)}<button class="btn btn-sm btn-success" onclick="markVCDone('${row.ma_vh}','${maBG.replace(/'/g,"\\'")}',${codSA},true,'${selId}')" title="Nhận thực số SA báo cáo → lên sổ quỹ. Cần thu: ${fmt(+row.tien_thu_ho||0)}">✓ Nhận thực ${fmt(codSA)}</button>`
+        : `<span style="font-size:11px;color:#b45309;font-weight:700" title="Chờ Sale Admin báo cáo thực thu (stage sa_ban_giao)">⏳ Chờ SA bàn giao</span>`;
       const action = canMarkDone
-        ? `<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${isHoan?'<span style="font-size:11px;color:#b45309;font-weight:700">⏸ Đang hoãn</span>':''}<button class="btn btn-sm btn-success" onclick="markVCDone('${row.ma_vh}','${maBG.replace(/'/g,"\\'")}')">Đối chiếu</button>${hoanBtn}</div>`
+        ? `<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${isHoan?'<span style="font-size:11px;color:#b45309;font-weight:700">⏸ Đang hoãn</span>':''}${doneCtl}${hoanBtn}</div>`
         : needKtApprove
           ? `<button class="btn btn-sm" style="background:var(--brand-soft);color:var(--brand-hover)" onclick="ketoanApproveVC('${row.ma_vh}')" title="Duyệt cuối — chốt đơn đã giao xong">Duyệt KT</button>`
           : ktApproved
@@ -5664,11 +5764,43 @@ async function toggleHoanSla(maVH, action) {
     else toast('Lỗi: HTTP ' + r.status, 'error');
   } catch(e) { toast('Lỗi: ' + e.message, 'error'); }
 }
-async function markVCDone(maVH, maBG) {
-  if (!confirm(`Xác nhận đối chiếu xong đơn ${maBG || maVH} và chuyển sang HOÀN THÀNH?\n\n• Vận chuyển: Đã Giao → Hoàn Thành\n• Báo giá tiến trình MH = "Hoàn Thành"\n• Trừ tồn kho FIFO theo SP trong đơn`)) return;
-  const note = prompt("Ghi chú đối chiếu (tùy chọn):", "");
+// ── Helper: dropdown TK nhỏ cho nút "Nhận thực" (mặc định Tiền Mặt) ──────────
+function _bgUid(s){ return String(s == null ? '' : s).replace(/[^a-zA-Z0-9_-]/g, '_'); }
+function _bgTkOptionsHtml(){
+  const names = [];
+  const src = (typeof META !== 'undefined' && Array.isArray(META.tai_khoan_nh)) ? META.tai_khoan_nh : [];
+  src.forEach(t => {
+    const n = (t && (t.ten_tk || t.ten)) || (typeof t === 'string' ? t : '');
+    if (n && !names.includes(n)) names.push(n);
+  });
+  // "Tiền Mặt" luôn đứng đầu + mặc định chọn
+  const rest = names.filter(n => String(n).toLowerCase() !== 'tiền mặt');
+  const ordered = ['Tiền Mặt', ...rest];
+  return ordered.map((n, i) =>
+    `<option value="${String(n).replace(/"/g, '&quot;')}"${i === 0 ? ' selected' : ''}>${n}</option>`
+  ).join('');
+}
+function _bgTkSelect(elId){
+  return `<select id="${elId}" class="form-control" style="width:auto;min-width:92px;height:28px;padding:2px 6px;font-size:12px" title="Tài khoản nhận tiền (phân loại sổ quỹ)">${_bgTkOptionsHtml()}</select>`;
+}
+
+// KT bấm DUYỆT một chạm — KHÔNG gõ số tiền (anh Quang 2026-08-24). Số tiền LẤY
+// từ SA báo cáo (delivery_cod_received): KT chỉ CHỌN TK + xác nhận → backend tự
+// dùng delivery_cod_received vì ta KHÔNG truyền so_tien_thuc_nhan.
+//   saBanGiao: chỉ cho "Nhận thực" khi SA đã bàn giao (stage 'sa_ban_giao').
+//   tkSelId  : id của dropdown TK trong dòng (đọc giá trị TK; mặc định Tiền Mặt).
+async function markVCDone(maVH, maBG, cod, saBanGiao, tkSelId) {
+  if (!saBanGiao) { alert('SA chưa bàn giao đơn này — chưa thể Nhận thực.'); return; }
+  const soTien = Math.round(+cod || 0);
+  const selEl = tkSelId ? document.getElementById(tkSelId) : null;
+  const tk = ((selEl && selEl.value) ? selEl.value : 'Tiền Mặt').trim() || 'Tiền Mặt';
+  if (!confirm(`Nhận thực ${fmt(soTien)} đ (SA báo cáo) vào "${tk}" cho đơn ${maBG || maVH}?`)) return;
   try {
-    const url = `/api/external/vanchuyen/${encodeURIComponent(maVH)}/hoan-thanh${note ? '?note=' + encodeURIComponent(note) : ''}`;
+    const p = new URLSearchParams();
+    // KHÔNG set so_tien_thuc_nhan → backend dùng delivery_cod_received (số SA báo cáo).
+    if (tk) p.set('tai_khoan', tk);
+    p.set('note', `KT nhận thực — SA báo cáo ${fmt(soTien)}đ`);
+    const url = `/api/external/vanchuyen/${encodeURIComponent(maVH)}/hoan-thanh?${p.toString()}`;
     const r = await fetch(url, {method: 'POST'}).then(r => r.json());
     if (r.ok) {
       // Build inventory summary
