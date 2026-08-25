@@ -37,6 +37,11 @@ _LOAI_NGHI_LABELS = {
 }
 
 
+# Subdomain -> tên app trong JWT.apps. CHỈ liệt kê chỗ lệch nhau.
+# Công Nghệ phục vụ ở itque.qlpps.com (xem deploy-kit/config.json).
+_HOST_ALIAS = {"itque": "congnghe"}
+
+
 def _is_approver(user: JWTPayload) -> bool:
     return (user.role or "").lower() in _APPROVER_ROLES
 
@@ -165,12 +170,25 @@ def create_leave_request(
     ho_ten, phong_ban, _, _, _ = _lookup_user_info(user.username)
     so_ngay = _calc_so_ngay(body.ngay_bat_dau, body.ngay_ket_thuc, body.buoi)
 
-    # Detect app name từ Host header (vd: marketing.qlpps.com → marketing)
-    host = request.headers.get("host", "")
-    if "." in host:
-        app_name = host.split(".")[0]
-    else:
-        app_name = host or "internal"
+    # `app_name` KHÔNG phải nhãn trang trí — nó là thứ `_approver_app_scope()`
+    # đem so với JWT.apps để quyết định manager/leader nào được XEM và DUYỆT đơn.
+    # Ghi sai một chữ là đơn tàng hình với mọi quản lý, chỉ admin/CEO thấy.
+    #
+    # Bản cũ suy tên app từ subdomain của Host. Sai vì tên miền KHÔNG luôn trùng
+    # tên app: Công Nghệ chạy ở itque.qlpps.com → ghi 'itque', mà JWT.apps chỉ
+    # có 'congnghe' → 14 đơn không quản lý nào duyệt được.
+    #
+    # Nguồn chuẩn: `app.state.app_name` — cả 8 app đều khai, và khai đúng bộ từ
+    # vựng của JWT.apps (đã đối chiếu với `SELECT DISTINCT unnest(apps)`).
+    app_name = getattr(request.app.state, "app_name", None)
+    if not app_name:
+        # Đường lui cho ASGI app phụ không khai state — hiện có
+        # `shared/services/chat_internal_main.py` cũng mount router này.
+        host = (request.headers.get("host") or "").split(":")[0]
+        sub = host.split(".")[0] if "." in host else host
+        app_name = _HOST_ALIAS.get(sub.lower(), sub.lower()) or "internal"
+    # Cột là varchar(32): Host lạ mà dài hơn sẽ làm INSERT nổ giữa lúc nộp đơn.
+    app_name = str(app_name)[:32]
 
     rec = LeaveRequest(
         username=user.username,
