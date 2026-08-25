@@ -1,84 +1,302 @@
 <!DOCTYPE html>
+<!-- ╔══════════════════════════════════════════════════════════════════════╗
+     ║  SINH TỰ ĐỘNG — ĐỪNG SỬA FILE NÀY TRONG REPO.                        ║
+     ║  Sửa `login-kit/login.html.tmpl` rồi chạy:                           ║
+     ║      cd d:\PapaSanIT\login-kit && python sync.py                     ║
+     ║  Sửa tay ở đây sẽ bị đè ở lần sync sau.                              ║
+     ╚══════════════════════════════════════════════════════════════════════╝ -->
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Đăng nhập — Papasan Kế Toán</title>
 <link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
 <link rel="shortcut icon" href="/static/papasan.ico">
-<!-- PWA meta — bắt buộc cho iOS "Add to Home Screen" mở fullscreen (ẩn URL bar) -->
-<link rel="manifest" href="/manifest.webmanifest">
-{# meta không nhận var() — đây là hex --brand, ngoại lệ được phép #}
-<meta name="theme-color" content="#9E5D09">
+
+<!-- theme.css chỉ để lấy 6 token trạng thái (--danger-*/--success-*) cho hộp
+     báo lỗi — phần còn lại của trang này cố ý KHÔNG phụ thuộc token, xem khối
+     "MÀU RIÊNG CỦA TRANG" bên dưới. Cả 8 app đều có file này. -->
+<link rel="stylesheet" href="/static/css/theme.css">
+
+<!-- PWA — bắt buộc cho iOS "Add to Home Screen" mở fullscreen (ẩn URL bar) -->
+
+<meta name="theme-color" content="#F7F7F7">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Kế Toán">
-<link rel="apple-touch-icon" href="/static/icons/icon-192.png?v=2">
-{# Trang login KHÔNG include _header.html (chưa đăng nhập thì không có nav) —
-   nên phải tự nạp theme.css, vì bình thường token màu đi vào qua header. #}
-<link rel="stylesheet" href="/static/css/theme.css?v=4">
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+
+<!-- Ảnh nền là thứ nặng nhất trang. preload để nó tải song song với CSS thay vì
+     đợi CSS parse xong mới biết cần tải.
+     `media` là bắt buộc, không phải tô điểm: không có nó thì điện thoại tải cả
+     bản desktop 130 KB nó KHÔNG BAO GIỜ dùng, cộng thêm 66 KB bản mobile —
+     tốn gần gấp ba trên đúng loại kết nối yếu nhất. Ngưỡng 900px phải khớp
+     media query ở cuối <style>. -->
+<link rel="preload" as="image" href="/static/login_bg.webp" media="(min-width:901px)">
+<link rel="preload" as="image" href="/static/login_bg_mobile.webp" media="(max-width:900px)">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',sans-serif;background:var(--bg-card);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.login-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-lg);width:100%;max-width:420px;overflow:hidden}
-.login-header{background:var(--brand-soft);color:var(--brand-hover);padding:32px;text-align:center}
-.login-header .logo{font-size:22px;font-weight:900;letter-spacing:2px}
-.login-header .dept{font-size:14px;opacity:.8;margin-top:4px;letter-spacing:1px}
-.login-header .icon{font-size:22px;margin-bottom:12px}
-.login-body{padding:32px}
-.form-group{margin-bottom:18px}
-.form-group label{display:block;font-size:13px;font-weight:700;color:var(--text-2);margin-bottom:7px;text-transform:uppercase;letter-spacing:.5px}
-.form-control{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:9px;font-size:15px;outline:none;transition:border-color .2s,box-shadow .2s}
-.form-control:focus{border-color:var(--brand-hover);box-shadow:var(--focus-ring)}
-.btn-login{width:100%;padding:12px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:9px;font-size:16px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .1s;margin-top:6px;letter-spacing:.5px}
-.btn-login:hover{opacity:.9;transform:translateY(-1px)}
-.error-msg{background:var(--danger-soft);color:var(--danger-fg);border-radius:8px;padding:10px 14px;font-size:14px;margin-bottom:18px}
-.footer{margin-top:24px;font-size:12px;color:var(--text-3);text-align:center}
 
-/* Responsive */
-@media(max-width:480px){
-  body{padding:16px}
-  .login-card{max-width:100%;border-radius:12px}
-  .login-header{padding:24px 18px}
-  .login-header .icon{font-size:22px;margin-bottom:8px}
-  .login-header .logo{font-size:22px;letter-spacing:1.5px}
-  .login-header .dept{font-size:13px}
-  .login-body{padding:22px 18px}
-  .form-group{margin-bottom:14px}
-  .form-control{padding:11px 12px;font-size:15px;min-height:42px}
-  .btn-login{padding:13px;font-size:16px;min-height:44px}
-  .footer{margin-top:18px;font-size:11px;padding:0 12px}
+/* ── MÀU RIÊNG CỦA TRANG ───────────────────────────────────────────────────
+   Trang đăng nhập cố ý ĐỨNG NGOÀI hệ token hổ phách của app: nền ảnh là xám
+   trung tính, nên dùng --brand/--bg-page (ám vàng) sẽ lệch tông thấy rõ ngay
+   cạnh ảnh. Các giá trị dưới đây CHỈ sống trong file này, không rò ra phần
+   còn lại của app — muốn đổi giao diện login thì đổi đúng ở đây.
+   --lg-page lấy đúng màu mép ảnh (đo bằng Pillow: #F7F7F7) để chỗ ảnh hết và
+   nền trang bắt đầu không nhìn ra đường ghép. */
+:root{
+  --lg-page:  #F7F7F7;
+  --lg-card:  #EFEFEF;
+  --lg-field: #FFFFFF;
+  --lg-line:  #DCDCDC;
+  --lg-ink-1: #1F2124;
+  --lg-ink-2: #4A4D51;
+  --lg-ink-3: #8A8D91;
+  --lg-ring:  0 0 0 3px rgba(233,155,44,.30);
+  /* Nút: đen -> hổ phách. Điểm dừng 40%/74% giữ nửa trái gần như đen đúng như
+     bản thiết kế; chuyển hết sang cam sẽ thành nút cam đặc, không còn giống. */
+  --lg-btn:   linear-gradient(90deg,#141414 0%,#2A2115 40%,#9A6318 74%,#F0A22F 100%);
+}
+
+html,body{height:100%}
+body{
+  font-family:'Segoe UI',system-ui,-apple-system,'Helvetica Neue',sans-serif;
+  background:var(--lg-page);
+  color:var(--lg-ink-1);
+  -webkit-font-smoothing:antialiased;
+}
+
+/* DESKTOP: ảnh phủ TOÀN màn, thẻ nổi lên trên và lệch phải.
+   background-position 32% chứ KHÔNG phải center: `cover` cắt bớt cạnh dài, để
+   center thì khối tròn vàng (nằm ở ~30% chiều ngang ảnh) bị cắt mất mép trái
+   trên màn hẹp/cao. 32% giữ khối tròn lọt trọn ở mọi tỉ lệ thường gặp, đồng
+   thời đẩy nó về nửa trái để không bị thẻ đè lên. */
+.lg-stage{
+  display:flex;align-items:center;justify-content:flex-end;
+  min-height:100vh;min-height:100dvh;
+  background:var(--lg-page) url('/static/login_bg.webp') 32% center/cover no-repeat;
+}
+
+.lg-panel{
+  flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;
+  /* Đệm phải lớn để đẩy thẻ vào trong, không dính mép màn. Dùng clamp theo vw
+     nên màn càng rộng thẻ càng lùi vào — giữ được cân đối ở cả 1366 lẫn 2560,
+     thứ mà một giá trị px cố định không làm được. */
+  padding:24px clamp(28px,10vw,200px);
+}
+
+.lg-card{
+  width:430px;max-width:100%;
+  background:var(--lg-card);
+  border-radius:14px;
+  /* Bóng đậm hơn bản cũ: thẻ xám nhạt đứng trên nền ảnh cũng sáng, không có
+     bóng đủ sâu thì hai mảng dính vào nhau, không thấy mép thẻ */
+  box-shadow:0 12px 44px rgba(0,0,0,.16);
+  padding:30px 32px 24px;
+}
+
+.lg-logo{display:flex;justify-content:center;margin-bottom:14px}
+/* Wordmark gốc là cam-nâu. Bản thiết kế để nó xám nhạt cho khỏi tranh màu với
+   nút và với ảnh — bỏ dòng filter này là logo về màu thật. */
+.lg-logo img{max-width:200px;width:100%;height:auto;object-fit:contain;filter:grayscale(1) opacity(.55)}
+
+.lg-title{
+  font-size:21px;font-weight:800;letter-spacing:.2px;line-height:1.25;
+  text-align:center;color:var(--lg-ink-1);
+  padding-bottom:14px;border-bottom:1px solid var(--lg-line);
+}
+
+.lg-h2{font-size:19px;font-weight:800;color:var(--lg-ink-1);margin-top:22px}
+.lg-hint{font-size:12.5px;color:var(--lg-ink-3);margin-top:3px}
+
+.lg-group{margin-top:20px}
+/* Khoảng thở giữa cụm tiêu đề và ô nhập đầu tiên — bản thiết kế để rộng hơn
+   khoảng cách giữa hai ô nhập, để mắt tách được "phần giới thiệu" với "phần điền" */
+form .lg-group:first-of-type{margin-top:26px}
+.lg-group label{display:block;font-size:12.5px;font-weight:700;color:var(--lg-ink-2);margin-bottom:7px}
+.lg-input{
+  width:100%;padding:11px 12px;
+  background:var(--lg-field);
+  border:1px solid var(--lg-line);border-radius:6px;
+  font-family:inherit;font-size:14.5px;color:var(--lg-ink-1);
+  outline:none;transition:border-color .15s,box-shadow .15s;
+}
+.lg-input:focus{border-color:#C9A96A;box-shadow:var(--lg-ring)}
+
+.lg-remember{
+  display:flex;align-items:center;gap:8px;margin-top:16px;
+  font-size:12.5px;color:var(--lg-ink-3);cursor:pointer;user-select:none;
+}
+.lg-remember input{width:16px;height:16px;flex:none;accent-color:#B8791C;cursor:pointer}
+
+.lg-btn{
+  width:100%;margin-top:18px;padding:14px;
+  background:var(--lg-btn);
+  color:#FFFFFF;border:none;border-radius:999px;
+  font-family:inherit;font-size:16px;font-weight:700;letter-spacing:.2px;
+  cursor:pointer;transition:filter .15s;
+}
+.lg-btn:hover{filter:brightness(1.08)}
+.lg-btn:active{filter:brightness(.94)}
+.lg-btn:focus-visible{box-shadow:var(--lg-ring)}
+.lg-btn:disabled{cursor:default;filter:grayscale(.4) brightness(.9)}
+
+.lg-foot{margin-top:18px;text-align:center;font-size:12px;color:var(--lg-ink-3)}
+
+/* Hộp báo lỗi/thành công dùng token trạng thái của chính app — đây là chỗ duy
+   nhất trang này mượn màu hệ thống, vì lỗi phải trông giống lỗi ở mọi màn khác */
+.lg-msg{border-radius:7px;padding:9px 12px;font-size:13.5px;margin-top:16px;line-height:1.45}
+.lg-msg.err{background:var(--danger-soft);color:var(--danger-fg)}
+.lg-msg.ok{background:var(--success-soft);color:var(--success-fg)}
+.lg-field-err{color:var(--danger,#B02A18);font-size:12px;margin-top:5px}
+
+/* ── MOBILE ────────────────────────────────────────────────────────────────
+   Đổi ảnh nền sang bản cắt vuông quanh khối tròn vàng — dùng ảnh ngang của
+   desktop trên khung dọc thì khối tròn bị xén mất. */
+@media (max-width:900px){
+  /* Ảnh vẫn là NỀN, thẻ vẫn đè lên — giống desktop, chỉ khác cách trải ảnh.
+     KHÔNG dùng `cover` ở đây: màn dọc rất hẹp so với ảnh, cover sẽ phóng ảnh
+     theo chiều cao rồi cắt hai bên, khối tròn vàng bị xén mất gần nửa.
+     `100% auto` + neo đáy: ảnh vừa đúng bề ngang màn, nằm ở đáy, phần trên là
+     --lg-page — mà --lg-page CHÍNH LÀ màu mép ảnh (#F7F7F7) nên không nhìn ra
+     chỗ ảnh bắt đầu. Thẻ phủ xuống chờm lên mép trên của ảnh. */
+  .lg-stage{
+    align-items:flex-start;justify-content:center;
+    background:var(--lg-page) url('/static/login_bg_mobile.webp') center bottom/100% auto no-repeat;
+  }
+  /* margin-block:auto chứ KHÔNG phải align-items:center — hai cái cùng canh
+     giữa dọc, nhưng khi thẻ cao hơn màn (điện thoại nhỏ, bàn phím bật lên,
+     thêm dòng báo lỗi) thì align-items:center cắt mất phần đầu thẻ và KHÔNG
+     cuộn tới được. margin auto hết chỗ trống thì tự về 0, thẻ tụt lên đầu và
+     trang cuộn bình thường. */
+  .lg-panel{width:100%;padding:20px 12px;margin-block:auto}
+  .lg-card{width:100%;max-width:460px;border-radius:20px;padding:26px 22px 20px;
+           box-shadow:0 10px 34px rgba(0,0,0,.13)}
+  .lg-title{font-size:19px}
+  .lg-h2{font-size:18px}
+}
+@media (max-width:380px){
+  .lg-card{padding:22px 18px 18px}
+  .lg-title{font-size:17px}
+}
+/* Màn thấp (điện thoại xoay ngang): bỏ ảnh đi, nhường chỗ cho form */
+/* Màn thấp (điện thoại xoay ngang): ảnh neo đáy sẽ bị thẻ đè kín hoàn toàn,
+   giữ lại chỉ tốn băng thông — bỏ hẳn, nhường chỗ cho form. */
+@media (max-height:520px) and (max-width:900px){
+  .lg-stage{background-image:none;align-items:center}
+  .lg-panel{padding:14px 12px}
 }
 </style>
 </head>
 <body>
-<div class="login-card">
-  <div class="login-header">
-    <div class="icon"></div>
-    <div class="logo" style="display:flex;justify-content:center;align-items:center;padding:8px 0">
-      <img src="https://papasanvietnam.vn/wp-content/uploads/2025/11/Ch%C6%B0a-c%C3%B3-t%C3%AAn-250-x-67-px-2.png"
-           alt="Papasan Việt Nam"
-           style="max-width:220px;height:auto;background:#fff;padding:8px 12px;border-radius:8px;object-fit:contain;box-shadow:var(--shadow-sm)"
-           onerror="this.outerHTML='PAPASAN'">
-    </div>
-    <div class="dept">Phòng Kế Toán — Tài Chính</div>
-  </div>
-  <div class="login-body">
-    {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
-    <form method="POST" action="/login">
-      <div class="form-group">
-        <label>Tên đăng nhập</label>
-        <input class="form-control" type="text" name="username" placeholder="Nhập tài khoản..." autofocus>
+
+<div class="lg-stage">
+  <div class="lg-panel">
+    <main class="lg-card">
+
+      <div class="lg-logo">
+        <!-- Logo tự host trong static/ — bản URL papasanvietnam.vn cũ làm trang
+             đổi giao diện tuỳ mạng: tải được thì có logo, rớt mạng thì thành
+             chữ trơn. onerror giữ lại chữ để trang không bao giờ trống đầu. -->
+        <img src="/static/papasan_logo_wordmark.png" alt="Papasan Việt Nam"
+             onerror="this.outerHTML='<span style=&quot;font-weight:900;letter-spacing:2px;color:var(--lg-ink-3)&quot;>PAPASAN</span>'">
       </div>
-      <div class="form-group">
-        <label>Mật khẩu</label>
-        <input class="form-control" type="password" name="password" placeholder="Nhập mật khẩu...">
-      </div>
-      <button class="btn-login" type="submit">Đăng nhập</button>
-    </form>
+
+      <h1 class="lg-title">HỆ THỐNG QUẢN LÝ KẾ TOÁN</h1>
+
+      <h2 class="lg-h2">Đăng nhập</h2>
+      <div class="lg-hint">Dùng tài khoản nội bộ Papasan của bạn</div>
+
+      <!-- Nhánh ✅: KHÔNG nơi nào trong repo này tạo chuỗi bắt đầu bằng ✅ — nó
+           dành cho flow của auth_service ngoài repo (đổi/reset mật khẩu redirect
+           về /login). Đừng xoá khi chưa kiểm tra monorepo App_V2. -->
+      {% if error %}
+        {% if error.startswith('✅') %}
+          <div class="lg-msg ok" role="status">{{ error }}</div>
+        {% else %}
+          <div class="lg-msg err" role="alert">{{ error }}</div>
+        {% endif %}
+      {% endif %}
+
+      <form method="POST" action="/login" id="login-form" novalidate>
+        <input type="hidden" name="action" value="login">
+
+        <div class="lg-group">
+          <label for="login-username">Tên đăng nhập</label>
+          <input class="lg-input" type="text" name="username" id="login-username"
+                 autocomplete="username" autofocus required minlength="3">
+        </div>
+
+        <div class="lg-group">
+          <label for="login-password">Mật khẩu</label>
+          <input class="lg-input" type="password" name="password" id="login-password"
+                 autocomplete="current-password" required minlength="3">
+        </div>
+
+        <label class="lg-remember" for="cb-remember">
+          <input type="checkbox" name="remember" value="1" id="cb-remember">
+          Ghi nhớ đăng nhập (30 ngày)
+        </label>
+
+        <button class="lg-btn" type="submit" id="login-submit">Đăng nhập</button>
+      </form>
+
+      <div class="lg-foot">Papasan &copy; 2026 &mdash; Phòng Kế Toán</div>
+
+    </main>
   </div>
 </div>
-<div class="footer">Papasan &copy; 2026 — Kế Toán Nội Bộ</div>
+
+<script>
+/* Kiểm tra phía trình duyệt. Lý do phải có: form khai minlength="3" nhưng cũng
+   khai novalidate, nên nếu không có đoạn này thì gõ tên 2 ký tự rồi bấm sẽ
+   KHÔNG có gì xảy ra và cũng KHÔNG báo gì — lỗi "nút chết" từng làm người dùng
+   tưởng hỏng server. */
+(function(){
+  var form = document.getElementById('login-form');
+  if (!form) return;
+  var btn = document.getElementById('login-submit');
+  var u = document.getElementById('login-username');
+  var p = document.getElementById('login-password');
+
+  function showErr(inp, msg){
+    inp.style.borderColor = 'var(--danger,#B02A18)';
+    inp.setAttribute('aria-invalid','true');
+    var hint = inp.parentElement.querySelector('.lg-field-err');
+    if (!hint){
+      hint = document.createElement('div');
+      hint.className = 'lg-field-err';
+      /* id + aria-describedby + role=alert: nối lỗi vào input để máy đọc màn
+         hình đọc được — aria-invalid một mình chỉ báo "sai", không báo "vì sao" */
+      hint.id = inp.id + '-err';
+      hint.setAttribute('role','alert');
+      inp.parentElement.appendChild(hint);
+    }
+    inp.setAttribute('aria-describedby', hint.id);
+    hint.textContent = msg;
+  }
+  function clearErr(inp){
+    inp.style.borderColor = '';
+    inp.removeAttribute('aria-invalid');
+    inp.removeAttribute('aria-describedby');
+    var hint = inp.parentElement.querySelector('.lg-field-err');
+    if (hint) hint.remove();
+  }
+
+  [u,p].forEach(function(inp){
+    inp.addEventListener('input', function(){ clearErr(inp); });
+  });
+
+  form.addEventListener('submit', function(e){
+    var ok = true;
+    if (!u.value.trim() || u.value.trim().length < 3){ showErr(u,'Tên đăng nhập tối thiểu 3 ký tự'); ok = false; }
+    if (!p.value || p.value.length < 3){ showErr(p,'Mật khẩu tối thiểu 3 ký tự'); ok = false; }
+    if (!ok){ e.preventDefault(); return; }
+    if (btn){ btn.disabled = true; btn.textContent = 'Đang đăng nhập...'; }
+  });
+})();
+</script>
 </body>
 </html>
