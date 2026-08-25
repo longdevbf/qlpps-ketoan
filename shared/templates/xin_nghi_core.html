@@ -746,17 +746,6 @@ _xnRender.approve = function(slice, total, dom) {
     const tt = document.getElementById('f-trang-thai')?.value || '';
     const th = document.getElementById('f-thang')?.value || '';
     const un = document.getElementById('f-username')?.value?.trim() || '';
-  if (tt) params.set('trang_thai', tt);
-  if (th) params.set('thang', th);
-  if (un) params.set('username', un);
-  // For the pending tab default: show cho_duyet if no filter set
-  const qs = params.toString();
-  try {
-    const r = await fetch(`/api/xin-nghi${qs ? '?' + qs : ''}`, {credentials:'include'});
-    if (!r.ok) { showToast('Lỗi tải dữ liệu', 'error'); return; }
-    const list = await r.json();
-    const tbody = document.getElementById('pending-table-body');
-    if (!list.length) {
       document.getElementById('tab-pending-cnt').textContent = 0;
       // Nếu user đang filter (tt/th/un) — hint để biết là filter đang active
     const hasFilter = tt || th || un;
