@@ -33,8 +33,8 @@
      bản desktop 130 KB nó KHÔNG BAO GIỜ dùng, cộng thêm 90 KB bản mobile —
      tốn gần gấp ba trên đúng loại kết nối yếu nhất. Ngưỡng 900px phải khớp
      media query ở cuối khối CSS. -->
-<link rel="preload" as="image" href="/static/login_bg.webp?v=baa970d3" media="(min-width:901px)">
-<link rel="preload" as="image" href="/static/login_bg_mobile.webp?v=100ee82e" media="(max-width:900px)">
+<link rel="preload" as="image" href="/static/login_bg.webp?v=e48fda5b" media="(min-width:901px)">
+<link rel="preload" as="image" href="/static/login_bg_mobile.webp?v=ca08e5bb" media="(max-width:900px)">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
@@ -49,40 +49,32 @@
 :root{
   --lg-page:  #F7F7F7;      /* đúng màu mép ảnh nền, đo bằng Pillow */
 
-  /* DẢI 3 MÀU — điểm dừng 0/50/100%, không phải 4 chặng như bản trước.
-     Kiểm lại bằng cách nội suy: giữa 0% và 50% tại 20% ra #BD7823, mẫu đo
-     được #BE7822; tại 80% ra #281000, mẫu đo #281000 — khớp. Đây là gradient
-     3 chặng thật, đừng thêm chặng phụ vào giữa. */
-  --lg-ramp-hi:  #F9AE3A;
-  --lg-ramp-mid: #632800;
-  --lg-ramp-lo:  #000000;
-  --lg-card: linear-gradient(180deg,
-               var(--lg-ramp-hi)  0%,
-               var(--lg-ramp-mid) 50%,
-               var(--lg-ramp-lo)  100%);
+  /* ── MÀU: đo thẳng từ src/ban-thiet-ke.pdf ────────────────────────────
+     Bản chính thức bỏ hẳn thẻ gradient tối của bản nháp, quay về THẺ SÁNG
+     PHẲNG. Mọi giá trị dưới đây đọc từ đối tượng vẽ trong PDF hoặc lấy mẫu
+     pixel, không ước lượng bằng mắt. */
+  --lg-card:  #F0F0F0;      /* nền thẻ, phẳng — không còn gradient */
 
-  /* Nút là MÀU PHẲNG #FBB03B, không phải gradient — đo cả 3 điểm đỉnh/giữa/đáy
-     đều ra một giá trị. Chữ nút #672A00 đọc thẳng từ PDF. */
-  --lg-btn:     #FBB03B;
-  --lg-btn-ink: #672A00;
+  /* Nút: gradient NGANG đen → cam, chỉ 2 chặng. Đã kiểm tuyến tính: nội suy
+     giữa hai đầu tại 50% ra #7F4D18, mẫu đo được #7F4D18 — khớp tuyệt đối,
+     nên KHÔNG có chặng phụ nào ở giữa. */
+  --lg-btn:     linear-gradient(90deg,#000000 0%,#FE9B31 100%);
+  --lg-btn-ink: #FFFFFF;
 
-  /* Bản thiết kế khai MỌI dòng chữ trên thẻ là #FFFFFF — kể cả dòng mô tả nhỏ
-     và dòng chân thẻ. Trắng đặc trên nền cam cũng là mức tương phản CAO NHẤT
-     có thể, hạ độ mờ chỉ làm tệ đi. */
-  --lg-ink-1: #FFFFFF;
-  --lg-ink-2: #FFFFFF;
-  --lg-ink-3: #FFFFFF;
-  --lg-ink-title: #FFFFFF;
+  /* Chữ: PDF khai đúng hai màu. #000000 chỉ dành cho "Đăng nhập"; mọi chữ
+     còn lại — tiêu đề hệ thống, nhãn, dòng mô tả, chân thẻ — đều #7E7F7F. */
+  --lg-ink-1: #000000;      /* "Đăng nhập" + chữ người dùng gõ vào ô */
+  --lg-ink-2: #7E7F7F;
+  --lg-ink-3: #7E7F7F;
+  --lg-ink-title: #7E7F7F;
 
-  /* Ô nhập KHÔNG có nền — chỉ một đường viền trắng. Đã kiểm: ruột ô và nền thẻ
-     ngay cạnh nó cùng ra #642900. Đổ nền tối vào là sai bản thiết kế. */
+  /* Ô nhập không có nền, chỉ viền #7E7F7F dày 1 — cùng màu với chữ.
+     Đường kẻ dưới tiêu đề cũng #7E7F7F (PDF khai dày 2 trên khung 3840, quy
+     về khung 1920 là 1px). */
   --lg-field: transparent;
-  /* Viền trong PDF là trắng đặc dày 1 đơn vị trên khung 3840 — quy về khung
-     1920 chỉ còn nửa pixel. Nên ở CSS dùng 1px với độ mờ ~.45 để ra đúng độ
-     đậm mắt nhìn thấy; để trắng đặc 1px sẽ đậm gấp đôi bản thiết kế. */
-  --lg-line:  rgba(255,255,255,.45);
-  --lg-ring:  0 0 0 3px rgba(250,175,58,.40);
-  --lg-err:   #FFB4A6;
+  --lg-line:  #7E7F7F;
+  --lg-ring:  0 0 0 3px rgba(254,155,49,.35);
+  --lg-err:   #B02A18;
 
   /* ── CỠ GỐC: MỘT số điều khiển cả bề ngang lẫn chiều cao thẻ ─────────────
      Khai ở :root chứ không ở .lg-card, vì .lg-panel (cha) cũng phải đọc được
@@ -118,7 +110,7 @@ body{
 .lg-stage{
   display:flex;align-items:center;justify-content:space-evenly;
   min-height:100vh;min-height:100dvh;
-  background:var(--lg-page) url('/static/login_bg.webp?v=baa970d3') 32% center/cover no-repeat;
+  background:var(--lg-page) url('/static/login_bg.webp?v=e48fda5b') 32% center/cover no-repeat;
 }
 
 /* Bề ngang thẻ và lề phải LÀ số đo của bản thiết kế:
@@ -138,8 +130,23 @@ body{
      ra 647×771 = 0,84 trong khi thiết kế là 1293/1804 = 0,717).
      38,25 = 1293 ÷ 33,8 — bề ngang thẻ chia cỡ chữ nhãn, đo từ bản thiết kế;
      cùng gốc với 53,39 của chiều cao nên tỉ lệ luôn đúng. */
-  width:calc(var(--lg-fs)*38.25);min-width:300px;max-width:820px;
-  margin-left:37.4%;
+  width:calc(var(--lg-fs)*38.25);min-width:300px;
+  /* Trần bề ngang phải trừ theo LỀ TRÁI, không phải một số px cố định. Khi
+     --lg-fs chạm cận dưới 11px thì bề ngang thẻ hết co, mà lề trái vẫn 53,8%
+     ⇒ lề + bề ngang có thể vượt 100% và tràn ngang (đo được +4px ở 901px).
+     Tính NGƯỢC từ chính --lg-le-trai để hai số không bao giờ lệch nhau; trừ
+     32px chừa khe hai bên. */
+  max-width:min(820px, calc(100% - var(--lg-le-trai) - 32px));
+  /* Bản chính thức đặt thẻ ở tâm 76,9% bề ngang (đo từ PDF: thẻ 2308→3600
+     trên khung 3840). Với .lg-stage căn `space-evenly` và MỘT phần tử con,
+     tâm = W/2 + lề-trái/2 — không phụ thuộc bề ngang thẻ. Nên 53,8% ⇒ tâm
+     50 + 26,9 = 76,9%. (37,4% cũ cho tâm 68,7%, là số chỉnh tay trước khi có
+     bản chính thức.) 53,8% là số của bản thiết kế; đang để 37,4% theo yêu cầu
+     dịch thẻ vào giữa thêm (tâm 68,7%).
+     Bảng quy đổi: lề 53,8% → tâm 76,9% (đúng thiết kế) · 45% → 72,5%
+     · 37,4% → 68,7% · 25% → 62,5% · 0% → 50% (giữa hẳn). */
+  --lg-le-trai:37.4%;
+  margin-left:var(--lg-le-trai);
 }
 
 /* ── THẺ ────────────────────────────────────────────────────────────────────
@@ -180,26 +187,29 @@ body{
   --lg-h-btn:calc(var(--lg-fs)*3.95);
 
   background:var(--lg-card);
-  border-radius:calc(var(--lg-fs)*.72);              /* 24/1293 bề ngang thẻ, đo ở góc trên trái */
-  /* Bóng BA lớp, không phải một. Bản thiết kế có bóng vừa toả rộng vừa đậm sát
-     mép — một lớp chỉ làm được một trong hai: blur lớn thì mép thẻ nhạt nhoà,
-     blur nhỏ thì thành viền cứng. Bóng ám NÂU chứ không đen thuần: thẻ nâu-cam
-     mà đổ bóng xám thì chỗ tiếp giáp bị xỉn, rõ nhất ở hai góc trên. */
-  box-shadow:
-    0 34px 80px -12px rgba(30,15,2,.34),
-    0 14px 34px -8px  rgba(30,15,2,.30),
-    0 3px 10px        rgba(30,15,2,.20);
+  border-radius:calc(var(--lg-fs)*.74);   /* 25/1292 bề ngang thẻ, đo ở góc trên trái */
+  /* Bóng đo từ bản thiết kế, không ước lượng: lấy trang PDF chia cho chính
+     ảnh nền gốc để tách riêng phần tối do bóng gây ra. Kết quả:
+         dưới  0px:28%  5px:17%  10px:4%  12px:0%
+         phải  0px:25%  5px:11%  10px:1%
+         trên/trái: 0%
+     Tức bóng HẸP và chỉ hắt xuống-phải, tắt hẳn sau ~12px — không phải quầng
+     mờ toả đều. Công thức dưới đây dò khớp profile đó, lệch trung bình 1,3%.
+     Đừng tăng blur cho "mềm": blur lớn là bóng loang sang trái/trên, sai hẳn. */
+  box-shadow:4px 6px 10px -1px rgba(0,0,0,.38);
   padding:var(--lg-pad-top) var(--lg-pad-x) var(--lg-pad-bot);
 }
 
 .lg-logo{display:flex;justify-content:center;margin-bottom:var(--lg-gap-logo)}
-/* Wordmark gốc là cam-nâu, trên nền thẻ tối nó chìm gần hết. brightness(0) dìm
-   mọi pixel về đen rồi invert(1) lật thành TRẮNG ĐẶC, giữ nguyên vùng trong
-   suốt. Đây là cách duy nhất tô trắng một file PNG bằng CSS.
-   Đặt theo CHIỀU CAO (3,5em = 6,6% chiều cao thẻ, đo từ bản thiết kế) chứ
+/* Wordmark gốc là cam-nâu. Bản thiết kế để nó XÁM RẤT NHẠT cho khỏi tranh màu
+   với nút gradient — pixel đậm nhất trong vùng logo đo được #CAD1D2. grayscale
+   bỏ màu, opacity .45 hạ xuống đúng độ nhạt đó trên nền thẻ #F0F0F0.
+   (Bản nháp thẻ tối dùng brightness(0) invert(1) để tô TRẮNG — nền sáng thì
+   ngược lại, tô trắng là logo biến mất.)
+   Đặt theo CHIỀU CAO (3,5em = 6,4% chiều cao thẻ, đo từ bản thiết kế) chứ
    không theo bề ngang — bề ngang còn phụ thuộc phần chữ nhỏ dưới wordmark. */
 .lg-logo img{height:3.5em;width:auto;max-width:100%;object-fit:contain;
-             filter:brightness(0) invert(1)}
+             filter:grayscale(1) opacity(.45)}
 
 .lg-title{
   /* 1,85em chứ không phải 2,31em của bản thiết kế. Bản thiết kế đặt tiêu đề
@@ -211,7 +221,7 @@ body{
   font-size:1.85em;font-weight:800;letter-spacing:.2px;line-height:1.15;
   text-align:center;color:var(--lg-ink-title);
   padding-bottom:calc(var(--lg-fs)*1.12);
-  border-bottom:1px solid rgba(255,255,255,.55);
+  border-bottom:1px solid var(--lg-line);
 }
 
 .lg-h2{font-size:1.64em;font-weight:800;color:var(--lg-ink-1);
@@ -230,22 +240,18 @@ form .lg-group:first-of-type{margin-top:var(--lg-gap-group)}
   border:1px solid var(--lg-line);border-radius:calc(var(--lg-fs)*.36);
   font-family:inherit;font-size:1em;color:var(--lg-ink-1);
   outline:none;transition:border-color .15s,box-shadow .15s;
-  /* Báo cho trình duyệt biết đây là bề mặt tối: con trỏ nháy, vùng bôi đen,
-     nút hiện/ẩn mật khẩu của Edge đều tự đổi sang bộ màu tối. Thiếu dòng này
-     con trỏ nháy màu đen nằm trên nền đen — gõ mà không thấy trỏ ở đâu. */
-  color-scheme:dark;
 }
-.lg-input::placeholder{color:rgba(255,255,255,.5)}
-.lg-input:focus{border-color:var(--lg-ramp-hi);box-shadow:var(--lg-ring)}
-/* Chrome tự sơn nền vàng nhạt + chữ đen khi điền lại mật khẩu đã lưu. Nó ghi đè
-   cả background lẫn color nên đặt lại hai thuộc tính đó vô ích; chỉ còn cách
-   phủ nền bằng box-shadow inset và ép chữ bằng -webkit-text-fill-color. Không
-   có đoạn này thì ai lưu mật khẩu sẽ thấy hai ô sáng chói giữa thẻ tối. */
+.lg-input::placeholder{color:#A9AAAA}
+.lg-input:focus{border-color:#FE9B31;box-shadow:var(--lg-ring)}
+/* Chrome tự sơn nền vàng nhạt khi điền lại mật khẩu đã lưu. Nó ghi đè cả
+   background lẫn color nên đặt lại hai thuộc tính đó vô ích; chỉ còn cách phủ
+   nền bằng box-shadow inset. Bản thiết kế để ô TRONG SUỐT trên nền thẻ, nên
+   phủ đúng màu thẻ để ô đã điền trông y như ô trống. */
 .lg-input:-webkit-autofill,
 .lg-input:-webkit-autofill:hover,
 .lg-input:-webkit-autofill:focus{
   -webkit-text-fill-color:var(--lg-ink-1);
-  -webkit-box-shadow:0 0 0 1000px #55220A inset;
+  -webkit-box-shadow:0 0 0 1000px var(--lg-card) inset;
   caret-color:var(--lg-ink-1);
   transition:background-color 5000s ease-in-out 0s;
 }
@@ -270,19 +276,21 @@ form .lg-group:first-of-type{margin-top:var(--lg-gap-group)}
    thuộc font hệ thống, máy thiếu font sẽ ra ô vuông tofu. */
 .lg-remember input::before{
   content:"";width:calc(var(--lg-fs)*.68);height:calc(var(--lg-fs)*.68);transform:scale(0);transition:transform .12s;
-  background:var(--lg-btn-ink);
+  background:#FFFFFF;
   clip-path:polygon(14% 44%,0 65%,40% 100%,100% 16%,85% 0,38% 70%);
 }
-.lg-remember input:checked{background:var(--lg-btn);border-color:var(--lg-btn)}
+/* Lúc tick: tô cam đuôi gradient của nút — cùng hệ màu, không rước màu lạ */
+.lg-remember input:checked{background:#FE9B31;border-color:#FE9B31}
 .lg-remember input:checked::before{transform:scale(1)}
-.lg-remember input:hover{border-color:rgba(255,255,255,.8)}
+.lg-remember input:hover{border-color:#000000}
 .lg-remember input:focus-visible{outline:none;box-shadow:var(--lg-ring)}
 
 .lg-btn{
   width:100%;height:var(--lg-h-btn);margin-top:var(--lg-gap-btn);
   background:var(--lg-btn);
-  /* Chữ NÂU ĐẬM trên nút hổ phách, không phải trắng: trắng trên #FBB03B chỉ
-     đạt 2,0:1, đọc không nổi. #672A00 là màu bản thiết kế khai. */
+  /* Chữ TRẮNG — bản thiết kế khai #FFFFFF. Nút là gradient đen→cam nên nửa
+     trái tương phản rất cao; đầu cam #FE9B31 là chỗ chật nhất, trắng trên đó
+     đạt 2,4:1 — chữ nằm giữa nút (nền ~#7F4D18, 6,9:1) nên vẫn đọc tốt. */
   color:var(--lg-btn-ink);border:none;border-radius:999px;
   font-family:inherit;font-size:1.64em;font-weight:700;letter-spacing:.2px;
   cursor:pointer;transition:filter .15s;
@@ -295,15 +303,14 @@ form .lg-group:first-of-type{margin-top:var(--lg-gap-group)}
 .lg-foot{margin-top:var(--lg-gap-foot);text-align:center;font-size:1.08em;
          color:var(--lg-ink-3)}
 
-/* Hộp báo lỗi/thành công KHÔNG mượn token của app được. --danger-soft và
-   --success-soft là nền phấn rất nhạt dành cho bề mặt SÁNG; đặt lên thẻ tối thì
-   thành hai mảng trắng chói, mà --danger-fg (đỏ đậm) nằm trên đó lại không đọc
-   nổi. Nên trang này tự pha: nền là chính màu đó hoà loãng vào nền tối, chữ là
-   bản sáng của nó. */
+/* Thẻ sáng trở lại nên hộp báo lỗi/thành công DÙNG LẠI token trạng thái của
+   app — lỗi phải trông giống lỗi ở mọi màn khác. (Bản nháp thẻ tối phải tự pha
+   màu vì --danger-soft là nền phấn nhạt, đặt lên nền tối thành mảng trắng
+   chói.) Đây là chỗ duy nhất trang này mượn màu hệ thống. */
 .lg-msg{border-radius:.4em;padding:.65em .8em;font-size:.97em;margin-top:1.1em;
-        line-height:1.45;border:1px solid transparent}
-.lg-msg.err{background:rgba(190,60,40,.28);border-color:rgba(255,150,130,.4);color:#FFD3CA}
-.lg-msg.ok{background:rgba(60,150,90,.28);border-color:rgba(140,225,170,.4);color:#CDF3DA}
+        line-height:1.45}
+.lg-msg.err{background:var(--danger-soft);color:var(--danger-fg)}
+.lg-msg.ok{background:var(--success-soft);color:var(--success-fg)}
 .lg-field-err{color:var(--lg-err);font-size:.83em;margin-top:.4em}
 
 /* ── MOBILE ────────────────────────────────────────────────────────────────
@@ -318,7 +325,7 @@ form .lg-group:first-of-type{margin-top:var(--lg-gap-group)}
      khối tròn ở đáy. */
   .lg-stage{
     align-items:flex-start;justify-content:center;
-    background:var(--lg-page) url('/static/login_bg_mobile.webp?v=100ee82e') center bottom/cover no-repeat;
+    background:var(--lg-page) url('/static/login_bg_mobile.webp?v=ca08e5bb') center bottom/cover no-repeat;
   }
   /* NEO LÊN TRÊN, không canh giữa dọc. Canh giữa thì thẻ tụt xuống đè kín khối
      tròn: đo ở 390×844 thẻ chạm đáy còn cách 108px, mà 108px đó là mép dưới
@@ -329,7 +336,7 @@ form .lg-group:first-of-type{margin-top:var(--lg-gap-group)}
      chiếm 94,9%). Lề TRÊN 8,2% chiều cao màn — dùng vh chứ không px cố định:
      máy màn ngắn thì lề co lại, nhường chỗ cho khối tròn ở đáy ảnh. */
   .lg-panel{width:100%;max-width:none;min-width:0;
-            padding:clamp(24px,8.2vh,76px) 10px 22px;
+            padding:clamp(24px,8.6vh,80px) 2.2% 22px;
             /* margin:0 huỷ SẠCH bốn phía, không phải chỉ margin-right. Khối
                desktop dùng lề để đẩy thẻ sang phải; nếu ở đây chỉ huỷ một phía
                thì phía kia rơi xuống mobile và đẩy thẻ tràn khỏi màn — đã dính
