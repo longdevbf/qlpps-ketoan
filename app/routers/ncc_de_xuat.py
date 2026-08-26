@@ -126,6 +126,7 @@ def list_ncc_de_xuat(
     user: Annotated[JWTPayload, Depends(_REQ)],
     db: Annotated[Session, Depends(get_db)],
     trang_thai: Optional[str] = Query(None, description="lọc trạng thái; rỗng = tất cả"),
+    da_chi: Optional[bool] = Query(None, description="lọc đã trả (True) — danh sách lệnh đã trả NCC"),
     limit: int = Query(200, le=500),
     offset: int = 0,
 ):
@@ -138,6 +139,11 @@ def list_ncc_de_xuat(
     )
     if trang_thai:
         stmt = stmt.where(CongNo.trang_thai == trang_thai)
+    if da_chi is not None:
+        # da_chi=True → CHỈ các lệnh ĐÃ TRẢ NCC (mới nhất theo ngày chi)
+        stmt = stmt.where(CongNo.da_chi.is_(True) if da_chi else CongNo.da_chi.isnot(True))
+        if da_chi:
+            stmt = stmt.order_by(None).order_by(CongNo.ngay_chi.desc().nullslast())
     stmt = stmt.limit(limit).offset(offset)
     rows = list(db.execute(stmt).scalars())
     name_map = _build_name_map(db, rows)
@@ -156,7 +162,13 @@ def summary_ncc_de_xuat(
         .where(CongNo.loai == "de_xuat_tra")
         .group_by(CongNo.trang_thai)
     ).all()
-    return {(tt or ""): n for tt, n in rows}
+    out = {(tt or ""): n for tt, n in rows}
+    # Đếm ĐÃ TRẢ (da_chi) cho tab "Đã trả"
+    out["da_chi"] = db.execute(
+        select(func.count(CongNo.id))
+        .where(CongNo.loai == "de_xuat_tra", CongNo.da_chi.is_(True))
+    ).scalar() or 0
+    return out
 
 
 @router.get("/api/ncc-de-xuat/{cid}/detail")
@@ -258,9 +270,11 @@ def chi_ncc(
     from datetime import date as _date_cls
     from decimal import Decimal
     try:
-        from ..services.so_quy_auto import _upsert_so_quy
+        from ..services.so_quy_auto import _upsert_so_quy, assert_du_chi
     except Exception as ex:  # pragma: no cover
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"Không nạp được sổ quỹ: {ex}")
+    # CHẶN chi làm số dư TK âm (anh Quang 2026-08-27)
+    assert_du_chi(db, tk, e.so_tien)
 
     _gc = (body.ghi_chu or "").strip()
     # Đánh dấu đã chi + tạo sổ quỹ chi TRONG CÙNG transaction (commit hết hoặc rollback hết).

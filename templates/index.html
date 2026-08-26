@@ -1332,8 +1332,8 @@ textarea.form-control{resize:vertical;min-height:70px}
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>ID</th><th>Ngày</th><th>Loại CP</th><th>Tên Khoản</th><th>Số Tiền</th><th>Quỹ</th><th>Phòng Ban</th><th>Người Chi</th><th>Mã Đơn</th><th>Ngân Hàng</th><th>Ghi Chú</th><th></th></tr></thead>
-            <tbody id="cp-tbody"><tr><td colspan="12" class="loading">Đang tải...</td></tr></tbody>
+            <thead><tr><th>ID</th><th>Ngày</th><th>Loại CP</th><th>Nguồn</th><th>Tên Khoản</th><th>Số Tiền</th><th>Quỹ</th><th>Phòng Ban</th><th>Người Chi</th><th>Mã Đơn</th><th>Ngân Hàng</th><th>Ghi Chú</th><th></th></tr></thead>
+            <tbody id="cp-tbody"><tr><td colspan="13" class="loading">Đang tải...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -3368,6 +3368,8 @@ textarea.form-control{resize:vertical;min-height:70px}
 // ── State ──────────────────────────────────────────────────────────────────────
 let META = {}, currentPage = 'bao-cao';
 let currentMonth = new Date().toISOString().slice(0,7);
+// Chỉ CEO/admin được SỬA/XOÁ lệnh thu chi (sổ quỹ/doanh thu/chi phí) — KT chỉ tạo mới.
+const KT_CAN_EDIT_THUCHI = {{ 'true' if (user and (user.role|lower) in ['admin','ceo','assistant_ceo']) else 'false' }};
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 let HCNS_NV = []; // cache nhân viên
@@ -3694,8 +3696,8 @@ async function loadDoanhThu(thang) {
     <td>${badgeHTML(r.loai_thanh_toan, r.loai_thanh_toan==='Đặt cọc'?'orange':'green')}</td>
     <td><small>${r.ghi_chu||''}</small></td>
     <td>
-      <button class="btn btn-primary btn-sm" onclick="editDT('${r.id}')" >Sửa</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteDT('${r.id}')" title="Xoá">Xoá</button>
+      ${KT_CAN_EDIT_THUCHI ? `<button class="btn btn-primary btn-sm" onclick="editDT('${r.id}')">Sửa</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteDT('${r.id}')" title="Xoá">Xoá</button>` : '<small style="color:var(--text-3)">— (chỉ CEO sửa/xoá)</small>'}
     </td>
   </tr>`).join('');
 }
@@ -3848,11 +3850,14 @@ async function loadChiPhi(thang) {
   const total = _cpData.reduce((s,r) => s+Number(r.so_tien||0), 0);
   document.getElementById('cp-total').textContent = fmt(total);
   const tbody = document.getElementById('cp-tbody');
-  if (!_cpData.length) { tbody.innerHTML = `<tr><td colspan="12"><div class="empty"><div class="icon"></div>Chưa có dữ liệu</div></td></tr>`; return; }
+  if (!_cpData.length) { tbody.innerHTML = `<tr><td colspan="13"><div class="empty"><div class="icon"></div>Chưa có dữ liệu</div></td></tr>`; return; }
   tbody.innerHTML = _cpData.map(r => `<tr>
     <td><small style="color:var(--text2)">${r.id}</small></td>
     <td>${r.ngay}</td>
     <td>${badgeHTML(r.loai_chi_phi || '—', 'red')}</td>
+    <td>${(()=>{const n=r.nguon||'KT tự nhập';return n==='KT tự nhập'
+      ? '<span class="badge" style="background:var(--bg-page);color:var(--text-2);border:1px solid var(--border)" title="Kế toán nhập tay">✍️ Tự nhập</span>'
+      : `<span class="badge" style="background:var(--success-soft);color:var(--success-fg)" title="Tự sinh từ luồng duyệt/Chi">🔄 ${n}</span>`;})()}</td>
     <td><b>${r.ten_khoan || '—'}</b></td>
     <td><strong style="color:var(--red)">${fmt(r.so_tien)}</strong></td>
     <td><small>${r.quy||''}</small></td>
@@ -3862,8 +3867,8 @@ async function loadChiPhi(thang) {
     <td><small>${r.ngan_hang||''}</small></td>
     <td><small>${r.ghi_chu||''}</small></td>
     <td>
-      <button class="btn btn-primary btn-sm" onclick="editCP('${r.id}')" >Sửa</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteCP('${r.id}')" title="Xoá">Xoá</button>
+      ${KT_CAN_EDIT_THUCHI ? `<button class="btn btn-primary btn-sm" onclick="editCP('${r.id}')">Sửa</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteCP('${r.id}')" title="Xoá">Xoá</button>` : '<small style="color:var(--text-3)">— (chỉ CEO sửa/xoá)</small>'}
     </td>
   </tr>`).join('');
 }
@@ -4678,7 +4683,7 @@ async function loadSoQuy(taikhoan) {
     <td><small>${r.tai_khoan}</small></td>
     <td>${r.lien_quan||'—'}</td>
     <td><small>${r.ghi_chu||''}</small></td>
-    <td><button class="btn btn-danger btn-sm" onclick="deleteSQ('${r.id}')">Xoá</button></td>
+    <td>${KT_CAN_EDIT_THUCHI ? `<button class="btn btn-danger btn-sm" onclick="deleteSQ('${r.id}')">Xoá</button>` : '<small style="color:var(--text-3)">—</small>'}</td>
   </tr>`;
   }).join('');
 }
@@ -7955,6 +7960,7 @@ async function importCongNo(source) {
 
 // ── Sổ Quỹ (Redesign) ─────────────────────────────────────────────────────────
 let sqAllData = [];
+let sqOpeningByTk = {};  // số dư ĐẦU THÁNG mỗi TK (để cột "Số dư TK" chạy dồn từ đầu kỳ, không từ 0)
 
 async function loadSoQuy(taikhoan) {
   const thang = currentMonth;
@@ -7970,6 +7976,9 @@ async function loadSoQuy(taikhoan) {
   // Render account table — 1 hàng / TK
   const tbody = document.getElementById('sq-accounts-tbody');
   const accounts = sum.items || [];
+  // Lưu số dư đầu tháng mỗi TK → cột "Số dư TK" chạy dồn TỪ ĐẦU KỲ (không từ 0)
+  sqOpeningByTk = {};
+  accounts.forEach(a => { sqOpeningByTk[a.ten_tk] = parseFloat(a.so_du_dau_thang || 0); });
   if (accounts.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" class="empty" style="padding:18px">Chưa có tài khoản — vào <a href="#" onclick="showPage('tai-khoan-nh');return false">Danh Mục → Tài Khoản NH</a> để thêm.</td></tr>`;
   } else {
@@ -8034,7 +8043,9 @@ function renderSoQuyTable(data) {
   const runByTk = {};
   for (const r of sortedAsc) {
     const tk = r.tai_khoan || '(N/A)';
-    runByTk[tk] = (runByTk[tk] || 0) + (isThuRow(r) ? num(r.so_tien) : -num(r.so_tien));
+    // Bắt đầu từ SỐ DƯ ĐẦU THÁNG của TK (không từ 0) → số dư TK phản ánh đúng thực tế
+    if (!(tk in runByTk)) runByTk[tk] = (sqOpeningByTk[tk] || 0);
+    runByTk[tk] += (isThuRow(r) ? num(r.so_tien) : -num(r.so_tien));
     r._so_du_tk = runByTk[tk];
   }
 

@@ -11,10 +11,50 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from ..models import ChiPhiPhatSinh, CongNo, DoanhThu, SoQuy
+
+
+def so_du_hien_tai(db: Session, tai_khoan_ten: Optional[str]) -> Decimal:
+    """Số dư HIỆN TẠI của 1 tài khoản = số dư đầu (TaiKhoanNH.so_du_dau) +
+    SUM(thu) − SUM(chi) trên toàn bộ ketoan.so_quy của TK đó."""
+    if not tai_khoan_ten:
+        return Decimal("0")
+    so_du_dau = Decimal("0")
+    try:
+        from ..models import TaiKhoanNH
+        tk = db.execute(
+            select(TaiKhoanNH).where(TaiKhoanNH.ten_tk == tai_khoan_ten)
+        ).scalar_one_or_none()
+        if tk is not None:
+            so_du_dau = Decimal(str(getattr(tk, "so_du_dau", 0) or 0))
+    except Exception:
+        pass
+    net = db.execute(
+        text("SELECT COALESCE(SUM(CASE WHEN loai='thu' THEN so_tien ELSE -so_tien END),0) "
+             "FROM ketoan.so_quy WHERE tai_khoan = :tk"),
+        {"tk": tai_khoan_ten},
+    ).scalar()
+    return so_du_dau + Decimal(str(net or 0))
+
+
+def assert_du_chi(db: Session, tai_khoan_ten: Optional[str], so_tien_chi) -> None:
+    """CHẶN lệnh chi làm số dư TK âm (anh Quang 2026-08-27) — raise HTTPException 400.
+    Gọi TRƯỚC khi tạo bất kỳ giao dịch chi nào (sổ quỹ / chi phí / chuyển nội bộ / nút Chi)."""
+    from fastapi import HTTPException, status
+    st = Decimal(str(so_tien_chi or 0))
+    if st <= 0:
+        return
+    bal = so_du_hien_tai(db, tai_khoan_ten)
+    if bal - st < 0:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Số dư '{tai_khoan_ten or '(chưa chọn tài khoản)'}' chỉ còn "
+            f"{int(bal):,}đ — KHÔNG đủ để chi {int(st):,}đ (sẽ âm {int(st - bal):,}đ). "
+            f"Vui lòng nạp thêm, chọn tài khoản khác, hoặc kiểm tra lại số dư đầu kỳ.",
+        )
 
 
 def _upsert_so_quy(

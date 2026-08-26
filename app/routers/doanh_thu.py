@@ -14,11 +14,12 @@ from shared.events import emit_event
 
 from ..models import DoanhThu
 from ..schemas import DoanhThuCreate, DoanhThuUpdate, DoanhThuOut
-from ._deps import require_ketoan_user
+from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
 router = APIRouter()
 _AUTH = Depends(require_ketoan_user)
+_CEO_EDIT = Depends(require_ceo_thuchi)  # sửa/xoá doanh thu → chỉ CEO
 
 
 def _sync_cong_no_da_thu(db: Session, ma_don: Optional[str]) -> None:
@@ -132,7 +133,7 @@ def update_doanh_thu(
     body: DoanhThuUpdate,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(DoanhThu, rid)
     if not obj:
@@ -165,7 +166,7 @@ def delete_doanh_thu(
     rid: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(DoanhThu, rid)
     if not obj:

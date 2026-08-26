@@ -64,4 +64,5 @@ class ChiPhiOut(ChiPhiBase):
     created_by: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    nguon: Optional[str] = None  # nguồn: "KT tự nhập" | "Đề xuất chi" | "Đề Nghị TT" | ...
     model_config = ConfigDict(from_attributes=True)
