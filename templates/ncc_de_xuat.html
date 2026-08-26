@@ -75,6 +75,7 @@
   <button type="button" class="tab-btn"        role="tab" aria-selected="false" data-filter="cho_duyet">Chờ KT <span class="tab-count" id="cnt-cho_duyet">—</span></button>
   <button type="button" class="tab-btn"        role="tab" aria-selected="false" data-filter="kt_duyet">Chờ CEO <span class="tab-count" id="cnt-kt_duyet">—</span></button>
   <button type="button" class="tab-btn"        role="tab" aria-selected="false" data-filter="duyet">Hoàn tất <span class="tab-count" id="cnt-duyet">—</span></button>
+  <button type="button" class="tab-btn"        role="tab" aria-selected="false" data-filter="da_chi" style="border-color:var(--success)">💸 Đã trả <span class="tab-count" id="cnt-da_chi">—</span></button>
   <button type="button" class="tab-btn"        role="tab" aria-selected="false" data-filter="kt_tu_choi">KT từ chối <span class="tab-count" id="cnt-kt_tu_choi">—</span></button>
   <button type="button" class="tab-btn"        role="tab" aria-selected="false" data-filter="tu_choi">CEO từ chối <span class="tab-count" id="cnt-tu_choi">—</span></button>
 </div>
@@ -221,6 +222,7 @@ const STATUS_BADGE = {
   tu_choi:    'badge-danger',
 };
 function nhan(key) {
+  if (key === 'da_chi') return 'Đã trả';
   if (STATUS_LABEL[key]) return STATUS_LABEL[key];
   console.warn('thiếu nhãn cho trạng thái:', key);
   return 'Chưa đặt tên';
@@ -245,6 +247,9 @@ async function loadSummary() {
       total += n;
     });
     document.getElementById('cnt-all').textContent = total;
+    // "Đã trả" là tập con của "Hoàn tất" → đếm riêng, KHÔNG cộng vào total
+    const _dc = document.getElementById('cnt-da_chi');
+    if (_dc) _dc.textContent = data.da_chi || 0;
     document.getElementById('kpi-cho-duyet').textContent = data.cho_duyet || 0;
   } catch (e) {
     // Fail-soft: bảng vẫn dùng được khi chỉ số đếm hỏng. Giữ dấu "—".
@@ -255,9 +260,11 @@ async function loadSummary() {
 async function loadList() {
   showState('loading');
   try {
-    const url = currentFilter
-      ? `/api/ncc-de-xuat?trang_thai=${encodeURIComponent(currentFilter)}`
-      : '/api/ncc-de-xuat';
+    const url = currentFilter === 'da_chi'
+      ? '/api/ncc-de-xuat?da_chi=true'   // danh sách LỆNH ĐÃ TRẢ NCC (theo ngày chi mới nhất)
+      : (currentFilter
+          ? `/api/ncc-de-xuat?trang_thai=${encodeURIComponent(currentFilter)}`
+          : '/api/ncc-de-xuat');
     const r = await fetch(url, { credentials: 'include' });
     if (!r.ok) {
       document.getElementById('st-error-msg').textContent =

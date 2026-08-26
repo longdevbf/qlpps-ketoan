@@ -23,11 +23,12 @@ from shared.db import get_db
 
 from ..models import SoQuy, TaiKhoanNH, SoDuDauKy
 from ..schemas import SoQuyCreate, SoQuyUpdate, SoQuyOut
-from ._deps import require_ketoan_user
+from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
 router = APIRouter()
 _AUTH = Depends(require_ketoan_user)
+_CEO_EDIT = Depends(require_ceo_thuchi)  # sửa/xoá lệnh thu chi → chỉ CEO
 # Kế Toán (`kt`) + Manager cũng được CRUD sổ quỹ tay (xoá entry orphan, sửa
 # số phụ phí phát sinh ngoài luồng). admin/ceo/assistant_ceo giữ nguyên.
 _ADMIN_ROLES = {"admin", "ceo", "assistant_ceo", "manager", "kt"}
@@ -278,6 +279,10 @@ def create_so_quy(
 ):
     _require_admin(user)
     fields = body.model_dump(exclude_unset=True)
+    # CHẶN chi làm số dư TK âm (anh Quang 2026-08-27)
+    if (fields.get("loai") or "").lower() == "chi":
+        from ..services.so_quy_auto import assert_du_chi
+        assert_du_chi(db, fields.get("tai_khoan"), fields.get("so_tien"))
     # Issue 1 — auto-lookup nhan_vien_ten nếu chỉ truyền nhan_vien_id
     nv_id = fields.get("nhan_vien_id")
     if nv_id and not (fields.get("nhan_vien_ten") or "").strip():
@@ -314,9 +319,8 @@ def update_so_quy(
     body: SoQuyUpdate,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
-    _require_admin(user)
     obj = db.get(SoQuy, rid)
     if not obj:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "SoQuy không tồn tại")
@@ -342,9 +346,8 @@ def delete_so_quy(
     rid: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
-    _require_admin(user)
     obj = db.get(SoQuy, rid)
     if not obj:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "SoQuy không tồn tại")
@@ -388,6 +391,10 @@ def chuyen_noi_bo(
         )
     if body.so_tien <= 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Số tiền phải > 0")
+
+    # CHẶN chuyển đi làm số dư TK nguồn âm (anh Quang 2026-08-27)
+    from ..services.so_quy_auto import assert_du_chi
+    assert_du_chi(db, body.tu_tai_khoan, body.so_tien)
 
     ref_id = (body.ref_id or f"chuyennb_{uuid4().hex[:12]}")
     so_tien = Decimal(str(body.so_tien))

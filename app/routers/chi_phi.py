@@ -23,7 +23,7 @@ from ..models import (
 )
 from ..schemas import ChiPhiCreate, ChiPhiOut, ChiPhiUpdate
 from ..services.journal import post_journal
-from ._deps import require_ketoan_user
+from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
 # Map nhom_chi_phi → account_code TT200 (chi phí — số dư bên Nợ)
@@ -37,6 +37,7 @@ _NHOM_TO_ACCOUNT = {
 
 router = APIRouter()
 _AUTH = Depends(require_ketoan_user)
+_CEO_EDIT = Depends(require_ceo_thuchi)  # sửa/xoá chi phí → chỉ CEO
 
 
 VALID_NHOM = {"ban_hang", "quan_ly", "tai_chinh", "khac"}
@@ -57,6 +58,25 @@ def _resolve_nhom(db: Session, loai: Optional[str], nhom: Optional[str]) -> str:
 
 
 # ─── List / filter by nhom ───────────────────────────────────────────────────
+
+def _nguon_chi_phi(obj) -> str:
+    """Phân loại nguồn 1 chi phí: 'theo luồng' (tự sinh từ nút Chi / cầu nối) vs
+    'KT tự nhập' (nhập tay) — anh Quang 2026-08-27."""
+    if getattr(obj, "ref_dntt", None):
+        return "Đề Nghị TT"
+    gc = (getattr(obj, "ghi_chu", None) or "")
+    if gc.startswith("Chi đề xuất"):
+        return "Đề xuất chi"
+    if getattr(obj, "ref_vc", None):
+        return "Vận chuyển (auto)"
+    if getattr(obj, "ref_ads_thang_kenh", None):
+        return "Ads (auto)"
+    if getattr(obj, "ref_payroll_thang_pb", None):
+        return "Lương (auto)"
+    if getattr(obj, "ref_phatsinh", None):
+        return "Phát sinh (auto)"
+    return "KT tự nhập"
+
 
 @router.get("", response_model=list[ChiPhiOut])
 def list_chi_phi(
@@ -86,7 +106,14 @@ def list_chi_phi(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, f"nhom phải thuộc {sorted(VALID_NHOM)}")
         stmt = stmt.where(ChiPhiPhatSinh.nhom_chi_phi == nhom)
     stmt = stmt.limit(limit).offset(offset)
-    return db.execute(stmt).scalars().all()
+    rows = db.execute(stmt).scalars().all()
+    for r in rows:
+        # gán nhãn nguồn (transient attr) để ChiPhiOut trả về FE hiển thị badge
+        try:
+            r.nguon = _nguon_chi_phi(r)
+        except Exception:
+            r.nguon = None
+    return rows
 
 
 # ─── /by-nhom: gộp theo nhom + nguồn (CP phát sinh + cố định + lương + ads) ─
@@ -263,6 +290,15 @@ def create_chi_phi(
     if _ky and re.match(r"^\d{4}-\d{2}$", str(_ky)):
         fields["ref_payroll_thang_pb"] = str(_ky)
 
+    # CHẶN chi phí làm số dư TK âm (anh Quang 2026-08-27)
+    _tk_name = fields.get("ngan_hang")
+    if not _tk_name and tai_khoan_id:
+        _tk0 = db.get(TaiKhoanNH, tai_khoan_id)
+        _tk_name = _tk0.ten_tk if _tk0 else None
+    if _tk_name:
+        from ..services.so_quy_auto import assert_du_chi
+        assert_du_chi(db, _tk_name, fields.get("so_tien"))
+
     obj = ChiPhiPhatSinh(**fields, created_by=user.username)
     db.add(obj)
     db.flush()
@@ -370,7 +406,7 @@ def update_chi_phi(
     body: ChiPhiUpdate,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(ChiPhiPhatSinh, rid)
     if not obj:
@@ -411,7 +447,7 @@ def patch_nhom_chi_phi(
     rid: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
     nhom: str = Body(..., embed=True, description="ban_hang|quan_ly|tai_chinh|khac"),
 ):
     """Đổi nhanh `nhom_chi_phi` cho 1 row mà không cần PUT toàn bộ."""
@@ -438,7 +474,7 @@ def delete_chi_phi(
     rid: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(ChiPhiPhatSinh, rid)
     if not obj:

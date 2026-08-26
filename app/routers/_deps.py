@@ -20,3 +20,19 @@ def require_ketoan_user(user: JWTPayload = Depends(require_app("ketoan"))) -> JW
             f"Role {user.role!r} không có quyền truy cập app Kế Toán",
         )
     return user
+
+
+# CHỈ CEO được SỬA/XOÁ lệnh thu chi (sổ quỹ, doanh thu, chi phí) — Kế Toán
+# (manager/kt) chỉ được TẠO MỚI, không sửa/xoá (anh Quang 2026-08-24, kiểm soát nội bộ).
+_CEO_THUCHI_ROLES = ("admin", "ceo", "assistant_ceo")
+
+
+def require_ceo_thuchi(user: JWTPayload = Depends(require_ketoan_user)) -> JWTPayload:
+    """Gate SỬA/XOÁ lệnh thu chi — chỉ CEO/admin/trợ lý CEO."""
+    if user.role not in _CEO_THUCHI_ROLES:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Chỉ CEO được sửa/xoá lệnh thu chi. Kế Toán chỉ được tạo mới — "
+            "cần sửa/xoá vui lòng báo CEO.",
+        )
+    return user
