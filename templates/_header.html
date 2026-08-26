@@ -29,11 +29,36 @@
 {# Phải có ?v= giống base.html: 15 trang standalone lấy token màu qua ĐÂY chứ
    không qua base.html. Thiếu version thì sửa theme.css xong trình duyệt vẫn
    phục vụ bản cache và trang trông y như cũ. Tăng số này mỗi lần sửa màu. #}
-<link rel="stylesheet" href="/static/css/theme.css?v=4">
+<link rel="stylesheet" href="/static/css/theme.css?v=20260826">
 <style>
 /* ─── Khung header ─────────────────────────────────────────────────────── */
 :root{--ab-h:56px}
 body{padding-top:var(--ab-h) !important}
+
+/* ─── NỀN TRANG — hạ một nấc để khối thẻ trắng tách bạch (25/08/2026) ────
+   Trước đây nền trang bằng ĐÚNG màu thẻ (--bg-card) hoặc chỉ nhạt hơn vài %
+   (--bg-page) → thẻ trắng chìm vào nền, ranh giới các khối chỉ còn một đường
+   viền 1px. Nay nền trang là --bg-app, thẻ giữ trắng.
+
+   VÌ SAO ĐẶT Ở ĐÂY chứ không sửa từng trang: các trang dùng chung khai
+   `body{background:…}` trong `shared/templates/…_core.html`, mà `shared/` là
+   tầng dùng chung nhiều app — KHÔNG được sửa. Partial này là file của riêng
+   app và được `include` bên trong `<body>` của mọi trang, nên nằm SAU trong
+   thứ tự tài liệu → thắng ở cùng độ đặc hiệu.
+
+   `body.ceo-app` phải liệt kê riêng: `lich_lam_viec_core.html` khai
+   `body.ceo-app{background:var(--bg-page)}` — độ đặc hiệu (0,1,1) cao hơn
+   `body` (0,0,1) nên nếu chỉ viết `body{…}` thì trang lịch sẽ KHÔNG đổi.
+
+   Dự phòng `var(--bg-app, var(--bg-page))`: nếu máy khách còn kẹt bản
+   theme.css cũ (chưa có --bg-app) thì nền lùi về --bg-page — nhạt hơn ý muốn
+   nhưng VẪN có nền. Không có lớp này, token rỗng làm cả thuộc tính background
+   hỏng và đổ về giá trị khởi tạo = TRẮNG, tức thẻ trắng trên nền trắng. */
+body,body.ceo-app{background:var(--bg-app, var(--bg-page))}
+/* BẢN IN: trả nền về trắng. Bắt buộc khai lại ở ĐÂY vì partial này nằm trong
+   `<body>`, tức SAU phần CSS ở `<head>` — luật `@media print` của các trang in
+   sẽ bị dòng trên đè mất nếu không nhắc lại. */
+@media print{body,body.ceo-app{background:var(--bg-card)}}
 .appbar{position:fixed;top:0;left:0;right:0;min-height:56px;z-index:190;
         background:var(--bg-card);border-bottom:1px solid var(--border);box-shadow:var(--shadow-sm);
         display:flex;align-items:center;padding:0 24px;gap:0;

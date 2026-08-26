@@ -30,40 +30,59 @@
 <!-- Ảnh nền là thứ nặng nhất trang. preload để nó tải song song với CSS thay vì
      đợi CSS parse xong mới biết cần tải.
      `media` là bắt buộc, không phải tô điểm: không có nó thì điện thoại tải cả
-     bản desktop 130 KB nó KHÔNG BAO GIỜ dùng, cộng thêm 78 KB bản mobile —
+     bản desktop 130 KB nó KHÔNG BAO GIỜ dùng, cộng thêm 90 KB bản mobile —
      tốn gần gấp ba trên đúng loại kết nối yếu nhất. Ngưỡng 900px phải khớp
-     media query ở cuối <style>. -->
+     media query ở cuối khối CSS. -->
 <link rel="preload" as="image" href="/static/login_bg.webp?v=baa970d3" media="(min-width:901px)">
 <link rel="preload" as="image" href="/static/login_bg_mobile.webp?v=100ee82e" media="(max-width:900px)">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-/* ── MÀU RIÊNG CỦA TRANG ───────────────────────────────────────────────────
-   Trang đăng nhập cố ý ĐỨNG NGOÀI hệ token hổ phách của app: nền ảnh là xám
-   trung tính, nên dùng --brand/--bg-page (ám vàng) sẽ lệch tông thấy rõ ngay
-   cạnh ảnh. Các giá trị dưới đây CHỈ sống trong file này, không rò ra phần
-   còn lại của app — muốn đổi giao diện login thì đổi đúng ở đây.
-   --lg-page lấy đúng màu mép ảnh (đo bằng Pillow: #F7F7F7) để chỗ ảnh hết và
-   nền trang bắt đầu không nhìn ra đường ghép. */
+/* ── MÀU LẤY TỪ BẢN THIẾT KẾ ───────────────────────────────────────────────
+   Không ước lượng bằng mắt: mọi giá trị dưới đây đo thẳng từ feqr.pdf — màu
+   nền thẻ lấy mẫu pixel theo từng 10% chiều cao, màu nút/chữ/viền đọc từ đối
+   tượng vẽ trong PDF.
+
+   Trang đăng nhập cố ý ĐỨNG NGOÀI hệ token hổ phách của app: nền thẻ là
+   gradient riêng, không token nào trong theme.css tả được. Các giá trị này
+   CHỈ sống trong file này, không rò ra phần còn lại của app. */
 :root{
-  --lg-page:  #F7F7F7;
-  --lg-card:  #EFEFEF;
-  --lg-field: #FFFFFF;
-  --lg-line:  #DCDCDC;
-  --lg-ink-1: #1F2124;
-  --lg-ink-2: #4A4D51;
-  --lg-ink-3: #8A8D91;
-  /* Tiêu đề hệ thống để XÁM cùng tông với wordmark Papasan ngay phía trên
-     (wordmark bị grayscale(1) opacity(.55) nên hiện ra ~#B7B7B7). Không lấy
-     đúng #B7B7B7: trên nền thẻ #EFEFEF nó chỉ còn 1.8:1, đọc không nổi.
-     #82868A là điểm xám đậm nhất vẫn "cùng tông logo" mà đạt 3.19:1 — ngưỡng
-     3:1 cho chữ lớn in đậm. Đừng làm nhạt thêm. */
-  --lg-ink-title: #82868A;
-  --lg-ring:  0 0 0 3px rgba(233,155,44,.30);
-  /* Nút: đen -> CAM. Điểm dừng 40%/74% giữ nửa trái gần như đen đúng như bản
-     thiết kế; chuyển hết sang cam sẽ thành nút cam đặc, không còn giống.
-     Đuôi là cam #EE7B1D chứ KHÔNG phải hổ phách #F0A22F — bản cũ ngả vàng. */
-  --lg-btn:   linear-gradient(90deg,#141414 0%,#2A1A10 40%,#A55712 74%,#EE7B1D 100%);
+  --lg-page:  #F7F7F7;      /* đúng màu mép ảnh nền, đo bằng Pillow */
+
+  /* DẢI 3 MÀU — điểm dừng 0/50/100%, không phải 4 chặng như bản trước.
+     Kiểm lại bằng cách nội suy: giữa 0% và 50% tại 20% ra #BD7823, mẫu đo
+     được #BE7822; tại 80% ra #281000, mẫu đo #281000 — khớp. Đây là gradient
+     3 chặng thật, đừng thêm chặng phụ vào giữa. */
+  --lg-ramp-hi:  #F9AE3A;
+  --lg-ramp-mid: #632800;
+  --lg-ramp-lo:  #000000;
+  --lg-card: linear-gradient(180deg,
+               var(--lg-ramp-hi)  0%,
+               var(--lg-ramp-mid) 50%,
+               var(--lg-ramp-lo)  100%);
+
+  /* Nút là MÀU PHẲNG #FBB03B, không phải gradient — đo cả 3 điểm đỉnh/giữa/đáy
+     đều ra một giá trị. Chữ nút #672A00 đọc thẳng từ PDF. */
+  --lg-btn:     #FBB03B;
+  --lg-btn-ink: #672A00;
+
+  /* Bản thiết kế khai MỌI dòng chữ trên thẻ là #FFFFFF — kể cả dòng mô tả nhỏ
+     và dòng chân thẻ. Trắng đặc trên nền cam cũng là mức tương phản CAO NHẤT
+     có thể, hạ độ mờ chỉ làm tệ đi. */
+  --lg-ink-1: #FFFFFF;
+  --lg-ink-2: #FFFFFF;
+  --lg-ink-3: #FFFFFF;
+  --lg-ink-title: #FFFFFF;
+
+  /* Ô nhập KHÔNG có nền — chỉ một đường viền trắng. Đã kiểm: ruột ô và nền thẻ
+     ngay cạnh nó cùng ra #642900. Đổ nền tối vào là sai bản thiết kế. */
+  --lg-field: transparent;
+  /* Viền trong PDF là trắng đặc dày 1 đơn vị trên khung 3840 — quy về khung
+     1920 chỉ còn nửa pixel. Nên ở CSS dùng 1px với độ mờ ~.45 để ra đúng độ
+     đậm mắt nhìn thấy; để trắng đặc 1px sẽ đậm gấp đôi bản thiết kế. */
+  --lg-line:  rgba(255,255,255,.45);
+  --lg-ring:  0 0 0 3px rgba(250,175,58,.40);
+  --lg-err:   #FFB4A6;
 }
 
 html,body{height:100%}
@@ -75,154 +94,263 @@ body{
 }
 
 /* DESKTOP: ảnh phủ TOÀN màn, thẻ nổi lên trên và lệch phải.
-   background-position 32% chứ KHÔNG phải center: `cover` cắt bớt cạnh dài, để
-   center thì khối tròn vàng (nằm ở ~30% chiều ngang ảnh) bị cắt mất mép trái
-   trên màn hẹp/cao. 32% giữ khối tròn lọt trọn ở mọi tỉ lệ thường gặp, đồng
-   thời đẩy nó về nửa trái để không bị thẻ đè lên. */
+   Khung của bản thiết kế là 3840×2200 — đúng bằng tỉ lệ ảnh gốc (1,745), tức
+   bản thiết kế cho ảnh hiện TRỌN VẸN, không cắt. Màn 16:9 (1,78) chỉ lệch 2%
+   nên `cover` gần như không xén gì; cửa sổ càng hẹp thì càng xén hai bên, đó
+   là lúc ảnh trông "phóng to" — không sửa được bằng CSS, chỉ có cách giữ thẻ
+   đủ lớn để cân lại.
+   32% chứ KHÔNG phải center: `cover` cắt bớt cạnh dài, để center thì khối tròn
+   vàng (ở ~31% chiều ngang ảnh) bị cắt mất mép trái trên màn hẹp/cao. */
 .lg-stage{
   display:flex;align-items:center;justify-content:flex-end;
   min-height:100vh;min-height:100dvh;
   background:var(--lg-page) url('/static/login_bg.webp?v=baa970d3') 32% center/cover no-repeat;
 }
 
+/* Bề ngang thẻ và lề phải LÀ số đo của bản thiết kế:
+       thẻ 1293/3840 = 33,7% bề ngang khung
+       lề phải 245/3840 = 6,4%
+   ⇒ tâm thẻ ở 100 − 6,4 − 33,7/2 = 76,8%, đúng bằng bản thiết kế.
+   Đặt bề ngang lên .lg-panel (không phải .lg-card) để hai số này cộng thẳng
+   với nhau; thẻ chỉ việc rộng 100% của panel. min/max chặn hai đầu: dưới
+   390px thì chữ vỡ, trên 760px thì thẻ to lố trên màn siêu rộng. */
 .lg-panel{
   flex:0 0 auto;
   display:flex;align-items:center;justify-content:center;
   padding:24px 0;
-  /* Lề phải LÀ thứ quyết định thẻ nằm đâu (.lg-stage căn flex-end).
-     Công thức cho tâm thẻ đứng đúng 66% bề ngang ở MỌI màn:
-         lề = 34% − (nửa bề ngang thẻ) = 34% − 300px
-     ⇒ mép phải thẻ = W − (0,34W − 300) ⇒ tâm = 0,66W. Bản cũ để 10vw nên tâm
-     trôi theo màn: 75% ở 1920 mà 72% ở 2560 — càng rộng càng dạt sang phải.
-     300px LÀ NỬA CỦA width:600px ở .lg-card — đổi bề ngang thẻ thì phải đổi số
-     này, không thì tâm lệch. max(24px, …) chặn lề âm khi màn hẹp hơn ~880px. */
-  margin-right:max(24px, calc(34% - 300px));
+  width:33.7%;min-width:390px;max-width:760px;
+  margin-right:6.4%;
 }
 
+/* ── THẺ ────────────────────────────────────────────────────────────────────
+   MỌI kích thước bên trong thẻ tính bằng `em`, và `em` neo vào font-size của
+   chính thẻ. Nhờ vậy đổi đúng MỘT dòng font-size là cả thẻ phóng to/thu nhỏ
+   đồng bộ, không phải sửa 20 chỗ rời rạc.
+   Gốc quy đổi: bản thiết kế để nhãn ô nhập = 2,61% bề ngang thẻ. Thẻ rộng
+   33,7vw ⇒ nhãn = 0,88vw. Lấy luôn cỡ nhãn làm 1em, mọi cỡ khác suy ra từ đó
+   (tiêu đề 2,31em, "Đăng nhập" 1,64em… — đều là tỉ lệ đo từ PDF).
+   Khoảng cách dọc để riêng thành biến vì MOBILE phải bóp chặt hơn desktop:
+   bố cục thiết kế rất thoáng, giữ nguyên trên điện thoại thì thẻ cao 659px,
+   che mất khối tròn vàng ở đáy ảnh. */
 .lg-card{
-  /* 600px chứ không phải 430px gốc: bản thiết kế muốn thẻ chiếm mảng lớn hơn
-     hẳn trên nền ảnh. Mọi kích thước bên trong (đệm, cỡ chữ, chiều cao ô nhập)
-     đã nhân theo cùng tỉ lệ — đổi mỗi width sẽ ra thẻ rộng mà ruột nhỏ.
-     Đây là cỡ DESKTOP; mobile chốt trần riêng nhỏ hơn nhiều, xem media query. */
-  width:600px;max-width:80%;
-  height: 700px;
+  width:100%;
+  /* --lg-fs là ĐỘ DÀI TUYỆT ĐỐI (px/vw), không phải em. Đây không phải chuyện
+     phong cách mà là chỗ từng sai: nếu khai khoảng cách bằng `em`, biến chỉ là
+     một chuỗi token nên `em` sẽ tính theo font-size của PHẦN TỬ DÙNG NÓ, không
+     phải của thẻ. Nút có font-size 1,64em nên `height:3.95em` ra 109px thay vì
+     67px. Nhân với --lg-fs thì mọi chỗ quy về cùng một gốc. */
+  --lg-fs:clamp(12.5px,.88vw,20px);
+  font-size:var(--lg-fs);
+
+  /* Khoảng cách dọc = tỉ lệ đo từ bản thiết kế × 1,217. Vì sao phải nhân:
+     bố cục thiết kế dùng font Noto Sans, còn trang này dùng font hệ thống —
+     chữ cao hơn nên nếu giữ nguyên khoảng cách thì thẻ chỉ cao 825px thay vì
+     902px (75% màn thay vì 82%). Hệ số 1,217 giải ngược từ chiều cao đích,
+     không phải ước lượng. Đổi cỡ chữ thì phải giải lại. */
+  --lg-pad-top:calc(var(--lg-fs)*2.96);
+  --lg-pad-bot:calc(var(--lg-fs)*3.63);
+  --lg-pad-x:calc(var(--lg-fs)*2.76);
+  --lg-gap-logo:calc(var(--lg-fs)*2.45);
+  --lg-gap-h2:calc(var(--lg-fs)*3.12);
+  --lg-gap-group:calc(var(--lg-fs)*3.63);
+  --lg-gap-group2:calc(var(--lg-fs)*2.74);
+  --lg-gap-remember:calc(var(--lg-fs)*2.62);
+  --lg-gap-btn:calc(var(--lg-fs)*2.24);
+  --lg-gap-foot:calc(var(--lg-fs)*2.29);
+  --lg-h-input:calc(var(--lg-fs)*3.2);
+  --lg-h-btn:calc(var(--lg-fs)*3.95);
+
   background:var(--lg-card);
-  border-radius:16px;
-  /* Bóng đậm hơn bản cũ: thẻ xám nhạt đứng trên nền ảnh cũng sáng, không có
-     bóng đủ sâu thì hai mảng dính vào nhau, không thấy mép thẻ */
-  box-shadow:0 12px 44px rgba(0,0,0,.16);
-  padding:40px 46px 32px;
+  border-radius:calc(var(--lg-fs)*.72);              /* 24/1293 bề ngang thẻ, đo ở góc trên trái */
+  /* Bóng BA lớp, không phải một. Bản thiết kế có bóng vừa toả rộng vừa đậm sát
+     mép — một lớp chỉ làm được một trong hai: blur lớn thì mép thẻ nhạt nhoà,
+     blur nhỏ thì thành viền cứng. Bóng ám NÂU chứ không đen thuần: thẻ nâu-cam
+     mà đổ bóng xám thì chỗ tiếp giáp bị xỉn, rõ nhất ở hai góc trên. */
+  box-shadow:
+    0 34px 80px -12px rgba(30,15,2,.34),
+    0 14px 34px -8px  rgba(30,15,2,.30),
+    0 3px 10px        rgba(30,15,2,.20);
+  padding:var(--lg-pad-top) var(--lg-pad-x) var(--lg-pad-bot);
 }
 
-.lg-logo{display:flex;justify-content:center;margin-bottom:18px}
-/* Wordmark gốc là cam-nâu. Bản thiết kế để nó xám nhạt cho khỏi tranh màu với
-   nút và với ảnh — bỏ dòng filter này là logo về màu thật. */
-.lg-logo img{max-width:250px;width:100%;height:auto;object-fit:contain;filter:grayscale(1) opacity(.55)}
+.lg-logo{display:flex;justify-content:center;margin-bottom:var(--lg-gap-logo)}
+/* Wordmark gốc là cam-nâu, trên nền thẻ tối nó chìm gần hết. brightness(0) dìm
+   mọi pixel về đen rồi invert(1) lật thành TRẮNG ĐẶC, giữ nguyên vùng trong
+   suốt. Đây là cách duy nhất tô trắng một file PNG bằng CSS.
+   Đặt theo CHIỀU CAO (3,5em = 6,6% chiều cao thẻ, đo từ bản thiết kế) chứ
+   không theo bề ngang — bề ngang còn phụ thuộc phần chữ nhỏ dưới wordmark. */
+.lg-logo img{height:3.5em;width:auto;max-width:100%;object-fit:contain;
+             filter:brightness(0) invert(1)}
 
 .lg-title{
-  font-size:26px;font-weight:800;letter-spacing:.2px;line-height:1.25;
+  /* 1,85em chứ không phải 2,31em của bản thiết kế. Bản thiết kế đặt tiêu đề
+     vừa TRÒN MỘT DÒNG lấp đầy bề ngang thẻ — nhưng họ dùng Noto Sans, hẹp hơn
+     font hệ thống ở đây. Đo thử cả 8 tên: cỡ lớn nhất mà tên DÀI NHẤT
+     ("HỆ THỐNG QUẢN LÝ KINH DOANH") còn giữ 1 dòng là 1,88em. Lấy 1,85em cho
+     dư chút phòng máy thiếu Segoe UI phải dùng font thay thế.
+     Để 2,31em thì 6/8 app tiêu đề rớt xuống 2 dòng, thẻ cao vống lên. */
+  font-size:1.85em;font-weight:800;letter-spacing:.2px;line-height:1.15;
   text-align:center;color:var(--lg-ink-title);
-  padding-bottom:18px;border-bottom:1px solid var(--lg-line);
+  padding-bottom:calc(var(--lg-fs)*1.12);
+  border-bottom:1px solid rgba(255,255,255,.55);
 }
 
-.lg-h2{font-size:22px;font-weight:800;color:var(--lg-ink-1);margin-top:26px}
-.lg-hint{font-size:14px;color:var(--lg-ink-3);margin-top:4px}
+.lg-h2{font-size:1.64em;font-weight:800;color:var(--lg-ink-1);
+       margin-top:var(--lg-gap-h2);line-height:1.2}
+.lg-hint{font-size:.97em;color:var(--lg-ink-3);margin-top:calc(var(--lg-fs)*.47);line-height:1.4}
 
-.lg-group{margin-top:22px}
-/* Khoảng thở giữa cụm tiêu đề và ô nhập đầu tiên — bản thiết kế để rộng hơn
-   khoảng cách giữa hai ô nhập, để mắt tách được "phần giới thiệu" với "phần điền" */
-form .lg-group:first-of-type{margin-top:30px}
-.lg-group label{display:block;font-size:13.5px;font-weight:700;color:var(--lg-ink-2);margin-bottom:8px}
+.lg-group{margin-top:var(--lg-gap-group2)}
+/* Khoảng thở giữa cụm giới thiệu và ô nhập đầu tiên rộng hơn khoảng giữa hai ô
+   — bản thiết kế để vậy cho mắt tách được "phần giới thiệu" với "phần điền" */
+form .lg-group:first-of-type{margin-top:var(--lg-gap-group)}
+.lg-group label{display:block;font-size:1em;font-weight:600;color:var(--lg-ink-2);
+                margin-bottom:.89em;line-height:1.2}
 .lg-input{
-  width:100%;padding:14px 14px;
+  width:100%;height:var(--lg-h-input);padding:0 calc(var(--lg-fs)*.9);
   background:var(--lg-field);
-  border:1px solid var(--lg-line);border-radius:7px;
-  font-family:inherit;font-size:16px;color:var(--lg-ink-1);
+  border:1px solid var(--lg-line);border-radius:calc(var(--lg-fs)*.36);
+  font-family:inherit;font-size:1em;color:var(--lg-ink-1);
   outline:none;transition:border-color .15s,box-shadow .15s;
+  /* Báo cho trình duyệt biết đây là bề mặt tối: con trỏ nháy, vùng bôi đen,
+     nút hiện/ẩn mật khẩu của Edge đều tự đổi sang bộ màu tối. Thiếu dòng này
+     con trỏ nháy màu đen nằm trên nền đen — gõ mà không thấy trỏ ở đâu. */
+  color-scheme:dark;
 }
-.lg-input:focus{border-color:#C9A96A;box-shadow:var(--lg-ring)}
+.lg-input::placeholder{color:rgba(255,255,255,.5)}
+.lg-input:focus{border-color:var(--lg-ramp-hi);box-shadow:var(--lg-ring)}
+/* Chrome tự sơn nền vàng nhạt + chữ đen khi điền lại mật khẩu đã lưu. Nó ghi đè
+   cả background lẫn color nên đặt lại hai thuộc tính đó vô ích; chỉ còn cách
+   phủ nền bằng box-shadow inset và ép chữ bằng -webkit-text-fill-color. Không
+   có đoạn này thì ai lưu mật khẩu sẽ thấy hai ô sáng chói giữa thẻ tối. */
+.lg-input:-webkit-autofill,
+.lg-input:-webkit-autofill:hover,
+.lg-input:-webkit-autofill:focus{
+  -webkit-text-fill-color:var(--lg-ink-1);
+  -webkit-box-shadow:0 0 0 1000px #55220A inset;
+  caret-color:var(--lg-ink-1);
+  transition:background-color 5000s ease-in-out 0s;
+}
 
 .lg-remember{
-  display:flex;align-items:center;gap:9px;margin-top:18px;
-  font-size:13.5px;color:var(--lg-ink-3);cursor:pointer;user-select:none;
+  display:flex;align-items:center;gap:calc(var(--lg-fs)*.6);margin-top:var(--lg-gap-remember);
+  font-size:.83em;color:var(--lg-ink-3);cursor:pointer;user-select:none;
 }
-.lg-remember input{width:17px;height:17px;flex:none;accent-color:#B8791C;cursor:pointer}
+/* Ô tick vẽ TAY, không dùng ô mặc định. Trên nền tối, ô mặc định của Chrome là
+   một khối xám đậm gần như tàng hình — accent-color chỉ đổi được lúc ĐÃ tick,
+   còn lúc chưa tick (tức lúc người dùng cần nhìn thấy nó nhất) thì không đụng
+   tới được. Nền trong suốt + viền trắng đúng như bản thiết kế. */
+.lg-remember input{
+  appearance:none;-webkit-appearance:none;
+  width:calc(var(--lg-fs)*1.1);height:calc(var(--lg-fs)*1.1);flex:none;margin:0;
+  border:1px solid var(--lg-line);border-radius:.25em;
+  background:transparent;
+  display:grid;place-content:center;cursor:pointer;
+  transition:background .15s,border-color .15s;
+}
+/* Dấu tick là hình đa giác cắt từ khối màu — không phải ký tự ✓, vì ký tự lệ
+   thuộc font hệ thống, máy thiếu font sẽ ra ô vuông tofu. */
+.lg-remember input::before{
+  content:"";width:calc(var(--lg-fs)*.68);height:calc(var(--lg-fs)*.68);transform:scale(0);transition:transform .12s;
+  background:var(--lg-btn-ink);
+  clip-path:polygon(14% 44%,0 65%,40% 100%,100% 16%,85% 0,38% 70%);
+}
+.lg-remember input:checked{background:var(--lg-btn);border-color:var(--lg-btn)}
+.lg-remember input:checked::before{transform:scale(1)}
+.lg-remember input:hover{border-color:rgba(255,255,255,.8)}
+.lg-remember input:focus-visible{outline:none;box-shadow:var(--lg-ring)}
 
 .lg-btn{
-  width:100%;margin-top:22px;padding:17px;
+  width:100%;height:var(--lg-h-btn);margin-top:var(--lg-gap-btn);
   background:var(--lg-btn);
-  color:#FFFFFF;border:none;border-radius:999px;
-  font-family:inherit;font-size:18px;font-weight:700;letter-spacing:.2px;
+  /* Chữ NÂU ĐẬM trên nút hổ phách, không phải trắng: trắng trên #FBB03B chỉ
+     đạt 2,0:1, đọc không nổi. #672A00 là màu bản thiết kế khai. */
+  color:var(--lg-btn-ink);border:none;border-radius:999px;
+  font-family:inherit;font-size:1.64em;font-weight:700;letter-spacing:.2px;
   cursor:pointer;transition:filter .15s;
 }
-.lg-btn:hover{filter:brightness(1.08)}
+.lg-btn:hover{filter:brightness(1.06)}
 .lg-btn:active{filter:brightness(.94)}
 .lg-btn:focus-visible{box-shadow:var(--lg-ring)}
 .lg-btn:disabled{cursor:default;filter:grayscale(.4) brightness(.9)}
 
-.lg-foot{margin-top:22px;text-align:center;font-size:13px;color:var(--lg-ink-3)}
+.lg-foot{margin-top:var(--lg-gap-foot);text-align:center;font-size:1.08em;
+         color:var(--lg-ink-3)}
 
-/* Hộp báo lỗi/thành công dùng token trạng thái của chính app — đây là chỗ duy
-   nhất trang này mượn màu hệ thống, vì lỗi phải trông giống lỗi ở mọi màn khác */
-.lg-msg{border-radius:8px;padding:11px 14px;font-size:14.5px;margin-top:18px;line-height:1.45}
-.lg-msg.err{background:var(--danger-soft);color:var(--danger-fg)}
-.lg-msg.ok{background:var(--success-soft);color:var(--success-fg)}
-.lg-field-err{color:var(--danger,#B02A18);font-size:13px;margin-top:6px}
+/* Hộp báo lỗi/thành công KHÔNG mượn token của app được. --danger-soft và
+   --success-soft là nền phấn rất nhạt dành cho bề mặt SÁNG; đặt lên thẻ tối thì
+   thành hai mảng trắng chói, mà --danger-fg (đỏ đậm) nằm trên đó lại không đọc
+   nổi. Nên trang này tự pha: nền là chính màu đó hoà loãng vào nền tối, chữ là
+   bản sáng của nó. */
+.lg-msg{border-radius:.4em;padding:.65em .8em;font-size:.97em;margin-top:1.1em;
+        line-height:1.45;border:1px solid transparent}
+.lg-msg.err{background:rgba(190,60,40,.28);border-color:rgba(255,150,130,.4);color:#FFD3CA}
+.lg-msg.ok{background:rgba(60,150,90,.28);border-color:rgba(140,225,170,.4);color:#CDF3DA}
+.lg-field-err{color:var(--lg-err);font-size:.83em;margin-top:.4em}
 
 /* ── MOBILE ────────────────────────────────────────────────────────────────
-   Đổi sang bản ảnh DỌC 1080×1920 — ảnh ngang của desktop đặt trên khung dọc
-   thì `cover` xén mất khối tròn. Bản dọc đã dựng sẵn đúng bố cục cần: kết cấu
-   bo mạch ở nửa trên (chỗ thẻ nổi lên), khối tròn vàng ở đáy. */
+   Ảnh đổi sang bản DỌC 1080×2337 — bản thiết kế đặt nó cover, neo đáy, cắt
+   phần dư ở trên (bbox trong PDF: ảnh cao 2588 trên khung 2502, hụt 86px ở
+   đỉnh). Đúng bằng `cover` + `center bottom` dưới đây. */
 @media (max-width:900px){
-  /* `cover` DÙNG ĐƯỢC ở đây vì ảnh đã là bản dọc 9:16, gần đúng tỉ lệ điện
-     thoại — chỗ bị xén chỉ là lề bo mạch hai bên, khối tròn nằm giữa nên
-     không suy suyển. (Cảnh báo "đừng dùng cover" của bản cũ là dành cho ảnh
-     VUÔNG: vuông trên khung dọc thì cover phóng theo chiều cao rồi cắt hai
-     bên, mất gần nửa khối tròn.)
-     Neo `bottom` chứ không `center`: màn thấp hơn 9:16 thì phần dư bị cắt,
-     cắt ở trên (toàn bo mạch) chứ đừng cắt vào khối tròn ở đáy. */
+  /* `cover` dùng được vì ảnh đã là bản dọc 9:19,5 — gần đúng tỉ lệ điện thoại,
+     chỗ bị xén chỉ là lề bo mạch hai bên, khối tròn nằm giữa nên không suy
+     suyển. (Cảnh báo "đừng dùng cover" của bản cũ là dành cho ảnh VUÔNG.)
+     Neo `bottom`: màn thấp hơn thì cắt ở TRÊN (toàn bo mạch), đừng cắt vào
+     khối tròn ở đáy. */
   .lg-stage{
     align-items:flex-start;justify-content:center;
     background:var(--lg-page) url('/static/login_bg_mobile.webp?v=100ee82e') center bottom/cover no-repeat;
   }
-  /* margin-block:auto chứ KHÔNG phải align-items:center — hai cái cùng canh
-     giữa dọc, nhưng khi thẻ cao hơn màn (điện thoại nhỏ, bàn phím bật lên,
-     thêm dòng báo lỗi) thì align-items:center cắt mất phần đầu thẻ và KHÔNG
-     cuộn tới được. margin auto hết chỗ trống thì tự về 0, thẻ tụt lên đầu và
-     trang cuộn bình thường. */
-  /* NEO LÊN TRÊN, không margin-block:auto nữa. Canh giữa dọc thì thẻ tụt xuống
-     đè kín ảnh: đo ở 390×844 thẻ chạm đáy còn cách 108px, mà 108px đó là MÉP
-     DƯỚI ảnh — phần bo mạch, không có khối tròn vàng, nên nhìn ra một vệt vàng
-     nhoè chứ không ra hình. Neo lên trên thì dải ảnh dưới thẻ luôn đủ để thấy
-     khối tròn. Thẻ cao hơn màn thì trang cuộn bình thường — vẫn không bị cắt
+  /* NEO LÊN TRÊN, không canh giữa dọc. Canh giữa thì thẻ tụt xuống đè kín khối
+     tròn: đo ở 390×844 thẻ chạm đáy còn cách 108px, mà 108px đó là mép dưới
+     ảnh — toàn bo mạch, nhìn ra vệt vàng nhoè chứ không ra hình. Neo trên vẫn
+     an toàn khi thẻ cao hơn màn: trang cuộn bình thường, KHÔNG bị cắt mất phần
      đầu như align-items:center. */
-  .lg-panel{width:100%;padding:150px 14px;margin-block:0;margin-right:0}
-  /* Cỡ MOBILE gọn hẳn so với desktop 600px. Không phải để "cho vừa bề ngang" —
-     460px thì màn nào cũng vừa — mà để thẻ ĐỦ THẤP, chừa dải ảnh ở đáy. Mỗi
-     50px chiều cao thẻ ăn thẳng 50px của ảnh. Phóng to lại là ảnh mất. */
-  .lg-card{width:100%;max-width:460px;border-radius:20px;padding:24px 20px 18px;
-           box-shadow:0 10px 34px rgba(0,0,0,.13)}
-  .lg-logo{margin-bottom:12px}
-  .lg-logo img{max-width:190px}
-  .lg-title{font-size:19px;padding-bottom:13px}
-  .lg-h2{font-size:18px;margin-top:18px}
-  .lg-hint{font-size:12.5px}
-  .lg-group{margin-top:16px}
-  form .lg-group:first-of-type{margin-top:20px}
-  .lg-group label{font-size:12.5px;margin-bottom:6px}
-  /* Chỉ hạ đệm, GIỮ font-size:16px của desktop: dưới 16px thì iOS Safari tự
-     phóng to cả trang khi chạm vào ô nhập, người dùng phải chụm tay thu lại. */
-  .lg-input{padding:12px}
-  .lg-remember{margin-top:14px;font-size:12.5px}
-  .lg-btn{margin-top:16px;padding:14px;font-size:16px}
-  .lg-foot{margin-top:16px;font-size:12px}
-  .lg-msg{font-size:13.5px;margin-top:14px;padding:9px 12px}
+  .lg-panel{width:100%;max-width:none;min-width:0;padding:34px 14px;
+            margin-block:0;margin-right:0}
+
+  /* Bản thiết kế để thẻ mobile chiếm 94,9% bề ngang, 63,3% chiều cao màn.
+     Bề ngang thì theo được. Chiều cao thì KHÔNG theo nguyên si được: bố cục
+     thiết kế rất thoáng, quy đúng tỉ lệ ra cỡ chữ nhãn 9,7px — nhỏ tới mức
+     không dùng được. Nên mobile giữ nguyên bố cục nhưng BÓP khoảng cách dọc
+     lại, đổi lại cỡ chữ đọc được. Kết quả cao ~510px, xấp xỉ 534px của bản
+     thiết kế, mà chữ vẫn ≥12px. */
+  .lg-card{
+    max-width:460px;border-radius:20px;
+    --lg-fs:12.5px;
+    --lg-pad-top:calc(var(--lg-fs)*1.9);
+    --lg-pad-bot:calc(var(--lg-fs)*1.5);
+    --lg-pad-x:calc(var(--lg-fs)*1.6);
+    --lg-gap-logo:calc(var(--lg-fs)*.95);
+    --lg-gap-h2:calc(var(--lg-fs)*1.45);
+    --lg-gap-group:calc(var(--lg-fs)*1.6);
+    --lg-gap-group2:calc(var(--lg-fs)*1.3);
+    --lg-gap-remember:calc(var(--lg-fs)*1.15);
+    --lg-gap-btn:calc(var(--lg-fs)*1.3);
+    --lg-gap-foot:calc(var(--lg-fs)*1.3);
+    --lg-h-input:calc(var(--lg-fs)*3.5);
+    --lg-h-btn:calc(var(--lg-fs)*3.7);
+    box-shadow:0 10px 34px rgba(30,15,2,.3),0 3px 10px rgba(30,15,2,.2);
+  }
+  .lg-logo img{height:2.9em}
+  /* 1,45em là cỡ lớn nhất mà CẢ 8 tên phòng còn giữ 1 dòng ở màn 390px —
+     tên dài nhất là "HỆ THỐNG QUẢN LÝ KINH DOANH". Trên 1,45em thì 3 app rớt
+     xuống 2 dòng, thẻ cao thêm 22px và ăn vào dải ảnh phía dưới. */
+  .lg-title{font-size:1.45em}
+  .lg-h2{font-size:1.45em}
+  /* Ô nhập PHẢI ≥16px: dưới mức đó iOS Safari tự phóng to cả trang khi chạm
+     vào ô, người dùng phải chụm tay thu lại. 1.28em × 12,5px = 16px. */
+  .lg-input{font-size:1.28em;padding:0 .8em}
+  .lg-btn{font-size:1.35em}
+  .lg-foot{font-size:.95em}
 }
 @media (max-width:380px){
-  .lg-card{padding:22px 16px 16px}
-  .lg-title{font-size:17.5px}
+  /* Dưới 380px thì KHÔNG cỡ nào giữ nổi 1 dòng cho tên dài (đã dò tới 0,8em
+     vẫn xuống dòng) — nên để nó xuống 2 dòng, chỉ hạ cỡ cho đỡ chật. Thẻ cao
+     thêm ~20px, khối tròn vàng vẫn còn chỗ. */
+  .lg-card{--lg-fs:11.8px;--lg-pad-x:calc(var(--lg-fs)*1.4)}
+  .lg-title{font-size:1.3em}
 }
-/* Màn thấp (điện thoại xoay ngang): bỏ ảnh đi, nhường chỗ cho form */
 /* Màn thấp (điện thoại xoay ngang): ảnh neo đáy sẽ bị thẻ đè kín hoàn toàn,
    giữ lại chỉ tốn băng thông — bỏ hẳn, nhường chỗ cho form. */
 @media (max-height:520px) and (max-width:900px){
@@ -303,7 +431,7 @@ form .lg-group:first-of-type{margin-top:30px}
   var p = document.getElementById('login-password');
 
   function showErr(inp, msg){
-    inp.style.borderColor = 'var(--danger,#B02A18)';
+    inp.style.borderColor = 'var(--lg-err)';
     inp.setAttribute('aria-invalid','true');
     var hint = inp.parentElement.querySelector('.lg-field-err');
     if (!hint){

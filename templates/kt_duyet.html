@@ -13,7 +13,8 @@
 
 {% block page_style %}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-height:100vh;color:var(--text-1)}
+/* Nền trang --bg-app (kem đậm) — xem chú thích ở `_header.html`. */
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-app, var(--bg-page));min-height:100vh;color:var(--text-1)}
 .btn-back{background:var(--bg-card);border:1px solid var(--border);color:var(--text-2)}.btn-back:hover{color:var(--brand);border-color:var(--brand)}
 .btn-logout{background:var(--danger);color:#fff}.btn-logout:hover{background:var(--danger)}
 /* Stats */
