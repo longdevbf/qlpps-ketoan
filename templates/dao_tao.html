@@ -8,7 +8,8 @@
 <link rel="shortcut icon" href="/static/papasan.ico">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',sans-serif;background:var(--bg-card);color:var(--text-1);min-height:100vh;display:flex;flex-direction:column}
+/* Nền trang --bg-app (kem đậm) — xem chú thích ở `_header.html`. */
+body{font-family:'Segoe UI',sans-serif;background:var(--bg-app, var(--bg-page));color:var(--text-1);min-height:100vh;display:flex;flex-direction:column}
 /* .topbar cũ đã bỏ — header dùng chung nằm ở _header.html (.appbar) */
 .content{flex:1;padding:18px 24px;overflow-y:auto;display:flex;flex-direction:column}
 

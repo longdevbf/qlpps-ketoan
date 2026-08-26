@@ -95,6 +95,8 @@
   background:var(--bg-card);
   border:1px solid var(--border);border-radius:var(--radius);
   margin-bottom:var(--gap);overflow:hidden;
+  /* Bong nhe de the tach khoi nen trang (25/08/2026). */
+  box-shadow:var(--shadow-md);
 }
 .card-head{
   padding:14px 18px;border-bottom:1px solid var(--border);
@@ -111,6 +113,8 @@
   background:var(--bg-card);
   border:1px solid var(--border);border-radius:var(--radius);
   overflow:hidden;margin-bottom:var(--gap);
+  /* Bong nhe de the tach khoi nen trang (25/08/2026). */
+  box-shadow:var(--shadow-md);
 }
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 
@@ -135,6 +139,8 @@
   background:var(--bg-card);
   border:1px solid var(--border);border-radius:var(--radius);
   padding:14px 16px;
+  /* Bong nhe de the tach khoi nen trang (25/08/2026). */
+  box-shadow:var(--shadow-md);
 }
 .stat-num{font-size:22px;font-weight:800;line-height:1;color:var(--text-1)}
 .stat-label{

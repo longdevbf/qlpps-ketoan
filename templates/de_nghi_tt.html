@@ -7,7 +7,8 @@
 <link rel="icon" href="/static/icon/favicon.ico">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg-card);color:var(--text-1);font-size:15px}
+  /* Nền trang --bg-app (kem đậm) — xem chú thích ở `_header.html`. */
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg-app, var(--bg-page));color:var(--text-1);font-size:15px}
   .container{max-width:1400px;margin:24px auto;padding:0 16px}
   .summary{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
   .stat{background:#fff;padding:14px 20px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);min-width:140px;cursor:pointer;transition:all .15s}

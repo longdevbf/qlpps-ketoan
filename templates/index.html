@@ -22,7 +22,8 @@
    brand-soft (viền đào), --gray từng trỏ brand-soft làm NỀN CẢ TRANG màu đào —
    nền trang đúng vai trò là --bg-page. */
 :root{--blue:var(--brand-hover);--blue2:var(--brand);--blue3:var(--brand-soft);--green:var(--success-fg);--red:var(--danger);--orange:#e67e22;--gray:var(--bg-page);--text:var(--text-1);--text2:var(--text-3)}
-body{font-family:'Segoe UI',sans-serif;background:var(--bg-card);color:var(--text);min-height:100vh}
+/* Nền trang --bg-app (kem đậm) — xem chú thích ở `_header.html`. */
+body{font-family:'Segoe UI',sans-serif;background:var(--bg-app, var(--bg-page));color:var(--text);min-height:100vh}
 
 /* Layout */
 .layout{display:flex;min-height:100vh}
@@ -57,7 +58,8 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg-card);color:var(--tex
 
 /* Cards */
 .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
-.stat-card{background:var(--bg-card);border-radius:12px;padding:16px 20px;border:1px solid var(--border)}
+/* Bong nhe de the tach khoi nen trang (25/08/2026). */
+.stat-card{box-shadow:var(--shadow-md);background:var(--bg-card);border-radius:12px;padding:16px 20px;border:1px solid var(--border)}
 .stat-card .label{font-size:12px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
 .stat-card .value{font-size:22px;font-weight:800;margin-top:4px}
 .stat-card .value.blue{color:var(--blue2)}
@@ -69,7 +71,8 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg-card);color:var(--tex
 @media(max-height:820px){.stats-row.tier-1 .value{font-size:25px}}
 
 /* Table */
-.card{background:var(--bg-card);border-radius:12px;border:1px solid var(--border);overflow:hidden;margin-bottom:20px}
+/* Bong nhe de the tach khoi nen trang (25/08/2026). */
+.card{background:var(--bg-card);border-radius:12px;border:1px solid var(--border);overflow:hidden;margin-bottom:20px;box-shadow:var(--shadow-md)}
 .card-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .card-title{font-size:15px;font-weight:700}
 .card-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -288,7 +291,7 @@ textarea.form-control{resize:vertical;min-height:70px}
   .bar-val{width:62px}
 }
 </style>
-<script src="/static/js/csrf.js"></script>
+<script src="/static/js/csrf.js?v=20260826"></script>
 </head>
 <body>
 {% include "_header.html" %}
@@ -11206,7 +11209,7 @@ function nccClearTime() {
   </div>
 </div>
 
-<script src="/static/js/img_lightbox.js"></script>
+<script src="/static/js/img_lightbox.js?v=20260826"></script>
 <script>
 (function(){
   const inp=document.createElement('input');inp.type='file';inp.id='_av_input_kt';inp.accept='image/jpeg,image/png,image/webp';inp.style.display='none';document.body.appendChild(inp);
