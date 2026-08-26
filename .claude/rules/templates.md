@@ -26,11 +26,29 @@ grep -n '_render(request, "' app/routers/pages.py
 ## Sửa màu
 
 Hầu hết template **không** gọi `var(--brand)` trực tiếp. Chúng khai một khối
-alias riêng ở đầu `<style>` với hex chép cứng vào:
+alias riêng ở đầu `<style>` với hex chép cứng vào. Gặp ở đâu là dọn ở đó,
+tuyệt đối không chép lại — hai bảng dưới đều là **hệ đã bị thay**:
 
 ```css
+/* ✗ CŨ — hệ cam đỏ. KHÔNG dùng lại. */
 --bg:#FBF8F5; --line:#DFD2C6; --text:#2A2521; --muted:#736659;
 --primary:#D23C0E; --primary-d:#BF370D; --navy:#D23C0E;
+
+/* ✗ CŨ — hệ hổ phách 11/08/2026. Cũng KHÔNG dùng lại. */
+--bg:#FDF8F0; --line:#E7D7BE; --text:#33210F; --muted:#795E43;
+--primary:#9E5D09; --primary-d:#7F4B07; --soft:#FBE7C6;
+```
+
+Còn khối alias này thì đổi `theme.css` vô tác dụng — "cái bẫy lớn nhất khi nhân
+bản" nói ở mục 1 của `HE-MAU-ERP.md`.
+
+Thay bằng token, không khai alias mới:
+
+```css
+/* ✓ ĐÚNG — hệ CAM trên slate lạnh, chốt 26/08/2026 */
+background: var(--bg-page);  border: 1px solid var(--border);
+color: var(--text-2);
+/* nhấn: NỀN khối đặc var(--brand) + chữ #fff · CHỮ cam var(--brand-ink) */
 ```
 
 Nên retheme một trang thường là sửa ~10 dòng alias đó thành `var(--token)`,
