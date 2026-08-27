@@ -2,7 +2,8 @@
    theme.css — HỆ MÀU QLPPS · CAM trên slate lạnh
    ───────────────────────────────────────────────────────────────────────────
    Chốt 26/08/2026. Thay hệ hổ phách #9E5D09 (11/08) và hệ cam đỏ #D23C0E.
-   NGUỒN SỰ THẬT: qlpps-marketing/docs/HE-MAU-ERP.md — file này chỉ là giá trị.
+   NGUỒN SỰ THẬT: qlpps-marketing/docs/HE-MAU-ERP.md — phần :root là giá trị.
+   Cuối file có thêm MỘT lớp component (@layer qlpps.table) — xem lý do tại chỗ.
 
    File này giống hệt nhau ở cả 8 repo. Sửa thì sửa bản gốc ở NewTheme/theme.css
    rồi rải lại, đừng sửa lẻ một repo — đó là cách hệ màu trôi khỏi nhau 3 lần.
@@ -169,6 +170,78 @@
       0 4px 10px rgba(15,23,42,.04),
       0 12px 28px rgba(15,23,42,.06),
       0 24px 56px rgba(15,23,42,.08);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LỚP BẢNG DÙNG CHUNG — @layer qlpps.table
+   ───────────────────────────────────────────────────────────────────────────
+   Vì sao có: đếm được 440 thẻ <table> trong 8 repo, mà chỉ 68 chỗ dùng
+   tabular-nums, 10 chỗ có sọc, và 0 chỗ có header dính. Hệ quả: cột số không
+   thẳng hàng, cuộn xuống là mất tên cột. Đó là chỗ app ERP lộ ra nghiệp dư
+   nhanh nhất.
+
+   ── VÌ SAO BỌC TRONG @layer ──
+   23 trang đã TỰ style `thead th` bằng selector trần, cùng độ đặc hiệu với
+   khối này. Thứ tự nạp lại không đoán được: `_header.html` được include trong
+   <body> nên theme.css có khi đến SAU <style> trong <head>, có khi trước.
+   Không có @layer thì hên xui trang nào vỡ.
+
+   @layer khiến mọi rule ở đây có ưu tiên THẤP HƠN mọi CSS không nằm trong
+   layer — kể cả CSS đứng trước. Nhờ vậy:
+     • Trang đã tự style bảng  -> giữ nguyên, không bị đụng.
+     • Trang chưa style gì     -> tự động rơi về bộ chuẩn dưới đây.
+   Chuyển được từng trang một, không phải làm tất cả cùng lúc.
+   (Cùng cơ chế đã dùng ở saleadmin/app.css và hcns/components.css.)
+
+   Trình duyệt không hiểu @layer sẽ BỎ QUA cả khối — bảng trông y như hôm nay,
+   không vỡ.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer qlpps.table {
+
+  /* Chữ số đều bề ngang -> cột số thẳng hàng. Chỉ ảnh hưởng CHỮ SỐ, không
+     đụng chữ thường. Đây là dòng rẻ nhất và đáng giá nhất trong cả khối. */
+  table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+
+  /* Header bảng — dùng vai trò eyebrow, KHÔNG tô màu thương hiệu.
+     Bề mặt trung tính, đúng luật "cam chỉ là mực". */
+  thead th {
+    background: var(--bg-page);
+    color: var(--text-3);
+    font-size: var(--fs-eyebrow);
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    text-align: left;
+    white-space: nowrap;
+    padding: var(--sp-sm) var(--sp-lg);
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody td { padding: var(--sp-sm) var(--sp-lg); border-bottom: 1px solid var(--border-soft); }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover td { background: var(--bg-page); }
+
+  /* Bốn tên bọc bảng đang tồn tại song song trong code — gom về một hành vi.
+     Không đổi tên vì 287 chỗ đang dùng; chỉ cho chúng cùng nghĩa. */
+  .tbl-wrap, .table-wrap, .tbl-scroll, .tablewrap, .tblwrap { overflow-x: auto; }
+
+  /* Cột số: căn phải. Thêm class `num` vào <td>/<th> khi ô chứa số tiền/số lượng. */
+  td.num, th.num { text-align: right; white-space: nowrap; }
+
+  /* ── HEADER DÍNH — phải TỰ BẬT bằng class `tbl-sticky` ──────────────────
+     KHÔNG bật mặc định cho 440 bảng: position:sticky tạo stacking context
+     mới, có thể làm menu thả xuống chui xuống dưới header. Bật từng bảng đã
+     xem tận mắt.
+
+     Dùng: <div class="tbl-wrap tbl-sticky" style="max-height:60vh;overflow-y:auto">
+     Bảng phải nằm trong vùng cuộn DỌC thì sticky mới có tác dụng.            */
+  .tbl-sticky thead th { position: sticky; top: 0; z-index: 2; }
+
+  /* Bản in: bỏ nền và sticky — tốn mực, và giấy thì không cuộn. */
+  @media print {
+    thead th { background: transparent; position: static; }
+    tbody tr:hover td { background: transparent; }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
