@@ -59,7 +59,10 @@
 
 body{
   font-family:'Segoe UI',sans-serif;
-  background:var(--bg-card);   /* Nền MÀN HÌNH là TRẮNG (chốt 08/08/2026). --bg-page nay chỉ còn dùng cho bề mặt LÕM: dải tổng, đầu bảng, hàng hover, hộp thông tin. */
+  background:var(--bg-app);    /* Nền MÀN HÌNH là XÁM --bg-app (27/08/2026, thay quyết
+                                  định 08/08 'nền trắng'). Thẻ trắng phải có nền xám
+                                  dưới nó mới thấy mép. --bg-page dành cho bề mặt LÕM
+                                  bên TRONG thẻ: dải tổng, đầu bảng, hàng hover. */
   color:var(--text-1);
   font-size: var(--fs-body-lg);
   min-height:100vh;

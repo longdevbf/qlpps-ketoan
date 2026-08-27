@@ -34,6 +34,24 @@
 /* ─── Khung header ─────────────────────────────────────────────────────── */
 :root{--ab-h:56px}
 body{padding-top:var(--ab-h) !important}
+
+/* ─── NỀN TRANG (27/08/2026) ────────────────────────────────────────────────
+   Thiếu đúng dòng này nên nền màn hình lấy luôn màu THẺ: thẻ trắng nằm trên
+   nền trắng, không còn ranh giới nào để nhìn. baogia/marketing/muahang/
+   saleadmin đã có từ 25/08, bốn app còn lại bị sót.
+
+   Đặt ở ĐÂY chứ không ở <head> là cố ý: partial này nằm trong `<body>`, nạp
+   SAU CSS của trang, nên đè được khối alias mà nhiều template tự khai.
+   Không dùng `!important` — trang nào cần nền riêng vẫn đè được bằng một dòng.
+
+   Dự phòng `var(--bg-app, var(--bg-page))`: nếu máy khách còn kẹt theme.css
+   cũ (chưa có --bg-app) thì lùi về --bg-page. Không có lớp này, token rỗng
+   làm hỏng cả thuộc tính background và đổ về giá trị khởi tạo = TRẮNG — đúng
+   lỗi đang đi sửa. */
+body,body.ceo-app{background:var(--bg-app, var(--bg-page))}
+/* BẢN IN: trả nền về trắng, nếu không dòng trên sẽ đè mất luật @media print
+   của các trang in. */
+@media print{body,body.ceo-app{background:var(--bg-card)}}
 .appbar{position:fixed;top:0;left:0;right:0;min-height:56px;z-index:190;
         background:var(--bg-card);border-bottom:1px solid var(--border);box-shadow:var(--shadow-sm);
         display:flex;align-items:center;padding: 0 var(--sp-10);gap:0;
