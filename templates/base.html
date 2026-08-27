@@ -28,7 +28,9 @@
    ═══════════════════════════════════════════════════════════════════════════ #}
 {# Phá cache trình duyệt khi sửa CSS — repo không có build step nên phải thủ công.
    KHÔNG thêm vào shared/templates.py: file đó dùng chung cho cả 6 app. #}
-{% set ASSET_V = '4' %}
+{# Nâng 4 → 20260825 (25/08/2026): theme.css có token mới --bg-app, mà static
+   phục vụ với `cache-control: immutable` nên không đổi URL là client không thấy. #}
+{% set ASSET_V = '20260825' %}
 <!DOCTYPE html>
 <html lang="vi">
 <head>
