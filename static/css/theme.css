@@ -1,3 +1,8 @@
+/* SINH TỰ ĐỘNG — ĐỪNG sửa file này trong repo.
+   Sửa `claude-kit/core/static/css/theme.css` rồi chạy:
+       cd d:\PapaSanIT\claude-kit && python sync.py
+   File này giống hệt nhau ở cả 8 repo. Sửa lẻ một repo là cách
+   hệ màu đã trôi khỏi nhau 3 lần. */
 /* ═══════════════════════════════════════════════════════════════════════════
    theme.css — HỆ MÀU QLPPS · CAM trên slate lạnh
    ───────────────────────────────────────────────────────────────────────────
@@ -5,11 +10,13 @@
    NGUỒN SỰ THẬT: qlpps-marketing/docs/HE-MAU-ERP.md — phần :root là giá trị.
    Cuối file có thêm MỘT lớp component (@layer qlpps.table) — xem lý do tại chỗ.
 
-   File này giống hệt nhau ở cả 8 repo. Sửa thì sửa bản gốc ở NewTheme/theme.css
-   rồi rải lại, đừng sửa lẻ một repo — đó là cách hệ màu trôi khỏi nhau 3 lần.
+   File này giống hệt nhau ở cả 8 repo vì `claude-kit/sync.py` rải ra. Bản gốc:
+   claude-kit/core/static/css/theme.css. Sửa gốc rồi chạy sync, đừng sửa lẻ một
+   repo — đó là cách hệ màu đã trôi khỏi nhau 3 lần.
 
    ── VÌ SAO GIÁ TRỊ NHƯ VẬY ──────────────────────────────────────────────
-   Sắc cam rút từ bản thiết kế trong NewTheme/ (9 file PDF). Thang xám và cấu
+   Sắc cam rút từ 9 file PDF bản thiết kế khách đưa (đã trích xong màu, xoá
+   27/08 — bảng trích ghi ở qlpps-marketing/docs/HE-MAU-ERP.md). Thang xám và cấu
    trúc tương phản lấy từ module MKT của HSM. Mọi số dưới đây đo bằng WCAG 2.1.
 
    Điểm mấu chốt: `--brand` đang được gọi **763 lần làm màu CHỮ** trong
