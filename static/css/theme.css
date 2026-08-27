@@ -212,13 +212,21 @@
      nghĩa là không thấy khối. Bản thiết kế (Body.pdf) tách khối bằng đúng
      một đường 1px #DFDFDF, bóng gần như không có.
 
-     alpha .10: trên nền --bg-app ra #DADFE4, thẻ trắng nổi 1.341 lần —
-     khớp 1.333 của bản thiết kế. Đo, không chọn bằng mắt.
+     alpha .14: ĐO TRÊN TRÌNH DUYỆT THẬT (Playwright + Chromium), quét ngang
+     qua mép trái thẻ rồi lấy điểm ảnh sẫm nhất — không tính bằng công thức
+     nữa, vì các lớp bóng chồng lên viền làm mép sẫm hơn tính toán:
+
+       .10  mép #CFD3D8  thẻ/mép 1.504
+       .14  mép #C6CBD1  thẻ/mép 1.632   <- chọn
+       .18  mép #BEC3CA  thẻ/mép 1.772   (bắt đầu ra vệt kẻ cứng)
+
+     Bản thiết kế được 1.333 trên nền TRẮNG. Nền ở đây là --bg-app, chỉ nhạt
+     hơn thẻ 1.096 lần, nên mép phải gánh nhiều hơn.
 
      `0 0 0 1px` chứ không phải `border`: viền bám theo border-radius, KHÔNG
      cộng vào kích thước phần tử, nên thêm vào 654 chỗ đang gọi var(--shadow-*)
      mà không xê dịch bố cục một pixel nào. */
-  --ring: 0 0 0 1px rgba(15,23,42,.10);
+  --ring: 0 0 0 1px rgba(15,23,42,.14);
 
   /* Dùng cho THẺ / KHỐI THÔNG TIN: mép + nhấc nhẹ. Đây là thứ nên gọi thay
      cho var(--shadow-sm) ở các khối lớn. Ô nhỏ, nút, popover thì vẫn dùng
