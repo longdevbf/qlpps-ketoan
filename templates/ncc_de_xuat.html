@@ -11,14 +11,14 @@
    design-system (mục "Cỡ KPI"); 25px khi màn thấp, giống .stats-row.tier-1
    của dashboard. */
 .ncc-hero{max-width:340px}
-.ncc-hero .stat-num{font-size:29px;color:var(--brand-hover)}
-@media(max-height:820px){.ncc-hero .stat-num{font-size:25px}}
-.ncc-hero-sub{font-size:12px;color:var(--text-3);margin-top:8px;line-height:1.5}
+.ncc-hero .stat-num{font-size: var(--fs-kpi);color:var(--brand-hover)}
+@media(max-height:820px){.ncc-hero .stat-num{font-size: var(--fs-glyph)}}
+.ncc-hero-sub{font-size: var(--fs-meta);color:var(--text-3);margin-top:8px;line-height:1.5}
 
 /* Đếm trong tab lọc — nằm trong .tab-btn nên thừa hưởng màu active của nó. */
 .tab-count{
   margin-left:6px;padding:1px 7px;border-radius:var(--radius-pill);
-  background:var(--bg-page);font-size:12px;font-weight:700;
+  background:var(--bg-page);font-size: var(--fs-meta);font-weight:700;
 }
 .tab-btn.active .tab-count{background:var(--brand-soft);color:var(--brand-hover)}
 
@@ -38,16 +38,16 @@
 .cot-duyet{min-width:150px}
 .buoc + .buoc{margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)}
 .buoc-cap{
-  font-size:11px;font-weight:700;color:var(--text-3);
+  font-size: var(--fs-eyebrow);font-weight:700;color:var(--text-3);
   text-transform:uppercase;letter-spacing:.5px;
 }
 
 /* Mô tả cần bề rộng TỐI THIỂU, không chỉ tối đa: chỉ đặt max-width thì trình
    duyệt vẫn bóp nó xuống ~85px và chữ rơi thành 5 dòng. */
-.mo-ta{min-width:180px;max-width:260px;color:var(--text-2);font-size:13px;line-height:1.45}
+.mo-ta{min-width:180px;max-width:260px;color:var(--text-2);font-size: var(--fs-body);line-height:1.45}
 /* Ghi chú của KT nằm lồng trong ô người duyệt — nhỏ hơn, không cần min-width. */
-.ghi-chu{max-width:200px;color:var(--text-3);font-size:12px;line-height:1.45;margin-top:2px}
-.meta{color:var(--text-3);font-size:12px}
+.ghi-chu{max-width:200px;color:var(--text-3);font-size: var(--fs-meta);line-height:1.45;margin-top:2px}
+.meta{color:var(--text-3);font-size: var(--fs-meta)}
 
 /* Skeleton tĩnh — không animation: rule 9 nói hiệu ứng phải có mục đích,
    thanh xám đứng yên đã đủ nói "đang tải". */

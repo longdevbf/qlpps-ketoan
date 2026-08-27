@@ -24,17 +24,32 @@ Chạy đủ 6 nhóm, báo kết quả **pass/fail từng mục** kèm bằng ch
 
 ## 3. Màu & token (lệnh từ design-system.md)
 
+> **Bảng dưới là hệ CAM (chốt 26/08/2026).** Nguồn sự thật:
+> `qlpps-marketing/docs/HE-MAU-ERP.md`. Nếu ở đây xuất hiện lại `D23C0E` hay `9E5D09` thì
+> file này đã bị kéo về bản cũ — đó là hai hệ **đã bị thay**, KHÔNG được lấy
+> nó sửa ngược template.
+
 ```bash
 # Hex ngoài hệ (rỗng = sạch; màu chuỗi biểu đồ là ngoại lệ hợp lệ)
 grep -nE '#[0-9a-fA-F]{3,6}' templates/<file>.html | grep -v '&#' | grep -viE \
- 'D23C0E|BF370D|FBE5D0|FFFFFF|#fff|FBF8F5|DFD2C6|2A2521|54483F|736659|DC2626|FEE2E2|991B1B|16A34A|DCFCE7|15803D|F59E0B|FEF3C7|92400E|2563EB|DBEAFE|1D4ED8|0084FF|1877F2|0068FF|e67e22'
+ 'CC4E05|B85105|EA580C|F2610E|FFFFFF|#fff|F1F5F9|F8FAFC|E2E8F0|EDF1F6|0F172A|334155|5F6E80|15803D|DCFCE7|B45309|FEF3C7|B91C1C|FEE2E2|475569|E9EEF4|1D4ED8|0084FF|1877F2|0068FF|e67e22'
+# Xám ẤM lọt vào hệ lạnh — di sản hai hệ cũ, phải rỗng
+grep -niE '#(605D58|795E43|E0D3C2|EBE2D6|FAF5EF|33210F|5E452C|9E5D09|7F4B07|FBE7C6|EFE2CB|FDF8F0|E7D7BE|D23C0E|FBE5D0)' templates/<file>.html
+# Token đã bỏ cùng công thức pastel — phải rỗng
+grep -n 'brand-soft\|brand-hover' templates/<file>.html
+# Cam dùng sai vai — kiểm từng dòng bằng mắt.
+#   CC4E05 CHỈ được làm NỀN khối đặc, không làm chữ. FF8D28 không được xuất hiện.
+grep -niE 'CC4E05|FF8D28' templates/<file>.html
 # Gradient & cỡ chữ lạ
 grep -c 'linear-gradient\|radial-gradient' templates/<file>.html
 grep -oE 'font-size:[0-9.]+px' templates/<file>.html | sort -u
 ```
 
-- [ ] Lệnh 1 rỗng · [ ] gradient = 0 · [ ] cỡ chữ nằm trong thang
-- [ ] Nút chính pastel (brand-soft + brand-hover), tối đa 1 nút nhấn/màn hình
+- [ ] Lệnh 1–3 rỗng · [ ] lệnh 4 đã soi bằng mắt · [ ] gradient = 0 · [ ] cỡ chữ trong thang
+- [ ] Nhấn là **khối đặc** `--brand` + chữ trắng, tối đa 1 khối/màn ngoài điều hướng
+- [ ] Bề mặt trung tính: header bảng dùng `--bg-page` + `--text-3` IN HOA, KHÔNG tô brand
+- [ ] Thẻ số liệu: nhãn `--text-3` 11px IN HOA · số 29px `--text-1`/`--kpi-*` — chênh ≥3×
+- [ ] Một hàng thẻ không quá 3 màu `--kpi-*` khác nhau
 - [ ] Doanh thu không đỏ; **chi phí không đỏ mặc định**; badge dùng cặp `-soft`/`-fg`
 - [ ] Viền màu card (nếu có) mang MỘT nghĩa nhất quán, không trang trí ngẫu nhiên
 - [ ] Bố cục trong ngân sách thẻ của `layout-rules` (Tầng 1 ≤4, Tầng 2 ≤6, biểu đồ ≤4)

@@ -26,6 +26,10 @@ chờ người dùng đồng ý.
 
 ## Quyết định pastel (chốt 05/08/2026, áp vào ketoan 06/08/2026)
 
+> **26/08/2026 — công thức pastel đã BỊ BỎ.** Đoạn dưới là lịch sử, không còn
+> hiệu lực. Nay nhấn là **khối đặc `--brand` + chữ trắng**, bề mặt giữ trung
+> tính. Token `--brand-soft` / `--brand-hover` không còn tồn tại.
+
 Mọi nút/khối từng là **cam đặc + chữ trắng** đã chuyển sang **nền `--brand-soft`
 + chữ `--brand-hover`** (4.57:1 ✔ AA) — kể cả nút hành động chính, tab đang chọn,
 avatar, header bảng. Nền **đặc** chỉ còn ở: nút xoá/đăng xuất/từ chối
@@ -52,21 +56,24 @@ và chuỗi màu biểu đồ. Hover **không thêm hex mới** — dùng `filte
 
 | Nhóm | Token | Giá trị | Dùng cho |
 |---|---|---|---|
-| Thương hiệu | `--brand` | `#9E5D09` | tiêu đề, chữ nhấn, icon, dải neo mỏng — **không đổ nền diện rộng** |
-| | `--brand-hover` | `#7F4B07` | hover/active; **chữ đặt trên nền `--brand-soft`** |
-| | `--brand-soft` | `#FBE7C6` | nền nhạt: nút chính, tab đang chọn, avatar, hàng chọn, chip |
+| Thương hiệu | `--brand` | `#CC4E05` | **NỀN** khối đặc: nút chính, tab chọn, avatar. Chữ trắng trên nó 4,51:1 |
+| | `--brand-ink` | `#B85105` | **CHỮ + icon** nhỏ — đạt AA trên cả 3 bề mặt |
+| | `--brand-bright` | `#EA580C` | **SỐ KPI ≥24px đậm** (3,56:1) |
+| | `--brand-graph` | `#F2610E` | **THANH biểu đồ** (3,09:1) |
 | Nền | `--bg-card` | `#FFFFFF` | thẻ, bảng, modal |
-| | `--bg-page` | `#FDF8F0` | nền trang, sọc bảng, vùng lõm |
-| Viền | `--border` | `#E7D7BE` | **mức duy nhất** |
-| | `--focus-ring` | `0 0 0 3px rgba(158,93,9,.28)` | nhận biết focus |
-| Chữ | `--text-1` | `#33210F` | tiêu đề, số liệu (15.38:1) |
-| | `--text-2` | `#5E452C` | nội dung (8.88:1) |
-| | `--text-3` | `#7D6248` | chú thích, nhãn (5.66:1 thẻ · 5.35:1 nền trang) |
-| | `--text-on-brand` | `#FFFFFF` | chữ trên nền brand |
-| Trạng thái | `--danger` / `-soft` / `-fg` | `#B02A18` `#F9E2DD` `#8A1F11` | xoá, lỗi |
-| | `--success` / `-soft` / `-fg` | `#2E7D4F` `#E1EFE5` `#1F5C39` | thành công |
-| | `--warning` / `-soft` / `-fg` | `#9E5D09` `#FBE7C6` `#7F4B07` | cảnh báo — **cố ý trùng brand** |
-| | `--info` / `-soft` / `-fg` | `#7D6248` `#F1E9DD` `#5E452C` | thông tin — **cố ý trung tính** |
+| | `--bg-app` | `#F1F5F9` | **chỉ cho `body`** |
+| | `--bg-page` | `#F8FAFC` | mặt lõm trong thẻ |
+| Viền | `--border` | `#E2E8F0` | viền chuẩn |
+| | `--border-soft` | `#EDF1F6` | kẻ ngang trong bảng |
+| Chữ | `--text-1` | `#0F172A` | số, tiêu đề (17,85:1) |
+| | `--text-2` | `#334155` | nội dung (10,35:1) |
+| | `--text-3` | `#5F6E80` | nhãn + chú thích (5,21:1) |
+| | `--text-on-brand` | `#FFFFFF` | chữ trên nền `--brand` |
+| Số liệu | `--kpi-neutral` `--kpi-brand` `--kpi-good` `--kpi-data` | `#0F172A` `#EA580C` `#15803D` `#1D4ED8` | tô số KPI theo loại |
+| Trạng thái | `--danger` / `-soft` | `#B91C1C` `#FEE2E2` | xoá, lỗi |
+| | `--success` / `-soft` | `#15803D` `#DCFCE7` | thành công |
+| | `--warning` / `-soft` | `#B45309` `#FEF3C7` | cảnh báo — **tách khỏi brand** |
+| | `--info` / `-soft` | `#475569` `#E9EEF4` | thông tin |
 | Bên thứ ba | `--facebook` `--messenger` `--zalo` | `#0084FF` `#1877F2` `#0068FF` | **không đổi** |
 | Bóng | `--shadow-sm/md/lg` | ám nâu `rgba(96,56,20,…)` | không dùng đen thuần |
 
@@ -76,7 +83,8 @@ và chuỗi màu biểu đồ. Hover **không thêm hex mới** — dùng `filte
   `static/papasan_icon_1024.png` ra đúng hai màu: `#FEB041` hổ phách (13.7%)
   và `#603814` nâu cà phê (10.2%). Brand cũ `#D23C0E` **không có trong logo**
   và lệch 21° hue khỏi nó. `#FEB041` nguyên bản chỉ đạt 1.9:1 trên nền trắng
-  nên không làm chữ được — hạ sáng cùng hue 35° tới `#9E5D09` (5.22:1).
+  nên không làm chữ được. (Hệ hổ phách `#9E5D09` là bản **cũ**, đã bị thay
+  26/08/2026 bằng cam `#CC4E05` — xem bảng token trên.)
 - **`--warning` cố ý DÙNG LẠI brand.** Hổ phách vốn đã nghĩa là "chú ý tôi";
   thêm một sắc vàng thứ hai là thừa. Bớt được một cụm sắc, và sửa luôn một
   lỗi thật: nền `--warning` cũ `#F59E0B` với chữ trắng chỉ **2.15:1** (badge
@@ -94,7 +102,7 @@ này ngoại lệ nằm ở **12 dòng** của `templates/index.html` — các o
 `{label:…, value:…, color:'#…'}` (dòng ~7637-7650 và ~8176-8181):
 
 ```js
-{label:'Tiền & TGNH', value:tien.total, color:'#9E5D09'},
+{label:'Tiền & TGNH', value:tien.total, color:'#CC4E05'},
 {label:'Phải thu KH', value:ptKh.total, color:'#1F6F72'},
 ```
 
@@ -109,7 +117,7 @@ cần phân biệt trong cùng một biểu đồ:
 | `#6B4E7D` mận | Lương | 6.97 |
 | `#B02A18` đỏ gạch | Phải trả NCC | 6.58 |
 | `#1F6F72` mòng két | Phải thu KH · Định phí | 5.87 |
-| `#9E5D09` hổ phách (logo) | Tiền & TGNH · Biến phí | 5.22 |
+| `#CC4E05` cam thương hiệu | Tiền & TGNH · Biến phí | 4.51 |
 | `#4A9B6B` lục | Vốn chủ sở hữu | 3.39 |
 | `#B0873C` cát | Tồn kho · Phải trả VC · Bán hàng | 3.29 |
 
@@ -126,7 +134,8 @@ chuỗi dữ liệu, giữ nguyên. Mọi hex khác — kể cả trong chuỗi 
 (`element.style.background = 'var(--border)'` hợp lệ, `var()` cũng chạy trong
 thuộc tính SVG `fill=` / `stroke=`).
 
-Thẻ `<meta name="theme-color">` không nhận `var()` → dùng hex thật `#D23C0E`.
+Thẻ `<meta name="theme-color">` không nhận `var()` → dùng hex thật `#CC4E05`
+(hổ phách, khớp `--brand`). Đổi brand thì phải sửa tay cả `manifest` nếu app có PWA.
 
 ## Trạng thái áp dụng — 01/08/2026
 
@@ -149,7 +158,8 @@ rồi đổi. Mẫu tốt nhất để nhìn theo: `templates/_header.html`.
 grep -c 'linear-gradient\|radial-gradient' templates/*.html | grep -v ':0'
 ```
 
-Nhiều gradient nay là `linear-gradient(135deg,var(--brand-soft),#fff)` — tức
+Nhiều gradient nay là `linear-gradient(135deg,var(--brand-soft),#fff)` — token
+này đã bị bỏ, gặp thì thay bằng nền phẳng `var(--bg-page)`. Tức
 đã dùng token nhưng vẫn là gradient. Thay bằng một màu đặc khi có dịp sửa file đó.
 
 ⚠️ `templates/index.html` nặng ~560 KB — sửa phải grep theo tên hàm/id,
@@ -304,7 +314,7 @@ CSS riêng của trang. Thêm class mới cũng phải `ab-`.
 - **Nền header TRẮNG**, không nhuộm màu thương hiệu.
 - **Nav là CHỮ THUẦN** — không nền, không viền, không khối. Trạng thái phân
   biệt **chỉ bằng màu + độ đậm**:
-  `thường` = `--text-2`/500 · `hover` = `--brand` · `active` = `--brand-hover`/700.
+  `thường` = `--text-2`/500 · `hover` = `--brand-ink` · `active` = `--brand-ink`/700.
 - **Không tô nền cho mục nav đang chọn.**
 - Khối phải: `margin-left:auto`, ngăn bằng kẻ dọc. Avatar tròn 30px nền brand
   chữ trắng; tên 12px/700, vai trò 10px/500.
@@ -338,7 +348,7 @@ không deep-link được từ ngoài vào. Vì vậy toàn bộ SPA gom về m�
 
 **Dạng 2 — tab trong thân trang** (khi các mục ngang hàng, cùng một trang):
 tab chữ thuần, mục đang chọn dùng `--brand` + gạch chân 2px `--brand`, nền
-`--brand-soft` chỉ khi cần khối. Không dùng nút bo tròn kiểu pill có nền.
+nền `--brand` đặc chỉ khi cần khối. Không dùng nút bo tròn kiểu pill có nền.
 Ví dụ trong app này: `.tab-nav` ở `templates/products.html` (6 tab) — **đang
 dùng màu V1, cần đưa về hệ**.
 
@@ -377,9 +387,19 @@ desktop) vì không còn thanh ngang làm mốc.
 # 1. Có màu nào ngoài hệ lọt vào không?  (đã chạy thử 01/08/2026: _header.html
 #    ra RỖNG = sạch. dao_tao 51 / products 32 / xin_nghi 42 dòng = nợ V1.)
 grep -nE '#[0-9a-fA-F]{3,6}' templates/<file>.html | grep -v '&#' | grep -viE \
- '9E5D09|7F4B07|FBE7C6|FFFFFF|#fff|FDF8F0|E7D7BE|33210F|5E452C|7D6248|B02A18|F9E2DD|8A1F11|2E7D4F|E1EFE5|1F5C39|F1E9DD|FEB041|603814|0084FF|1877F2|0068FF|e67e22'
+ 'CC4E05|B85105|EA580C|F2610E|FFFFFF|#fff|F1F5F9|F8FAFC|E2E8F0|EDF1F6|0F172A|334155|5F6E80|15803D|DCFCE7|B45309|FEF3C7|B91C1C|FEE2E2|475569|E9EEF4|1D4ED8|0084FF|1877F2|0068FF|e67e22'
 
-# 2. Cỡ chữ có nằm ngoài thang không?
+# 2. Xám ẤM lọt vào hệ lạnh — phải rỗng
+grep -niE '#(605D58|795E43|E0D3C2|EBE2D6|FAF5EF|33210F|5E452C|9E5D09|7F4B07|FBE7C6|EFE2CB|FDF8F0|E7D7BE|D23C0E|FBE5D0)' templates/<file>.html
+
+# 3. Token đã bỏ — phải rỗng
+grep -n 'brand-soft\|brand-hover' templates/<file>.html
+
+# 4. Cam dùng sai vai — kiểm từng dòng bằng mắt
+#    CC4E05 chỉ được làm NỀN khối đặc · FF8D28 không được xuất hiện
+grep -niE 'CC4E05|FF8D28' templates/<file>.html
+
+# 5. Cỡ chữ có nằm ngoài thang không?
 grep -oE 'font-size:[0-9]+px' templates/<file>.html | sort -u
 ```
 
@@ -431,16 +451,17 @@ lệnh ngày 08/08/2026**, không chép từ tài liệu cũ.
 - **Ngoại lệ đã duyệt, giữ nguyên**: (1) **sidebar dọc `.ab-sb`** 196px là
   điều hướng chính (duyệt 08/08/2026, thay rail clone `.ab-subnav` cũ — lệch
   có chủ đích so với 6 app kia); (2) **15 dòng màu chuỗi biểu đồ** hard-code
-  trong `index.html`; (3) `<meta name="theme-color">` dùng hex thật `#9E5D09`
+  trong `index.html`; (3) `<meta name="theme-color">` dùng hex thật `#CC4E05`
   vì thuộc tính này không nhận `var()`; (4) **SVG inline** cho icon sidebar.
 
 ## Tóm tắt đợt chuẩn hoá UI 08/08/2026
 
 Đọc **`BAN-GIAO-UI.md`** ở gốc repo trước bất kỳ việc UI nào. Tóm tắt:
 
-- Hệ màu **hổ phách & cà phê** rút từ logo (`--brand:#9E5D09`) — `HE-MAU-ERP.md`
-  chung **không còn đúng** cho app này. `.claude/rules/design-system.md` của
-  repo này là bản riêng, không đồng bộ với 6 app kia.
+- Hệ màu: từ 26/08/2026 cả 8 app **dùng chung** hệ CAM trên slate lạnh
+  (`--brand:#CC4E05`) — nguồn `qlpps-marketing/docs/HE-MAU-ERP.md`.
+  Ghi chú "ketoan có bảng màu riêng" của đợt 08/08 **không còn đúng**: đợt đó
+  tách ra để thử hệ hổ phách `#9E5D09`, hệ đó nay đã bị thay.
 - Điều hướng ở **sidebar dọc** `.ab-sb` (196px, thu gọn 52px), không còn 5
   dropdown trên header.
 - **Thang chữ +1px toàn dải**, nội dung chuẩn `14px`. **Mobile không được thu
