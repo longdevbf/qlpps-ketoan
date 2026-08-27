@@ -52,6 +52,15 @@
   --bg-app:  #F1F5F9;        /* CHỈ dùng cho `body`. Không dùng cho gì khác */
   --bg-page: #F8FAFC;        /* mọi mặt lõm bên trong thẻ: sọc bảng, ô nhập,
                                 rãnh thanh, hover hàng */
+  --bg-band: #D6DFDF;        /* DẢI NHẤN — đầu bảng, viên lọc đang chọn, nút
+                                phụ. Thẻ trắng nổi 1.36 lần trên nó.
+                                Thêm 27/08/2026, lấy đúng từ bản thiết kế
+                                (Body.pdf, 18,7% diện tích khung danh sách).
+                                Vì sao cần bậc này: bậc đậm nhất trước đó là
+                                --brand-soft, thẻ trắng chỉ nổi 1.18 lần, còn
+                                --bg-page 1.05 — đầu bảng gần như tàng hình,
+                                người dùng nhìn ra ngay. Chữ: --text-1 13.16,
+                                --text-2 7.63. ĐỪNG để --text-3 lên đây (3.84). */
 
   /* ═══ 3. --brand-soft NAY LÀ XÁM — đọc kỹ trước khi "sửa lại" ════════════
      Trước 26/08 đây là peach #FBE7C6 (hổ phách) / #FBE5D0 (cam đỏ), bão hoà
