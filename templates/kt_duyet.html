@@ -22,7 +22,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
 .stat-kvt  .stat-num{color:var(--warning)}
 /* Tabs */
 .tab-btn.active{color:var(--brand);border-bottom-color:var(--brand-hover);background:var(--brand-soft)}
-.tab-cnt{background:var(--brand-soft);color:var(--brand-hover);border-radius:var(--radius-pill);padding:1px 7px;font-size:12px;font-weight:700}
+.tab-cnt{background:var(--brand-soft);color:var(--brand-hover);border-radius:var(--radius-pill);padding:1px 7px;font-size: var(--fs-meta);font-weight:700}
 .tab-btn.active .tab-cnt{background:#fff;color:var(--brand);border:1px solid var(--brand)}
 .tab-cnt.warn{background:var(--brand-soft)}.tab-cnt.kvt{background:var(--warning-soft);color:var(--warning-fg)}
 /* Card */
@@ -35,13 +35,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
 .btn-approve{background:var(--success);color:#fff}.btn-approve:hover{background:var(--success)}
 .btn-reject{background:var(--danger);color:#fff}.btn-reject:hover{background:var(--danger)}
 /* Cọc info box */
-.coc-box{background:var(--warning-soft);border:1.5px solid var(--warning);border-radius:8px;padding:9px 12px;font-size:13px}
-.coc-box .coc-label{font-size:11px;font-weight:700;color:var(--warning);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
-.coc-val{font-weight:700;color:var(--warning);font-size:15px}
+.coc-box{background:var(--warning-soft);border:1.5px solid var(--warning);border-radius:8px;padding:9px 12px;font-size: var(--fs-body)}
+.coc-box .coc-label{font-size: var(--fs-eyebrow);font-weight:700;color:var(--warning);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.coc-val{font-weight:700;color:var(--warning);font-size: var(--fs-title)}
 /* Modal */
 .modal-head.approve{background:var(--success-soft)}
 .modal-head.reject{background:var(--danger-soft)}
-.form-label{font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px}
+.form-label{font-size: var(--fs-meta);font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px}
 .input:focus{border-color:var(--brand);background:#fff}
 /* Toast */
 .toast.ok{background:var(--success)}.toast.err{background:var(--danger)}.toast.info{background:var(--info)}
@@ -105,7 +105,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-body">
-      <div id="modal-info" style="margin-bottom:12px;font-size:14px"></div>
+      <div id="modal-info" style="margin-bottom:12px;font-size: var(--fs-body-lg)"></div>
       <label class="form-label">Ghi chú <span style="color:var(--text-3);font-weight:500">(tuỳ chọn)</span></label>
       <textarea id="modal-note" class="input" rows="3" placeholder="Nhập lý do nếu có..."></textarea>
     </div>
@@ -188,17 +188,17 @@ function renderTable(){
       ? `<div class="coc-box">
            <div class="coc-label">Đã cọc</div>
            <div class="coc-val">${fmt(q.coc_so_tien)}</div>
-           <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+           <div style="font-size: var(--fs-meta);color:var(--text-3);margin-top:2px">
              ${fmtDate(q.coc_ngay)}
              ${q.coc_hinh_thuc==='tien_mat'?' · Tiền mặt':q.coc_hinh_thuc==='chuyen_khoan'?' · Chuyển khoản':''}
              ${q.coc_ngan_hang?` · <b style="color:var(--brand)">${esc(q.coc_ngan_hang)}</b>`:''}
              ${q.coc_ghi_chu?`<br><i>${esc(q.coc_ghi_chu)}</i>`:''}
            </div>
          </div>`
-      : '<span style="color:#e67e22;font-size:13px;font-weight:600">Chưa ghi cọc</span>';
+      : '<span style="color:#e67e22;font-size: var(--fs-body);font-weight:600">Chưa ghi cọc</span>';
 
     const kvtNote = q.duyet_status==='kt_rejected' && q.kt_ghi_chu
-      ? `<div style="font-size:12px;color:var(--warning);margin-top:4px">${esc(q.kt_ghi_chu)}</div>` : '';
+      ? `<div style="font-size: var(--fs-meta);color:var(--warning);margin-top:4px">${esc(q.kt_ghi_chu)}</div>` : '';
 
     const badge = q.duyet_status==='kt_pending'
       ? '<span class="badge b-wait">Chờ KT</span>'
@@ -214,11 +214,11 @@ function renderTable(){
       <td>${cocHtml}</td>
       <td>
         ${badge}
-        ${q.duyet_boi?`<div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(q.duyet_boi)} · ${(q.duyet_luc||'').slice(0,16)}</div>`:''}
+        ${q.duyet_boi?`<div style="font-size: var(--fs-meta);color:var(--text-3);margin-top:2px">${esc(q.duyet_boi)} · ${(q.duyet_luc||'').slice(0,16)}</div>`:''}
         ${kvtNote}
       </td>
       <td style="text-align:center">
-        <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+        <div style="display:flex;gap: var(--sp-3);justify-content:center;flex-wrap:wrap">
           <button class="btn btn-sm btn-approve" onclick="openModal(${q.id},'approved','${esc(q.quote_number)}','${esc(q.customer_name)}')">
             Xác nhận
           </button>
@@ -244,7 +244,7 @@ function openModal(qid, action, qnum, cust){
     btn.innerHTML='Xác nhận';
     document.getElementById('modal-info').innerHTML =
       `Đơn <strong>${esc(qnum)}</strong> — ${esc(cust)}<br>
-       <span style="font-size:13px;color:var(--text-2)">Đơn sẽ được duyệt và lên Mua Hàng ngay sau khi xác nhận.</span>`;
+       <span style="font-size: var(--fs-body);color:var(--text-2)">Đơn sẽ được duyệt và lên Mua Hàng ngay sau khi xác nhận.</span>`;
   } else {
     hdr.className='modal-header reject';
     document.getElementById('modal-title').textContent = 'Chưa nhận được tiền cọc';
@@ -252,7 +252,7 @@ function openModal(qid, action, qnum, cust){
     btn.innerHTML='Chưa Về Tiền';
     document.getElementById('modal-info').innerHTML =
       `Đơn <strong>${esc(qnum)}</strong> — ${esc(cust)}<br>
-       <span style="font-size:13px;color:var(--text-2)">KD và Manager sẽ thấy trạng thái "Chưa Về Tiền".</span>`;
+       <span style="font-size: var(--fs-body);color:var(--text-2)">KD và Manager sẽ thấy trạng thái "Chưa Về Tiền".</span>`;
   }
   document.getElementById('modal-kt').classList.add('show');
 }

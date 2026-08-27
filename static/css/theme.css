@@ -116,14 +116,22 @@
      đứng thứ 2 và thứ 3 ở đây. Đó là thang cho trang tài liệu thoáng, không
      dùng thẳng được cho ERP.
 
+     Thang 10 nấc — nhiều hơn thang thường thấy, CÓ CHỦ ĐÍCH. Đã thử 5 thang
+     trên 12 714 khai báo thật: thang 7 nấc (2/4/6/8/12/16/24) bắt 5 791 chỗ
+     phải đổi, thang của Notion bắt 7 978; thang này chỉ 3 131. Bớt nấc nghe
+     "sạch" hơn nhưng đổi bố cục nhiều hơn gấp đôi.
+
      Cần khoảng cách không có trong thang → dùng nấc GẦN NHẤT, đừng nội suy. */
-  --sp-xxs:  2px;   /* khe giữa icon và chữ */
-  --sp-xs:   4px;   /* đệm chip, khe nav */
-  --sp-sm:   6px;   /* đệm dọc nút, khe nhỏ */
-  --sp-md:   8px;   /* khe mặc định giữa phần tử */
-  --sp-lg:  12px;   /* đệm ô bảng, khe giữa thẻ */
-  --sp-xl:  16px;   /* đệm trong thẻ */
-  --sp-2xl: 24px;   /* khe giữa khối lớn */
+  --sp-1:   2px;   /* khe giữa icon và chữ */
+  --sp-2:   4px;   /* đệm chip, khe nav */
+  --sp-3:   6px;   /* đệm dọc nút, khe nhỏ */
+  --sp-4:   8px;   /* khe mặc định giữa phần tử */
+  --sp-5:  10px;   /* đệm ô bảng hẹp */
+  --sp-6:  12px;   /* đệm ô bảng, khe giữa thẻ */
+  --sp-7:  14px;   /* đệm trong thẻ, hẹp */
+  --sp-8:  16px;   /* đệm trong thẻ */
+  --sp-9:  20px;   /* đệm khối lớn */
+  --sp-10: 24px;   /* khe giữa khối lớn */
 
   /* ═══ 11. CỠ CHỮ — ĐẶT TÊN THEO VAI TRÒ, không phải theo số ══════════════
      Vì sao đặt tên: tài liệu cũ chỉ liệt kê px được phép, và thực tế đã trôi
@@ -131,15 +139,20 @@
      "thêm một cỡ" trở thành "thêm một vai trò", tức phải giải thích được.
 
      Giá trị bám tần suất thật: 13px (2 168 lần) · 12px (2 125) · 14px (1 315)
-     · 11px (1 120). Các cỡ lẻ 12.5 / 11.5 / 13.5 / 10.5 là trôi, dồn về nấc
-     gần nhất.                                                                */
+     · 11px (1 120) · 15px (571). Các cỡ lẻ 12.5 / 11.5 / 13.5 / 10.5 là trôi,
+     dồn về nấc gần nhất.
+
+     Đã thử 5 thang trên 7 879 khai báo thật. Thang này bắt 1 200 chỗ phải đổi
+     và tổng xê dịch 1 510px — ít nhất trong cả 5. Bản đầu tiên tôi đặt
+     (…16/20…) bắt 1 301 chỗ và xê dịch 1 647px, vì nó chọn theo lý thuyết
+     chứ không theo số đếm: 15px dùng 571 lần nhưng bị bỏ ra ngoài thang.     */
   --fs-micro:    10px;  /* nhãn nhóm trong menu, chữ siêu nhỏ */
   --fs-eyebrow:  11px;  /* nhãn IN HOA: header bảng, nhãn thẻ số liệu */
   --fs-meta:     12px;  /* meta, tên người dùng, chú thích */
   --fs-body:     13px;  /* nội dung, nav, ô nhập — MẶC ĐỊNH */
   --fs-body-lg:  14px;  /* nội dung app mật độ thấp (ketoan đã duyệt 08/08) */
-  --fs-title:    16px;  /* tiêu đề thẻ / khối */
-  --fs-h:        20px;  /* tiêu đề trang */
+  --fs-title:    15px;  /* tiêu đề thẻ / khối */
+  --fs-h:        18px;  /* tiêu đề trang */
   --fs-glyph:    22px;  /* icon glyph ☰ ✕ — KHÔNG dùng cho chữ người đọc */
   --fs-kpi:      29px;  /* số liệu lớn trong thẻ KPI */
 
@@ -213,11 +226,11 @@
     text-transform: uppercase;
     text-align: left;
     white-space: nowrap;
-    padding: var(--sp-sm) var(--sp-lg);
+    padding: var(--sp-3) var(--sp-6);
     border-bottom: 1px solid var(--border);
   }
 
-  tbody td { padding: var(--sp-sm) var(--sp-lg); border-bottom: 1px solid var(--border-soft); }
+  tbody td { padding: var(--sp-3) var(--sp-6); border-bottom: 1px solid var(--border-soft); }
   tbody tr:last-child td { border-bottom: 0; }
   tbody tr:hover td { background: var(--bg-page); }
 

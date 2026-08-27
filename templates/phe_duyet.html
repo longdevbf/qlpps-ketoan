@@ -31,8 +31,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
          ngay dưới làm người dùng mất mốc "đâu là điều hướng, đâu là nội dung".
        • Nó ăn ~20% chiều cao màn laptop trước khi thấy dòng dữ liệu đầu tiên.
      Cấu trúc nay đến từ chữ + khoảng trắng + MỘT vạch nhấn, không từ nền màu. */
-  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
-  padding:0 0 8px;margin-bottom:24px;
+  display:flex;align-items:center;gap: var(--sp-8);flex-wrap:wrap;
+  padding: 0 0 var(--sp-4);margin-bottom:24px;
   border-bottom:1px solid var(--border);
 }
 /* Vạch nhấn 4px thay cho cả khối nền — giống .page-head-mark của base.css */
@@ -46,9 +46,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
 
 .page-header > *{position:relative;z-index:1}
 .page-header-text{position:relative;z-index:1}
-.page-header-text h4{margin:0;font-weight:800;color:var(--brand-hover);font-size:22px;letter-spacing:-.4px}
-.page-header-text p{font-size:14px;color:var(--text-2);margin:4px 0 0}
-.btn-refresh{padding:9px 16px;background:var(--bg-card);color:var(--brand-hover);border:1px solid var(--border);border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;margin-left:auto;position:relative;z-index:1}
+.page-header-text h4{margin:0;font-weight:800;color:var(--brand-hover);font-size: var(--fs-glyph);letter-spacing:-.4px}
+.page-header-text p{font-size: var(--fs-body-lg);color:var(--text-2);margin: var(--sp-2) 0 0}
+.btn-refresh{padding:9px 16px;background:var(--bg-card);color:var(--brand-hover);border:1px solid var(--border);border-radius:8px;font-size: var(--fs-body-lg);font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap: var(--sp-3);margin-left:auto;position:relative;z-index:1}
 .btn-refresh:hover{filter:brightness(.95)}
 
 /* ── Page wrap ── */
@@ -56,12 +56,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
 .page-wrap > *:not(.page-header){position:relative;z-index:2}
 
 /* ── Stats bar (overlap hero) ── */
-.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:0;margin-bottom:18px;position:relative;z-index:5}
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap: var(--sp-6);margin-top:0;margin-bottom:18px;position:relative;z-index:5}
 @media(max-width:768px){.stats-bar{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:480px){.stats-bar{grid-template-columns:1fr}}
-.stat-card{background:#fff;border-radius:14px;border:1px solid var(--line);padding:14px 16px;display:flex;align-items:center;gap:13px;cursor:pointer;transition:all .15s;box-shadow:0 4px 12px rgba(15,23,42,.06);position:relative;overflow:hidden}
+.stat-card{background:#fff;border-radius:14px;border:1px solid var(--line);padding: var(--sp-7) var(--sp-8);display:flex;align-items:center;gap:13px;cursor:pointer;transition:all .15s;box-shadow: var(--shadow-md);position:relative;overflow:hidden}
 .stat-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line);border-radius:14px 0 0 14px}
-.stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(15,23,42,.1)}
+.stat-card:hover{transform:translateY(-2px);box-shadow: var(--shadow-lg)}
 .stat-card.active{box-shadow:0 0 0 2px var(--primary),0 4px 12px rgba(15,23,42,.06)}
 .stat-card.active::before{background:var(--primary)}
 .stat-icon{width:3px;height:34px;border-radius:2px;flex-shrink:0}  /* Trước đây là hộp icon 42×42px; emoji đã gỡ theo luật nên nó thành ô màu RỖNG. Nay thu thành dải neo mỏng: vẫn mã hoá trạng thái bằng màu nhưng diện tích màu giảm ~95%. */
@@ -69,31 +69,31 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
 .stat-icon.chi{background:var(--info)}
 .stat-icon.lenh{background:var(--info)}
 .stat-icon.ct{background:var(--success)}
-.stat-num{font-size:22px;font-weight:800;color:var(--text);line-height:1}
-.stat-label{font-size:12px;color:var(--muted);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.stat-num{font-size: var(--fs-glyph);font-weight:800;color:var(--text);line-height:1}
+.stat-label{font-size: var(--fs-meta);color:var(--muted);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
 
 /* ── Filter Tabs ── */
-.tabs-bar{background:#fff;border-radius:12px;border:1px solid var(--line);padding:6px;display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px;box-shadow:0 2px 6px rgba(15,23,42,.04)}
-.tab-btn{padding:9px 18px;border:0;background:transparent;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;border-radius:9px;transition:all .15s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-family:inherit}
+.tabs-bar{background:#fff;border-radius:12px;border:1px solid var(--line);padding: var(--sp-3);display:flex;gap: var(--sp-2);flex-wrap:wrap;margin-bottom:16px;box-shadow: var(--shadow-md)}
+.tab-btn{padding:9px 18px;border:0;background:transparent;font-size: var(--fs-body-lg);font-weight:600;color:var(--muted);cursor:pointer;border-radius:9px;transition:all .15s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-family:inherit}
 .tab-btn:hover{background:var(--brand-soft);color:var(--primary)}
 .tab-btn.active{background:var(--brand-soft);color:var(--brand-hover)}
 
 /* ── Table ── */
-.tbl-wrap{background:#fff;border-radius:14px;border:1px solid var(--line);overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.04)}
+.tbl-wrap{background:#fff;border-radius:14px;border:1px solid var(--line);overflow:hidden;box-shadow: var(--shadow-md)}
 .tbl-scroll{overflow-x:auto}
-.data-table{width:100%;border-collapse:collapse;font-size:14px}
-.data-table thead th{background:var(--bg-page);color:var(--muted);padding:11px 13px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--line)}
+.data-table{width:100%;border-collapse:collapse;font-size: var(--fs-body-lg)}
+.data-table thead th{background:var(--bg-page);color:var(--muted);padding:11px 13px;font-weight:700;font-size: var(--fs-meta);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--line)}
 .data-table tbody tr{border-bottom:1px solid var(--bg-page);transition:background .15s}
 .data-table tbody tr:hover{background:var(--bg-page)}
 .data-table tbody td{padding:11px 13px;vertical-align:middle}
-.empty-row td{text-align:center;color:var(--text-3);padding:44px 0;font-size:14px}
+.empty-row td{text-align:center;color:var(--text-3);padding:44px 0;font-size: var(--fs-body-lg)}
 
 /* ── NV cell ── */
 .nv-cell{display:flex;align-items:center;gap:9px}
-.nv-ava{width:32px;height:32px;border-radius:50%;background:var(--brand-soft);color:var(--brand-hover);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.nv-ava{width:32px;height:32px;border-radius:50%;background:var(--brand-soft);color:var(--brand-hover);font-size: var(--fs-meta);font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 
 /* ── Type badge ── */
-.type-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap}
+.type-badge{display:inline-flex;align-items:center;gap: var(--sp-2);padding:3px 10px;border-radius:20px;font-size: var(--fs-meta);font-weight:700;white-space:nowrap}
 .type-nghi{background:var(--amber-bg);color:var(--amber-txt);border:1px solid var(--amber-bd)}
 .type-chi{background:var(--purple-bg);color:var(--purple-txt);border:1px solid var(--purple-bd)}
 .type-lenh{background:var(--blue-bg);color:var(--blue-txt);border:1px solid var(--blue-bd)}
@@ -103,39 +103,39 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
 /* Hành động PHỤ: nút viền. Đè nền đậm mà giữ chữ đậm là chữ tàng hình. */
 .btn-phu{background:var(--bg-card) !important;color:var(--text-2) !important;border:1px solid var(--border) !important}
 .btn-phu:hover{color:var(--brand) !important;border-color:var(--brand) !important}
-.btn-approve{padding:6px 13px;background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
+.btn-approve{padding:6px 13px;background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd);border-radius:8px;font-size: var(--fs-body);font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
 .btn-approve:hover{background:var(--success);color:#fff;border-color:var(--success);transform:translateY(-1px)}
-.btn-reject{padding:6px 13px;background:var(--danger-soft);color:var(--danger-fg);border:1px solid var(--danger-soft);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
+.btn-reject{padding:6px 13px;background:var(--danger-soft);color:var(--danger-fg);border:1px solid var(--danger-soft);border-radius:8px;font-size: var(--fs-body);font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
 .btn-reject:hover{background:var(--danger);color:#fff;border-color:var(--danger);transform:translateY(-1px)}
 
 /* ── Card (shared) ── */
-.card{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:16px;box-shadow:0 2px 6px rgba(15,23,42,.04);overflow:hidden}
-.card-header{padding:16px 20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid transparent;transition:background .15s}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:16px;box-shadow: var(--shadow-md);overflow:hidden}
+.card-header{padding: var(--sp-8) var(--sp-9);display:flex;align-items:center;gap: var(--sp-7);border-bottom:1px solid transparent;transition:background .15s}
 .card-header:hover{background:var(--bg-page)}
-.card-header h3{font-size:16px;font-weight:700;color:var(--text);margin:0;display:flex;align-items:center;gap:9px}
-.card-toolbar{display:flex;align-items:center;gap:8px}
-.card-body{padding:0 20px 20px}
-.month-select{padding:7px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;color:var(--text);background:#fff;font-family:inherit;cursor:pointer}
+.card-header h3{font-size: var(--fs-title);font-weight:700;color:var(--text);margin:0;display:flex;align-items:center;gap:9px}
+.card-toolbar{display:flex;align-items:center;gap: var(--sp-4)}
+.card-body{padding: 0 var(--sp-9) var(--sp-9)}
+.month-select{padding:7px 11px;border:1.5px solid var(--line);border-radius:8px;font-size: var(--fs-body);color:var(--text);background:#fff;font-family:inherit;cursor:pointer}
 .month-select:focus{outline:0;border-color:var(--primary);box-shadow:var(--focus-ring)}
 
 /* ── Modal ── */
-.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:1060;display:none;align-items:center;justify-content:center;padding:16px}
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:1060;display:none;align-items:center;justify-content:center;padding: var(--sp-8)}
 .modal-overlay.show{display:flex}
-.modal-box{background:#fff;border-radius:16px;width:520px;max-width:96vw;box-shadow:0 20px 60px rgba(15,23,42,.3);overflow:hidden;animation:modalIn .25s ease-out}
+.modal-box{background:#fff;border-radius:16px;width:520px;max-width:96vw;box-shadow: var(--shadow-lg);overflow:hidden;animation:modalIn .25s ease-out}
 @keyframes modalIn{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
-.modal-header{background:var(--brand-soft);padding:18px 22px;display:flex;align-items:center;gap:10px}
-.modal-header h5{color:var(--brand-hover);margin:0;font-weight:800;font-size:16px}
+.modal-header{background:var(--brand-soft);padding:18px 22px;display:flex;align-items:center;gap: var(--sp-5)}
+.modal-header h5{color:var(--brand-hover);margin:0;font-weight:800;font-size: var(--fs-title)}
 .modal-body{padding:22px 24px}
-.modal-footer{padding:14px 24px;border-top:1px solid var(--bg-page);display:flex;gap:8px;justify-content:flex-end;background:var(--bg-page)}
-.modal-info-card{background:var(--bg-page);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-bottom:18px}
-.info-chip{background:var(--blue-bg);color:var(--blue-txt);border-radius:7px;padding:4px 11px;font-size:13px;font-weight:600;display:inline-block;margin:2px 4px 2px 0;border:1px solid var(--blue-bd)}
-.modal-textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;outline:none;resize:vertical;min-height:80px;font-family:inherit;transition:border-color .15s,box-shadow .15s}
+.modal-footer{padding: var(--sp-7) var(--sp-10);border-top:1px solid var(--bg-page);display:flex;gap: var(--sp-4);justify-content:flex-end;background:var(--bg-page)}
+.modal-info-card{background:var(--bg-page);border:1px solid var(--line);border-radius:11px;padding: var(--sp-7) var(--sp-8);margin-bottom:18px}
+.info-chip{background:var(--blue-bg);color:var(--blue-txt);border-radius:7px;padding:4px 11px;font-size: var(--fs-body);font-weight:600;display:inline-block;margin: var(--sp-1) var(--sp-2) var(--sp-1) 0;border:1px solid var(--blue-bd)}
+.modal-textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:9px;font-size: var(--fs-body-lg);outline:none;resize:vertical;min-height:80px;font-family:inherit;transition:border-color .15s,box-shadow .15s}
 .modal-textarea:focus{border-color:var(--primary);box-shadow:var(--focus-ring)}
-.btn-modal-approve{background:var(--success);color:#fff;border:none;border-radius:9px;padding:10px 20px;font-weight:700;cursor:pointer;font-size:14px;transition:all .15s;font-family:inherit}
+.btn-modal-approve{background:var(--success);color:#fff;border:none;border-radius:9px;padding: var(--sp-5) var(--sp-9);font-weight:700;cursor:pointer;font-size: var(--fs-body-lg);transition:all .15s;font-family:inherit}
 .btn-modal-approve:hover{background:var(--success);transform:translateY(-1px)}
-.btn-modal-reject{background:var(--danger);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-weight:700;cursor:pointer;font-size:14px;transition:all .15s;font-family:inherit}
+.btn-modal-reject{background:var(--danger);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-weight:700;cursor:pointer;font-size: var(--fs-body-lg);transition:all .15s;font-family:inherit}
 .btn-modal-reject:hover{background:var(--danger);transform:translateY(-1px)}
-.btn-cancel-m{background:#fff;color:var(--text);border:1.5px solid var(--line);border-radius:9px;padding:10px 16px;font-weight:600;cursor:pointer;font-size:14px;font-family:inherit;transition:all .15s}
+.btn-cancel-m{background:#fff;color:var(--text);border:1.5px solid var(--line);border-radius:9px;padding: var(--sp-5) var(--sp-8);font-weight:600;cursor:pointer;font-size: var(--fs-body-lg);font-family:inherit;transition:all .15s}
 .btn-cancel-m:hover{background:var(--bg-page);border-color:var(--text-3)}
 
 /* ── Loading spinner ── */
@@ -144,8 +144,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ── Toast ── */
-.toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast{padding:13px 20px;border-radius:10px;font-size:14px;font-weight:600;color:#fff;box-shadow:0 6px 22px rgba(15,23,42,.25);opacity:0;transform:translateY(12px);transition:all .28s;pointer-events:none;max-width:340px;display:flex;align-items:center;gap:8px}
+.toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap: var(--sp-4);pointer-events:none}
+.toast{padding:13px 20px;border-radius:10px;font-size: var(--fs-body-lg);font-weight:600;color:#fff;box-shadow: var(--shadow-lg);opacity:0;transform:translateY(12px);transition:all .28s;pointer-events:none;max-width:340px;display:flex;align-items:center;gap: var(--sp-4)}
 .toast.show{opacity:1;transform:translateY(0)}
 .toast.success{background:var(--success)}
 .toast.error{background:var(--danger)}
@@ -225,17 +225,17 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
     <button class="tab-btn" id="pd-tab-coc"          onclick="pdSetFilter('kt_coc')" style="border-color:var(--warning)">
       
       <span style="color:var(--warning)">Xác nhận cọc</span>
-      <span id="pd-tab-coc-cnt" style="background:var(--warning);color:#fff;border-radius:10px;padding:1px 7px;font-size:12px;font-weight:700;display:none">0</span>
+      <span id="pd-tab-coc-cnt" style="background:var(--warning);color:#fff;border-radius:10px;padding:1px 7px;font-size: var(--fs-meta);font-weight:700;display:none">0</span>
     </button>
     <button class="tab-btn" id="pd-tab-dntt"         onclick="pdSetFilter('de_nghi_tt')" style="border-color:var(--info)">
       
       <span style="color:var(--info)">Đề Nghị TT</span>
-      <span id="pd-tab-dntt-cnt" style="background:var(--info);color:#fff;border-radius:10px;padding:1px 7px;font-size:12px;font-weight:700;display:none">0</span>
+      <span id="pd-tab-dntt-cnt" style="background:var(--info);color:#fff;border-radius:10px;padding:1px 7px;font-size: var(--fs-meta);font-weight:700;display:none">0</span>
     </button>
     <button class="tab-btn" id="pd-tab-history"      onclick="pdSetFilter('history')" style="border-color:var(--success)">
       
       <span style="color:var(--success)">Đã duyệt</span>
-      <span id="pd-tab-history-cnt" style="background:var(--success);color:#fff;border-radius:10px;padding:1px 7px;font-size:12px;font-weight:700;display:none">0</span>
+      <span id="pd-tab-history-cnt" style="background:var(--success);color:#fff;border-radius:10px;padding:1px 7px;font-size: var(--fs-meta);font-weight:700;display:none">0</span>
     </button>
   </div>
 
@@ -257,24 +257,24 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
           <tr class="loading-row">
             <td colspan="6">
               <div class="spinner"></div>
-              <div style="color:var(--text-3);font-size:14px">Đang tải dữ liệu...</div>
+              <div style="color:var(--text-3);font-size: var(--fs-body-lg)">Đang tải dữ liệu...</div>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
     <!-- Pagination -->
-    <div class="pagination" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg-page);border-top:1px solid var(--line);font-size:14px">
+    <div class="pagination" style="display:flex;align-items:center;justify-content:space-between;padding: var(--sp-6) var(--sp-8);background:var(--bg-page);border-top:1px solid var(--line);font-size: var(--fs-body-lg)">
       <div>
-        Hiển thị <select id="pd-pgsize" onchange="pdSetPageSize(this.value)" style="padding:4px 8px;border:1px solid var(--line);border-radius:6px;font-family:inherit;font-size:14px">
+        Hiển thị <select id="pd-pgsize" onchange="pdSetPageSize(this.value)" style="padding: var(--sp-2) var(--sp-4);border:1px solid var(--line);border-radius:6px;font-family:inherit;font-size: var(--fs-body-lg)">
           <option value="10">10</option><option value="20" selected>20</option>
           <option value="50">50</option><option value="100">100</option>
         </select> /tổng <span id="pd-total">0</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button class="btn-sm" onclick="pdPrevPage()" style="padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;font-size:13px">‹ Trước</button>
+      <div style="display:flex;align-items:center;gap: var(--sp-4)">
+        <button class="btn-sm" onclick="pdPrevPage()" style="padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;font-size: var(--fs-body)">‹ Trước</button>
         <span>Trang <span id="pd-curpage">1</span>/<span id="pd-totpage">1</span></span>
-        <button class="btn-sm" onclick="pdNextPage()" style="padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;font-size:13px">Sau ›</button>
+        <button class="btn-sm" onclick="pdNextPage()" style="padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;font-size: var(--fs-body)">Sau ›</button>
       </div>
     </div>
   </div>
@@ -282,24 +282,24 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
   <!-- ── Đề Nghị TT (hiện khi tab de_nghi_tt active) — KT phê duyệt cấp 1 ── -->
   <div id="dntt-section" style="display:none">
     <!-- Sub-tab filter theo trạng thái (KT cần xem cả đã duyệt/đã từ chối/CEO duyệt cuối) -->
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding:6px;background:#fff;border:1px solid var(--border);border-radius:8px">
-      <button class="dntt-subtab active" data-status="cho_duyet" onclick="dnttSetSub('cho_duyet')" style="padding:6px 12px;border:0;background:var(--info);color:#fff;font-size:13px;font-weight:600;border-radius:6px;cursor:pointer">
-        Chờ KT duyệt <span class="dntt-sub-cnt" data-cnt="cho_duyet" style="margin-left:4px;background:rgba(255,255,255,.3);padding:1px 6px;border-radius:8px;font-size:12px">0</span>
+    <div style="display:flex;gap: var(--sp-3);flex-wrap:wrap;margin-bottom:10px;padding: var(--sp-3);background:#fff;border:1px solid var(--border);border-radius:8px">
+      <button class="dntt-subtab active" data-status="cho_duyet" onclick="dnttSetSub('cho_duyet')" style="padding: var(--sp-3) var(--sp-6);border:0;background:var(--info);color:#fff;font-size: var(--fs-body);font-weight:600;border-radius:6px;cursor:pointer">
+        Chờ KT duyệt <span class="dntt-sub-cnt" data-cnt="cho_duyet" style="margin-left:4px;background:rgba(255,255,255,.3);padding:1px 6px;border-radius:8px;font-size: var(--fs-meta)">0</span>
       </button>
-      <button class="dntt-subtab" data-status="kt_duyet" onclick="dnttSetSub('kt_duyet')" style="padding:6px 12px;border:0;background:var(--bg-page);color:var(--text-2);font-size:13px;font-weight:600;border-radius:6px;cursor:pointer">
-        ✓ KT đã duyệt (chờ CEO) <span class="dntt-sub-cnt" data-cnt="kt_duyet" style="margin-left:4px;background:var(--border);padding:1px 6px;border-radius:8px;font-size:12px">0</span>
+      <button class="dntt-subtab" data-status="kt_duyet" onclick="dnttSetSub('kt_duyet')" style="padding: var(--sp-3) var(--sp-6);border:0;background:var(--bg-page);color:var(--text-2);font-size: var(--fs-body);font-weight:600;border-radius:6px;cursor:pointer">
+        ✓ KT đã duyệt (chờ CEO) <span class="dntt-sub-cnt" data-cnt="kt_duyet" style="margin-left:4px;background:var(--border);padding:1px 6px;border-radius:8px;font-size: var(--fs-meta)">0</span>
       </button>
-      <button class="dntt-subtab" data-status="duyet" onclick="dnttSetSub('duyet')" style="padding:6px 12px;border:0;background:var(--bg-page);color:var(--text-2);font-size:13px;font-weight:600;border-radius:6px;cursor:pointer">
-        CEO đã duyệt cuối <span class="dntt-sub-cnt" data-cnt="duyet" style="margin-left:4px;background:var(--border);padding:1px 6px;border-radius:8px;font-size:12px">0</span>
+      <button class="dntt-subtab" data-status="duyet" onclick="dnttSetSub('duyet')" style="padding: var(--sp-3) var(--sp-6);border:0;background:var(--bg-page);color:var(--text-2);font-size: var(--fs-body);font-weight:600;border-radius:6px;cursor:pointer">
+        CEO đã duyệt cuối <span class="dntt-sub-cnt" data-cnt="duyet" style="margin-left:4px;background:var(--border);padding:1px 6px;border-radius:8px;font-size: var(--fs-meta)">0</span>
       </button>
-      <button class="dntt-subtab" data-status="kt_tu_choi" onclick="dnttSetSub('kt_tu_choi')" style="padding:6px 12px;border:0;background:var(--bg-page);color:var(--text-2);font-size:13px;font-weight:600;border-radius:6px;cursor:pointer">
-        ✗ KT từ chối <span class="dntt-sub-cnt" data-cnt="kt_tu_choi" style="margin-left:4px;background:var(--border);padding:1px 6px;border-radius:8px;font-size:12px">0</span>
+      <button class="dntt-subtab" data-status="kt_tu_choi" onclick="dnttSetSub('kt_tu_choi')" style="padding: var(--sp-3) var(--sp-6);border:0;background:var(--bg-page);color:var(--text-2);font-size: var(--fs-body);font-weight:600;border-radius:6px;cursor:pointer">
+        ✗ KT từ chối <span class="dntt-sub-cnt" data-cnt="kt_tu_choi" style="margin-left:4px;background:var(--border);padding:1px 6px;border-radius:8px;font-size: var(--fs-meta)">0</span>
       </button>
-      <button class="dntt-subtab" data-status="tu_choi" onclick="dnttSetSub('tu_choi')" style="padding:6px 12px;border:0;background:var(--bg-page);color:var(--text-2);font-size:13px;font-weight:600;border-radius:6px;cursor:pointer">
-        ✗ CEO từ chối <span class="dntt-sub-cnt" data-cnt="tu_choi" style="margin-left:4px;background:var(--border);padding:1px 6px;border-radius:8px;font-size:12px">0</span>
+      <button class="dntt-subtab" data-status="tu_choi" onclick="dnttSetSub('tu_choi')" style="padding: var(--sp-3) var(--sp-6);border:0;background:var(--bg-page);color:var(--text-2);font-size: var(--fs-body);font-weight:600;border-radius:6px;cursor:pointer">
+        ✗ CEO từ chối <span class="dntt-sub-cnt" data-cnt="tu_choi" style="margin-left:4px;background:var(--border);padding:1px 6px;border-radius:8px;font-size: var(--fs-meta)">0</span>
       </button>
-      <button class="dntt-subtab" data-status="" onclick="dnttSetSub('')" style="padding:6px 12px;border:0;background:var(--bg-page);color:var(--text-2);font-size:13px;font-weight:600;border-radius:6px;cursor:pointer">
-        Tất cả <span class="dntt-sub-cnt" data-cnt="all" style="margin-left:4px;background:var(--border);padding:1px 6px;border-radius:8px;font-size:12px">0</span>
+      <button class="dntt-subtab" data-status="" onclick="dnttSetSub('')" style="padding: var(--sp-3) var(--sp-6);border:0;background:var(--bg-page);color:var(--text-2);font-size: var(--fs-body);font-weight:600;border-radius:6px;cursor:pointer">
+        Tất cả <span class="dntt-sub-cnt" data-cnt="all" style="margin-left:4px;background:var(--border);padding:1px 6px;border-radius:8px;font-size: var(--fs-meta)">0</span>
       </button>
     </div>
     <div class="tbl-wrap">
@@ -319,32 +319,32 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
             </tr>
           </thead>
           <tbody id="dntt-tbody">
-            <tr class="loading-row"><td colspan="9"><div class="spinner"></div><div style="color:var(--text-3);font-size:14px">Đang tải...</div></td></tr>
+            <tr class="loading-row"><td colspan="9"><div class="spinner"></div><div style="color:var(--text-3);font-size: var(--fs-body-lg)">Đang tải...</div></td></tr>
           </tbody>
         </table>
       </div>
     </div>
-    <div style="margin-top:12px;font-size:13px;color:var(--text-3);padding:8px 12px;background:var(--info-soft);border-left:3px solid var(--info);border-radius:4px">
+    <div style="margin-top:12px;font-size: var(--fs-body);color:var(--text-3);padding: var(--sp-4) var(--sp-6);background:var(--info-soft);border-left:3px solid var(--info);border-radius:4px">
       Kế Toán duyệt cấp 1. Sau khi duyệt, đề nghị sẽ chuyển cho CEO duyệt cuối ở app <b>Sale Admin</b>. CEO duyệt xong sẽ tự động tạo Sổ Quỹ chi + Chi phí phải trả ĐVVC.
     </div>
   </div>
 
   <!-- ── Modal chi tiết DNTT ── -->
-  <div id="dntt-modal" style="display:none;position:fixed;inset:0;background:rgba(51,33,15,.32);z-index:9000;overflow-y:auto;padding:24px 16px">
-    <div style="background:#fff;border-radius:12px;max-width:680px;margin:0 auto;padding:0;box-shadow:0 8px 40px rgba(0,0,0,.18)">
+  <div id="dntt-modal" style="display:none;position:fixed;inset:0;background:rgba(51,33,15,.32);z-index:9000;overflow-y:auto;padding: var(--sp-10) var(--sp-8)">
+    <div style="background:#fff;border-radius:12px;max-width:680px;margin:0 auto;padding:0;box-shadow: var(--shadow-lg)">
       <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-        <div style="font-size:17px;font-weight:700;color:var(--brand-hover)">Chi tiết Đề Nghị Thanh Toán</div>
-        <button onclick="closeDnttModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-2);line-height:1">×</button>
+        <div style="font-size: var(--fs-h);font-weight:700;color:var(--brand-hover)">Chi tiết Đề Nghị Thanh Toán</div>
+        <button onclick="closeDnttModal()" style="background:none;border:none;font-size: var(--fs-glyph);cursor:pointer;color:var(--text-2);line-height:1">×</button>
       </div>
-      <div id="dntt-modal-body" style="padding:20px 24px">
+      <div id="dntt-modal-body" style="padding: var(--sp-9) var(--sp-10)">
         <div style="text-align:center;color:var(--text-3);padding:32px">Đang tải...</div>
       </div>
-      <div class="dntt-modal-foot" style="padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:flex-end">
+      <div class="dntt-modal-foot" style="padding: var(--sp-8) var(--sp-10);border-top:1px solid var(--border);display:flex;gap: var(--sp-5);align-items:flex-end">
         <div style="flex:1">
-          <label style="font-size:13px;font-weight:600;color:var(--text-2);display:block;margin-bottom:4px">Ghi chú của Kế Toán (tùy chọn)</label>
-          <textarea id="dntt-modal-note" rows="2" placeholder="Nhập ghi chú nếu cần..." style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;resize:vertical;box-sizing:border-box"></textarea>
+          <label style="font-size: var(--fs-body);font-weight:600;color:var(--text-2);display:block;margin-bottom:4px">Ghi chú của Kế Toán (tùy chọn)</label>
+          <textarea id="dntt-modal-note" rows="2" placeholder="Nhập ghi chú nếu cần..." style="width:100%;padding: var(--sp-4) var(--sp-5);border:1.5px solid var(--border);border-radius:7px;font-size: var(--fs-body-lg);resize:vertical;box-sizing:border-box"></textarea>
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px;min-width:130px">
+        <div style="display:flex;flex-direction:column;gap: var(--sp-4);min-width:130px">
           <button id="dntt-modal-approve-btn" class="btn-approve" style="width:100%" onclick="dnttModalSubmit('approve')">Duyệt</button>
           <button id="dntt-modal-reject-btn" class="btn-reject" style="width:100%" onclick="dnttModalPromptReject()">Từ chối</button>
         </div>
@@ -354,24 +354,24 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
 
   <!-- ── Đã duyệt (lịch sử mọi loại đã hoàn tất) ── -->
   <div id="history-section" style="display:none">
-    <div style="margin:8px 0 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <label style="font-size:14px;font-weight:600;color:var(--text-2)">Tháng:</label>
-      <select id="hist-thang" onchange="loadHistory()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;font-weight:600;color:var(--brand);background:#fff"></select>
-      <label style="font-size:14px;font-weight:600;color:var(--text-2);margin-left:12px">Loại:</label>
-      <select id="hist-loai" onchange="renderHistory()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;font-weight:600;color:var(--brand);background:#fff">
+    <div style="margin: var(--sp-4) 0 var(--sp-6);display:flex;gap: var(--sp-4);align-items:center;flex-wrap:wrap">
+      <label style="font-size: var(--fs-body-lg);font-weight:600;color:var(--text-2)">Tháng:</label>
+      <select id="hist-thang" onchange="loadHistory()" style="padding: var(--sp-3) var(--sp-5);border:1.5px solid var(--border);border-radius:7px;font-size: var(--fs-body-lg);font-weight:600;color:var(--brand);background:#fff"></select>
+      <label style="font-size: var(--fs-body-lg);font-weight:600;color:var(--text-2);margin-left:12px">Loại:</label>
+      <select id="hist-loai" onchange="renderHistory()" style="padding: var(--sp-3) var(--sp-5);border:1.5px solid var(--border);border-radius:7px;font-size: var(--fs-body-lg);font-weight:600;color:var(--brand);background:#fff">
         <option value="">Tất cả</option>
         <option value="nghi_phep">Nghỉ phép</option>
         <option value="duyet_chi">Duyệt chi</option>
         <option value="lenh_di">Lệnh đi</option>
         <option value="cong_trinh">Công trình</option>
       </select>
-      <label style="font-size:14px;font-weight:600;color:var(--text-2);margin-left:12px">Trạng thái:</label>
-      <select id="hist-status" onchange="renderHistory()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;font-weight:600;color:var(--brand);background:#fff">
+      <label style="font-size: var(--fs-body-lg);font-weight:600;color:var(--text-2);margin-left:12px">Trạng thái:</label>
+      <select id="hist-status" onchange="renderHistory()" style="padding: var(--sp-3) var(--sp-5);border:1.5px solid var(--border);border-radius:7px;font-size: var(--fs-body-lg);font-weight:600;color:var(--brand);background:#fff">
         <option value="">Tất cả</option>
         <option value="da_duyet">Đã duyệt</option>
         <option value="tu_choi">Từ chối</option>
       </select>
-      <span style="margin-left:auto;font-size:13px;color:var(--text-3)" id="hist-count"></span>
+      <span style="margin-left:auto;font-size: var(--fs-body);color:var(--text-3)" id="hist-count"></span>
     </div>
     <div class="tbl-wrap">
       <div class="tbl-scroll">
@@ -388,7 +388,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
             </tr>
           </thead>
           <tbody id="hist-tbody">
-            <tr class="loading-row"><td colspan="7"><div class="spinner"></div><div style="color:var(--text-3);font-size:14px">Đang tải...</div></td></tr>
+            <tr class="loading-row"><td colspan="7"><div class="spinner"></div><div style="color:var(--text-3);font-size: var(--fs-body-lg)">Đang tải...</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -412,7 +412,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
             </tr>
           </thead>
           <tbody id="kt-coc-tbody">
-            <tr class="loading-row"><td colspan="7"><div class="spinner"></div><div style="color:var(--text-3);font-size:14px">Đang tải...</div></td></tr>
+            <tr class="loading-row"><td colspan="7"><div class="spinner"></div><div style="color:var(--text-3);font-size: var(--fs-body-lg)">Đang tải...</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -420,9 +420,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
 
     <!-- ── Cọc BỔ SUNG (lần 2, 3…) chờ KT duyệt ── -->
     <div style="margin-top:22px">
-      <h3 style="display:flex;align-items:center;gap:8px;font-size:15px;margin:0 0 10px">
+      <h3 style="display:flex;align-items:center;gap: var(--sp-4);font-size: var(--fs-title);margin: 0 0 var(--sp-5)">
         💰 Cọc bổ sung chờ duyệt (lần 2, 3…)
-        <span id="cocbs-cnt" style="background:var(--warning-soft);color:var(--warning-fg);border:1px solid var(--warning);border-radius:20px;padding:1px 10px;font-size:13px;font-weight:700">0</span>
+        <span id="cocbs-cnt" style="background:var(--warning-soft);color:var(--warning-fg);border:1px solid var(--warning);border-radius:20px;padding:1px 10px;font-size: var(--fs-body);font-weight:700">0</span>
       </h3>
       <div class="tbl-wrap"><div class="tbl-scroll">
         <table class="data-table">
@@ -436,7 +436,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
           </tbody>
         </table>
       </div></div>
-      <div style="margin-top:8px;font-size:12.5px;color:var(--text-3);padding:7px 11px;background:var(--warning-soft);border-left:3px solid var(--warning);border-radius:4px">
+      <div style="margin-top:8px;font-size: var(--fs-meta);color:var(--text-3);padding:7px 11px;background:var(--warning-soft);border-left:3px solid var(--warning);border-radius:4px">
         Duyệt là tạo doanh thu "Đặt cọc" + lên <b>Sổ Quỹ</b> ngay, cộng dồn vào tổng đã cọc của đơn.
       </div>
     </div>
@@ -444,17 +444,17 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
 
   <!-- Modal duyệt cọc bổ sung (chọn tài khoản) -->
   <div id="cocbs-modal" style="display:none;position:fixed;inset:0;background:rgba(51,33,15,.32);z-index:9100;align-items:center;justify-content:center">
-    <div style="background:#fff;border-radius:12px;width:min(420px,92vw);padding:20px;box-shadow:0 8px 40px rgba(0,0,0,.2)">
-      <div style="font-size:16px;font-weight:700;color:var(--brand-hover);margin-bottom:6px">Duyệt cọc bổ sung</div>
-      <div id="cocbs-modal-info" style="font-size:13.5px;color:var(--text-2);margin-bottom:14px"></div>
-      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:5px">Tài khoản thực nhận</label>
-      <select id="cocbs-modal-tk" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px">
+    <div style="background:#fff;border-radius:12px;width:min(420px,92vw);padding: var(--sp-9);box-shadow: var(--shadow-lg)">
+      <div style="font-size: var(--fs-title);font-weight:700;color:var(--brand-hover);margin-bottom:6px">Duyệt cọc bổ sung</div>
+      <div id="cocbs-modal-info" style="font-size: var(--fs-body);color:var(--text-2);margin-bottom:14px"></div>
+      <label style="font-size: var(--fs-body);font-weight:600;display:block;margin-bottom:5px">Tài khoản thực nhận</label>
+      <select id="cocbs-modal-tk" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:7px;font-size: var(--fs-body-lg)">
         <option value="Tiền Mặt">Tiền Mặt</option>
         <option value="ACB Hộ Kinh Doanh" selected>ACB Hộ Kinh Doanh</option>
         <option value="BIDV - Công ty">BIDV - Công ty</option>
         <option value="VPB">VPB</option>
       </select>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
+      <div style="display:flex;gap: var(--sp-4);justify-content:flex-end;margin-top:18px">
         <button type="button" class="btn btn-outline" onclick="cocbsCloseModal()" style="padding:7px 14px">Hủy</button>
         <button type="button" id="cocbs-modal-ok" class="btn-approve" onclick="cocbsDoApprove()" style="padding:7px 16px">Duyệt + lên sổ quỹ</button>
       </div>
@@ -464,15 +464,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
   <!-- ── Lệnh không check-in ─────────────────────────────────────── -->
   <div class="card" style="margin-top:20px">
     <div class="card-header" style="cursor:pointer" onclick="toggleKhongCheckin(this)">
-      <h3 style="display:flex;align-items:center;gap:8px">
+      <h3 style="display:flex;align-items:center;gap: var(--sp-4)">
         
         Lệnh không check-in
-        <span id="kci-count" style="background:var(--warning-soft);color:var(--warning-fg);border:1px solid var(--warning);border-radius:20px;padding:1px 10px;font-size:13px;font-weight:700">—</span>
+        <span id="kci-count" style="background:var(--warning-soft);color:var(--warning-fg);border:1px solid var(--warning);border-radius:20px;padding:1px 10px;font-size: var(--fs-body);font-weight:700">—</span>
       </h3>
-      <div style="font-size:12px;color:var(--text-3);flex:1">Lệnh đi đã duyệt nhưng nhân viên không check-in tại địa điểm</div>
+      <div style="font-size: var(--fs-meta);color:var(--text-3);flex:1">Lệnh đi đã duyệt nhưng nhân viên không check-in tại địa điểm</div>
       <div class="card-toolbar">
         <select class="month-select" id="kci-thang" onchange="loadKhongCheckin(this.value)" onclick="event.stopPropagation()"></select>
-        <span id="kci-chevron" style="color:var(--text-3);font-size:12px;margin-left:8px;display:inline-block;transition:transform .2s">▾</span>
+        <span id="kci-chevron" style="color:var(--text-3);font-size: var(--fs-meta);margin-left:8px;display:inline-block;transition:transform .2s">▾</span>
       </div>
     </div>
     <div id="kci-body" class="card-body" style="display:none">
@@ -498,18 +498,18 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
     </div>
     <div class="modal-body">
       <div class="modal-info-card">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-          <div class="nv-ava" id="pd-modal-ava" style="width:40px;height:40px;font-size:15px">N</div>
+        <div style="display:flex;align-items:center;gap: var(--sp-6);margin-bottom:12px">
+          <div class="nv-ava" id="pd-modal-ava" style="width:40px;height:40px;font-size: var(--fs-title)">N</div>
           <div>
-            <div style="font-weight:700;color:var(--brand);font-size:15px" id="pd-modal-nv">Nhân viên</div>
-            <div style="font-size:13px;color:var(--text-3)" id="pd-modal-sub"></div>
+            <div style="font-weight:700;color:var(--brand);font-size: var(--fs-title)" id="pd-modal-nv">Nhân viên</div>
+            <div style="font-size: var(--fs-body);color:var(--text-3)" id="pd-modal-sub"></div>
           </div>
         </div>
         <div id="pd-modal-chips" style="margin-bottom:8px"></div>
-        <div style="font-size:14px;color:var(--text-2)" id="pd-modal-detail"></div>
+        <div style="font-size: var(--fs-body-lg);color:var(--text-2)" id="pd-modal-detail"></div>
       </div>
 
-      <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Nhận xét <span style="font-weight:500;color:var(--text-3)">(tùy chọn)</span></div>
+      <div style="font-size: var(--fs-meta);font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Nhận xét <span style="font-weight:500;color:var(--text-3)">(tùy chọn)</span></div>
       <textarea class="modal-textarea" id="pd-modal-nhanxet" placeholder="Nhập nhận xét duyệt / từ chối..."></textarea>
     </div>
     <div class="modal-footer">
@@ -529,21 +529,21 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
       <h5 id="kt-modal-title">Xác nhận cọc</h5>
     </div>
     <div class="modal-body">
-      <div id="kt-modal-info" style="margin-bottom:12px;font-size:14px;color:var(--text-2);line-height:1.6"></div>
+      <div id="kt-modal-info" style="margin-bottom:12px;font-size: var(--fs-body-lg);color:var(--text-2);line-height:1.6"></div>
       <div id="kt-modal-tk-wrap" style="margin-bottom:12px;display:none">
-        <label style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Tiền cọc thực về tài khoản</label>
-        <select id="kt-modal-tk" style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;outline:none;background:#fff">
+        <label style="font-size: var(--fs-meta);font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Tiền cọc thực về tài khoản</label>
+        <select id="kt-modal-tk" style="width:100%;padding: var(--sp-4) var(--sp-6);border:1.5px solid var(--border);border-radius:8px;font-size: var(--fs-body-lg);outline:none;background:#fff">
           <option value="Tiền Mặt">Tiền Mặt</option>
           <option value="ACB Hộ Kinh Doanh">ACB — Hộ Kinh Doanh</option>
           <option value="BIDV - Công ty">BIDV — Công ty</option>
           <option value="VPB">VPB</option>
         </select>
-        <div id="kt-modal-tk-hint" style="font-size:12px;color:var(--warning);margin-top:5px;display:none">
+        <div id="kt-modal-tk-hint" style="font-size: var(--fs-meta);color:var(--warning);margin-top:5px;display:none">
           Đơn này chưa ghi rõ tài khoản — vui lòng chọn đúng nơi tiền thực về để lên sổ quỹ.
         </div>
       </div>
-      <label style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Ghi chú <span style="color:var(--text-3);font-weight:500">(tuỳ chọn)</span></label>
-      <textarea id="kt-modal-note" rows="3" style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;outline:none;resize:vertical" placeholder="Nhập lý do nếu cần..."></textarea>
+      <label style="font-size: var(--fs-meta);font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Ghi chú <span style="color:var(--text-3);font-weight:500">(tuỳ chọn)</span></label>
+      <textarea id="kt-modal-note" rows="3" style="width:100%;padding: var(--sp-4) var(--sp-6);border:1.5px solid var(--border);border-radius:8px;font-size: var(--fs-body-lg);outline:none;resize:vertical" placeholder="Nhập lý do nếu cần..."></textarea>
     </div>
     <div class="modal-footer">
       <button class="btn btn-sm" style="background:var(--bg-page);color:var(--text-2);border:1.5px solid var(--border)" onclick="closeKtModal()">Huỷ</button>
@@ -622,7 +622,7 @@ const _nghiLabel = {nghi_phep:'Nghỉ phép',nghi_bu:'Nghỉ bù',nghi_khong_luo
 async function pdInit(){
   const tbody = document.getElementById('pd-tbody');
   if(!tbody) return;
-  tbody.innerHTML = `<tr class="loading-row"><td colspan="6"><div class="spinner"></div><div style="color:var(--text-3);font-size:14px">Đang tải dữ liệu...</div></td></tr>`;
+  tbody.innerHTML = `<tr class="loading-row"><td colspan="6"><div class="spinner"></div><div style="color:var(--text-3);font-size: var(--fs-body-lg)">Đang tải dữ liệu...</div></td></tr>`;
 
   const [nghiRes, chiRes, lenhRes, ctRes, dnttRes, nccRes] = await Promise.allSettled([
     api('GET', '/api/xin-nghi?trang_thai=cho_duyet'),
@@ -747,13 +747,13 @@ function pdRenderPage(){
       <td>
         <div class="nv-cell">
           <div class="nv-ava">${avIni}</div>
-          <div style="font-weight:700;font-size:14px">${escHtml(r.ho_ten||'—')}</div>
+          <div style="font-weight:700;font-size: var(--fs-body-lg)">${escHtml(r.ho_ten||'—')}</div>
         </div>
       </td>
       <td>${loaiBadge}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${escHtml(r.noi_dung||'—')}</b></td>
       <td style="white-space:nowrap">${ngayFmt}</td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-3);font-size:13px">${escHtml(r.chi_tiet||'—')}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-3);font-size: var(--fs-body)">${escHtml(r.chi_tiet||'—')}</td>
       <td style="text-align:center;white-space:nowrap">
         <button class="btn-approve" onclick="openPdModal(${globalIdx})">Xét duyệt</button>
       </td>
@@ -778,7 +778,7 @@ function pdRenderPage(){
           const who = h.ho_ten||h.username||'?';
           return `✓ ${lvlLbl[h.level]||h.level} <b>${escHtml(who)}</b> đã duyệt`;
         }).join(' · ');
-        priorBadge = `<div style="margin-top:4px;font-size:12px;color:var(--success-fg);background:var(--success-soft);padding:2px 7px;border-radius:4px;display:inline-block">${txt}</div>`;
+        priorBadge = `<div style="margin-top:4px;font-size: var(--fs-meta);color:var(--success-fg);background:var(--success-soft);padding:2px 7px;border-radius:4px;display:inline-block">${txt}</div>`;
       }
     }
 
@@ -786,13 +786,13 @@ function pdRenderPage(){
       <td>
         <div class="nv-cell">
           <div class="nv-ava">${avIni}</div>
-          <div style="font-weight:700;font-size:14px">${escHtml(r.ho_ten||'—')}</div>
+          <div style="font-weight:700;font-size: var(--fs-body-lg)">${escHtml(r.ho_ten||'—')}</div>
         </div>
       </td>
       <td>${loaiBadge}</td>
       <td style="max-width:240px"><b>${escHtml(r.noi_dung||'—')}</b>${priorBadge}</td>
       <td style="white-space:nowrap">${ngayFmt}</td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-3);font-size:13px">${escHtml(r.chi_tiet||'—')}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-3);font-size: var(--fs-body)">${escHtml(r.chi_tiet||'—')}</td>
       <td style="text-align:center;white-space:nowrap" onclick="event.stopPropagation()">
         <button class="btn-approve" onclick="openPdModalByRef('${escHtml(r.loai)}',${typeof r.id === 'string' ? `'${r.id}'` : r.id})">Xét duyệt</button>
       </td>
@@ -867,7 +867,7 @@ function _histPopulateMonths(){
 async function loadHistory(){
   const tbody = document.getElementById('hist-tbody');
   if(!tbody) return;
-  tbody.innerHTML = '<tr class="loading-row"><td colspan="7"><div class="spinner"></div><div style="color:var(--text-3);font-size:14px">Đang tải...</div></td></tr>';
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="7"><div class="spinner"></div><div style="color:var(--text-3);font-size: var(--fs-body-lg)">Đang tải...</div></td></tr>';
 
   const thang = document.getElementById('hist-thang')?.value || _histThisMonth();
 
@@ -961,8 +961,8 @@ function renderHistory(){
     return;
   }
   const _statLbl = {
-    da_duyet:'<span style="background:var(--success-soft);color:var(--success-fg);padding:3px 9px;border-radius:5px;font-size:12px;font-weight:700">✓ Đã duyệt</span>',
-    tu_choi: '<span style="background:var(--danger-soft);color:var(--danger-fg);padding:3px 9px;border-radius:5px;font-size:12px;font-weight:700">✗ Từ chối</span>',
+    da_duyet:'<span style="background:var(--success-soft);color:var(--success-fg);padding:3px 9px;border-radius:5px;font-size: var(--fs-meta);font-weight:700">✓ Đã duyệt</span>',
+    tu_choi: '<span style="background:var(--danger-soft);color:var(--danger-fg);padding:3px 9px;border-radius:5px;font-size: var(--fs-meta);font-weight:700">✗ Từ chối</span>',
   };
   tbody.innerHTML = items.map(r=>{
     const ngayFmt   = r.ngay      ? String(r.ngay).slice(8,10)+'/'+String(r.ngay).slice(5,7)      : '—';
@@ -971,13 +971,13 @@ function renderHistory(){
       : '';
     const loaiBadge = _pdLoaiLabels[r.loai] || `<span class="type-badge">${escHtml(r.loai)}</span>`;
     return `<tr>
-      <td><div class="nv-cell"><div class="nv-ava">${initials(r.ho_ten)}</div><div style="font-weight:700;font-size:14px">${escHtml(r.ho_ten||'—')}</div></div></td>
+      <td><div class="nv-cell"><div class="nv-ava">${initials(r.ho_ten)}</div><div style="font-weight:700;font-size: var(--fs-body-lg)">${escHtml(r.ho_ten||'—')}</div></div></td>
       <td>${loaiBadge}</td>
       <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${escHtml(r.noi_dung||'—')}</b></td>
       <td style="white-space:nowrap">${ngayFmt}</td>
       <td>${_statLbl[r.trang_thai] || escHtml(r.trang_thai)}</td>
-      <td style="font-size:13px"><b>${escHtml(r.nguoi_duyet||'—')}</b>${ngayDuyet?`<div style="color:var(--text-3);font-size:12px">${ngayDuyet}</div>`:''}</td>
-      <td style="text-align:center"><button class="btn btn-sec" style="padding:4px 10px;font-size:12px" onclick="openHistoryDetail('${escHtml(r.loai)}',${r.id})">•</button></td>
+      <td style="font-size: var(--fs-body)"><b>${escHtml(r.nguoi_duyet||'—')}</b>${ngayDuyet?`<div style="color:var(--text-3);font-size: var(--fs-meta)">${ngayDuyet}</div>`:''}</td>
+      <td style="text-align:center"><button class="btn btn-sec" style="padding: var(--sp-2) var(--sp-5);font-size: var(--fs-meta)" onclick="openHistoryDetail('${escHtml(r.loai)}',${r.id})">•</button></td>
     </tr>`;
   }).join('');
 }
@@ -991,7 +991,7 @@ function openHistoryDetail(loai, id){
   const lvlLabel = {manager:'Manager', ketoan:'Kế Toán', ceo:'CEO'};
   let timelineHtml = '';
   if(hist.length){
-    timelineHtml = '<div style="margin-top:12px"><b style="color:var(--brand)">Lịch sử phê duyệt:</b><ol style="margin:8px 0 0 18px;padding:0;font-size:13px">';
+    timelineHtml = '<div style="margin-top:12px"><b style="color:var(--brand)">Lịch sử phê duyệt:</b><ol style="margin:8px 0 0 18px;padding:0;font-size: var(--fs-body)">';
     timelineHtml += hist.map(h=>{
       const ts = h.at ? String(h.at).slice(0,16).replace('T',' ') : '';
       const actCol = h.action==='approve' ? 'var(--success)' : (h.action==='reject' ? 'var(--danger)' : 'var(--text-3)');
@@ -1043,7 +1043,7 @@ function openPdModalByRef(loai, id){
   const row = (k, v, opts = {}) => {
     if(v === null || v === undefined || v === '') return '';
     const color = opts.color || 'var(--text-2)';
-    return `<div style="margin-bottom:6px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--text-2);min-width:110px;font-size:13px">${k}</span><span style="color:${color};flex:1;word-break:break-word">${v}</span></div>`;
+    return `<div style="margin-bottom:6px;display:flex;gap: var(--sp-4);align-items:flex-start"><span style="color:var(--text-2);min-width:110px;font-size: var(--fs-body)">${k}</span><span style="color:${color};flex:1;word-break:break-word">${v}</span></div>`;
   };
 
   if(loai === 'nghi_phep'){
@@ -1061,7 +1061,7 @@ function openPdModalByRef(loai, id){
     chips += `<span class="info-chip" style="background:var(--brand-soft);color:var(--brand-hover);font-weight:700">${fmtMoney(raw.so_tien)} đ</span>`;
     if(raw.loai_chi) chips += `<span class="info-chip">${escHtml(raw.loai_chi)}</span>`;
     detail = row('Tiêu đề', `<b>${escHtml(raw.tieu_de||'—')}</b>`)
-           + row('Số tiền', `<b style="color:var(--brand);font-size:16px">${fmtMoney(raw.so_tien)} đ</b>`)
+           + row('Số tiền', `<b style="color:var(--brand);font-size: var(--fs-title)">${fmtMoney(raw.so_tien)} đ</b>`)
            + row('Mục đích', escHtml(raw.muc_dich||'—'))
            + row('App nguồn', `<code>${escHtml(raw.app_name||'?')}</code>`)
            + row('Loại chi', escHtml(raw.loai_chi||'—'))
@@ -1081,8 +1081,8 @@ function openPdModalByRef(loai, id){
       const histHtml = hist.map(h => {
         const who = h.ho_ten || h.username || '?';
         const ts = h.at ? new Date(h.at).toLocaleString('vi-VN') : '';
-        const cm = h.comment ? `<div style="color:var(--text-2);font-size:13px;margin-top:2px;font-style:italic">${escHtml(h.comment)}</div>` : '';
-        return `<div style="padding:6px 10px;background:var(--bg-page);border-left:3px solid var(--info);border-radius:4px;margin-bottom:4px;font-size:13px">
+        const cm = h.comment ? `<div style="color:var(--text-2);font-size: var(--fs-body);margin-top:2px;font-style:italic">${escHtml(h.comment)}</div>` : '';
+        return `<div style="padding: var(--sp-3) var(--sp-5);background:var(--bg-page);border-left:3px solid var(--info);border-radius:4px;margin-bottom:4px;font-size: var(--fs-body)">
           <b>${actLbl[h.action]||h.action}</b> · ${lvlLbl[h.level]||h.level} · <b>${escHtml(who)}</b> · ${ts}${cm}</div>`;
       }).join('');
       detail += row('Lịch sử', `<div style="margin-top:4px">${histHtml}</div>`);
@@ -1093,7 +1093,7 @@ function openPdModalByRef(loai, id){
     chips += `<span class="info-chip">${escHtml(raw.dia_diem||'—')}</span>`;
     if(raw.lat_diem && raw.lng_diem){
       chips += `<a href="https://www.google.com/maps?q=${raw.lat_diem},${raw.lng_diem}" target="_blank"
-        style="display:inline-block;background:var(--brand-soft);color:var(--brand-hover);border-radius:6px;padding:4px 10px;font-size:13px;font-weight:600;text-decoration:none;margin:2px 4px 2px 0">
+        style="display:inline-block;background:var(--brand-soft);color:var(--brand-hover);border-radius:6px;padding: var(--sp-2) var(--sp-5);font-size: var(--fs-body);font-weight:600;text-decoration:none;margin: var(--sp-1) var(--sp-2) var(--sp-1) 0">
         Xem Maps</a>`;
     }
     detail = row('Địa chỉ', escHtml(raw.dia_chi||'—'))
@@ -1184,9 +1184,9 @@ async function loadKhongCheckin(thang){
     if(!list.length){ tbody.innerHTML='<tr class="empty-row"><td colspan="5">Không có lệnh nào bị bỏ lỡ</td></tr>'; return; }
     const _esc=s=>{const d=document.createElement('div');d.textContent=s;return d.innerHTML;};
     tbody.innerHTML=list.map(r=>`<tr>
-      <td><b>${_esc(r.ho_ten||r.ma_nv||'—')}</b>${r.ho_ten&&r.ma_nv?`<div style="font-size:11px;color:var(--text-3);font-weight:500">${_esc(r.ma_nv)}</div>`:''}</td><td style="white-space:nowrap">${r.ngay||'—'}</td>
+      <td><b>${_esc(r.ho_ten||r.ma_nv||'—')}</b>${r.ho_ten&&r.ma_nv?`<div style="font-size: var(--fs-eyebrow);color:var(--text-3);font-weight:500">${_esc(r.ma_nv)}</div>`:''}</td><td style="white-space:nowrap">${r.ngay||'—'}</td>
       <td><b>${_esc(r.dia_diem||'—')}</b></td><td>${_loaiLblKci[r.loai_di]||r.loai_di||'—'}</td>
-      <td style="font-size:12px;color:var(--text-3)">${_esc(r.approved_by_name||r.approved_by||'—')}</td></tr>`).join('');
+      <td style="font-size: var(--fs-meta);color:var(--text-3)">${_esc(r.approved_by_name||r.approved_by||'—')}</td></tr>`).join('');
   }catch(e){ tbody.innerHTML=`<tr class="empty-row"><td colspan="5" style="color:var(--danger)">Lỗi: ${e.message}</td></tr>`; }
 }
 function toggleKhongCheckin(header){
@@ -1218,7 +1218,7 @@ function fmtDate2(s){ if(!s)return'—'; const p=String(s).slice(0,10).split('-'
 async function loadKtCoc(){
   const tbody = document.getElementById('kt-coc-tbody');
   if(!tbody) return;
-  tbody.innerHTML = '<tr class="loading-row"><td colspan="7"><div class="spinner"></div><div style="color:var(--text-3);font-size:14px">Đang tải...</div></td></tr>';
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="7"><div class="spinner"></div><div style="color:var(--text-3);font-size: var(--fs-body-lg)">Đang tải...</div></td></tr>';
   try {
     const r = await fetch('/api/kt-duyet/list');
     _ktCocData = await r.json();
@@ -1248,7 +1248,7 @@ async function loadCocBs(){
     const cnt = document.getElementById('cocbs-cnt');
     if(cnt) cnt.textContent = _cocBsData.length;
     if(!_cocBsData.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="8" style="text-align:center;color:var(--text-3);padding:24px">Không có cọc bổ sung nào chờ duyệt</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8" style="text-align:center;color:var(--text-3);padding: var(--sp-10)">Không có cọc bổ sung nào chờ duyệt</td></tr>';
       return;
     }
     tbody.innerHTML = _cocBsData.map(d=>`
@@ -1266,7 +1266,7 @@ async function loadCocBs(){
         </td>
       </tr>`).join('');
   }catch(e){
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger);padding:20px">Lỗi: ${escHtml(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger);padding: var(--sp-9)">Lỗi: ${escHtml(e.message)}</td></tr>`;
   }
 }
 function cocbsOpenApprove(id){
@@ -1318,29 +1318,29 @@ function renderKtCoc(){
   }
   tbody.innerHTML = _ktCocData.map(q => {
     const badge = q.duyet_status==='kt_pending'
-      ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:12px;font-weight:700;background:var(--brand-soft);color:var(--brand-hover);border:1px solid var(--info-soft)">Chờ KT</span>'
-      : '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:12px;font-weight:700;background:var(--warning-soft);color:var(--warning-fg);border:1px solid var(--warning)">Chưa Về Tiền</span>';
+      ? '<span style="display:inline-flex;align-items:center;gap: var(--sp-2);padding:3px 9px;border-radius:20px;font-size: var(--fs-meta);font-weight:700;background:var(--brand-soft);color:var(--brand-hover);border:1px solid var(--info-soft)">Chờ KT</span>'
+      : '<span style="display:inline-flex;align-items:center;gap: var(--sp-2);padding:3px 9px;border-radius:20px;font-size: var(--fs-meta);font-weight:700;background:var(--warning-soft);color:var(--warning-fg);border:1px solid var(--warning)">Chưa Về Tiền</span>';
     const cocHtml = q.coc_so_tien
-      ? `<div style="background:var(--warning-soft);border:1.5px solid var(--warning);border-radius:8px;padding:7px 10px;font-size:13px">
-           <div style="font-weight:800;color:var(--warning);font-size:14px">${fmtVnd(q.coc_so_tien)}</div>
+      ? `<div style="background:var(--warning-soft);border:1.5px solid var(--warning);border-radius:8px;padding:7px 10px;font-size: var(--fs-body)">
+           <div style="font-weight:800;color:var(--warning);font-size: var(--fs-body-lg)">${fmtVnd(q.coc_so_tien)}</div>
            <div style="color:var(--text-3);margin-top:2px">${fmtDate2(q.coc_ngay)}${q.coc_hinh_thuc==='tien_mat'?' · Tiền mặt':q.coc_hinh_thuc==='chuyen_khoan'?' · Chuyển khoản':''}${q.coc_ngan_hang?' · <b style="color:var(--brand)">'+escHtml(q.coc_ngan_hang)+'</b>':(q.coc_hinh_thuc==='chuyen_khoan'?' · <b style="color:var(--warning)">chưa rõ TK</b>':'')}
            ${q.coc_ghi_chu?'<br><em>'+escHtml(q.coc_ghi_chu)+'</em>':''}</div></div>`
-      : '<span style="color:#e67e22;font-size:13px;font-weight:600">Chưa ghi cọc</span>';
+      : '<span style="color:#e67e22;font-size: var(--fs-body);font-weight:600">Chưa ghi cọc</span>';
     const ktNote = q.kt_ghi_chu
-      ? `<div style="font-size:12px;color:var(--warning);margin-top:3px">${escHtml(q.kt_ghi_chu)}</div>` : '';
+      ? `<div style="font-size: var(--fs-meta);color:var(--warning);margin-top:3px">${escHtml(q.kt_ghi_chu)}</div>` : '';
     return `<tr>
       <td><a href="https://baogia.qlpps.com/quote/${q.id}" target="_blank" style="font-weight:700;color:var(--brand);text-decoration:none">${escHtml(q.quote_number)}</a></td>
-      <td><strong>${escHtml(q.customer_name||'—')}</strong><div style="font-size:12px;color:var(--text-3)">${escHtml(q.customer_phone||'')}</div></td>
+      <td><strong>${escHtml(q.customer_name||'—')}</strong><div style="font-size: var(--fs-meta);color:var(--text-3)">${escHtml(q.customer_phone||'')}</div></td>
       <td>${escHtml(q.salesperson||'—')}</td>
       <td style="font-weight:700;color:var(--brand);white-space:nowrap">${fmtVnd(q.tong_don)}</td>
       <td>${cocHtml}</td>
       <td>
         ${badge}
-        ${q.duyet_boi?`<div style="font-size:12px;color:var(--text-3);margin-top:2px">${escHtml(q.duyet_boi)} · ${String(q.duyet_luc||'').slice(0,16)}</div>`:''}
+        ${q.duyet_boi?`<div style="font-size: var(--fs-meta);color:var(--text-3);margin-top:2px">${escHtml(q.duyet_boi)} · ${String(q.duyet_luc||'').slice(0,16)}</div>`:''}
         ${ktNote}
       </td>
       <td style="text-align:center">
-        <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+        <div style="display:flex;gap: var(--sp-3);justify-content:center;flex-wrap:wrap">
           <button class="btn-approve" onclick="openKtModal(${q.id},'approved','${escHtml(q.quote_number)}','${escHtml(q.customer_name||'')}','${fmtVnd(q.coc_so_tien)}')">
             Xác nhận
           </button>
@@ -1359,7 +1359,7 @@ function openKtModal(qid, action, qnum, cust, cocAmt){
   const hdr = document.getElementById('kt-modal-hdr');
   const btn = document.getElementById('kt-modal-confirm-btn');
   if(action==='approved'){
-    hdr.style.cssText = 'background:var(--success-soft);padding:14px 20px;border-radius:14px 14px 0 0;display:flex;align-items:center;gap:10px';
+    hdr.style.cssText = 'background:var(--success-soft);padding: var(--sp-7) var(--sp-9);border-radius:14px 14px 0 0;display:flex;align-items:center;gap: var(--sp-5)';
     document.getElementById('kt-modal-title').textContent = 'Xác nhận đã nhận cọc';
     btn.className='btn btn-sm'; btn.style.cssText='background:var(--success);color:#fff;border:none';
     btn.innerHTML='Xác nhận';
@@ -1368,7 +1368,7 @@ function openKtModal(qid, action, qnum, cust, cocAmt){
     document.getElementById('kt-modal-info').innerHTML =
       `Đơn <strong>${escHtml(qnum)}</strong> — ${escHtml(cust)}<br>
        Tiền cọc: <strong style="color:var(--warning)">${cocAmt}</strong> · Hình thức: <strong>${_qKt.coc_hinh_thuc==='tien_mat'?'Tiền mặt':_qKt.coc_hinh_thuc==='chuyen_khoan'?'Chuyển khoản':'—'}</strong><br>
-       <span style="font-size:13px;color:var(--text-2)">Đơn sẽ được duyệt hoàn tất và lên <strong>Mua Hàng</strong> ngay.</span>`;
+       <span style="font-size: var(--fs-body);color:var(--text-2)">Đơn sẽ được duyệt hoàn tất và lên <strong>Mua Hàng</strong> ngay.</span>`;
     // Ô chọn TK thực nhận cọc → book đúng sổ quỹ. Mặc định theo coc_ngan_hang;
     // nếu trống thì suy theo hình thức (tiền mặt→Tiền Mặt, CK→ACB) + cảnh báo KT chọn.
     const _tkWrap = document.getElementById('kt-modal-tk-wrap');
@@ -1387,13 +1387,13 @@ function openKtModal(qid, action, qnum, cust, cocAmt){
     }
   } else {
     const _w = document.getElementById('kt-modal-tk-wrap'); if (_w) _w.style.display = 'none';
-    hdr.style.cssText = 'background:var(--danger-soft);padding:14px 20px;border-radius:14px 14px 0 0;display:flex;align-items:center;gap:10px';
+    hdr.style.cssText = 'background:var(--danger-soft);padding: var(--sp-7) var(--sp-9);border-radius:14px 14px 0 0;display:flex;align-items:center;gap: var(--sp-5)';
     document.getElementById('kt-modal-title').textContent = 'Chưa nhận được tiền cọc';
     btn.className='btn btn-sm'; btn.style.cssText='background:var(--danger);color:#fff;border:none';
     btn.innerHTML='Chưa Về Tiền';
     document.getElementById('kt-modal-info').innerHTML =
       `Đơn <strong>${escHtml(qnum)}</strong> — ${escHtml(cust)}<br>
-       <span style="font-size:13px;color:var(--text-2)">KD và Manager sẽ thấy trạng thái <strong>"Chưa Về Tiền"</strong>. Vui lòng nhập lý do bên dưới.</span>`;
+       <span style="font-size: var(--fs-body);color:var(--text-2)">KD và Manager sẽ thấy trạng thái <strong>"Chưa Về Tiền"</strong>. Vui lòng nhập lý do bên dưới.</span>`;
   }
   document.getElementById('kt-coc-modal').classList.add('show');
 }
@@ -1450,17 +1450,17 @@ let _dnttData = [];       // toàn bộ DNTT (mọi trạng thái)
 let _dnttSubFilter = 'cho_duyet';  // default: chờ KT duyệt
 
 const _DNTT_STATUS_BADGE = {
-  'cho_duyet':  '<span style="background:var(--warning-soft);color:var(--warning-fg);border:1px solid var(--warning);padding:2px 8px;border-radius:6px;font-size:12px;font-weight:600">Chờ KT</span>',
-  'kt_duyet':   '<span style="background:var(--info-soft);color:var(--brand);border:1px solid var(--brand-soft);padding:2px 8px;border-radius:6px;font-size:12px;font-weight:600">✓ KT duyệt (chờ CEO)</span>',
-  'duyet':      '<span style="background:var(--success-soft);color:var(--success-fg);border:1px solid var(--success-soft);padding:2px 8px;border-radius:6px;font-size:12px;font-weight:600">CEO duyệt</span>',
-  'kt_tu_choi': '<span style="background:var(--danger-soft);color:var(--danger-fg);border:1px solid var(--danger-soft);padding:2px 8px;border-radius:6px;font-size:12px;font-weight:600">✗ KT từ chối</span>',
-  'tu_choi':    '<span style="background:var(--brand-soft);color:var(--brand-hover);border:1px solid var(--brand-soft);padding:2px 8px;border-radius:6px;font-size:12px;font-weight:600">✗ CEO từ chối</span>',
+  'cho_duyet':  '<span style="background:var(--warning-soft);color:var(--warning-fg);border:1px solid var(--warning);padding: var(--sp-1) var(--sp-4);border-radius:6px;font-size: var(--fs-meta);font-weight:600">Chờ KT</span>',
+  'kt_duyet':   '<span style="background:var(--info-soft);color:var(--brand);border:1px solid var(--brand-soft);padding: var(--sp-1) var(--sp-4);border-radius:6px;font-size: var(--fs-meta);font-weight:600">✓ KT duyệt (chờ CEO)</span>',
+  'duyet':      '<span style="background:var(--success-soft);color:var(--success-fg);border:1px solid var(--success-soft);padding: var(--sp-1) var(--sp-4);border-radius:6px;font-size: var(--fs-meta);font-weight:600">CEO duyệt</span>',
+  'kt_tu_choi': '<span style="background:var(--danger-soft);color:var(--danger-fg);border:1px solid var(--danger-soft);padding: var(--sp-1) var(--sp-4);border-radius:6px;font-size: var(--fs-meta);font-weight:600">✗ KT từ chối</span>',
+  'tu_choi':    '<span style="background:var(--brand-soft);color:var(--brand-hover);border:1px solid var(--brand-soft);padding: var(--sp-1) var(--sp-4);border-radius:6px;font-size: var(--fs-meta);font-weight:600">✗ CEO từ chối</span>',
 };
 
 async function loadDNTT(){
   const tbody = document.getElementById('dntt-tbody');
   if(!tbody) return;
-  tbody.innerHTML = '<tr class="loading-row"><td colspan="9"><div class="spinner"></div><div style="color:var(--text-3);font-size:14px">Đang tải...</div></td></tr>';
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="9"><div class="spinner"></div><div style="color:var(--text-3);font-size: var(--fs-body-lg)">Đang tải...</div></td></tr>';
   try {
     // Fetch TẤT CẢ — sub-tab filter client-side để KT theo dõi mọi trạng thái
     const r = await fetch('/api/de-nghi-tt', {credentials:'include'});
@@ -1517,7 +1517,7 @@ function renderDNTT(){
   }
   tbody.innerHTML = list.map(r => {
     const isPending = r.trang_thai === 'cho_duyet';
-    const badge = _DNTT_STATUS_BADGE[r.trang_thai] || `<span style="color:var(--text-3);font-size:12px">${escHtml(r.trang_thai||'?')}</span>`;
+    const badge = _DNTT_STATUS_BADGE[r.trang_thai] || `<span style="color:var(--text-3);font-size: var(--fs-meta)">${escHtml(r.trang_thai||'?')}</span>`;
     // Hành động: chỉ pending mới có duyệt/từ chối; còn lại chỉ Xem
     const actionHtml = isPending
       ? `<button class="btn-approve" onclick="openDnttModal('${escHtml(r.id)}','approve')">Duyệt</button>
@@ -1529,10 +1529,10 @@ function renderDNTT(){
       <td>${escHtml(r.ma_don||'')}</td>
       <td>${escHtml(r.don_vi_vc||'')}</td>
       <td style="text-align:right;font-weight:600;color:var(--brand-hover)">${fmtVnd(r.so_tien)}</td>
-      <td style="max-width:200px;font-size:13px;color:var(--text-3)">${escHtml(r.ly_do||'—')}</td>
-      <td style="font-size:13px">
+      <td style="max-width:200px;font-size: var(--fs-body);color:var(--text-3)">${escHtml(r.ly_do||'—')}</td>
+      <td style="font-size: var(--fs-body)">
         <div>${escHtml(r.nguoi_tao_ten || r.nguoi_tao || '—')}</div>
-        ${r.nguoi_tao_ten && r.nguoi_tao ? `<div style="color:var(--text-3);font-size:11px">${escHtml(r.nguoi_tao)}</div>` : ''}
+        ${r.nguoi_tao_ten && r.nguoi_tao ? `<div style="color:var(--text-3);font-size: var(--fs-eyebrow)">${escHtml(r.nguoi_tao)}</div>` : ''}
       </td>
       <td style="text-align:center">${badge}</td>
       <td style="text-align:center;white-space:nowrap" onclick="event.stopPropagation()">${actionHtml}</td>
@@ -1555,38 +1555,38 @@ async function openDnttModal(id, action){
 
   try {
     const r = await fetch(`/api/de-nghi-tt/${id}/detail`, {credentials:'include'});
-    if(!r.ok){ body.innerHTML = `<div style="color:red;padding:20px">Lỗi: ${r.status}</div>`; return; }
+    if(!r.ok){ body.innerHTML = `<div style="color:red;padding: var(--sp-9)">Lỗi: ${r.status}</div>`; return; }
     const d = await r.json();
     const fmtSize = (b) => b ? (b>1024*1024 ? (b/1024/1024).toFixed(1)+'MB' : (b/1024).toFixed(0)+'KB') : '';
     const loaiIcon = {'invoice':'','unc':'','photo':'','other':''};
     const atts = (d.attachments||[]);
     body.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;font-size:14px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap: var(--sp-6) var(--sp-10);font-size: var(--fs-body-lg)">
         <div><span style="color:var(--text-2)">Mã:</span> <b>${escHtml(d.id)}</b></div>
         <div><span style="color:var(--text-2)">Ngày đề nghị:</span> <b>${fmtDate2(d.ngay_de_nghi)}</b></div>
         <div><span style="color:var(--text-2)">Mã đơn:</span> <b>${escHtml(d.ma_don||'—')}</b></div>
         <div><span style="color:var(--text-2)">ĐVVC:</span> <b>${escHtml(d.don_vi_vc||'—')}</b></div>
-        <div><span style="color:var(--text-2)">Số tiền:</span> <b style="color:var(--info);font-size:16px">${fmtVnd(d.so_tien)}</b></div>
+        <div><span style="color:var(--text-2)">Số tiền:</span> <b style="color:var(--info);font-size: var(--fs-title)">${fmtVnd(d.so_tien)}</b></div>
         <div><span style="color:var(--text-2)">Ngày giao:</span> <b>${d.ngay_giao ? fmtDate2(d.ngay_giao) : '—'}</b></div>
         <div><span style="color:var(--text-2)">Người tạo:</span> <b>${escHtml(d.nguoi_tao_ten||d.nguoi_tao||'—')}</b></div>
         <div><span style="color:var(--text-2)">Trạng thái:</span> <b>${escHtml(d.trang_thai||'—')}</b></div>
       </div>
-      ${d.ly_do ? `<div style="margin-top:14px;padding:10px 14px;background:var(--warning-soft);border-left:3px solid var(--warning);border-radius:6px;font-size:14px"><b>Lý do:</b> ${escHtml(d.ly_do)}</div>` : ''}
-      ${d.ghi_chu ? `<div style="margin-top:10px;padding:10px 14px;background:var(--brand-soft);border-left:3px solid var(--info);border-radius:6px;font-size:14px"><b>Ghi chú:</b> ${escHtml(d.ghi_chu)}</div>` : ''}
+      ${d.ly_do ? `<div style="margin-top:14px;padding: var(--sp-5) var(--sp-7);background:var(--warning-soft);border-left:3px solid var(--warning);border-radius:6px;font-size: var(--fs-body-lg)"><b>Lý do:</b> ${escHtml(d.ly_do)}</div>` : ''}
+      ${d.ghi_chu ? `<div style="margin-top:10px;padding: var(--sp-5) var(--sp-7);background:var(--brand-soft);border-left:3px solid var(--info);border-radius:6px;font-size: var(--fs-body-lg)"><b>Ghi chú:</b> ${escHtml(d.ghi_chu)}</div>` : ''}
       ${atts.length ? `
         <div style="margin-top:14px">
-          <div style="font-size:13px;font-weight:700;color:var(--text-2);margin-bottom:8px">Chứng từ đính kèm (${atts.length})</div>
-          <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size: var(--fs-body);font-weight:700;color:var(--text-2);margin-bottom:8px">Chứng từ đính kèm (${atts.length})</div>
+          <div style="display:flex;flex-direction:column;gap: var(--sp-3)">
             ${atts.map(a=>`
               <a href="${escHtml(_saUrl(a.url))}" target="_blank" rel="noopener"
-                 style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-page);border:1px solid var(--border);border-radius:7px;text-decoration:none;color:var(--brand);font-size:14px">
-                <span style="font-size:17px">${loaiIcon[a.loai]||''}</span>
+                 style="display:flex;align-items:center;gap: var(--sp-4);padding: var(--sp-4) var(--sp-6);background:var(--bg-page);border:1px solid var(--border);border-radius:7px;text-decoration:none;color:var(--brand);font-size: var(--fs-body-lg)">
+                <span style="font-size: var(--fs-h)">${loaiIcon[a.loai]||''}</span>
                 <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(a.filename)}</span>
-                ${a.size ? `<span style="font-size:12px;color:var(--text-3)">${fmtSize(a.size)}</span>` : ''}
-                <span style="font-size:12px;color:var(--text-2)">↗ Xem</span>
+                ${a.size ? `<span style="font-size: var(--fs-meta);color:var(--text-3)">${fmtSize(a.size)}</span>` : ''}
+                <span style="font-size: var(--fs-meta);color:var(--text-2)">↗ Xem</span>
               </a>`).join('')}
           </div>
-        </div>` : '<div style="margin-top:10px;font-size:13px;color:var(--text-3)">Không có chứng từ đính kèm</div>'}
+        </div>` : '<div style="margin-top:10px;font-size: var(--fs-body);color:var(--text-3)">Không có chứng từ đính kèm</div>'}
     `;
     // Ẩn nút Duyệt/Từ chối nếu đơn không còn ở cho_duyet (đã KT hoặc CEO xử lý)
     const isPending = (d.trang_thai || '') === 'cho_duyet';
@@ -1602,7 +1602,7 @@ async function openDnttModal(id, action){
     // Highlight nút nếu có action được chọn sẵn
     if(isPending && action === 'reject') noteEl?.focus();
   } catch(e) {
-    body.innerHTML = `<div style="color:red;padding:20px">Lỗi: ${escHtml(e.message)}</div>`;
+    body.innerHTML = `<div style="color:red;padding: var(--sp-9)">Lỗi: ${escHtml(e.message)}</div>`;
   }
 }
 
