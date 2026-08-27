@@ -183,22 +183,47 @@
 
      194 chỗ đang gọi var(--shadow-*) sẽ tự đẹp lên, không phải sửa template. */
   --shadow-sm:
-      0 1px 1px rgba(15,23,42,.02),
-      0 1px 2px rgba(15,23,42,.04);
+      0 1px 1px rgba(15,23,42,.04),
+      0 1px 3px rgba(15,23,42,.06);
   --shadow-md:
-      0 1px 1px rgba(15,23,42,.02),
-      0 2px 4px rgba(15,23,42,.03),
-      0 4px 8px rgba(15,23,42,.04);
+      0 1px 1px rgba(15,23,42,.03),
+      0 2px 4px rgba(15,23,42,.05),
+      0 6px 12px rgba(15,23,42,.06);
   --shadow-lg:
-      0 1px 2px rgba(15,23,42,.02),
-      0 4px 8px rgba(15,23,42,.03),
-      0 10px 20px rgba(15,23,42,.05),
-      0 20px 40px rgba(15,23,42,.06);
-  --shadow-pop:
       0 1px 2px rgba(15,23,42,.03),
-      0 4px 10px rgba(15,23,42,.04),
-      0 12px 28px rgba(15,23,42,.06),
-      0 24px 56px rgba(15,23,42,.08);
+      0 4px 8px rgba(15,23,42,.05),
+      0 10px 20px rgba(15,23,42,.07),
+      0 20px 40px rgba(15,23,42,.09);
+  --shadow-pop:
+      0 1px 2px rgba(15,23,42,.04),
+      0 4px 10px rgba(15,23,42,.06),
+      0 12px 28px rgba(15,23,42,.09),
+      0 24px 56px rgba(15,23,42,.12);
+
+  /* ═══ 12b. ĐƯỜNG VIỀN TÓC — thứ THỰC SỰ tách khối khỏi nền ═══════════════
+     27/08/2026. Người dùng báo các khối thông tin không tách khỏi nền.
+     Đo ra thì nguyên nhân KHÔNG phải bóng yếu, mà là thiếu hẳn một cái mép:
+
+       thẻ trắng trên nền --bg-app  = 1.096 lần  ← toàn bộ sự tách hiện có
+       bản thiết kế, thẻ trên viền  = 1.333 lần
+
+     Bóng nhiều lớp gần trong suốt làm mặt phẳng "nhấc khỏi giấy", nhưng nó
+     KHÔNG vẽ ra mép. Trên nền chỉ nhạt hơn thẻ 1.096 lần thì không có mép
+     nghĩa là không thấy khối. Bản thiết kế (Body.pdf) tách khối bằng đúng
+     một đường 1px #DFDFDF, bóng gần như không có.
+
+     alpha .10: trên nền --bg-app ra #DADFE4, thẻ trắng nổi 1.341 lần —
+     khớp 1.333 của bản thiết kế. Đo, không chọn bằng mắt.
+
+     `0 0 0 1px` chứ không phải `border`: viền bám theo border-radius, KHÔNG
+     cộng vào kích thước phần tử, nên thêm vào 654 chỗ đang gọi var(--shadow-*)
+     mà không xê dịch bố cục một pixel nào. */
+  --ring: 0 0 0 1px rgba(15,23,42,.10);
+
+  /* Dùng cho THẺ / KHỐI THÔNG TIN: mép + nhấc nhẹ. Đây là thứ nên gọi thay
+     cho var(--shadow-sm) ở các khối lớn. Ô nhỏ, nút, popover thì vẫn dùng
+     --shadow-sm/md/pop như cũ — chúng không cần mép. */
+  --shadow-card: var(--ring), var(--shadow-md);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
