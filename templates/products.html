@@ -8,88 +8,88 @@
 <link rel="shortcut icon" href="/static/papasan.ico">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',sans-serif;background:var(--bg-app);color:var(--text-1);min-height:100vh;display:flex;flex-direction:column}
+body{font-family:'Segoe UI',sans-serif;background:var(--bg-card);color:var(--text-1);min-height:100vh;display:flex;flex-direction:column}
 /* .topbar cũ đã bỏ — header dùng chung nằm ở _header.html (.appbar) */
 .content{flex:1;padding:18px 24px;overflow-y:auto;display:flex;flex-direction:column}
-.tab-nav{display:flex;gap: var(--sp-2);border-bottom:2px solid var(--border);margin-bottom:14px}
-.tab-btn{padding:9px 18px;background:none;border:none;border-bottom:3px solid transparent;font-size: var(--fs-body-lg);font-weight:600;color:var(--text-3);cursor:pointer;margin-bottom:-2px}
+.tab-nav{display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:14px}
+.tab-btn{padding:9px 18px;background:none;border:none;border-bottom:3px solid transparent;font-size:14px;font-weight:600;color:var(--text-3);cursor:pointer;margin-bottom:-2px}
 .tab-btn:hover{color:var(--brand);background:var(--bg-page)}
 .tab-btn.active{color:var(--brand);border-bottom-color:var(--brand)}
 .tab-pane{display:none;flex:1;flex-direction:column}
 .tab-pane.active{display:flex}
-.toolbar{display:flex;align-items:center;gap: var(--sp-4);margin-bottom:14px;flex-wrap:wrap}
-.toolbar input,.toolbar select{padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size: var(--fs-body-lg);outline:none}
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.toolbar input,.toolbar select{padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:14px;outline:none}
 .toolbar input:focus,.toolbar select:focus{border-color:var(--brand)}
-.btn{padding:7px 14px;border-radius:7px;border:none;font-size: var(--fs-body-lg);font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.btn{padding:7px 14px;border-radius:7px;border:none;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
 .btn-primary{background:var(--brand-soft);color:var(--brand-hover)}
 .btn-primary:hover{filter:brightness(.95)}
 .btn-outline{background:#fff;border:1px solid var(--border);color:var(--text-2)}
 .btn-outline:hover{background:var(--bg-page)}
 .btn-danger{background:var(--danger);color:#fff}
 .btn-danger:hover{background:var(--danger-fg)}
-.btn-sm{padding:4px 9px;font-size: var(--fs-body)}
-.table-wrap{background:#fff;border-radius:12px;box-shadow: var(--shadow-sm);overflow:hidden;flex:1;margin-bottom:12px}
+.btn-sm{padding:4px 9px;font-size:13px}
+.table-wrap{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden;flex:1;margin-bottom:12px}
 table{width:100%;border-collapse:collapse}
 thead tr{background:var(--brand-soft)}
-thead th{color:var(--brand-hover);font-size: var(--fs-body);font-weight:600;padding: var(--sp-5) var(--sp-6);text-align:left;white-space:nowrap}
+thead th{color:var(--brand-hover);font-size:13px;font-weight:600;padding:10px 12px;text-align:left;white-space:nowrap}
 tbody tr{border-bottom:1px solid var(--bg-page)}
 tbody tr:hover{background:var(--brand-soft)}
-tbody td{padding: var(--sp-5) var(--sp-6);font-size: var(--fs-body-lg);vertical-align:middle}
+tbody td{padding:10px 12px;font-size:14px;vertical-align:middle}
 .td-actions{white-space:nowrap;text-align:right}
-.badge{display:inline-flex;padding: var(--sp-1) var(--sp-4);border-radius:20px;font-size: var(--fs-meta);font-weight:600}
+.badge{display:inline-flex;padding:2px 8px;border-radius:20px;font-size:12px;font-weight:600}
 .b-cat{background:var(--info-soft);color:var(--info-fg)}
 .b-warn{background:var(--warning-soft);color:var(--warning-fg)}
 .b-danger{background:var(--danger-soft);color:var(--danger-fg)}
 .b-ok{background:var(--success-soft);color:var(--success-fg)}
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(51,33,15,.32);z-index:1000;align-items:center;justify-content:center}
 .modal-bg.show{display:flex}
-.modal{background:#fff;border-radius:12px;padding: var(--sp-10);width:520px;max-width:95vw;max-height:88vh;overflow-y:auto;box-shadow: var(--shadow-lg)}
-.modal h3{font-size: var(--fs-h);font-weight:700;color:var(--brand);margin-bottom:18px}
+.modal{background:#fff;border-radius:12px;padding:24px;width:520px;max-width:95vw;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal h3{font-size:17px;font-weight:700;color:var(--brand);margin-bottom:18px}
 .fg{margin-bottom:12px}
-.fg label{display:block;font-size: var(--fs-body);font-weight:600;color:var(--text-2);margin-bottom:4px}
-.fg input,.fg select,.fg textarea{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-size: var(--fs-body-lg);outline:none}
+.fg label{display:block;font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:4px}
+.fg input,.fg select,.fg textarea{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-size:14px;outline:none}
 .fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--brand)}
-.modal-foot{display:flex;gap: var(--sp-4);justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--bg-page)}
-.tree-node{padding: var(--sp-4) var(--sp-6);border-bottom:1px solid var(--bg-page);display:flex;align-items:center;gap: var(--sp-4);font-size: var(--fs-body-lg)}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--bg-page)}
+.tree-node{padding:8px 12px;border-bottom:1px solid var(--bg-page);display:flex;align-items:center;gap:8px;font-size:14px}
 .tree-node:hover{background:var(--bg-page)}
 .tree-node .name{flex:1;font-weight:600;color:var(--brand)}
 .tree-children{margin-left:22px;border-left:2px solid var(--border)}
-.toast{position:fixed;bottom:20px;right:20px;background:var(--text-1);color:#fff;padding:11px 20px;border-radius:8px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;font-size: var(--fs-body-lg)}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--text-1);color:#fff;padding:11px 20px;border-radius:8px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;font-size:14px}
 .toast.show{transform:translateY(0);opacity:1}
 .toast.err{background:var(--danger)}
-.summary{display:flex;gap: var(--sp-6);flex-wrap:wrap;margin-bottom:14px}
-.summary .card{background:#fff;border-radius:10px;padding:14px 18px;box-shadow: var(--shadow-sm);min-width:180px}
-.summary .card .lbl{font-size: var(--fs-meta);color:var(--text-3);text-transform:uppercase;letter-spacing:.5px}
-.summary .card .val{font-size: var(--fs-h);font-weight:700;color:var(--brand);margin-top:4px}
+.summary{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.summary .card{background:#fff;border-radius:10px;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.06);min-width:180px}
+.summary .card .lbl{font-size:12px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px}
+.summary .card .val{font-size:17px;font-weight:700;color:var(--brand);margin-top:4px}
 .empty{text-align:center;padding:50px 20px;color:var(--text-3)}
 
 /* Responsive */
 @media(max-width:1100px){
-  .content{padding: var(--sp-6) var(--sp-7)}
-  .tab-btn{padding: var(--sp-4) var(--sp-6);font-size: var(--fs-body)}
-  .toolbar{gap: var(--sp-3)}
-  .toolbar input,.toolbar select{padding:7px 10px;font-size: var(--fs-body);min-width:120px;flex:1 1 140px}
+  .content{padding:12px 14px}
+  .tab-btn{padding:8px 12px;font-size:13px}
+  .toolbar{gap:6px}
+  .toolbar input,.toolbar select{padding:7px 10px;font-size:13px;min-width:120px;flex:1 1 140px}
   .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  table{min-width:640px;font-size: var(--fs-body)}
-  thead th{padding: var(--sp-4) var(--sp-4);font-size: var(--fs-meta)}
-  tbody td{padding: var(--sp-4) var(--sp-4);font-size: var(--fs-body)}
-  .summary{gap: var(--sp-4)}
-  .summary .card{min-width:140px;flex:1 1 140px;padding: var(--sp-6) var(--sp-7)}
-  .summary .card .val{font-size: var(--fs-h)}
+  table{min-width:640px;font-size:13px}
+  thead th{padding:8px 8px;font-size:12px}
+  tbody td{padding:8px 8px;font-size:13px}
+  .summary{gap:8px}
+  .summary .card{min-width:140px;flex:1 1 140px;padding:12px 14px}
+  .summary .card .val{font-size:17px}
   .modal{padding:18px;width:100%;max-width:95vw}
   .btn{min-height:32px}
 }
 @media(max-width:768px){
 
-  .content{padding: var(--sp-5) var(--sp-5)}
+  .content{padding:10px 10px}
   .tab-nav{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
-  .tab-btn{white-space:nowrap;padding: var(--sp-4) var(--sp-5);font-size: var(--fs-meta)}
+  .tab-btn{white-space:nowrap;padding:8px 10px;font-size:12px}
   .toolbar{flex-direction:column;align-items:stretch}
   .toolbar input,.toolbar select{width:100%}
-  table{font-size: var(--fs-body)}
-  thead th{font-size: var(--fs-eyebrow);padding:7px 6px}
-  tbody td{padding:7px 6px;font-size: var(--fs-meta)}
-  .modal{padding: var(--sp-8);max-height:95vh}
+  table{font-size:13px}
+  thead th{font-size:11px;padding:7px 6px}
+  tbody td{padding:7px 6px;font-size:12px}
+  .modal{padding:16px;max-height:95vh}
   .modal-foot{flex-direction:column-reverse}
   .modal-foot .btn{width:100%;justify-content:center}
 }
@@ -99,14 +99,14 @@ tbody td{padding: var(--sp-5) var(--sp-6);font-size: var(--fs-body-lg);vertical-
   .bom-item-row button{flex:0 0 auto;align-self:flex-end}
 }
 @media(max-width:480px){
-  .summary .card{min-width:100%;padding: var(--sp-5) var(--sp-6)}
-  .summary .card .val{font-size: var(--fs-title)}
-  table{font-size: var(--fs-meta)}
-  thead th{font-size: var(--fs-micro);padding: var(--sp-3) var(--sp-2)}
-  tbody td{padding: var(--sp-3) var(--sp-2)}
-  .btn{padding: var(--sp-3) var(--sp-5);font-size: var(--fs-body)}
-  .btn-sm{padding:4px 7px;font-size: var(--fs-meta)}
-  .badge{font-size: var(--fs-eyebrow);padding: var(--sp-1) var(--sp-3)}
+  .summary .card{min-width:100%;padding:10px 12px}
+  .summary .card .val{font-size:16px}
+  table{font-size:12px}
+  thead th{font-size:10px;padding:6px 4px}
+  tbody td{padding:6px 4px}
+  .btn{padding:6px 10px;font-size:13px}
+  .btn-sm{padding:4px 7px;font-size:12px}
+  .badge{font-size:11px;padding:2px 6px}
 }
 </style>
 </head>
@@ -261,7 +261,7 @@ tbody td{padding: var(--sp-5) var(--sp-6);font-size: var(--fs-body-lg);vertical-
     <div class="fg">
       <label style="font-weight:700;color:var(--brand-hover)">Định giá bán mặc định</label>
       <input id="prod-gia" type="number" value="0" style="font-weight:600">
-      <small style="display:block;color:var(--text-3);margin-top:4px;font-size: var(--fs-meta)">Giá bán hiển thị mặc định cho khách (đơn vị: VND)</small>
+      <small style="display:block;color:var(--text-3);margin-top:4px;font-size:12px">Giá bán hiển thị mặc định cho khách (đơn vị: VND)</small>
     </div>
     <div class="fg"><label>Active</label><select id="prod-active"><option value="true">true</option><option value="false">false</option></select></div>
     <div class="modal-foot">
@@ -316,7 +316,7 @@ tbody td{padding: var(--sp-5) var(--sp-6);font-size: var(--fs-body-lg);vertical-
     <div class="fg"><label>Mã BOM (trống = auto BOM-NNN)</label><input id="bom-ma" maxlength="32" placeholder="BOM-NNN"></div>
     <div class="fg"><label>Tên BOM</label><input id="bom-ten" maxlength="255"></div>
     <div class="fg"><label>Nhóm SP áp dụng</label><select id="bom-cat-sel"></select></div>
-    <div style="display:flex;gap: var(--sp-4)">
+    <div style="display:flex;gap:8px">
       <div class="fg" style="flex:1"><label>Hiệu lực từ</label><input id="bom-eff-from" type="date"></div>
       <div class="fg" style="flex:1"><label>Hiệu lực đến (trống = vô hạn)</label><input id="bom-eff-to" type="date"></div>
     </div>
@@ -339,7 +339,7 @@ tbody td{padding: var(--sp-5) var(--sp-6);font-size: var(--fs-body-lg);vertical-
 <div class="modal-bg" id="m-margin">
   <div class="modal" style="width:760px">
     <h3>Báo cáo Margin theo Nhóm SP</h3>
-    <div style="display:flex;gap: var(--sp-4);margin-bottom:14px">
+    <div style="display:flex;gap:8px;margin-bottom:14px">
       <div class="fg" style="flex:1"><label>Từ ngày</label><input id="mg-from" type="date"></div>
       <div class="fg" style="flex:1"><label>Đến ngày</label><input id="mg-to" type="date"></div>
       <div class="fg" style="display:flex;align-items:flex-end">
@@ -733,11 +733,11 @@ async function loadBoms() {
 function _renderBomItems() {
   const wrap = document.getElementById('bom-items');
   wrap.innerHTML = _bomItemsDraft.map((it, i) => `
-    <div class="bom-item-row" style="display:flex;gap: var(--sp-3);margin-bottom:6px">
-      <input style="flex:2;padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size: var(--fs-body)" placeholder="Tên NVL" value="${(it.ten_nvl||'').replace(/"/g,'&quot;')}" oninput="_bomItemsDraft[${i}].ten_nvl=this.value">
-      <input style="flex:1;padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size: var(--fs-body)" placeholder="ĐVT" value="${(it.dvt||'').replace(/"/g,'&quot;')}" oninput="_bomItemsDraft[${i}].dvt=this.value">
-      <input type="number" step="0.01" style="flex:1;padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size: var(--fs-body)" placeholder="SL" value="${it.so_luong||''}" oninput="_bomItemsDraft[${i}].so_luong=parseFloat(this.value||'0');_recalcBomTotal()">
-      <input type="number" step="0.01" style="flex:1;padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size: var(--fs-body)" placeholder="Đơn giá" value="${it.don_gia||''}" oninput="_bomItemsDraft[${i}].don_gia=parseFloat(this.value||'0');_recalcBomTotal()">
+    <div class="bom-item-row" style="display:flex;gap:6px;margin-bottom:6px">
+      <input style="flex:2;padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px" placeholder="Tên NVL" value="${(it.ten_nvl||'').replace(/"/g,'&quot;')}" oninput="_bomItemsDraft[${i}].ten_nvl=this.value">
+      <input style="flex:1;padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px" placeholder="ĐVT" value="${(it.dvt||'').replace(/"/g,'&quot;')}" oninput="_bomItemsDraft[${i}].dvt=this.value">
+      <input type="number" step="0.01" style="flex:1;padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px" placeholder="SL" value="${it.so_luong||''}" oninput="_bomItemsDraft[${i}].so_luong=parseFloat(this.value||'0');_recalcBomTotal()">
+      <input type="number" step="0.01" style="flex:1;padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px" placeholder="Đơn giá" value="${it.don_gia||''}" oninput="_bomItemsDraft[${i}].don_gia=parseFloat(this.value||'0');_recalcBomTotal()">
       <button type="button" class="btn btn-sm btn-danger" onclick="delBomItem(${i})">×</button>
     </div>
   `).join('');

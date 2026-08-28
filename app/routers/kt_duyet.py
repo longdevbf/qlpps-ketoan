@@ -297,6 +297,19 @@ def kt_duyet(
         _sync_coc_to_soquy(db, quote, user.username)
         # Khách hàng → "Đã Mua" (Customer + Lead liên kết, idempotent, fail-soft)
         _mark_customer_da_mua(db, quote)
+        # Báo "đã duyệt tiền" lên nhóm "Kinh Doanh - Kế Toán" (fail-soft).
+        try:
+            from shared.services.chat_post import post_to_group
+            _coc = float(getattr(quote, "coc_so_tien", 0) or 0) or float(
+                getattr(quote, "deposit", 0) or 0
+            )
+            _msg = (
+                f"✅ Kế Toán {user.username} đã duyệt cọc đơn {quote.quote_number} — "
+                f"{int(_coc):,}đ đã vào sổ quỹ. KH {quote.customer_name or ''}."
+            )
+            post_to_group(db, content=_msg)
+        except Exception:
+            pass
 
     log_action(
         db, app="ketoan", action=f"kt_duyet_{body.action}", user=user, request=request,

@@ -290,8 +290,14 @@ def _sum_cp_phat_sinh_filter(
     name_like: Optional[str] = None,        # ILIKE pattern
     name_like_any: Optional[list[str]] = None,  # multi ILIKE OR
     exclude_name_like: Optional[list[str]] = None,
+    also_ten_khoan: bool = False,           # khớp cả ten_khoan (mô tả), không chỉ loai_chi_phi
 ) -> float:
-    """SUM chi_phi_phat_sinh.so_tien with flexible filters."""
+    """SUM chi_phi_phat_sinh.so_tien with flexible filters.
+
+    `also_ten_khoan=True`: name_like_any/exclude_name_like khớp trên CẢ
+    `loai_chi_phi` LẪN `ten_khoan` (nhiều khoản ghi từ khoá ở mô tả ten_khoan,
+    vd 'Hoàn tiền khách', 'tạm ứng', 'chi phí quảng cáo').
+    """
     where = ["ngay >= :tu", "ngay <= :den"]
     params: dict[str, Any] = {"tu": tu, "den": den}
     if nhom:
@@ -304,7 +310,13 @@ def _sum_cp_phat_sinh_filter(
         ors = []
         for i, p in enumerate(name_like_any):
             k = f"nla_{i}"
-            ors.append(f"LOWER(COALESCE(loai_chi_phi, '')) LIKE :{k}")
+            if also_ten_khoan:
+                ors.append(
+                    f"(LOWER(COALESCE(loai_chi_phi, '')) LIKE :{k} "
+                    f"OR LOWER(COALESCE(ten_khoan, '')) LIKE :{k})"
+                )
+            else:
+                ors.append(f"LOWER(COALESCE(loai_chi_phi, '')) LIKE :{k}")
             params[k] = p.lower()
         if ors:
             where.append("(" + " OR ".join(ors) + ")")
@@ -312,7 +324,13 @@ def _sum_cp_phat_sinh_filter(
         ors = []
         for i, p in enumerate(exclude_name_like):
             k = f"exn_{i}"
-            ors.append(f"LOWER(COALESCE(loai_chi_phi, '')) NOT LIKE :{k}")
+            if also_ten_khoan:
+                ors.append(
+                    f"(LOWER(COALESCE(loai_chi_phi, '')) NOT LIKE :{k} "
+                    f"AND LOWER(COALESCE(ten_khoan, '')) NOT LIKE :{k})"
+                )
+            else:
+                ors.append(f"LOWER(COALESCE(loai_chi_phi, '')) NOT LIKE :{k}")
             params[k] = p.lower()
         if ors:
             where.append("(" + " AND ".join(ors) + ")")
@@ -1164,7 +1182,14 @@ def calc_pl_for_month(db: Session, thang: str) -> dict[str, Any]:
     # ── 1. Doanh thu ─────────────────────────────────────────────────────────
     dt_thuc_hien = _sum_doanh_thu_thuc_hien(db, tu, den)
     chiet_khau = 0.0  # Phase 4 placeholder — chiết khấu đã trừ ở thời điểm sinh DT
-    dt_thuan = round(dt_thuc_hien - chiet_khau, 2)
+    # Giảm trừ doanh thu = HOÀN TIỀN khách (chi_phi_phat_sinh 'Hoàn tiền') — trả lại
+    # tiền cho khách của đơn ĐÃ ghi nhận DT ⇒ GIẢM TRỪ DOANH THU, không phải "CP khác"
+    # (anh Quang chốt 2026-08-27: dọn phân loại P&L).
+    giam_tru_dt = round(_sum_cp_phat_sinh_filter(
+        db, tu, den, name_like_any=["%hoàn tiền%", "%hoan tien%"],
+        also_ten_khoan=True,
+    ), 2)
+    dt_thuan = round(dt_thuc_hien - chiet_khau - giam_tru_dt, 2)
 
     # ── 2. COGS ──────────────────────────────────────────────────────────────
     cogs = round(_sum_cogs(db, tu, den), 2)
@@ -1200,17 +1225,30 @@ def calc_pl_for_month(db: Session, thang: str) -> dict[str, Any]:
     # SUM marketing.ads_cost trong khoảng ngày của tháng.
     _ads_pb_total = _sum_ads_phan_bo_thang(db, thang)
     _ads_pb_by_nhom_raw = _sum_ads_phan_bo_by_nhom(db, thang)
-    if _ads_pb_total is None:
-        # Fallback legacy
-        bh_ads = round(_sum_ads(db, tu, den), 2)
-        bh_ads_source = "marketing.ads_cost (legacy)"
-        bh_ads_by_nhom: dict[str, float] = {}
-    else:
+    # Nguồn ads dự phòng = chi_phi_phat_sinh 'Marketing'/'ads'/'quảng cáo' (MỌI nhóm)
+    # — KT ghi tiền ads thủ công. Trước đây các dòng này bị LOẠI khỏi bh_khac (tránh
+    # double) NHƯNG ads_phan_bo_don lại =0 (marketing.ads_cost rỗng) ⇒ ads BỊ MẤT
+    # HẲN khỏi P&L. Anh Quang chốt 2026-08-27: nếu ads_phan_bo=0 thì lấy chi_phi này.
+    _ads_from_chi_phi = round(_sum_cp_phat_sinh_filter(
+        db, tu, den,
+        name_like_any=["%marketing%", "%ads%", "%quảng cáo%", "%quang cao%"],
+        also_ten_khoan=True,
+    ), 2)
+    if _ads_pb_total and _ads_pb_total > 0:
         bh_ads = round(_ads_pb_total, 2)
         bh_ads_source = "ketoan.ads_phan_bo_don"
         bh_ads_by_nhom = {
             k: round(float(v or 0), 2) for k, v in (_ads_pb_by_nhom_raw or {}).items()
         }
+    elif _ads_from_chi_phi > 0:
+        bh_ads = _ads_from_chi_phi
+        bh_ads_source = "chi_phi_phat_sinh (Marketing/quảng cáo)"
+        bh_ads_by_nhom: dict[str, float] = {}
+    else:
+        # Fallback legacy
+        bh_ads = round(_sum_ads(db, tu, den), 2)
+        bh_ads_source = "marketing.ads_cost (legacy)"
+        bh_ads_by_nhom = {}
 
     bh_vc = round(_sum_van_chuyen(db, tu, den), 2)
     # Khuyến mãi = chi_phi_phat_sinh.nhom='ban_hang' ten chứa 'khuyen mai'
@@ -1307,9 +1345,17 @@ def calc_pl_for_month(db: Session, thang: str) -> dict[str, Any]:
     # Biến phí QL — LOẠI TRỪ các khoản thanh toán NCC (anh Quang chốt 2026-06-20):
     # tiền trả nhà cung cấp/mua hàng/công nợ là GIÁ VỐN (đã ở COGS), không phải
     # chi phí quản lý → tránh đếm 2 lần nếu kế toán lỡ ghi vào chi_phi_phat_sinh.
+    # Lương QL: payroll (hcns) là nguồn chuẩn; nếu payroll RỖNG → lấy từ chi_phi
+    # 'Thanh Toán Lương'/'Ứng Lương' (nhom='quan_ly') để lương RA ĐÚNG DÒNG LƯƠNG,
+    # KHÔNG lẫn vào "khác" (anh Quang chốt 2026-08-27).
+    ql_luong_from_chiphi = round(_sum_cp_phat_sinh_filter(
+        db, tu, den, nhom="quan_ly", name_like_any=["%lương%", "%luong%"],
+    ), 2)
     _QL_EXCLUDE_NCC = [
         "%ncc%", "%nhà cung cấp%", "%nha cung cap%",
         "%mua hàng%", "%mua hang%", "%công nợ%", "%cong no%",
+        # Lương tách ra DÒNG LƯƠNG riêng → không đếm vào "khác"
+        "%lương%", "%luong%",
     ]
     ql_total_ps = round(_sum_cp_phat_sinh_filter(
         db, tu, den, nhom="quan_ly", exclude_name_like=_QL_EXCLUDE_NCC,
@@ -1337,6 +1383,8 @@ def calc_pl_for_month(db: Session, thang: str) -> dict[str, Any]:
         db, thang, "quan_ly",
         name_like_any=["%kế toán%", "%ke toan%", "%luật%", "%luat%"],
     ), 2)
+    # Dòng LƯƠNG QL cuối cùng: ưu tiên payroll (đã gộp BHXH); payroll rỗng → chi_phi.
+    luong_ql_line = luong_cb_ql_with_bhxh if pr_ql["luong_co_ban"] > 0 else ql_luong_from_chiphi
     ql_khau_hao = round(_sum_khau_hao(db, thang, "quan_ly"), 2)
     # QL định phí khác (gồm rows method='manual'/'seasonal'/etc + duong_thang
     # không khớp keyword) = total - 4 dòng filter
@@ -1346,7 +1394,7 @@ def calc_pl_for_month(db: Session, thang: str) -> dict[str, Any]:
     )
 
     ql_dinh_phi_tong = round(
-        luong_cb_ql_with_bhxh + ql_thue_vp + ql_dien_nuoc
+        luong_ql_line + ql_thue_vp + ql_dien_nuoc
         + ql_internet + ql_khau_hao + ql_dv_kt + ql_dinh_phi_khac, 2,
     )
 
@@ -1360,7 +1408,7 @@ def calc_pl_for_month(db: Session, thang: str) -> dict[str, Any]:
             "tong": ql_bien_phi_tong,
         },
         "dinh_phi": {
-            "luong_co_ban_hcns_kt_ceo": luong_cb_ql_with_bhxh,
+            "luong_co_ban_hcns_kt_ceo": luong_ql_line,
             "thue_vp": ql_thue_vp,
             "dien_nuoc_vp": ql_dien_nuoc,
             "internet_dien_thoai": ql_internet,
@@ -1385,7 +1433,17 @@ def calc_pl_for_month(db: Session, thang: str) -> dict[str, Any]:
     thu_nhap_khac_711 = round(_sum_cp_khac_journal(db, tu, den, "711"), 2)
     thu_nhap_khac = thu_nhap_khac_711
 
-    cp_khac_ps = round(_sum_cp_phat_sinh_filter(db, tu, den, nhom="khac"), 2)
+    # CP khác = nhom='khac' NHƯNG loại: hoàn tiền (→ giảm trừ DT), tạm ứng (chưa phải
+    # chi phí), marketing/ads/quảng cáo (→ đã gộp vào bh_ads). Tránh đếm sai/2 lần.
+    cp_khac_ps = round(_sum_cp_phat_sinh_filter(
+        db, tu, den, nhom="khac",
+        exclude_name_like=[
+            "%hoàn tiền%", "%hoan tien%",
+            "%tạm ứng%", "%tam ung%",
+            "%marketing%", "%ads%", "%quảng cáo%", "%quang cao%",
+        ],
+        also_ten_khoan=True,
+    ), 2)
     cp_khac_811 = round(_sum_cp_khac_journal(db, tu, den, "811"), 2)
     cp_khac = round(cp_khac_ps + cp_khac_811, 2)
 
@@ -1411,6 +1469,7 @@ def calc_pl_for_month(db: Session, thang: str) -> dict[str, Any]:
         "doanh_thu": {
             "dt_thuc_hien": round(dt_thuc_hien, 2),
             "chiet_khau": chiet_khau,
+            "giam_tru": giam_tru_dt,
             "dt_thuan": dt_thuan,
         },
         "dt_thuan": dt_thuan,  # alias top-level cho yearly aggregation

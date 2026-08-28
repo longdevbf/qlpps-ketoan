@@ -22,6 +22,30 @@ _AUTH = Depends(require_ketoan_user)
 _CEO_EDIT = Depends(require_ceo_thuchi)  # sửa/xoá doanh thu → chỉ CEO
 
 
+def _nguon_doanh_thu(o) -> Optional[str]:
+    """Phân loại 1 dòng doanh thu: TỰ ĐỘNG theo luồng vs KT tự nhập tay.
+
+    Trả nhãn luồng (badge '🔄 ...') nếu do hệ thống sinh từ luồng; None nếu KT
+    nhập tay (badge '✍️ Tự nhập').
+      - ref_order_id  → auto từ PO mua hàng (revenue_from_order).
+      - ma_don + 'cọc'       → luồng Duyệt cọc (kt_duyet / cọc bổ sung).
+      - ma_don + 'thanh toán'→ luồng Đối chiếu giao hàng (external hoàn thành).
+      - ma_don khác / nguon='kd' → Theo đơn.
+    """
+    ltt = (o.loai_thanh_toan or "").lower()
+    if o.ref_order_id:
+        return "PO mua hàng"
+    if o.ma_don:
+        if "cọc" in ltt or "coc" in ltt:
+            return "Duyệt cọc"
+        if "thanh toán" in ltt or "thanh toan" in ltt:
+            return "Đối chiếu giao hàng"
+        return "Theo đơn"
+    if (o.nguon or "").lower() == "kd":
+        return "Theo đơn"
+    return None
+
+
 def _sync_cong_no_da_thu(db: Session, ma_don: Optional[str]) -> None:
     """Sau khi create/update/delete doanh_thu, đồng bộ cong_no.da_tra cho mã đơn đó.
 
@@ -81,7 +105,10 @@ def list_doanh_thu(
     if nv_kinh_doanh:
         stmt = stmt.where(DoanhThu.nv_kinh_doanh == nv_kinh_doanh)
     stmt = stmt.limit(limit).offset(offset)
-    return db.execute(stmt).scalars().all()
+    rows = db.execute(stmt).scalars().all()
+    for o in rows:
+        o.nguon_hien = _nguon_doanh_thu(o)  # phân loại luồng vs tự nhập
+    return rows
 
 
 @router.post("", response_model=DoanhThuOut, status_code=status.HTTP_201_CREATED)

@@ -23,7 +23,7 @@
   /* ═══ Nhịp khoảng cách — bội của 8 để cộng trừ nhẩm được ═══════════════ */
   --gap-1:  4px;    /* khe hẹp: giữa icon và chữ, giữa 2 badge */
   --gap-2:  8px;    /* khe chuẩn trong toolbar, giữa các nút */
-  --gap: var(--sp-8);    /* giữa các khối trong trang (thẻ, bảng, toolbar) */
+  --gap:   16px;    /* giữa các khối trong trang (thẻ, bảng, toolbar) */
   --gap-lg:24px;    /* trên/dưới tiêu đề trang */
 
   /* ═══ Bo góc — 23 giá trị rải rác trong repo dồn về 3 + 50% ════════════
@@ -59,12 +59,9 @@
 
 body{
   font-family:'Segoe UI',sans-serif;
-  background:var(--bg-app);    /* Nền MÀN HÌNH là XÁM --bg-app (27/08/2026, thay quyết
-                                  định 08/08 'nền trắng'). Thẻ trắng phải có nền xám
-                                  dưới nó mới thấy mép. --bg-page dành cho bề mặt LÕM
-                                  bên TRONG thẻ: dải tổng, đầu bảng, hàng hover. */
+  background:var(--bg-card);   /* Nền MÀN HÌNH là TRẮNG (chốt 08/08/2026). --bg-page nay chỉ còn dùng cho bề mặt LÕM: dải tổng, đầu bảng, hàng hover, hộp thông tin. */
   color:var(--text-1);
-  font-size: var(--fs-body-lg);
+  font-size:14px;
   min-height:100vh;
   -webkit-font-smoothing:antialiased;
 }
@@ -109,11 +106,11 @@ body{
 }
 .page-head-text{min-width:0;flex:1}
 .page-head-title{
-  font-size: var(--fs-h);font-weight:800;color:var(--brand);
+  font-size:17px;font-weight:800;color:var(--brand);
   line-height:1.25;letter-spacing:-.2px;
 }
 .page-head-sub{
-  font-size: var(--fs-body);font-weight:500;color:var(--text-3);margin-top:3px;
+  font-size:13px;font-weight:500;color:var(--text-3);margin-top:3px;
 }
 .page-head-actions{
   margin-left:auto;display:flex;align-items:center;gap:var(--gap-2);
@@ -133,7 +130,7 @@ body{
 @media(max-width:768px){
   .page-head{align-items:stretch}
   .page-head-actions{width:100%;margin-left:0}
-  .page-head-title{font-size: var(--fs-title)}
+  .page-head-title{font-size:16px}
 }
 @media(max-width:480px){
   .page{padding:12px var(--gap-2) 24px}

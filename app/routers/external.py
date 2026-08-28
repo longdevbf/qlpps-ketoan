@@ -1627,22 +1627,32 @@ def mark_vanchuyen_completed(
         """), {"mn": ma_don}).mappings().first()
 
         if q:
-            tong_cht = float(q["tong_chua_thue"] or 0)
-            disc_pct = float(q["discount_percent"] or 0)
-            dt_thuan = round(tong_cht * (1.0 - disc_pct / 100.0), 2) if tong_cht > 0 else 0.0
+            # doanh_thu + sổ quỹ ghi theo CASH ⇒ trần = `tong_don` (số KH THỰC TRẢ:
+            # đã net chiết khấu, ĐÃ gồm VAT). KHÔNG dùng tong_chua_thue (pre-VAT) và
+            # KHÔNG nhân (1−discount_percent) lần nữa — chiết khấu đã nằm trong tong_don
+            # (8.5tr công thức ×(1−20%)=6.8tr=tong_don). (anh Quang 2026-08-27)
+            tong_don_cash = float(q["tong_don"] or 0)
+            if tong_don_cash <= 0:  # fallback đơn cũ thiếu tong_don
+                tong_don_cash = float(q["tong_chua_thue"] or 0)
+            dt_thuan = round(tong_don_cash, 2)  # giữ tên cũ cho revenue_info bên dưới
 
-            # Trừ tiền CỌC đã ghi → phần CÒN LẠI mới ghi doanh thu + đẩy sổ quỹ lúc
-            # hoàn thành (tránh double với cọc — anh Quang 2026-07-09).
+            # Cọc đã ghi (để hiển thị) + TỔNG doanh thu ĐÃ ghi (cọc + mọi Thanh Toán).
+            # con_lai = tong_don − đã ghi ⇒ phần CÒN được ghi. Chặn CẢ 2 lỗi:
+            #   (1) cộng đúp cọc (SA báo COD gồm cả phần đã cọc)
+            #   (2) đối chiếu 2 lần (đơn đã có Thanh Toán trước đó, kể cả khác hoa/thường)
             coc_da_ghi = float(db.execute(text("""
                 SELECT COALESCE(SUM(so_tien), 0) FROM ketoan.doanh_thu
                 WHERE ma_don = :mn AND loai_thanh_toan ILIKE '%cọc%'
             """), {"mn": ma_don}).scalar() or 0)
-            con_lai = round(max(0.0, dt_thuan - coc_da_ghi), 2)
+            da_ghi_all = float(db.execute(text("""
+                SELECT COALESCE(SUM(so_tien), 0) FROM ketoan.doanh_thu
+                WHERE ma_don = :mn
+            """), {"mn": ma_don}).scalar() or 0)
+            con_lai = round(max(0.0, dt_thuan - da_ghi_all), 2)
 
-            # QUYẾT ĐỊNH NGHIỆP VỤ (anh Quang 2026-08-24): sổ quỹ VÀ doanh thu ghi
-            # theo TIỀN THỰC NHẬN KT xác nhận, KHÔNG theo con_lai báo giá. Phần khách
-            # trả thiếu tự hiện ở "Còn thu" trang Đơn Hàng (không tách công nợ riêng).
-            #   so_ghi_nhan = COALESCE(KT nhập, COD lái xe khai, con_lai)
+            # so_ghi_nhan = KT nhập tay | COD SA báo | con_lai — RỒI CAP ≤ con_lai để
+            # TỔNG ghi (cọc + các Thanh Toán) KHÔNG BAO GIỜ vượt tong_don. Khách trả
+            # THIẾU vẫn ghi đúng số thực nhận (< con_lai), phần thiếu hiện ở "Còn thu".
             _cod_khai = row["delivery_cod_received"]
             if so_tien_thuc_nhan is not None:
                 so_ghi_nhan = round(float(so_tien_thuc_nhan), 2)
@@ -1650,7 +1660,7 @@ def mark_vanchuyen_completed(
                 so_ghi_nhan = round(float(_cod_khai), 2)
             else:
                 so_ghi_nhan = con_lai
-            so_ghi_nhan = round(max(0.0, so_ghi_nhan), 2)
+            so_ghi_nhan = round(max(0.0, min(so_ghi_nhan, con_lai)), 2)
 
             # Loại doanh thu theo nhóm SP CHÍNH Mây/Gỗ (shared.products.nhom_master)
             _nm = db.execute(text("""
@@ -1668,9 +1678,11 @@ def mark_vanchuyen_completed(
             # 4a. Ghi doanh thu phần CÒN LẠI + đẩy SỔ QUỸ (idempotent qua
             # ma_don + loai_thanh_toan='Thanh Toán').
             if so_ghi_nhan > 0:
+                # Idempotent: đơn đã có Thanh Toán (KHÔNG phân biệt hoa/thường —
+                # 'Thanh toán' vs 'Thanh Toán') → không ghi thêm (tránh đối chiếu 2 lần).
                 existed = db.execute(text("""
                     SELECT id FROM ketoan.doanh_thu
-                    WHERE ma_don = :mn AND loai_thanh_toan = 'Thanh Toán' LIMIT 1
+                    WHERE ma_don = :mn AND loai_thanh_toan ILIKE 'thanh toán' LIMIT 1
                 """), {"mn": ma_don}).first()
                 if not existed:
                     from ..models import DoanhThu as _DoanhThu
@@ -1840,6 +1852,19 @@ def mark_vanchuyen_completed(
         },
     )
     db.commit()
+
+    # Báo "đã thu nốt + hoàn thành" lên nhóm "Kinh Doanh - Kế Toán" (fail-soft).
+    try:
+        from shared.services.chat_post import post_to_group
+        _thu = float(revenue_info.get("so_tien") or 0) if isinstance(revenue_info, dict) else 0
+        _thu_txt = f" — thu nốt {int(_thu):,}đ" if _thu > 0 else ""
+        _msg = (
+            f"🏁 Đơn {ma_don} đã đối chiếu{_thu_txt}, đơn HOÀN THÀNH. "
+            f"(Kế Toán {user.username})"
+        )
+        post_to_group(db, content=_msg)
+    except Exception:
+        pass
 
     # ZNS: gửi "Giao Hàng Thành Công" sau khi KT xác nhận hoàn thành (fail-soft)
     if ma_don:

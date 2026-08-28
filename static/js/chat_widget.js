@@ -1802,7 +1802,19 @@ window.zV2_handlePresenceUpdate = async function () {
 window.zV2_startPresencePolling = function () {
   if (window._zV2 && window._zV2._presenceTimer) return;
   window.zV2_handlePresenceUpdate();
-  const t = setInterval(window.zV2_handlePresenceUpdate, 30000);
+  // HIEU NANG (anh Quang 2026-08-28): TAM DUNG khi tab an. Truoc day moi tab goi
+  // /api/chat/presence/all 30s/lan ke ca tab nen -> mo 8 tab = 8x tai vo ich.
+  // Khi tab hien lai thi cap nhat NGAY.
+  const t = setInterval(function () {
+    if (document.hidden) return;
+    window.zV2_handlePresenceUpdate();
+  }, 30000);
+  if (!window.__zV2PresVisBound) {
+    window.__zV2PresVisBound = true;
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) { try { window.zV2_handlePresenceUpdate(); } catch (e) {} }
+    });
+  }
   if (window._zV2) window._zV2._presenceTimer = t;
 };
 

@@ -7,55 +7,55 @@
 <link rel="icon" href="/static/icon/favicon.ico">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg-app);color:var(--text-1);font-size: var(--fs-title)}
-  .container{max-width:1400px;margin:24px auto;padding: 0 var(--sp-8)}
-  .summary{display:flex;gap: var(--sp-6);margin-bottom:20px;flex-wrap:wrap}
-  .stat{background:#fff;padding: var(--sp-7) var(--sp-9);border-radius:8px;box-shadow: var(--shadow-sm);min-width:140px;cursor:pointer;transition:all .15s}
-  .stat:hover{transform:translateY(-1px);box-shadow: var(--shadow-md)}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg-card);color:var(--text-1);font-size:15px}
+  .container{max-width:1400px;margin:24px auto;padding:0 16px}
+  .summary{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+  .stat{background:#fff;padding:14px 20px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);min-width:140px;cursor:pointer;transition:all .15s}
+  .stat:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,0,0,.1)}
   .stat.active{outline:2px solid var(--brand-hover)}
-  .stat .label{color:var(--text-2);font-size: var(--fs-body);text-transform:uppercase;letter-spacing:.3px}
-  .stat .value{font-size: var(--fs-glyph);font-weight:700;color:var(--brand-hover);margin-top:4px}
+  .stat .label{color:var(--text-2);font-size:13px;text-transform:uppercase;letter-spacing:.3px}
+  .stat .value{font-size:22px;font-weight:700;color:var(--brand-hover);margin-top:4px}
   .stat.cho_duyet .value{color:var(--warning)}
   .stat.kt_duyet .value{color:var(--info)}
   .stat.duyet .value{color:var(--success)}
   .stat.kt_tu_choi .value, .stat.tu_choi .value{color:var(--danger)}
-  .card{background:#fff;border-radius:10px;box-shadow: var(--shadow-sm);overflow:hidden}
-  .card-header{padding: var(--sp-8) var(--sp-9);border-bottom:1px solid var(--border);font-weight:600;display:flex;align-items:center;gap: var(--sp-5)}
+  .card{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden}
+  .card-header{padding:16px 20px;border-bottom:1px solid var(--border);font-weight:600;display:flex;align-items:center;gap:10px}
   table{width:100%;border-collapse:collapse}
-  th,td{padding: var(--sp-6) var(--sp-7);text-align:left;border-bottom:1px solid var(--bg-page);font-size: var(--fs-body-lg);vertical-align:top}
-  th{background:var(--bg-page);color:var(--text-2);font-weight:600;font-size: var(--fs-body);text-transform:uppercase;letter-spacing:.3px}
+  th,td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--bg-page);font-size:14px;vertical-align:top}
+  th{background:var(--bg-page);color:var(--text-2);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.3px}
   tr:hover td{background:var(--bg-page)}
-  .badge{display:inline-block;padding: var(--sp-1) var(--sp-4);border-radius:10px;font-size: var(--fs-meta);font-weight:600}
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600}
   .b-cho_duyet{background:var(--warning-soft);color:var(--warning-fg)}
   .b-kt_duyet{background:var(--info-soft);color:var(--info-fg)}
   .b-duyet{background:var(--success-soft);color:var(--success-fg)}
   .b-kt_tu_choi,.b-tu_choi{background:var(--danger-soft);color:var(--danger-fg)}
   .money{font-variant-numeric:tabular-nums;color:var(--brand-hover);font-weight:600;text-align:right}
-  .btn{display:inline-block;padding: var(--sp-3) var(--sp-6);border-radius:6px;border:none;font-size: var(--fs-body);cursor:pointer;font-weight:500;margin-right:4px;transition:all .15s}
+  .btn{display:inline-block;padding:6px 12px;border-radius:6px;border:none;font-size:13px;cursor:pointer;font-weight:500;margin-right:4px;transition:all .15s}
   .btn-ok{background:var(--success);color:#fff}
   .btn-ok:hover{background:var(--success-fg)}
   .btn-no{background:var(--danger);color:#fff}
   .btn-no:hover{background:var(--danger)}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   .empty{padding:60px 20px;text-align:center;color:var(--text-2);font-style:italic}
-  .modal{display:none;position:fixed;inset:0;background:rgba(51,33,15,.32);z-index:100;align-items:center;justify-content:center;padding: var(--sp-8)}
+  .modal{display:none;position:fixed;inset:0;background:rgba(51,33,15,.32);z-index:100;align-items:center;justify-content:center;padding:16px}
   .modal.open{display:flex}
-  .modal-box{background:#fff;border-radius:10px;max-width:500px;width:100%;padding: var(--sp-9)}
+  .modal-box{background:#fff;border-radius:10px;max-width:500px;width:100%;padding:20px}
   .modal-box h3{margin-bottom:12px;color:var(--brand-hover)}
-  .modal-box .info{background:var(--bg-page);padding: var(--sp-5);border-radius:6px;margin-bottom:14px;font-size: var(--fs-body-lg)}
-  .modal-box textarea{width:100%;padding: var(--sp-5);border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size: var(--fs-body-lg);min-height:80px;resize:vertical}
-  .modal-box .actions{display:flex;gap: var(--sp-4);justify-content:flex-end;margin-top:14px}
+  .modal-box .info{background:var(--bg-page);padding:10px;border-radius:6px;margin-bottom:14px;font-size:14px}
+  .modal-box textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:14px;min-height:80px;resize:vertical}
+  .modal-box .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
   .btn-cancel{background:var(--border);color:var(--text-2)}
-  .ghi-chu-cell{max-width:200px;color:var(--text-2);font-size: var(--fs-body);line-height:1.4}
+  .ghi-chu-cell{max-width:200px;color:var(--text-2);font-size:13px;line-height:1.4}
   .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
   @media (max-width:768px){
     body{overflow-x:hidden}
-    .container{margin:14px auto;padding: 0 var(--sp-6)}
-    .summary{gap: var(--sp-4)}
-    .stat{min-width:120px;flex:1 1 45%;padding: var(--sp-6) var(--sp-7)}
+    .container{margin:14px auto;padding:0 12px}
+    .summary{gap:8px}
+    .stat{min-width:120px;flex:1 1 45%;padding:12px 14px}
     .table-scroll table{min-width:960px}
-    th{padding: var(--sp-4) var(--sp-5);font-size: var(--fs-meta)}
-    td{padding: var(--sp-4) var(--sp-5);font-size: var(--fs-body)}
+    th{padding:8px 10px;font-size:12px}
+    td{padding:8px 10px;font-size:13px}
   }
 </style>
 </head>
@@ -75,7 +75,7 @@
   </div>
 
   <div class="card">
-    <div class="card-header">Danh sách <span id="filter-label" style="color:var(--text-2);font-weight:500;font-size: var(--fs-body-lg)"></span></div>
+    <div class="card-header">Danh sách <span id="filter-label" style="color:var(--text-2);font-weight:500;font-size:14px"></span></div>
     <div class="table-scroll">
     <table>
       <thead>
@@ -106,7 +106,7 @@
   <div class="modal-box">
     <h3>Kế Toán Duyệt</h3>
     <div class="info" id="approve-info"></div>
-    <label style="display:block;margin-bottom:6px;font-size: var(--fs-body);color:var(--text-2)">Ghi chú (tùy chọn)</label>
+    <label style="display:block;margin-bottom:6px;font-size:13px;color:var(--text-2)">Ghi chú (tùy chọn)</label>
     <textarea id="approve-note" placeholder="VD: Đã đối chiếu chứng từ, hợp lệ"></textarea>
     <div class="actions">
       <button class="btn btn-cancel" onclick="closeModals()">Hủy</button>
@@ -120,7 +120,7 @@
   <div class="modal-box">
     <h3>Kế Toán Từ Chối</h3>
     <div class="info" id="reject-info"></div>
-    <label style="display:block;margin-bottom:6px;font-size: var(--fs-body);color:var(--text-2)">Lý do <span style="color:var(--danger)">*</span></label>
+    <label style="display:block;margin-bottom:6px;font-size:13px;color:var(--text-2)">Lý do <span style="color:var(--danger)">*</span></label>
     <textarea id="reject-reason" placeholder="VD: Số tiền không khớp chứng từ" required></textarea>
     <div class="actions">
       <button class="btn btn-cancel" onclick="closeModals()">Hủy</button>
@@ -202,12 +202,12 @@ function render(){
     const actions = canAct
       ? `<button class="btn btn-ok" onclick="openApprove('${r.id}')">Duyệt</button>
          <button class="btn btn-no" onclick="openReject('${r.id}')">Từ chối</button>`
-      : `<span style="color:var(--text-3);font-size: var(--fs-meta)">—</span>`;
+      : `<span style="color:var(--text-3);font-size:12px">—</span>`;
     const kt = r.kt_duyet_boi
-      ? `<div>${esc(r.kt_duyet_boi)}</div><div style="color:var(--text-3);font-size: var(--fs-meta)">${fmtDt(r.kt_duyet_luc)}</div>${r.kt_ghi_chu ? `<div class="ghi-chu-cell">${esc(r.kt_ghi_chu)}</div>` : ''}`
+      ? `<div>${esc(r.kt_duyet_boi)}</div><div style="color:var(--text-3);font-size:12px">${fmtDt(r.kt_duyet_luc)}</div>${r.kt_ghi_chu ? `<div class="ghi-chu-cell">${esc(r.kt_ghi_chu)}</div>` : ''}`
       : '—';
     const ceo = r.nguoi_duyet
-      ? `<div>${esc(r.nguoi_duyet)}</div><div style="color:var(--text-3);font-size: var(--fs-meta)">${fmtDt(r.ngay_duyet)}</div>`
+      ? `<div>${esc(r.nguoi_duyet)}</div><div style="color:var(--text-3);font-size:12px">${fmtDt(r.ngay_duyet)}</div>`
       : '—';
     return `<tr>
       <td><b>${esc(r.id)}</b></td>
