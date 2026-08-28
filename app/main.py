@@ -29,6 +29,7 @@ import json
 import os
 
 import sentry_sdk
+from fastapi.responses import FileResponse
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
@@ -240,6 +241,19 @@ install_sliding_session(app)
 _STATIC_DIR = _BASE_DIR / "static"
 if _STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
+
+# templates/index.html:10 tro toi /manifest.webmanifest tu truoc, nhung ketoan
+# chua bao gio co route nay -> production tra 404, nen "them vao man hinh chinh"
+# tren iOS khong bao gio chay. File da co san la static/manifest.json; chi thieu
+# dia chi va dung media_type. Doi ten file se lam hong cac tham chieu cu, nen
+# phuc vu no duoi ca hai ten.
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def _manifest():
+    return FileResponse(
+        str(_STATIC_DIR / "manifest.json"),
+        media_type="application/manifest+json",
+    )
 
 # HTML pages
 app.include_router(pages.router, tags=["pages"])
