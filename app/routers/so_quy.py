@@ -247,7 +247,7 @@ def list_so_quy(
     thang: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}$"),
     loai: Optional[str] = Query(None, pattern="^(thu|chi)$"),
     tai_khoan: Optional[str] = None,
-    limit: int = 500,
+    limit: int = Query(500, ge=1, le=2000),
     offset: int = 0,
 ):
     stmt = select(SoQuy).order_by(SoQuy.ngay.desc(), SoQuy.id.desc())

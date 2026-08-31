@@ -35,6 +35,7 @@ from ..schemas import (
     TrichQuyBody, VonCSHOut, VonCSHSummary,
 )
 from ..services.journal import map_quy_to_account, post_journal
+from ..services.so_quy_auto import assert_du_chi as _assert_du_chi
 from ..services.quy_dn_calc import nap_quy as _nap_quy_dn, void_giao_dich as _void_quy_gd
 from ._deps import require_ketoan_user
 
@@ -42,6 +43,17 @@ from ._deps import require_ketoan_user
 router = APIRouter()
 quy_router = APIRouter()
 _AUTH = Depends(require_ketoan_user)
+
+
+def _require_vcsh_admin(user) -> None:
+    """Thao tác VỐN CHỦ SỞ HỮU (góp/rút/cổ tức/trích quỹ) là đường tiền lớn —
+    chỉ CEO/admin (đồng bộ với khoi_tao_ban_dau + delete_von_csh)."""
+    if user.role not in ("admin", "ceo"):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Chỉ CEO/admin được thao tác vốn chủ sở hữu",
+        )
+
 
 _LOAI_VCSH = {"gop_von", "rut_von", "chia_co_tuc", "trich_quy", "dieu_chinh"}
 
@@ -124,7 +136,7 @@ def list_von_csh(
     from_date: Optional[date_cls] = Query(None, alias="from"),
     to_date: Optional[date_cls] = Query(None, alias="to"),
     loai: Optional[str] = Query(None),
-    limit: int = 500,
+    limit: int = Query(500, ge=1, le=2000),
     offset: int = 0,
 ):
     stmt = select(VonCSH).order_by(VonCSH.ngay.desc(), VonCSH.id.desc())
@@ -283,6 +295,7 @@ def gop_von(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
 ):
+    _require_vcsh_admin(user)
     obj = _ghi_giao_dich(
         db, loai="gop_von", ngay=body.ngay, so_tien=body.so_tien,
         chu_so_huu=body.chu_so_huu, ghi_chu=body.ghi_chu,
@@ -343,6 +356,7 @@ def chuyen_ln_thanh_von(
     KHÔNG đụng tài khoản ngân hàng — chỉ chuyển trong VCSH.
     Tạo bản ghi loai='gop_von' với chu_so_huu hoặc ghi_chu chứa "(Chuyển từ LN giữ lại)".
     """
+    _require_vcsh_admin(user)
     chu_so_huu = body.chu_so_huu or "DN"
     ghi_chu_full = f"Chuyển LN giữ lại thành vốn — {body.ghi_chu or ''}".strip(" —")
 
@@ -387,6 +401,7 @@ def rut_von(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
 ):
+    _require_vcsh_admin(user)
     obj = _ghi_giao_dich(
         db, loai="rut_von", ngay=body.ngay, so_tien=body.so_tien,
         chu_so_huu=body.chu_so_huu, ghi_chu=body.ghi_chu,
@@ -394,6 +409,7 @@ def rut_von(
     )
     if body.tai_khoan_id:
         tk = _ensure_tk_nh(db, body.tai_khoan_id)
+        _assert_du_chi(db, tk.ten_tk, body.so_tien)  # chặn rút làm số dư âm
         _insert_tknhgd(
             db, tai_khoan_id=tk.id, loai="chi", ngay=body.ngay,
             so_tien=body.so_tien, doi_tac=body.chu_so_huu,
@@ -441,6 +457,7 @@ def chia_co_tuc(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
 ):
+    _require_vcsh_admin(user)
     obj = _ghi_giao_dich(
         db, loai="chia_co_tuc", ngay=body.ngay, so_tien=body.so_tien,
         chu_so_huu=body.chu_so_huu, ghi_chu=body.ghi_chu,
@@ -448,6 +465,7 @@ def chia_co_tuc(
     )
     if body.tai_khoan_id:
         tk = _ensure_tk_nh(db, body.tai_khoan_id)
+        _assert_du_chi(db, tk.ten_tk, body.so_tien)  # chặn chia cổ tức làm số dư âm
         _insert_tknhgd(
             db, tai_khoan_id=tk.id, loai="chi", ngay=body.ngay,
             so_tien=body.so_tien, doi_tac=body.chu_so_huu,
@@ -500,6 +518,7 @@ def trich_quy(
 
     Phase 2: post journal Nợ 421 / Có 414|415|353 (theo tên quỹ).
     """
+    _require_vcsh_admin(user)
     quy = db.get(QuyDN, body.quy_id)
     if not quy or not quy.active:
         raise HTTPException(

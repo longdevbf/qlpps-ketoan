@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import func as sqlfunc, select
+from sqlalchemy import func as sqlfunc, select, text
 from sqlalchemy.orm import Session
 
 from shared.audit import log_action
@@ -20,6 +20,15 @@ from ._deps import require_ketoan_user, require_ceo_thuchi
 router = APIRouter()
 _AUTH = Depends(require_ketoan_user)
 _CEO_EDIT = Depends(require_ceo_thuchi)  # sửa/xoá doanh thu → chỉ CEO
+
+
+def _bust_pl_cache() -> None:
+    """Xoá cache P&L khi doanh thu đổi → báo cáo không bị số cũ (PERF-05)."""
+    try:
+        from .bao_cao_pnl import invalidate_pl_cache
+        invalidate_pl_cache()
+    except Exception:
+        pass
 
 
 def _nguon_doanh_thu(o) -> Optional[str]:
@@ -71,14 +80,15 @@ def _sync_cong_no_da_thu(db: Session, ma_don: Optional[str]) -> None:
         if not cn:
             return
 
-        cn.da_tra = total
+        # LOG-08 (2026-08-28): KHÔNG clobber da_tra xuống dưới mức đã ghi qua kênh
+        # khác (tra_cong_no / thu hộ ĐVVC) — dùng MAX. Và KHÔNG tự lật 'da_tra'→
+        # 'chua_tra' (chỉ NÂNG lên da_tra khi đủ tiền), tránh đảo ngược đơn đã tất toán.
+        cn.da_tra = max(Decimal(str(cn.da_tra or 0)), total)
         so_tien = Decimal(str(cn.so_tien or 0))
-        if so_tien > 0 and total >= so_tien:
+        if so_tien > 0 and Decimal(str(cn.da_tra or 0)) >= so_tien:
             cn.trang_thai = "da_tra"
             if not cn.ngay_tra:
                 cn.ngay_tra = date_cls.today()
-        else:
-            cn.trang_thai = "chua_tra"
         db.commit()
     except Exception:
         db.rollback()
@@ -92,7 +102,7 @@ def list_doanh_thu(
     den_ngay: Optional[date_cls] = Query(None),
     loai: Optional[str] = None,
     nv_kinh_doanh: Optional[str] = None,
-    limit: int = 500,
+    limit: int = Query(500, ge=1, le=2000),
     offset: int = 0,
 ):
     stmt = select(DoanhThu).order_by(DoanhThu.ngay.desc(), DoanhThu.id.desc())
@@ -130,6 +140,7 @@ def create_doanh_thu(
         pass
     # Cập nhật da_tra trong cong_no tương ứng
     _sync_cong_no_da_thu(db, obj.ma_don)
+    _bust_pl_cache()
     log_action(
         db, app="ketoan", action="create_doanh_thu", user=user, request=request,
         resource=f"doanh_thu:{obj.id}",
@@ -140,6 +151,26 @@ def create_doanh_thu(
         "so_tien": float(obj.so_tien or 0), "loai": getattr(obj, "loai", None),
     })
     return obj
+
+
+@router.get("/by-month")
+def doanh_thu_by_month(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+):
+    """Tổng hợp doanh thu THEO THÁNG ở server (GROUP BY) — thay việc FE kéo TOÀN BỘ
+    bảng (?limit=100000) rồi gộp client (PERF-01, 2026-08-28). Trả ~vài chục dòng."""
+    rows = db.execute(text("""
+        SELECT to_char(ngay, 'YYYY-MM') AS thang,
+               COALESCE(SUM(so_tien), 0) AS tong,
+               COALESCE(SUM(CASE WHEN loai_thanh_toan ILIKE '%cọc%'      THEN so_tien ELSE 0 END), 0) AS coc,
+               COALESCE(SUM(CASE WHEN loai_thanh_toan ILIKE 'thanh toán' THEN so_tien ELSE 0 END), 0) AS tt,
+               COUNT(*) AS count
+        FROM ketoan.doanh_thu
+        GROUP BY 1 ORDER BY 1
+    """)).mappings().all()
+    return [{"thang": r["thang"], "tong": float(r["tong"] or 0), "coc": float(r["coc"] or 0),
+             "tt": float(r["tt"] or 0), "count": int(r["count"] or 0)} for r in rows]
 
 
 @router.get("/{rid}", response_model=DoanhThuOut)
@@ -181,6 +212,7 @@ def update_doanh_thu(
     _sync_cong_no_da_thu(db, obj.ma_don)
     if old_ma_don and old_ma_don != obj.ma_don:
         _sync_cong_no_da_thu(db, old_ma_don)
+    _bust_pl_cache()
     log_action(
         db, app="ketoan", action="update_doanh_thu", user=user, request=request,
         resource=f"doanh_thu:{rid}", payload=fields,
@@ -213,6 +245,7 @@ def delete_doanh_thu(
         db.rollback()
     # Recalc da_tra sau khi xóa
     _sync_cong_no_da_thu(db, ma_don_deleted)
+    _bust_pl_cache()
     log_action(
         db, app="ketoan", action="delete_doanh_thu", user=user, request=request,
         resource=f"doanh_thu:{rid}",

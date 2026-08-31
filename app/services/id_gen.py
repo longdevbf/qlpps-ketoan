@@ -1,29 +1,24 @@
 """ID generator cho `cong_no` — pattern 'CN-YYYY-NNNN' theo năm hiện tại."""
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import text
 from sqlalchemy.orm import Session
-
-from ..models import CongNo
 
 
 def next_cong_no_id(db: Session) -> str:
-    """Sinh id mới CN-YYYY-NNNN cho công nợ.
+    """Sinh id mới CN-YYYY-NNNN cho công nợ (DB-08, 2026-08-28).
 
-    Lấy max sequence năm hiện tại + 1. Race-condition acceptable cho dev;
-    production nên dùng SEQUENCE riêng hoặc advisory lock.
+    - Advisory lock theo năm → 2 request đồng thời KHÔNG sinh trùng id (tránh 500 PK).
+    - MAX sequence bằng SQL (không kéo toàn bộ id năm về Python — O(1) thay vì O(n)).
     """
     year = datetime.now().year
     prefix = f"CN-{year}-"
-    rows = db.execute(
-        select(CongNo.id).where(CongNo.id.like(f"{prefix}%"))
-    ).all()
-    max_seq = 0
-    for (cid,) in rows:
-        try:
-            seq = int(cid[len(prefix):])
-            if seq > max_seq:
-                max_seq = seq
-        except (ValueError, TypeError):
-            continue
-    return f"{prefix}{max_seq + 1:04d}"
+    # Khoá theo năm: giữ tới hết transaction → serialize sinh id giữa các request.
+    db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"),
+               {"k": f"cong_no_id:{year}"})
+    max_seq = db.execute(text("""
+        SELECT COALESCE(MAX(CAST(substring(id FROM :plen) AS INTEGER)), 0)
+        FROM ketoan.cong_no
+        WHERE id LIKE :pat AND substring(id FROM :plen) ~ '^[0-9]+$'
+    """), {"plen": len(prefix) + 1, "pat": f"{prefix}%"}).scalar()
+    return f"{prefix}{int(max_seq or 0) + 1:04d}"

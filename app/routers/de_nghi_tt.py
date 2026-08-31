@@ -268,10 +268,16 @@ def chi_denghitt(
         )
 
     tk = (body.tai_khoan or "").strip() or None
+    # BẮT BUỘC chọn tài khoản (LOG-04, 2026-08-28): trước đây không chọn TK thì sổ quỹ
+    # tạo với tai_khoan=None → LỌT guard chặn số dư âm + tiền chi "treo" TK NULL.
+    if not tk:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Vui lòng chọn tài khoản chi (Tiền Mặt / ngân hàng) trước khi Chi.",
+        )
     # CHẶN chi làm số dư TK âm (anh Quang 2026-08-27)
-    if tk:
-        from ketoan.app.services.so_quy_auto import assert_du_chi
-        assert_du_chi(db, tk, e.so_tien)
+    from ketoan.app.services.so_quy_auto import assert_du_chi
+    assert_du_chi(db, tk, e.so_tien)
 
     # Tạo sổ quỹ chi + ChiPhí phai_tra ĐVVC (idempotent qua ref_dntt), rồi đánh dấu.
     try:

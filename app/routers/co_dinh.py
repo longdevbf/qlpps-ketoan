@@ -69,7 +69,7 @@ def list_co_dinh(
             "duong_thang|prorated_by_day|front_loaded|seasonal|by_revenue_pct|manual"
         ),
     ),
-    limit: int = 500,
+    limit: int = Query(500, ge=1, le=2000),
     offset: int = 0,
 ):
     stmt = select(ChiPhiCoDinh).order_by(

@@ -28,9 +28,13 @@ def _safe_rows(db: Session, sql: str, **params) -> list[dict[str, Any]]:
     try:
         rows = db.execute(text(sql), params).mappings().all()
         return [dict(r) for r in rows]
-    except (ProgrammingError, OperationalError) as e:
+    except (ProgrammingError, OperationalError):
+        # KHÔNG trả chi tiết lỗi DB ra client (lộ tên bảng/cột) — log server-side,
+        # trả [] (SEC-05, 2026-08-28).
         db.rollback()
-        return [{"_error": str(e)[:200]}]
+        import logging
+        logging.getLogger(__name__).warning("_safe_rows query failed", exc_info=True)
+        return []
 
 
 def _safe_rows_silent(db: Session, sql: str, **params) -> list[dict[str, Any]]:
@@ -496,6 +500,7 @@ def orders_overview(
     completed, mà KT chỉ quan tâm 2 trạng thái: đã đối chiếu vs chưa đối chiếu.)
     """
     where_clause = "q.duyet_status = 'approved'"
+    sp_params: dict[str, Any] = {}  # bind params cho IN-list salesperson (SEC-06)
     if filter == "pending":
         where_clause = "v.trang_thai = 'da_giao'"
     elif filter == "done":
@@ -520,16 +525,23 @@ def orders_overview(
         aliases = [r["s"] for r in raw_rows if _canon_sp(r.get("s"), idmap).lower() == target]
         if not aliases:
             aliases = [salesperson.strip()]
-        in_list = ", ".join("'" + a.replace("'", "''").lower() + "'" for a in aliases)
-        where_clause += f" AND LOWER(TRIM(COALESCE(q.salesperson,''))) IN ({in_list})"
+        # BIND PARAM thay vì ghép chuỗi escape tay (SEC-06, 2026-08-28)
+        _ph = []
+        for _i, _a in enumerate(aliases):
+            _k = f"sp_{_i}"
+            _ph.append(f":{_k}")
+            sp_params[_k] = (_a or "").strip().lower()
+        where_clause += f" AND LOWER(TRIM(COALESCE(q.salesperson,''))) IN ({', '.join(_ph)})"
 
     sql = f"""
         WITH doanh_thu_agg AS (
             -- Tổng thu theo mã đơn, tách Đặt Cọc / Thanh Toán / tổng
             SELECT ma_don,
                    SUM(so_tien) AS thu_thuc,
-                   SUM(CASE WHEN loai_thanh_toan = 'Đặt cọc'   THEN so_tien ELSE 0 END) AS thu_dat_coc,
-                   SUM(CASE WHEN loai_thanh_toan = 'Thanh toán' THEN so_tien ELSE 0 END) AS thu_thanh_toan
+                   -- ILIKE (không phân biệt hoa/thường): data ghi lẫn 'Thanh toán'/'Thanh Toán',
+                   -- 'Đặt cọc'/'Đặt Cọc' → so sánh '=' làm thu_thanh_toan luôn 0 (DB-04, 2026-08-28)
+                   SUM(CASE WHEN loai_thanh_toan ILIKE '%cọc%'      THEN so_tien ELSE 0 END) AS thu_dat_coc,
+                   SUM(CASE WHEN loai_thanh_toan ILIKE 'thanh toán' THEN so_tien ELSE 0 END) AS thu_thanh_toan
             FROM ketoan.doanh_thu
             WHERE ma_don IS NOT NULL
             GROUP BY ma_don
@@ -651,7 +663,7 @@ def orders_overview(
         ORDER BY q.created_at DESC
         LIMIT 200
     """
-    return {"filter": filter, "data": _safe_rows(db, sql)}
+    return {"filter": filter, "data": _safe_rows(db, sql, **sp_params)}
 
 
 @router.get("/orders-optimization")

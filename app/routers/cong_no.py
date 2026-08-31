@@ -15,11 +15,12 @@ from shared.db import get_db
 from ..models import CongNo
 from ..schemas import CongNoCreate, CongNoUpdate, CongNoOut, CongNoTraBody
 from ..services import next_cong_no_id
-from ._deps import require_ketoan_user
+from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
 router = APIRouter()
 _AUTH = Depends(require_ketoan_user)
+_CEO_EDIT = Depends(require_ceo_thuchi)  # sửa/xoá công nợ → chỉ CEO (đồng bộ thu-chi)
 
 
 class CongNoImportBody(BaseModel):
@@ -38,7 +39,7 @@ def list_cong_no(
     den_ngay: Optional[date_cls] = None,
     doi_tac: Optional[str] = None,
     q: Optional[str] = None,   # search theo mã đơn hoặc đối tác/KH/NCC
-    limit: int = 500,
+    limit: int = Query(500, ge=1, le=2000),
     offset: int = 0,
 ):
     stmt = select(CongNo).order_by(CongNo.ngay.desc(), CongNo.id.desc())
@@ -241,7 +242,10 @@ def import_cong_no(
                 da_tra=Decimal("0"),
                 loai="phai_tra",
                 loai_chi_tiet="Công Nợ NCC",
-                ma_don=po.id,
+                # ma_don PHẢI là quote_number (như cong_no_from_order) để COGS P&L
+                # join đúng với vanchuyen.ma_don. Trước lưu po.id → COGS sót giá vốn
+                # → lãi gộp ảo. (DB-03, 2026-08-28). po.id vẫn lưu ở ghi_chu.
+                ma_don=(getattr(po, "ref_bao_gia", None) or None),
                 ref_id=ref_id,
                 ref_source="muahang",
                 han_thanh_toan=None,
@@ -294,7 +298,7 @@ def update_cong_no(
     body: CongNoUpdate,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(CongNo, cid)
     if not obj:
@@ -312,6 +316,9 @@ def update_cong_no(
     new_da_tra = Decimal(obj.da_tra or 0)
     paid_delta = new_da_tra - old_da_tra
     if paid_delta > 0:
+        if obj.loai == "phai_tra" and tai_khoan_for_sq:
+            from ..services.so_quy_auto import assert_du_chi as _assert_du_chi
+            _assert_du_chi(db, tai_khoan_for_sq, paid_delta)  # chặn trả nợ làm âm
         try:
             from ..services.so_quy_auto import sync_so_quy_from_cong_no_payment
             sync_so_quy_from_cong_no_payment(
@@ -358,6 +365,9 @@ def tra_cong_no(
     db.refresh(obj)
     # Auto-create SoQuy chi/thu cho khoản trả delta — tách theo tài khoản
     if paid_delta and paid_delta > 0:
+        if obj.loai == "phai_tra" and body.tai_khoan:
+            from ..services.so_quy_auto import assert_du_chi as _assert_du_chi
+            _assert_du_chi(db, body.tai_khoan, paid_delta)  # chặn trả nợ làm âm
         try:
             from ..services.so_quy_auto import sync_so_quy_from_cong_no_payment
             sync_so_quy_from_cong_no_payment(
@@ -383,17 +393,20 @@ def delete_cong_no(
     cid: str,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(CongNo, cid)
     if not obj:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "CongNo không tồn tại")
-    # Xóa cascade sổ quỹ liên quan (ref_id chứa cid)
-    from sqlalchemy import delete as sql_delete
+    # Xóa cascade sổ quỹ liên quan — KHỚP CHÍNH XÁC theo ref_id, KHÔNG dùng
+    # '%cid%' (substring): ref_id='{cid}-DA{seq}' → '%CN-2026-001%' sẽ khớp NHẦM
+    # 'CN-2026-0010', '...0011'... của công nợ khác → xoá mất sổ quỹ đơn khác.
+    # (anh Quang 2026-08-28, DB-01)
+    from sqlalchemy import delete as sql_delete, or_ as _or
     db.execute(
         sql_delete(SoQuy).where(
             SoQuy.lien_quan == "cong_no",
-            SoQuy.ref_id.ilike(f"%{cid}%"),
+            _or(SoQuy.ref_id == cid, SoQuy.ref_id.like(f"{cid}-DA%")),
         )
     )
     db.delete(obj)

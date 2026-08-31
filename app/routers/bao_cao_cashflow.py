@@ -526,11 +526,16 @@ def _full_chi_classified_ids(db: Session, tu: date, den: date) -> set[int]:
         SoQuy.loai == "chi",
         SoQuy.ngay >= tu, SoQuy.ngay <= den,
     ]
+    # DUP-02 (2026-08-28): mỗi nhóm loại-trừ phải khớp phần HIỂN THỊ — hiển thị dùng
+    # `_by_cf_or_heuristic` (ưu tiên phan_loai_cf). Trước đây tập loại-trừ CHỈ dùng
+    # heuristic keyword → dòng set tay phan_loai_cf (không có keyword) được cộng vào
+    # nhóm NHƯNG không bị loại khỏi chi_khac → CHI ĐẾM 2 LẦN. Thêm phan_loai_cf vào OR.
     # NCC
     rs = db.execute(
         select(SoQuy.id).where(
             *base,
-            _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_NCC),
+            or_(SoQuy.phan_loai_cf == "tra_ncc",
+                _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_NCC)),
         )
     ).scalars().all()
     ids.update(rs)
@@ -539,6 +544,7 @@ def _full_chi_classified_ids(db: Session, tu: date, den: date) -> set[int]:
         select(SoQuy.id).where(
             *base,
             or_(
+                SoQuy.phan_loai_cf == "nap_ads",
                 _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_ADS),
                 _ilike_any(SoQuy.ghi_chu, ("ads", "marketing", "facebook", "google")),
                 _ilike_any(SoQuy.noi_dung, ("ads", "marketing", "facebook", "google")),
@@ -551,6 +557,7 @@ def _full_chi_classified_ids(db: Session, tu: date, den: date) -> set[int]:
         select(SoQuy.id).where(
             *base,
             or_(
+                SoQuy.phan_loai_cf == "tra_luong",
                 _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_LUONG),
                 _ilike_any(SoQuy.ghi_chu, ("lương", "luong", "salary", "payroll")),
                 _ilike_any(SoQuy.noi_dung, ("lương", "luong", "salary", "payroll")),
@@ -563,6 +570,7 @@ def _full_chi_classified_ids(db: Session, tu: date, den: date) -> set[int]:
         select(SoQuy.id).where(
             *base,
             or_(
+                SoQuy.phan_loai_cf == "mua_ccdc",
                 _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_CCDC),
                 _ilike_any(SoQuy.ghi_chu, ("ccdc", "tài sản", "tai san", "tscd")),
             ),
@@ -574,6 +582,7 @@ def _full_chi_classified_ids(db: Session, tu: date, den: date) -> set[int]:
         select(SoQuy.id).where(
             *base,
             or_(
+                SoQuy.phan_loai_cf == "sua_chua_lon",
                 _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_SUACHUA),
                 _ilike_any(SoQuy.ghi_chu, ("sửa chữa", "sua chua", "bảo trì", "bao tri")),
             ),
@@ -585,6 +594,7 @@ def _full_chi_classified_ids(db: Session, tu: date, den: date) -> set[int]:
         select(SoQuy.id).where(
             *base,
             or_(
+                SoQuy.phan_loai_cf == "tra_nh",
                 _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_NO_NH),
                 _ilike_any(SoQuy.ghi_chu, ("lãi vay", "lai vay", "trả nợ", "tra no", "nợ ngân hàng")),
             ),

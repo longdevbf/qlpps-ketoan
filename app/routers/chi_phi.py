@@ -43,6 +43,15 @@ _CEO_EDIT = Depends(require_ceo_thuchi)  # sửa/xoá chi phí → chỉ CEO
 VALID_NHOM = {"ban_hang", "quan_ly", "tai_chinh", "khac"}
 
 
+def _bust_pl_cache() -> None:
+    """Xoá cache P&L khi chi phí đổi (PERF-05)."""
+    try:
+        from .bao_cao_pnl import invalidate_pl_cache
+        invalidate_pl_cache()
+    except Exception:
+        pass
+
+
 def _resolve_nhom(db: Session, loai: Optional[str], nhom: Optional[str]) -> str:
     """Nếu FE không truyền nhom, lookup nhom_default theo loai_chi_phi.ten.
     Fallback 'khac'."""
@@ -87,7 +96,7 @@ def list_chi_phi(
     loai_chi_phi: Optional[str] = None,
     quy: Optional[str] = None,
     nhom: Optional[str] = Query(None, description="Filter nhom_chi_phi: ban_hang|quan_ly|tai_chinh|khac"),
-    limit: int = 500,
+    limit: int = Query(500, ge=1, le=2000),
     offset: int = 0,
 ):
     stmt = select(ChiPhiPhatSinh).order_by(
@@ -366,12 +375,19 @@ def create_chi_phi(
 
     db.commit()
     db.refresh(obj)
-    # Auto-create SoQuy chi (giữ logic cũ)
-    try:
-        from ..services.so_quy_auto import sync_so_quy_from_chi_phi
-        sync_so_quy_from_chi_phi(db, obj)
-    except Exception:
-        pass
+    # Auto-create SoQuy chi — CHỈ khi chi bằng TIỀN THẬT.
+    # Mua chịu (cong_no_ncc_id): Có 331, CHƯA xuất tiền → KHÔNG ghi sổ quỹ ở đây
+    # (nếu ghi sẽ trừ tiền ngay + trừ lần 2 khi trả NCC → double). Sổ quỹ chỉ lên
+    # khi trả công nợ thật (tra_cong_no). (anh Quang 2026-08-28, LOG-01)
+    if not cong_no_ncc_id:
+        try:
+            from ..services.so_quy_auto import sync_so_quy_from_chi_phi
+            sync_so_quy_from_chi_phi(db, obj)
+        except Exception:
+            import logging
+            logging.getLogger("ketoan.chi_phi").error(
+                "sync_so_quy_from_chi_phi failed for chi_phi %s", obj.id, exc_info=True)
+    _bust_pl_cache()
     log_action(
         db, app="ketoan", action="create_chi_phi", user=user, request=request,
         resource=f"chi_phi:{obj.id}",
@@ -435,6 +451,7 @@ def update_chi_phi(
         sync_so_quy_from_chi_phi(db, obj)
     except Exception:
         pass
+    _bust_pl_cache()
     log_action(
         db, app="ketoan", action="update_chi_phi", user=user, request=request,
         resource=f"chi_phi:{rid}", payload=fields,
@@ -511,6 +528,7 @@ def delete_chi_phi(
     except Exception:
         db.rollback()
 
+    _bust_pl_cache()
     log_action(
         db, app="ketoan", action="delete_chi_phi", user=user, request=request,
         resource=f"chi_phi:{rid}",

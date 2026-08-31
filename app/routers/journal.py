@@ -81,7 +81,7 @@ def list_journal(
     to_date: Optional[date_cls] = Query(None, alias="to"),
     source_type: Optional[str] = Query(None),
     trang_thai: Optional[str] = Query(None),
-    limit: int = 500,
+    limit: int = Query(500, ge=1, le=2000),
     offset: int = 0,
 ):
     stmt = select(JournalEntry).order_by(

@@ -3,8 +3,11 @@
 Logic:
     - Source of truth là `muahang.congno` (V1-compatible). KT KHÔNG tạo bản sao.
     - Tổng nợ phát sinh (`no_phai_tra`):    SUM(so_tien) WHERE loai='no_phai_tra'.
-    - Tổng đã thanh toán (`de_xuat_tra` đã duyệt):
-        SUM(so_tien) WHERE loai='de_xuat_tra' AND trang_thai='duyet'.
+    - Tổng đã thanh toán (`de_xuat_tra` ĐÃ CHI thực — tiền đã rời sổ quỹ):
+        SUM(so_tien) WHERE loai='de_xuat_tra' AND da_chi = TRUE.
+        (Anh Quang 2026-08-31: chuẩn hoá "đã trả = da_chi" — thống nhất với màn
+         bấm Chi ncc_de_xuat.py + summary muahang; 'duyet' chỉ là CEO đồng ý trả,
+         tiền chưa rời quỹ.)
     - Còn nợ (balance) = nợ phát sinh - đã thanh toán.
 
 Lazy-import muahang.app.models để tránh side-effect khi muahang chưa migrate;
@@ -80,9 +83,10 @@ no_thuc AS (
     GROUP BY cn.ncc_id
 ),
 da_tra AS (
+    -- "Đã trả" = ĐÃ CHI thực (da_chi=TRUE), KHÔNG phải chỉ mới CEO duyệt.
     SELECT ncc_id, SUM(so_tien) AS amt
     FROM muahang.congno
-    WHERE loai = 'de_xuat_tra' AND trang_thai = 'duyet' AND ncc_id IS NOT NULL
+    WHERE loai = 'de_xuat_tra' AND da_chi = TRUE AND ncc_id IS NOT NULL
     GROUP BY ncc_id
 )
 SELECT

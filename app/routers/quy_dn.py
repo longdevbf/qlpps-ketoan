@@ -29,7 +29,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
@@ -515,7 +515,7 @@ def list_giao_dich_quy(
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
     loai: Optional[str] = None,
-    limit: int = 500,
+    limit: int = Query(500, ge=1, le=2000),
     offset: int = 0,
 ) -> dict[str, Any]:
     """List giao dịch quỹ — filter `from`/`to`/`loai`."""

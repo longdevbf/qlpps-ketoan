@@ -3711,26 +3711,18 @@ async function loadDoanhThuTatCa() {
   const chartEl = document.getElementById('dt-allmonths-chart');
   const tbody = document.getElementById('dt-allmonths-tbody');
   if (!chartEl || !tbody) return;
+  // PERF-01: dùng endpoint tổng hợp server-side thay vì kéo toàn bảng (?limit=100000).
   let data;
   try {
-    data = await fetch('/api/doanh-thu?limit=100000').then(r=>r.json());
+    data = await fetch('/api/doanh-thu/by-month').then(r=>r.json());
   } catch(e) {
     chartEl.innerHTML = '<div class="empty">Lỗi tải dữ liệu</div>';
     return;
   }
-  const rows = Array.isArray(data) ? data : [];
-  const byMonth = {};
-  rows.forEach(r => {
-    const m = (r.ngay || '').slice(0, 7);  // 'YYYY-MM'
-    if (!m) return;
-    if (!byMonth[m]) byMonth[m] = { thang: m, tong: 0, coc: 0, tt: 0, count: 0 };
-    const v = Number(r.so_tien || 0);
-    const o = byMonth[m];
-    o.tong += v; o.count++;
-    if (r.loai_thanh_toan === 'Đặt cọc') o.coc += v;
-    else if (r.loai_thanh_toan === 'Thanh toán') o.tt += v;
-  });
-  const months = Object.values(byMonth);
+  const months = (Array.isArray(data) ? data : []).map(r => ({
+    thang: r.thang, tong: Number(r.tong||0), coc: Number(r.coc||0),
+    tt: Number(r.tt||0), count: Number(r.count||0),
+  }));
   const grandEl = document.getElementById('dt-allmonths-grand');
   const cntEl = document.getElementById('dt-allmonths-count');
   if (cntEl) cntEl.textContent = months.length;
