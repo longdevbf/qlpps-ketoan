@@ -10,7 +10,7 @@ from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import func as sqlfunc, select
+from sqlalchemy import func as sqlfunc, or_, select, text
 from sqlalchemy.orm import Session
 
 from shared.auth import JWTPayload, current_user
@@ -47,14 +47,45 @@ def _is_approver(user: JWTPayload) -> bool:
 
 
 def _approver_app_scope(user: JWTPayload) -> Optional[set[str]]:
-    """Trả set app_name approver được xem/duyệt.
-
-    - admin/ceo/assistant_ceo → `None` (cross-app, không giới hạn)
-    - manager/leader → set apps trong JWT (apps user được phép truy cập)
-    """
+    """(Deprecated — thay bằng _approver_depts) Trả set app_name theo JWT.apps."""
     if (user.role or "").lower() in _SUPER_ROLES:
         return None
     return {(a or "").lower() for a in (user.apps or []) if a}
+
+
+def _approver_depts(db: Session, user: JWTPayload) -> Optional[list[str]]:
+    """Danh sách PHÒNG BAN (lowercase) mà manager/leader được xem/duyệt đơn nghỉ.
+
+    - admin/ceo/assistant_ceo → None (không giới hạn, thấy hết).
+    - manager/leader → phòng ban chính + phụ (phong_ban_phu, CSV) của HỌ, tra từ
+      hcns.employees. Dùng KHỚP TIỀN TỐ để gồm cả sub-team (vd "Kinh Doanh" bao
+      "Kinh Doanh Bán Lẻ Nhóm 1/2"). [] = không xác định → fail-closed (không thấy).
+
+    Sửa 2026-08-26 (anh Quang): TRƯỚC lọc theo app_name → SAI: KD manager thấy đơn
+    phòng khác cùng app (vd Vy KD thấy đơn Huy Mua Hàng). Giờ lọc theo PHÒNG BAN.
+    """
+    if (user.role or "").lower() in _SUPER_ROLES:
+        return None
+    row = db.execute(text(
+        "SELECT phong_ban, phong_ban_phu FROM hcns.employees "
+        "WHERE LOWER(username) = LOWER(:u) LIMIT 1"
+    ), {"u": user.username or ""}).mappings().first()
+    depts: list[str] = []
+    if row:
+        main = (row.get("phong_ban") or "").strip().lower()
+        if main:
+            depts.append(main)
+        for d in str(row.get("phong_ban_phu") or "").split(","):
+            d = d.strip().lower()
+            if d and d not in depts:
+                depts.append(d)
+    return depts
+
+
+def _dept_where(depts: list[str]):
+    """Điều kiện SQL: phong_ban của đơn khớp TIỀN TỐ bất kỳ phòng nào approver quản lý."""
+    return or_(*[sqlfunc.lower(sqlfunc.coalesce(LeaveRequest.phong_ban, "")).like(d + "%")
+                 for d in depts])
 
 
 def _calc_so_ngay(ngay_bat_dau: date, ngay_ket_thuc: date, buoi: str) -> Decimal:
@@ -118,12 +149,12 @@ def list_leave_requests(
     if not _is_approver(user):
         stmt = stmt.where(LeaveRequest.username == user.username)
     else:
-        # Manager/leader chỉ thấy đơn của app trong scope JWT.apps. Admin/CEO thấy hết.
-        scope = _approver_app_scope(user)
-        if scope is not None:
-            if not scope:
-                return []  # apps trống → không thấy đơn nào
-            stmt = stmt.where(LeaveRequest.app_name.in_(scope))
+        # Manager/leader chỉ thấy đơn của PHÒNG BAN mình (chính + phụ). Admin/CEO thấy hết.
+        depts = _approver_depts(db, user)
+        if depts is not None:
+            if not depts:
+                return []  # không xác định phòng ban → không thấy đơn nào
+            stmt = stmt.where(_dept_where(depts))
         if username:
             stmt = stmt.where(LeaveRequest.username == username)
         if phong_ban:
@@ -262,13 +293,15 @@ def duyet_leave_request(
             status.HTTP_403_FORBIDDEN,
             "Không được tự duyệt đơn nghỉ của chính mình — để Mai hoặc cấp trên duyệt.",
         )
-    # Manager/leader chỉ duyệt được đơn của app trong scope. Admin/CEO bypass.
-    scope = _approver_app_scope(user)
-    if scope is not None and (rec.app_name or "").lower() not in scope:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            f"Bạn không có quyền duyệt đơn của app '{rec.app_name}'",
-        )
+    # Manager/leader chỉ duyệt được đơn của PHÒNG BAN mình (chính + phụ). Admin/CEO bypass.
+    depts = _approver_depts(db, user)
+    if depts is not None:
+        rp = (rec.phong_ban or "").strip().lower()
+        if not any(rp.startswith(d) for d in depts):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                f"Bạn không có quyền duyệt đơn của phòng '{rec.phong_ban}' — khác phòng bạn quản lý.",
+            )
 
     ho_ten_duyet, _, _, _, _ = _lookup_user_info(user.username)
     rec.trang_thai = body.trang_thai
@@ -394,14 +427,13 @@ def leave_stats(
     for row in own:
         result[row.trang_thai] = row.cnt
     if _is_approver(user):
-        scope = _approver_app_scope(user)
+        depts = _approver_depts(db, user)
         q = select(sqlfunc.count()).where(LeaveRequest.trang_thai == "cho_duyet")
-        if scope is not None:
-            if not scope:
-                pending_all = 0
-                result["pending_all"] = pending_all
+        if depts is not None:
+            if not depts:
+                result["pending_all"] = 0
                 return result
-            q = q.where(LeaveRequest.app_name.in_(scope))
+            q = q.where(_dept_where(depts))
         pending_all = db.execute(q).scalar() or 0
         result["pending_all"] = pending_all
     return result
