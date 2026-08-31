@@ -1,4 +1,5 @@
 """Global FastAPI exception handlers — JSON cho /api/, HTML 500 page cho /."""
+import html
 import logging
 
 from fastapi import FastAPI, Request, status
@@ -46,7 +47,8 @@ def register_error_handlers(app: FastAPI) -> None:
                 status_code=exc.status_code,
             )
         return HTMLResponse(
-            f"<h1>{exc.status_code}</h1><p>{exc.detail}</p>",
+            f"<h1>{html.escape(str(exc.status_code))}</h1>"
+            f"<p>{html.escape(str(exc.detail))}</p>",
             status_code=exc.status_code,
         )
 
@@ -86,9 +88,13 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(IntegrityError)
     async def db_integrity_exc(request: Request, exc: IntegrityError):
-        _log.warning("integrity error: %s", exc.orig)
+        _log.warning("integrity error: %s", str(exc.orig))
         return JSONResponse(
-            {"error": "data_conflict", "detail": str(exc.orig), "code": 409},
+            {
+                "error": "data_conflict",
+                "detail": "Dữ liệu vi phạm ràng buộc / trùng lặp",
+                "code": 409,
+            },
             status_code=status.HTTP_409_CONFLICT,
         )
 
