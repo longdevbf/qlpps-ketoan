@@ -374,6 +374,10 @@ def chi_quy(
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, Any]:
     """Chi quỹ — giảm so_du, log audit."""
+    # Chi quỹ = rút tiền quỹ DN → chỉ CEO/admin + KHÔNG cho âm (đồng bộ chi_tien_quy
+    # bản mới + chốt chặn số dư âm 2026-08-27). (anh Quang 2026-08-31)
+    if user.role not in ("admin", "ceo", "assistant_ceo"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Chỉ CEO/admin được chi quỹ")
     q = _get_or_404(db, qid)
     if q.nguon_compute == "hcns_cong_doan":
         raise HTTPException(
@@ -383,6 +387,11 @@ def chi_quy(
     so_tien = Decimal(str(body.so_tien))
     if so_tien <= 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Số tiền chi phải > 0")
+    if (q.so_du or Decimal("0")) - so_tien < 0:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Số dư quỹ chỉ còn {int(q.so_du or 0):,}đ — không đủ chi {int(so_tien):,}đ (sẽ âm)",
+        )
 
     q.so_du = (q.so_du or Decimal("0")) - so_tien
     db.commit()

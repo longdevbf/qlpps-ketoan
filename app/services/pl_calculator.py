@@ -222,8 +222,8 @@ def _sum_doanh_thu_thuc_hien(db: Session, tu: date, den: date) -> float:
         WHERE q.quote_number IN (
             SELECT DISTINCT ma_don FROM saleadmin.vanchuyen
             WHERE trang_thai = 'hoan_thanh'
-              AND COALESCE(ketoan_approved_at::date, updated_at::date, ngay_giao) >= :tu
-              AND COALESCE(ketoan_approved_at::date, updated_at::date, ngay_giao) <= :den
+              AND COALESCE(ketoan_approved_at::date, ngay_giao, updated_at::date) >= :tu
+              AND COALESCE(ketoan_approved_at::date, ngay_giao, updated_at::date) <= :den
         )
     """
     dt_don = _safe_scalar(db, sql_don, tu=tu, den=den)
@@ -255,8 +255,8 @@ def _sum_cogs(db: Session, tu: date, den: date) -> float:
           AND cn.ma_don IN (
             SELECT DISTINCT ma_don FROM saleadmin.vanchuyen
             WHERE trang_thai = 'hoan_thanh'
-              AND COALESCE(ketoan_approved_at::date, updated_at::date, ngay_giao) >= :tu
-              AND COALESCE(ketoan_approved_at::date, updated_at::date, ngay_giao) <= :den
+              AND COALESCE(ketoan_approved_at::date, ngay_giao, updated_at::date) >= :tu
+              AND COALESCE(ketoan_approved_at::date, ngay_giao, updated_at::date) <= :den
           )
     """, tu=tu, den=den)
     if ncc > 0:
@@ -1087,8 +1087,8 @@ def _sum_van_chuyen(db: Session, tu: date, den: date) -> float:
         SELECT COALESCE(SUM(chi_phi_vc), 0)
         FROM saleadmin.vanchuyen
         WHERE trang_thai = 'hoan_thanh'
-          AND COALESCE(ketoan_approved_at::date, updated_at::date, ngay_giao) >= :tu
-          AND COALESCE(ketoan_approved_at::date, updated_at::date, ngay_giao) <= :den
+          AND COALESCE(ketoan_approved_at::date, ngay_giao, updated_at::date) >= :tu
+          AND COALESCE(ketoan_approved_at::date, ngay_giao, updated_at::date) <= :den
     """, tu=tu, den=den)
 
 
@@ -1125,8 +1125,8 @@ def _count_orders_hoan_thanh(db: Session, tu: date, den: date) -> int:
     sql = """
         SELECT COUNT(*) FROM saleadmin.vanchuyen
         WHERE trang_thai = 'hoan_thanh'
-          AND COALESCE(ketoan_approved_at::date, updated_at::date, ngay_giao) >= :tu
-          AND COALESCE(ketoan_approved_at::date, updated_at::date, ngay_giao) <= :den
+          AND COALESCE(ketoan_approved_at::date, ngay_giao, updated_at::date) >= :tu
+          AND COALESCE(ketoan_approved_at::date, ngay_giao, updated_at::date) <= :den
     """
     try:
         v = db.execute(text(sql), {"tu": tu, "den": den}).scalar()
@@ -1265,7 +1265,10 @@ def calc_pl_for_month(db: Session, thang: str) -> dict[str, Any]:
         exclude_name_like=[
             "%khuyến mãi%", "%khuyen mai%",
             "%marketing%", "%ads%", "%quảng cáo%", "%quang cao%",
+            # Hoàn tiền đã trừ ở giảm_trừ DT → KHÔNG để lọt vào chi phí BH (trừ 2 lần). L11
+            "%hoàn tiền%", "%hoan tien%",
         ],
+        also_ten_khoan=True,
     ), 2)
     # Note: VC đã có thể được counted vào nhom=ban_hang qua bridge cũ — để tránh
     # double count nếu cp_ps có ref_vc, ưu tiên loại bỏ. Đơn giản hoá: trừ nếu
@@ -1361,9 +1364,12 @@ def calc_pl_for_month(db: Session, thang: str) -> dict[str, Any]:
         # Ads/marketing đã gộp vào bh_ads → KHÔNG để lọt vào ql_khac (tránh trừ 2 lần
         # khi khoản quảng cáo bị ghi nhầm nhom='quan_ly'). (LOG-03, 2026-08-28)
         "%marketing%", "%ads%", "%quảng cáo%", "%quang cao%",
+        # Hoàn tiền đã trừ ở giảm_trừ DT → không lọt vào chi phí QL (trừ 2 lần). L11
+        "%hoàn tiền%", "%hoan tien%",
     ]
     ql_total_ps = round(_sum_cp_phat_sinh_filter(
         db, tu, den, nhom="quan_ly", exclude_name_like=_QL_EXCLUDE_NCC,
+        also_ten_khoan=True,  # bắt cả hoàn tiền/lương/ncc ghi ở ten_khoan
     ), 2)
     ql_khac = round(max(0.0, ql_total_ps - (ql_vpp + ql_dao_tao + ql_hoi_hop + ql_qua)), 2)
 

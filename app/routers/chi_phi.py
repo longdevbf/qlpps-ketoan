@@ -443,14 +443,22 @@ def update_chi_phi(
         setattr(obj, k, v)
     db.commit()
     db.refresh(obj)
-    # Sync SoQuy nếu so_tien / ngay / ngan_hang / mo_ta thay đổi (idempotent
-    # qua (lien_quan, ref_id)). Trước fix này UPDATE chỉ ghi chi_phi mà SoQuy
-    # giữ giá trị cũ → tổng quỹ lệch.
+    # Sync SoQuy — CHỈ khi chi phí này ĐÃ có dòng sổ quỹ (tức chi bằng tiền thật).
+    # Chi phí MUA CHỊU (Có 331) lúc tạo KHÔNG ghi sổ quỹ (LOG-01); nếu ở đây gọi
+    # sync vô điều kiện sẽ TẠO MỚI dòng chi → trừ tiền + trừ lần 2 khi trả NCC.
+    # ChiPhiPhatSinh không có cột cong_no_ncc_id nên nhận diện bằng: đã tồn tại
+    # SoQuy CP-{id} chưa. (L1, anh Quang 2026-08-31)
     try:
         from ..services.so_quy_auto import sync_so_quy_from_chi_phi
-        sync_so_quy_from_chi_phi(db, obj)
+        from ..models import SoQuy as _SoQuy
+        _existed = db.execute(
+            select(_SoQuy.id).where(_SoQuy.lien_quan == "chi_phi", _SoQuy.ref_id == f"CP-{obj.id}")
+        ).first()
+        if _existed:
+            sync_so_quy_from_chi_phi(db, obj)
     except Exception:
-        pass
+        import logging
+        logging.getLogger("ketoan.chi_phi").warning("update sync so_quy failed cp=%s", obj.id, exc_info=True)
     _bust_pl_cache()
     log_action(
         db, app="ketoan", action="update_chi_phi", user=user, request=request,

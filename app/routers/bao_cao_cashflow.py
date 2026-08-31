@@ -74,7 +74,9 @@ def _row(r: SoQuy) -> dict[str, Any]:
 # ── Tag detection (so_quy không có loai_chi_phi_id, dùng lien_quan + ghi_chu/noi_dung) ──
 
 # Lower-case substrings hint
-_LIEN_QUAN_KH = ("kh", "phai_thu", "doanh_thu", "order", "don_hang", "cong_no")
+# BỎ token trần "kh" (2 ký tự) — ILIKE '%kh%' bắt nhầm 'khoan_vay','khau_hao'... vào
+# Thu KH (dòng tiền hoạt động) thay vì tài chính. Dùng token có ranh giới. (L4, 2026-08-31)
+_LIEN_QUAN_KH = ("khach", "phai_thu", "doanh_thu", "order", "don_hang", "cong_no")
 _LIEN_QUAN_NCC = ("ncc", "mua_hang", "phai_tra", "cong_no")
 _LIEN_QUAN_LUONG = ("luong", "payroll", "hcns")
 _LIEN_QUAN_ADS = ("ads", "marketing", "mkt", "fb", "facebook", "google")
@@ -526,81 +528,39 @@ def _full_chi_classified_ids(db: Session, tu: date, den: date) -> set[int]:
         SoQuy.loai == "chi",
         SoQuy.ngay >= tu, SoQuy.ngay <= den,
     ]
-    # DUP-02 (2026-08-28): mỗi nhóm loại-trừ phải khớp phần HIỂN THỊ — hiển thị dùng
-    # `_by_cf_or_heuristic` (ưu tiên phan_loai_cf). Trước đây tập loại-trừ CHỈ dùng
-    # heuristic keyword → dòng set tay phan_loai_cf (không có keyword) được cộng vào
-    # nhóm NHƯNG không bị loại khỏi chi_khac → CHI ĐẾM 2 LẦN. Thêm phan_loai_cf vào OR.
-    # NCC
-    rs = db.execute(
-        select(SoQuy.id).where(
-            *base,
-            or_(SoQuy.phan_loai_cf == "tra_ncc",
-                _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_NCC)),
-        )
-    ).scalars().all()
-    ids.update(rs)
-    # Ads
-    rs = db.execute(
-        select(SoQuy.id).where(
-            *base,
-            or_(
-                SoQuy.phan_loai_cf == "nap_ads",
-                _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_ADS),
-                _ilike_any(SoQuy.ghi_chu, ("ads", "marketing", "facebook", "google")),
-                _ilike_any(SoQuy.noi_dung, ("ads", "marketing", "facebook", "google")),
-            ),
-        )
-    ).scalars().all()
-    ids.update(rs)
-    # Lương
-    rs = db.execute(
-        select(SoQuy.id).where(
-            *base,
-            or_(
-                SoQuy.phan_loai_cf == "tra_luong",
-                _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_LUONG),
-                _ilike_any(SoQuy.ghi_chu, ("lương", "luong", "salary", "payroll")),
-                _ilike_any(SoQuy.noi_dung, ("lương", "luong", "salary", "payroll")),
-            ),
-        )
-    ).scalars().all()
-    ids.update(rs)
-    # CCDC
-    rs = db.execute(
-        select(SoQuy.id).where(
-            *base,
-            or_(
-                SoQuy.phan_loai_cf == "mua_ccdc",
-                _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_CCDC),
-                _ilike_any(SoQuy.ghi_chu, ("ccdc", "tài sản", "tai san", "tscd")),
-            ),
-        )
-    ).scalars().all()
-    ids.update(rs)
-    # Sửa chữa
-    rs = db.execute(
-        select(SoQuy.id).where(
-            *base,
-            or_(
-                SoQuy.phan_loai_cf == "sua_chua_lon",
-                _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_SUACHUA),
-                _ilike_any(SoQuy.ghi_chu, ("sửa chữa", "sua chua", "bảo trì", "bao tri")),
-            ),
-        )
-    ).scalars().all()
-    ids.update(rs)
-    # Trả nợ
-    rs = db.execute(
-        select(SoQuy.id).where(
-            *base,
-            or_(
-                SoQuy.phan_loai_cf == "tra_nh",
-                _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_NO_NH),
-                _ilike_any(SoQuy.ghi_chu, ("lãi vay", "lai vay", "trả nợ", "tra no", "nợ ngân hàng")),
-            ),
-        )
-    ).scalars().all()
-    ids.update(rs)
+    # DUP-02 + L3 (2026-08-31): tập loại-trừ phải KHỚP CHÍNH XÁC predicate hiển thị →
+    # dùng chung `_by_cf_or_heuristic(cf, heuristic)` = or_(phan_loai_cf==cf,
+    # and_(phan_loai_cf IS NULL, heuristic)). Nếu chỉ or_(cf, heuristic) như trước thì
+    # chi có phan_loai_cf='khac' + keyword bị LOẠI khỏi chi_khac NHƯNG không vào bucket
+    # nào → BIẾN MẤT khỏi báo cáo (net sai). Dùng helper là khít cả 2 chiều.
+    _preds = [
+        _by_cf_or_heuristic("tra_ncc", _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_NCC)),
+        _by_cf_or_heuristic("nap_ads", or_(
+            _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_ADS),
+            _ilike_any(SoQuy.ghi_chu, ("ads", "marketing", "facebook", "google")),
+            _ilike_any(SoQuy.noi_dung, ("ads", "marketing", "facebook", "google")),
+        )),
+        _by_cf_or_heuristic("tra_luong", or_(
+            _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_LUONG),
+            _ilike_any(SoQuy.ghi_chu, ("lương", "luong", "salary", "payroll")),
+            _ilike_any(SoQuy.noi_dung, ("lương", "luong", "salary", "payroll")),
+        )),
+        _by_cf_or_heuristic("mua_ccdc", or_(
+            _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_CCDC),
+            _ilike_any(SoQuy.ghi_chu, ("ccdc", "tài sản", "tai san", "tscd")),
+        )),
+        _by_cf_or_heuristic("sua_chua_lon", or_(
+            _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_SUACHUA),
+            _ilike_any(SoQuy.ghi_chu, ("sửa chữa", "sua chua", "bảo trì", "bao tri")),
+        )),
+        _by_cf_or_heuristic("tra_nh", or_(
+            _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_NO_NH),
+            _ilike_any(SoQuy.ghi_chu, ("lãi vay", "lai vay", "trả nợ", "tra no", "nợ ngân hàng")),
+        )),
+    ]
+    for _p in _preds:
+        rs = db.execute(select(SoQuy.id).where(*base, _p)).scalars().all()
+        ids.update(rs)
     # Chuyển nội bộ (luân chuyển quỹ giữa 2 TK) — KHÔNG phải chi phí, chỉ là
     # dịch chuyển tiền nội bộ. Loại khỏi chi_khac (2026-06-20). Dòng 'thu' đối
     # ứng vốn đã không lọt vào thu_kh (heuristic KH), nên loại nốt chi → net 0.

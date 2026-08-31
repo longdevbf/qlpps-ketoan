@@ -20,7 +20,7 @@ from ..models import (
 from ..schemas import CoDinhCreate, CoDinhOut, CoDinhUpdate
 from ..schemas.co_dinh import VALID_PHUONG_PHAP_PHAN_BO
 from ..services.journal import post_journal
-from ._deps import require_ketoan_user
+from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
 _NHOM_TO_ACCOUNT = {
@@ -33,6 +33,8 @@ _NHOM_TO_ACCOUNT = {
 
 router = APIRouter()
 _AUTH = Depends(require_ketoan_user)
+# Sửa/xoá định phí feed P&L (phân bổ định phí) → chỉ CEO/admin, đồng bộ chi_phi. (2026-08-31)
+_CEO_EDIT = Depends(require_ceo_thuchi)
 
 
 VALID_NHOM = {"ban_hang", "quan_ly", "tai_chinh", "khac"}
@@ -222,7 +224,7 @@ def update_co_dinh(
     body: CoDinhUpdate,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(ChiPhiCoDinh, rid)
     if not obj:
@@ -255,7 +257,7 @@ def delete_co_dinh(
     rid: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(ChiPhiCoDinh, rid)
     if not obj:

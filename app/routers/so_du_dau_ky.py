@@ -12,11 +12,14 @@ from shared.db import get_db
 
 from ..models import SoDuDauKy, TaiKhoanNH
 from ..schemas import SoDuDauKyCreate, SoDuDauKyOut
-from ._deps import require_ketoan_user
+from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
 router = APIRouter()
 _AUTH = Depends(require_ketoan_user)
+# Số dư đầu kỳ = baseline Bảng Cân Đối + số dư TK → sửa/xoá 1 dòng dịch cả cân đối.
+# Chỉ CEO/admin (đồng bộ von_csh + cong_no opening). (anh Quang 2026-08-31)
+_CEO_EDIT = Depends(require_ceo_thuchi)
 
 
 def _parse_thang_yyyy_mm(thang: str) -> date_cls:
@@ -67,7 +70,7 @@ def upsert_so_du_dau_ky(
     body: SoDuDauKyCreate,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     """Upsert theo (thang, tai_khoan_id) — tháng phải là YYYY-MM-01."""
     # Normalize thang về day=1
@@ -120,7 +123,7 @@ def delete_so_du_dau_ky(
     rid: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(SoDuDauKy, rid)
     if not obj:

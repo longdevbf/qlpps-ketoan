@@ -356,6 +356,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-heigh
           Chờ duyệt
           <span class="tab-badge" id="tab-pending-cnt">0</span>
         </button>
+        <button class="tab-btn" onclick="switchTab('done')" id="tab-done">
+          Đã duyệt
+          <span class="tab-badge" id="tab-done-cnt">0</span>
+        </button>
         {% endif %}
       </div>
 
@@ -641,11 +645,17 @@ async function loadStats() {
     const r = await fetch('/api/xin-nghi/stats', {credentials:'include'});
     if (!r.ok) return;
     const d = await r.json();
-    document.getElementById('stat-cho').textContent = d.cho_duyet || 0;
-    document.getElementById('stat-duyet').textContent = d.da_duyet || 0;
-    document.getElementById('stat-tuchoi').textContent = d.tu_choi || 0;
-    if (IS_APPROVER && d.pending_all !== undefined) {
-      document.getElementById('tab-pending-cnt').textContent = d.pending_all;
+    // Người DUYỆT xem số liệu TOÀN PHẠM VI mình quản; NV thường xem đơn của mình.
+    // Vá 2026-08-31: trước đây CEO luôn thấy 0/0/0 vì chỉ đếm đơn của chính mình.
+    const _all = IS_APPROVER && d.all_da_duyet !== undefined;
+    document.getElementById('stat-cho').textContent    = _all ? d.all_cho_duyet : (d.cho_duyet || 0);
+    document.getElementById('stat-duyet').textContent  = _all ? d.all_da_duyet  : (d.da_duyet  || 0);
+    document.getElementById('stat-tuchoi').textContent = _all ? d.all_tu_choi   : (d.tu_choi   || 0);
+    if (IS_APPROVER) {
+      const tp = document.getElementById('tab-pending-cnt');
+      if (tp && d.pending_all !== undefined) tp.textContent = d.pending_all;
+      const td = document.getElementById('tab-done-cnt');
+      if (td && d.all_da_duyet !== undefined) td.textContent = d.all_da_duyet;
     }
   } catch(e) {}
 }
@@ -809,18 +819,17 @@ let _pendingLoadedOnce = false;
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-  document.getElementById(`tab-${tab}`)?.classList.add('active');
-  document.getElementById(`pane-${tab}`)?.classList.add('active');
+  document.getElementById('tab-' + tab)?.classList.add('active');
+  // Tab 'done' (Đã duyệt) DÙNG CHUNG khung bảng với 'pending' — chỉ khác bộ lọc
+  // trạng thái. Thêm 2026-08-31: trước đây không có chỗ xem đơn ĐÃ DUYỆT.
+  const _paneId = (tab === 'done') ? 'pane-pending' : ('pane-' + tab);
+  document.getElementById(_paneId)?.classList.add('active');
+  const _isList = (tab === 'pending' || tab === 'done');
   const fb = document.getElementById('filter-bar');
-  if (fb) fb.style.display = tab === 'pending' ? 'flex' : 'none';
-  if (tab === 'pending') {
-    // Lần đầu mở tab → reset filter "Tất cả" để user thấy toàn bộ đơn trong scope
-    // (tránh hiểu nhầm "không có đơn nào" khi browser autosave filter 'cho_duyet' cũ)
-    if (!_pendingLoadedOnce) {
-      const sel = document.getElementById('f-trang-thai');
-      if (sel) sel.value = '';
-      _pendingLoadedOnce = true;
-    }
+  if (fb) fb.style.display = _isList ? 'flex' : 'none';
+  if (_isList) {
+    const sel = document.getElementById('f-trang-thai');
+    if (sel) sel.value = (tab === 'done') ? 'da_duyet' : 'cho_duyet';
     loadPending();
   }
 }

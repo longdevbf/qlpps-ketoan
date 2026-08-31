@@ -33,7 +33,10 @@ from ._deps import require_ketoan_user
 router = APIRouter()
 _AUTH = Depends(require_ketoan_user)
 
-_ROLES_POST = ("admin", "ceo", "assistant_ceo", "manager", "kt")
+# Bút toán TAY ghi thẳng vốn/doanh thu/tiền (411/421/511/111...) → feed Cân Đối + P&L.
+# CHỈ CEO/admin (đồng bộ von_csh + require_ceo_thuchi doanh_thu/so_quy). KT/manager KHÔNG
+# được post/void tay — tránh cửa hậu tự tăng vốn/chế doanh thu. (anh Quang 2026-08-31)
+_ROLES_POST = ("admin", "ceo", "assistant_ceo")
 
 
 # ─── Chart of Accounts ───────────────────────────────────────────────────────
@@ -128,7 +131,7 @@ def create_journal(
     if user.role not in _ROLES_POST:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            "Chỉ admin/ceo/manager/kt được post bút toán manual",
+            "Chỉ CEO/admin được post bút toán manual (ghi thẳng vốn/doanh thu)",
         )
 
     je = post_journal(
@@ -163,9 +166,9 @@ def void(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
 ):
-    if user.role not in ("admin", "ceo", "manager", "kt"):
+    if user.role not in _ROLES_POST:
         raise HTTPException(
-            status.HTTP_403_FORBIDDEN, "Chỉ admin/ceo/manager/kt được hủy bút toán",
+            status.HTTP_403_FORBIDDEN, "Chỉ CEO/admin được hủy (đảo) bút toán",
         )
     rev = void_journal(db, je_id=je_id, by_user=user.username)
     db.commit()

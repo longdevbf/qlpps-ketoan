@@ -160,7 +160,12 @@ def list_leave_requests(
         if phong_ban:
             stmt = stmt.where(LeaveRequest.phong_ban == phong_ban)
     if trang_thai:
-        stmt = stmt.where(LeaveRequest.trang_thai == trang_thai)
+        # `da_duyet` gồm CẢ trạng thái cũ `duyet` (28 đơn legacy) — nếu không
+        # gộp, tab "Đã duyệt" sẽ thiếu đơn. Vá 2026-08-31.
+        if trang_thai == "da_duyet":
+            stmt = stmt.where(LeaveRequest.trang_thai.in_(("da_duyet", "duyet")))
+        else:
+            stmt = stmt.where(LeaveRequest.trang_thai == trang_thai)
     if thang:
         try:
             y, m = thang.split("-")
@@ -418,6 +423,16 @@ def leave_stats(
     user: Annotated[JWTPayload, _AUTH],
     db: Annotated[Session, Depends(get_db)],
 ):
+    """Số liệu đơn nghỉ.
+
+    - NV thường: đếm đơn CỦA CHÍNH MÌNH (cho_duyet / da_duyet / tu_choi).
+    - Người DUYỆT (manager/leader/CEO): trả thêm `all_*` = đếm TOÀN PHẠM VI
+      họ quản (lọc theo phòng ban; CEO/admin thấy tất cả).
+
+    Vá 2026-08-31 (anh Quang): trước đây 3 thẻ số liệu chỉ đếm đơn của chính
+    mình, nên CEO (không tự nộp đơn) luôn thấy 0/0/0 và tưởng hệ thống trống
+    dù đang có 215 đơn đã xử lý.
+    """
     own = db.execute(
         select(LeaveRequest.trang_thai, sqlfunc.count().label("cnt"))
         .where(LeaveRequest.username == user.username)
@@ -425,15 +440,29 @@ def leave_stats(
     ).all()
     result: dict = {"cho_duyet": 0, "da_duyet": 0, "tu_choi": 0}
     for row in own:
-        result[row.trang_thai] = row.cnt
-    if _is_approver(user):
-        depts = _approver_depts(db, user)
-        q = select(sqlfunc.count()).where(LeaveRequest.trang_thai == "cho_duyet")
-        if depts is not None:
-            if not depts:
-                result["pending_all"] = 0
-                return result
-            q = q.where(_dept_where(depts))
-        pending_all = db.execute(q).scalar() or 0
-        result["pending_all"] = pending_all
+        if row.trang_thai in result:
+            result[row.trang_thai] = row.cnt
+    if not _is_approver(user):
+        return result
+
+    depts = _approver_depts(db, user)
+    if depts is not None and not depts:
+        result.update({"pending_all": 0, "all_cho_duyet": 0,
+                       "all_da_duyet": 0, "all_tu_choi": 0})
+        return result
+
+    q = select(LeaveRequest.trang_thai, sqlfunc.count().label("cnt"))
+    if depts is not None:
+        q = q.where(_dept_where(depts))
+    rows = db.execute(q.group_by(LeaveRequest.trang_thai)).all()
+    # Gộp trạng thái cũ `duyet` vào `da_duyet` cho khớp bộ lọc trên giao diện.
+    agg = {"cho_duyet": 0, "da_duyet": 0, "tu_choi": 0}
+    for r in rows:
+        k = "da_duyet" if r.trang_thai in ("da_duyet", "duyet") else r.trang_thai
+        if k in agg:
+            agg[k] += r.cnt
+    result["all_cho_duyet"] = agg["cho_duyet"]
+    result["all_da_duyet"] = agg["da_duyet"]
+    result["all_tu_choi"] = agg["tu_choi"]
+    result["pending_all"] = agg["cho_duyet"]
     return result

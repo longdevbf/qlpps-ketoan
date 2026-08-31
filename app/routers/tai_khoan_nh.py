@@ -11,11 +11,13 @@ from shared.db import get_db
 
 from ..models import TaiKhoanNH
 from ..schemas import TaiKhoanNHCreate, TaiKhoanNHUpdate, TaiKhoanNHOut
-from ._deps import require_ketoan_user
+from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
 router = APIRouter()
 _AUTH = Depends(require_ketoan_user)
+# Sửa/xoá tài khoản NH (master) đổi số dư/lịch sử → chỉ CEO/admin. (2026-08-31)
+_CEO_EDIT = Depends(require_ceo_thuchi)
 
 
 @router.get("", response_model=list[TaiKhoanNHOut])
@@ -65,7 +67,7 @@ def update_tai_khoan(
     body: TaiKhoanNHUpdate,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(TaiKhoanNH, rid)
     if not obj:
@@ -87,7 +89,7 @@ def delete_tai_khoan(
     rid: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(TaiKhoanNH, rid)
     if not obj:

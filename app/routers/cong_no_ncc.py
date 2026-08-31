@@ -211,6 +211,7 @@ SELECT
     nguoi_duyet,
     ngay_duyet,
     trang_thai,
+    da_chi,
     created_at
 FROM muahang.congno
 WHERE ncc_id = :ncc_id AND loai = 'de_xuat_tra'
@@ -261,10 +262,12 @@ def ncc_detail(
 
     # Aggregate summary client-side để khỏi query thêm (nhỏ).
     total_orders = sum(int(float(r.get("so_tien") or 0)) for r in no_rows)
+    # "Đã trả" = ĐÃ CHI thực (da_chi=TRUE) — thống nhất với summary (2026-08-31, L7).
+    # Trước dùng trang_thai='duyet' → detail báo đã trả NHIỀU hơn thực chi.
     total_paid = sum(
         int(float(r.get("so_tien") or 0))
         for r in tt_rows
-        if r.get("trang_thai") == "duyet"
+        if r.get("da_chi") is True
     )
     n_orders = len({r.get("po_id") for r in no_rows if r.get("po_id")})
 
@@ -276,7 +279,7 @@ def ncc_detail(
             "balance": str(total_orders - total_paid),
             "n_orders": n_orders,
             "n_payments_total": len(tt_rows),
-            "n_payments_approved": sum(1 for r in tt_rows if r.get("trang_thai") == "duyet"),
+            "n_payments_approved": sum(1 for r in tt_rows if r.get("da_chi") is True),
         },
         "no_phai_tra": no_rows,
         "thanh_toan": tt_rows,

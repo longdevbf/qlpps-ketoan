@@ -18,7 +18,10 @@ from shared.db import get_db
 from shared.events import emit_event
 
 router = APIRouter()
-_AUTH = Depends(require_app("ketoan"))
+# Duyệt cọc = phê duyệt tài chính + ghi sổ quỹ THU → phải ép ROLE kế toán, KHÔNG chỉ
+# require_app (ai có app 'ketoan' cũng lọt). Đồng bộ coc_bo_sung/ncc/dntt. (2026-08-31)
+from ._deps import require_ketoan_user as _require_ketoan_user
+_AUTH = Depends(_require_ketoan_user)
 
 
 # ── Schema ──────────────────────────────────────────────────────────
