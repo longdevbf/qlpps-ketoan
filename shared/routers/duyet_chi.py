@@ -883,10 +883,12 @@ def chi_expense(
 
     try:
         from ketoan.app.models import ChiPhiPhatSinh
-        from ketoan.app.services.so_quy_auto import sync_so_quy_from_chi_phi
+        from ketoan.app.services.so_quy_auto import sync_so_quy_from_chi_phi, assert_du_chi
     except Exception as e:  # pragma: no cover
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR,
                             f"Không nạp được module Kế Toán: {e}")
+    # CHẶN chi làm số dư TK âm (anh Quang 2026-08-27)
+    assert_du_chi(db, tk, rec.so_tien)
 
     loai_ten, nhom = _LOAI_CHI_MAP.get((rec.loai_chi or "").strip(),
                                        ("Chi phí khác", "khac"))
