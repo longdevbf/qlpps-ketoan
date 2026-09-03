@@ -822,10 +822,36 @@ body.sb-min .ab-sb-g,body.sb-min .ab-sb-top{position:relative}
         if (gb){ gb.textContent = tong || ''; gb.hidden = !tong; }
       }
     }
+    /* 1) Duyệt ĐX trả NCC — số đề xuất chờ KT duyệt */
     fetch('/api/ncc-de-xuat/summary', {credentials:'include'})
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){ if (d) dat('ncc', d.cho_duyet || 0); })
       .catch(function(){});
+
+    /* 2) Duyệt chi — số đơn chi đang chờ MÌNH duyệt */
+    fetch('/api/duyet-chi/stats', {credentials:'include'})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){ if (d) dat('chi', d.pending_for_me || 0); })
+      .catch(function(){});
+
+    /* 3) Phê duyệt — tổng mọi việc chờ duyệt, gộp 6 hàng đợi giống trang
+       /phe-duyet (số "Tất cả"). Mỗi call fail-soft: endpoint hỏng/thiếu → 0. */
+    var _pdUrls = [
+      '/api/xin-nghi?trang_thai=cho_duyet',
+      '/api/duyet-chi/queue/me',
+      '/api/lenh-di-do/cho-duyet',
+      '/api/cong-trinh/admin?status_filter=cho_duyet',
+      '/api/de-nghi-tt?trang_thai=cho_duyet',
+      '/api/ncc-de-xuat?trang_thai=cho_duyet'
+    ];
+    Promise.all(_pdUrls.map(function(u){
+      return fetch(u, {credentials:'include'})
+        .then(function(r){ return r.ok ? r.json() : []; })
+        .then(function(a){ return Array.isArray(a) ? a.length : 0; })
+        .catch(function(){ return 0; });
+    })).then(function(ns){
+      dat('pd', ns.reduce(function(s, n){ return s + n; }, 0));
+    }).catch(function(){});
   }
 
   function abInit(){
