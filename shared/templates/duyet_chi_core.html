@@ -174,6 +174,36 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 .form-field input,.form-field select,.form-field textarea{width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;outline:none;background:var(--bg-page);font-family:inherit;color:var(--text);transition:border-color .15s,box-shadow .15s}
 .form-field input:focus,.form-field select:focus,.form-field textarea:focus{background:#fff;box-shadow:var(--focus-ring)}
 .form-field textarea{resize:vertical;min-height:72px}
+
+/* ── Vùng nhận chứng từ: bấm chọn HOẶC Ctrl+V dán ảnh ── */
+.ct-zone{display:flex;align-items:center;gap: var(--sp-4);flex-wrap:wrap;padding: var(--sp-4);
+  border:1.5px dashed var(--brand-soft);border-radius:8px;background:var(--bg-page);
+  transition:background .15s,border-color .15s}
+.ct-zone.drag{border-color:var(--primary);background:var(--brand-soft)}
+/* Nháy một cái khi dán xong — không có phản hồi thì người dùng không biết
+   Ctrl+V đã ăn hay chưa, sẽ dán lại lần nữa thành 2 ảnh trùng. */
+@keyframes ctFlash{0%{background:var(--brand-soft)}100%{background:var(--bg-page)}}
+.ct-zone.flash{animation:ctFlash .6s ease-out}
+.ct-pick{display:inline-flex;align-items:center;gap: var(--sp-3);padding: var(--sp-4) var(--sp-7);
+  background:#fff;border:1.5px solid var(--brand-soft);border-radius:8px;cursor:pointer;
+  font-size: var(--fs-body);font-weight:600;color:var(--brand);transition:background .15s}
+.ct-pick:hover{background:var(--brand-soft)}
+.ct-hint{font-size: var(--fs-body);color:var(--text-3)}
+.ct-hint b{color:var(--text-2)}
+/* Xếp dọc, mỗi file một dòng đủ rộng: cột form chỉ ~330px, xếp ngang thì tên
+   bị cắt đúng phần đuôi — mà đuôi (giờ phút giây) mới là chỗ phân biệt các ảnh
+   dán liên tiếp với nhau. */
+.ct-list{display:flex;flex-direction:column;gap: var(--sp-3);margin-top: var(--sp-4)}
+.ct-chip{display:flex;align-items:center;gap: var(--sp-4);
+  padding: var(--sp-2) var(--sp-4);background:#fff;
+  border:1px solid var(--line);border-radius:8px;font-size: var(--fs-meta)}
+.ct-chip img{height:38px;width:38px;object-fit:cover;border-radius:5px;flex-shrink:0}
+.ct-chip .ct-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+.ct-chip .ct-sz{color:var(--text-3);flex-shrink:0}
+.ct-x{flex-shrink:0;width:19px;height:19px;line-height:1;padding:0;border:0;border-radius:50%;
+  background:var(--danger-soft);color:var(--danger-fg);font-size: var(--fs-meta);font-weight:700;
+  cursor:pointer;font-family:inherit}
+.ct-x:hover{background:var(--danger);color:#fff}
 .input-prefix{display:flex;align-items:center;border:1.5px solid var(--line);border-radius:8px;background:var(--bg-page);overflow:hidden;transition:border-color .15s,box-shadow .15s}
 .input-prefix:focus-within{background:#fff;box-shadow:var(--focus-ring)}
 .input-prefix span{padding:9px 10px 9px 12px;font-size:13px;color:var(--muted);font-weight:600;white-space:nowrap;background:transparent;border-right:1px solid var(--line)}
@@ -349,14 +379,16 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
         </div>
 
         <div class="form-field">
-          <label>Chứng từ / Hóa đơn <span style="color:var(--text-3);font-weight:400">(tùy chọn — PDF, ảnh)</span></label>
-          <div style="display:flex;align-items:center;gap:8px">
-            <label for="form-chung-tu" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--bg-page);border:1.5px dashed var(--info-soft);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--brand);transition:background .15s" onmouseover="this.style.background='var(--info-soft)'" onmouseout="this.style.background='var(--bg-page)'">
-              Chọn file
-            </label>
-            <input type="file" id="form-chung-tu" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.gif" style="display:none" onchange="document.getElementById('form-chung-tu-name').textContent=this.files[0]?.name||''">
-            <span id="form-chung-tu-name" style="font-size:12px;color:var(--text-3);font-style:italic"></span>
+          <label>Chứng từ / Hóa đơn <span style="color:var(--text-3);font-weight:500">(tùy chọn — PDF, ảnh)</span></label>
+          <!-- Bấm "Chọn file" HOẶC Ctrl+V dán thẳng ảnh vừa chụp màn hình.
+               Trình nghe `paste` gắn ở document (xem _ctGanDan) nên KHÔNG cần
+               bấm vào ô này trước — chụp xong dán được ngay, đúng thói quen. -->
+          <div class="ct-zone" id="ct-zone">
+            <label for="form-chung-tu" class="ct-pick">Chọn file</label>
+            <span class="ct-hint"><b></b> </span>
+            <input type="file" id="form-chung-tu" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.gif" multiple style="display:none" onchange="_ctThem(this.files)">
           </div>
+          <div class="ct-list" id="ct-list"></div>
         </div>
 
         <button class="btn-submit" id="btn-submit" onclick="submitDeXuat()">
@@ -903,6 +935,185 @@ function switchTab(tab) {
   if (tab === 'pending') loadPending();
 }
 
+// Gửi nhiều chứng từ rồi làm mới MỘT lần.
+// KHÔNG gọi lại _uploadChungTuFile() trong vòng lặp: hàm đó tự bắn toast và
+// tự loadMy()/loadPending() sau mỗi file — dán 5 ảnh sẽ ra 5 toast chồng nhau
+// và 10 lượt tải lại danh sách. Ở đây tự gọi API rồi tổng kết một lần.
+async function _uploadChungTuFiles(rid, files) {
+  let ok = 0;
+  const loi = [];
+  for (const f of files) {
+    const fd = new FormData();
+    fd.append('file', f);
+    try {
+      const r = await fetch(`/api/duyet-chi/${rid}/chung-tu`, {
+        method: 'POST', credentials: 'include', body: fd,
+      });
+      if (r.ok) { ok++; }
+      else {
+        const err = await r.json().catch(() => ({}));
+        loi.push(`${f.name}: ${err.detail || 'HTTP ' + r.status}`);
+      }
+    } catch (e) {
+      loi.push(`${f.name}: lỗi kết nối`);
+    }
+  }
+  // Nói rõ file NÀO hỏng — báo chung "Lỗi upload" thì người dùng không biết
+  // phải chọn lại cái nào trong 5 cái vừa dán.
+  if (ok)         showToast(`Đã tải lên ${ok} chứng từ`, 'success');
+  if (loi.length) showToast(`Không tải được: ${loi.join(' · ')}`, 'error');
+  if (ok) {
+    await loadMy();
+    if (IS_APPROVER) await loadPending();
+  }
+}
+
+// ── Chứng từ ở form tạo đề xuất: chọn file / Ctrl+V dán ảnh / kéo thả ────────
+// Nguồn sự thật là mảng _ctFiles, sau mỗi thay đổi ghi ngược vào <input
+// type=file> qua DataTransfer. Giữ input làm nơi chứa cuối cùng để
+// submitDeXuat() vẫn đọc `fileInp.files` như cũ — không đụng luồng gửi.
+let _ctFiles = [];
+let _ctUrls  = [];                       // objectURL đang mở, phải revoke khi vẽ lại
+
+const _CT_EXT = ['.pdf','.jpg','.jpeg','.png','.webp','.heic','.gif'];
+const _CT_MAX = 10 * 1024 * 1024;        // khớp _MAX_BYTES của backend
+// Ảnh dán từ clipboard thường tên là "image.png" hoặc KHÔNG có tên. Backend
+// duyệt theo phần mở rộng của tên file, nên phải tự đặt tên từ MIME.
+const _CT_MIME_EXT = {
+  'image/png':'.png', 'image/jpeg':'.jpg', 'image/jpg':'.jpg',
+  'image/webp':'.webp', 'image/gif':'.gif', 'image/heic':'.heic',
+  'application/pdf':'.pdf',
+};
+
+function _ctKhoa(f){ return `${f.name}|${f.size}|${f.lastModified}`; }
+
+function _ctCoDuoi(ten){
+  const t = (ten || '').toLowerCase();
+  return _CT_EXT.some(e => t.endsWith(e));
+}
+
+function _ctKichCo(n){
+  return n < 1024*1024 ? `${Math.max(1, Math.round(n/1024))} KB`
+                       : `${(n/1024/1024).toFixed(1)} MB`;
+}
+
+// Đặt tên cho ảnh dán: có giờ phút giây nên 3 ảnh dán liên tiếp không trùng
+// tên nhau — người dùng nhìn danh sách còn phân biệt được cái nào là cái nào.
+function _ctDatTen(f, i){
+  const ext = _CT_MIME_EXT[(f.type || '').toLowerCase()] || '.png';
+  const d = new Date(), hai = n => String(n).padStart(2, '0');
+  const gio = `${hai(d.getHours())}${hai(d.getMinutes())}${hai(d.getSeconds())}`;
+  return `dan-anh-${gio}${i ? '-' + (i+1) : ''}${ext}`;
+}
+
+function _ctDongBo(){
+  const dt = new DataTransfer();
+  _ctFiles.forEach(f => dt.items.add(f));
+  const inp = document.getElementById('form-chung-tu');
+  // Gán .files KHÔNG kích hoạt sự kiện change → không sợ gọi đệ quy _ctThem.
+  if (inp) inp.files = dt.files;
+}
+
+function _ctThem(ds, tuDan){
+  const them = Array.from(ds || []);
+  if (!them.length) return;
+  let boQua = 0, quaTo = 0, i = 0;
+  for (let f of them){
+    if (tuDan) {
+      // Ảnh trong clipboard tên là "image.png" hoặc không có tên. Backend duyệt
+      // theo đuôi tên file nên luôn tự đặt lại tên dựa vào MIME.
+      if (!_CT_MIME_EXT[(f.type || '').toLowerCase()]) { boQua++; continue; }
+      f = new File([f], _ctDatTen(f, i++), {type: f.type});
+    } else if (!_ctCoDuoi(f.name)) {
+      // File chọn tay / kéo từ máy: có tên thật sẵn, chỉ cần đúng đuôi.
+      boQua++; continue;
+    }
+    if (f.size > _CT_MAX) { quaTo++; continue; }
+    if (_ctFiles.some(g => _ctKhoa(g) === _ctKhoa(f))) continue;   // đã có rồi
+    _ctFiles.push(f);
+  }
+  if (boQua) showToast(`Bỏ qua ${boQua} file không hỗ trợ (chỉ nhận PDF và ảnh)`, 'error');
+  if (quaTo) showToast(`Bỏ qua ${quaTo} file quá 10MB`, 'error');
+  _ctDongBo();
+  _ctVe();
+}
+
+function _ctBo(i){
+  _ctFiles.splice(i, 1);
+  _ctDongBo();
+  _ctVe();
+}
+
+function _ctXoaHet(){
+  _ctFiles = [];
+  const inp = document.getElementById('form-chung-tu');
+  if (inp) inp.value = '';
+  _ctVe();
+}
+
+function _ctVe(){
+  const box = document.getElementById('ct-list');
+  if (!box) return;
+  _ctUrls.forEach(u => URL.revokeObjectURL(u));   // không revoke là rò bộ nhớ
+  _ctUrls = [];
+  box.innerHTML = _ctFiles.map((f, i) => {
+    let hinh = '<span class="ct-sz">PDF</span>';
+    if ((f.type || '').startsWith('image/')) {
+      const u = URL.createObjectURL(f);
+      _ctUrls.push(u);
+      hinh = `<img src="${u}" alt="">`;
+    }
+    return `<span class="ct-chip">${hinh}`
+         + `<span class="ct-nm" title="${escHtml(f.name)}">${escHtml(f.name)}</span>`
+         + `<span class="ct-sz">${_ctKichCo(f.size)}</span>`
+         + `<button type="button" class="ct-x" onclick="_ctBo(${i})" title="Bỏ file này">&times;</button>`
+         + `</span>`;
+  }).join('');
+}
+
+function _ctNhay(){
+  const z = document.getElementById('ct-zone');
+  if (!z) return;
+  z.classList.remove('flash');
+  void z.offsetWidth;              // ép trình duyệt chạy lại animation
+  z.classList.add('flash');
+}
+
+(function _ctGanDan(){
+  // Nghe ở document để người dùng chụp màn hình xong Ctrl+V được luôn, không
+  // phải bấm vào ô nào trước.
+  document.addEventListener('paste', function(e){
+    const cd = e.clipboardData;
+    if (!cd || !cd.files || !cd.files.length) return;
+    // Modal duyệt đang mở → chứng từ ở đó thuộc đơn khác, dán vào form tạo là
+    // gán nhầm đơn. Thà không làm gì còn hơn gán sai.
+    if (document.getElementById('review-modal')?.classList.contains('show')) return;
+    // Copy từ Excel/Word cho ra CẢ chữ lẫn ảnh. Đang gõ trong ô nhập mà dán thì
+    // ý người dùng là dán CHỮ — đừng cướp để đính ảnh.
+    const el = document.activeElement;
+    const oNhap = el && (el.tagName === 'TEXTAREA' ||
+      (el.tagName === 'INPUT' && !['file','checkbox','radio','button','submit'].includes(el.type)));
+    if (oNhap && (cd.getData('text') || '').trim()) return;
+
+    e.preventDefault();
+    _ctThem(cd.files, true);
+    _ctNhay();
+    showToast(`Đã dán ${cd.files.length} ảnh vào chứng từ`, 'success');
+  });
+
+  // Kéo thả vào đúng khung — dragover phải preventDefault, không thì trình
+  // duyệt mở thẳng file thay vì báo cho trang.
+  const z = document.getElementById('ct-zone');
+  if (!z) return;
+  z.addEventListener('dragover', e => { e.preventDefault(); z.classList.add('drag'); });
+  z.addEventListener('dragleave', () => z.classList.remove('drag'));
+  z.addEventListener('drop', e => {
+    e.preventDefault();
+    z.classList.remove('drag');
+    _ctThem(e.dataTransfer?.files, false);
+  });
+})();
+
 // ── Submit ─────────────────────────────────────────────────────────────────
 async function submitDeXuat() {
   const tieu_de = document.getElementById('tieu_de').value.trim();
@@ -935,7 +1146,9 @@ async function submitDeXuat() {
       // Auto-upload chứng từ nếu user đã chọn file
       const fileInp = document.getElementById('form-chung-tu');
       if (fileInp?.files?.length && created?.id) {
-        await _uploadChungTuFile(created.id, fileInp.files[0]);
+        // Gửi HẾT file trong khay, không chỉ files[0]: ô nhập giờ có `multiple`
+        // và người dùng dán được nhiều ảnh liên tiếp.
+        await _uploadChungTuFiles(created.id, Array.from(fileInp.files));
       }
       showToast('Đã gửi đề xuất chi thành công!', 'success');
       document.getElementById('tieu_de').value = '';
@@ -945,7 +1158,11 @@ async function submitDeXuat() {
       document.getElementById('han_thanh_toan').value = '';
       document.getElementById('muc_dich').value = '';
       document.getElementById('ghi_chu').value = '';
-      if (fileInp) { fileInp.value = ''; document.getElementById('form-chung-tu-name').textContent = ''; }
+      // _ctXoaHet() dọn cả mảng _ctFiles lẫn <input>. KHÔNG dùng lại dòng cũ
+      // đụng tới 'form-chung-tu-name' — thẻ đó đã bị thay bằng khay .ct-list,
+      // getElementById trả null nên .textContent sẽ ném lỗi ngay sau khi gửi
+      // thành công (người dùng thấy đề xuất đã tạo mà vẫn báo lỗi đỏ).
+      _ctXoaHet();
       await loadMy();
       await loadStats();
     } else {
