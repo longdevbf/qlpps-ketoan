@@ -1,1345 +1,1094 @@
+{# SINH TỰ ĐỘNG — ĐỪNG sửa file này trong repo.
+   Sửa `claude-kit/core/shared/templates/giao_viec_core.html` rồi chạy:
+       cd d:\PapaSanIT\claude-kit && python sync.py
+   File này giống hệt nhau ở cả 8 repo. Muốn một app khác đi thì đặt
+   bản riêng trong templates/ của app đó (Jinja đọc templates/ trước). -#}
 <!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<title>Giao Việc — QLPPS</title>
+<link rel="stylesheet" href="/static/css/theme.css?v=xanh1">
+<title>Giao việc — QLPPS</title>
 <link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
 <link rel="shortcut icon" href="/static/papasan.ico">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{
- --bg:var(--bg-page); --line:var(--border); --text:var(--text-1); --muted:var(--text-3);
- --primary:var(--brand); --primary-d:var(--info); --navy:var(--brand); --navy-d:var(--brand-hover);
- /* --success và --danger đã có trong theme.css — khai lại gây chu trình
-    `--success:var(--success)` làm biến vô hiệu. Xoá, dùng token toàn cục. */
- --warn:var(--warning);
- --amber-bg:#fef3c7; --amber-bd:var(--warning-soft); --amber-txt:#92400e;
- --green-bg:#dcfce7; --green-bd:var(--success-soft); --green-txt:#15803d;
- --purple-bg:var(--brand-soft); --purple-bd:var(--brand-soft); --purple-txt:var(--brand-hover);
- --blue-bg:#dbeafe; --blue-bd:var(--info-soft); --blue-txt:var(--info-fg);
- --rose-bg:var(--danger-soft); --rose-bd:var(--danger-soft); --rose-txt:var(--danger-fg);
- --cyan-bg:var(--info-soft); --cyan-bd:var(--info-soft); --cyan-txt:var(--info-fg);
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   GIAO VIỆC — màn dùng chung cho cả 8 app (bố cục v2, 12/09/2026).
+
+   Theo ảnh mẫu người duyệt gửi 12/09/2026 (ảnh dùng cam — hệ QLPPS là xanh ADR-012):
+   tab Giao việc / Việc của tôi · thẻ "Tạo giao việc mới" + cột Hướng dẫn / Lưu ý ·
+   Danh sách công việc đã giao · Công việc của tôi · Công việc sắp đến hạn · Thống kê.
+   Khung theo Chấm công v2 (`_khung_man.html`). Thay 3 bản riêng cũ (HCNS, marketing,
+   congnghe) — giữ đủ luồng: nhận việc, bắt đầu, tạm dừng, tiếp tục, hoàn thành, phản
+   hồi, huỷ, yêu cầu làm lại, xoá, giao một việc cho nhiều người (nhóm).
+
+   KHÁC ẢNH MẪU — người duyệt chốt 12/09/2026 "giao diện + API, không đổi DB", "ẩn trường
+   chưa có chỗ lưu":
+     · Không có "Ngày bắt đầu" và tab "Tôi theo dõi" (bảng shared.directives không có).
+     · "Danh mục công việc" = MẢNG công việc (trường `app` bắt buộc của việc: Marketing,
+       Kế toán…) — đúng dữ liệu đang lưu, không dựng danh mục giả.
+     · "Quá hạn" là trạng thái TÍNH RA (hạn < hôm nay, việc chưa đóng); thêm "Tạm dừng",
+       "Đã huỷ" vì máy chủ có hai trạng thái này.
+     · Tệp đính kèm, lọc "Phòng ban của tôi", mã NV khi chọn người nhận: API thêm
+       12/09/2026. Máy chủ chưa có → ẩn ô tệp, lọc phòng ban làm ở trình duyệt.
+     · Thống kê tính ở trình duyệt từ danh sách việc (máy chủ trả tối đa 500 việc).
+   Nhân viên không có quyền giao việc (máy chủ trả 403) chỉ thấy tab Việc của tôi.
+
+   Màu/khoảng cách/cỡ chữ chỉ lấy token `theme.css` (ADR-012). MỌI selector nằm dưới `.gv`.
+   ═══════════════════════════════════════════════════════════════════════════ */
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:var(--bg);min-height:100vh;color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:100vh;color:var(--text-1);
+     -webkit-font-smoothing:antialiased;overflow-x:hidden}
 
-/* ── Topbar ── */
-.topbar{height:54px;background:var(--brand-soft);color:var(--brand-hover);padding:0 22px;display:flex;flex-wrap:wrap;align-items:center;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 4px 14px rgba(15,23,42,.18)}
-@media(max-width:640px){.topbar{padding:6px 10px;gap:8px;height:auto;min-height:48px}.topbar-logo,.topbar-sep{display:none}.topbar-user{display:none}.topbar-right{gap:8px}.topbar-btn{padding:6px 10px;font-size:11.5px}}
-.topbar-logo{font-size:15px;font-weight:800;letter-spacing:.3px;white-space:nowrap}
-.topbar-logo span{color:var(--brand)}
-.topbar-sep{color:var(--text-3);font-size:16px}
-.topbar-title{font-size:14px;font-weight:700;white-space:nowrap}
-.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:12.5px}
-.topbar-user{color:var(--text-2);font-weight:600}
-.topbar-btn{padding:6px 13px;border-radius:7px;border:none;cursor:pointer;font-size:12.5px;font-weight:600;transition:all .15s;text-decoration:none;display:inline-flex;align-items:center;gap:5px}
-@media(max-width:600px){.topbar{flex-wrap:wrap;height:auto;padding:8px 14px}.topbar-logo,.topbar-sep,.topbar-user{display:none}}
-.mt-btn-back{background:var(--bg-card);color:var(--brand-hover);border:1px solid var(--border)}
-.mt-btn-back:hover{filter:brightness(.95)}
-.mt-btn-logout{background:var(--danger-fg);color:#fff}
-.mt-btn-logout:hover{background:var(--danger-fg)}
+.gv{color:var(--text-2);font-size:var(--fs-body);line-height:var(--lh-body)}
+.gv [hidden]{display:none !important}
+.gv .gv-wrap{max-width:none;margin:0;padding:var(--sp-8) var(--sp-8) 40px}
+@media(min-width:768px){.gv .gv-wrap{padding:var(--sp-8) var(--sp-9) 40px}}
+@media(min-width:1600px){.gv .gv-wrap{padding:var(--sp-9) var(--sp-10) 48px}}
+.gv .gv-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.gv svg.gv-ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
-/* ── Hero (page header reimagined) — full-bleed background, content căn theo max-width 1200px ── */
-.page-header{
- background:var(--brand-soft);color:var(--brand-hover);
-  width:100vw;margin-left:calc(50% - 50vw);
-  padding-top:30px;padding-bottom:56px;
-  padding-left:max(26px,calc((100vw - 1200px) / 2 + 18px));
-  padding-right:max(26px,calc((100vw - 1200px) / 2 + 18px));
-  position:relative;overflow:hidden;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+/* ── Thẻ ─────────────────────────────────────────────────────────────────── */
+.gv .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);
+     box-shadow:var(--shadow-sm);overflow:hidden;margin:0;min-width:0}
+.gv .card-header{display:flex;align-items:center;gap:var(--sp-5) var(--sp-6);flex-wrap:wrap;
+     padding:var(--sp-8) var(--sp-9) var(--sp-7);border:0;background:transparent}
+.gv .card-header h2{font-size:var(--fs-h);font-weight:700;color:var(--text-1);line-height:var(--lh-tight)}
+.gv .card-toolbar{display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;margin-left:auto}
+.gv .card-body{padding:0 var(--sp-9) var(--sp-9)}
+
+/* ── Nút ─────────────────────────────────────────────────────────────────── */
+.gv .btn-primary,.gv .btn-ghost,.gv .btn-soft,.gv .btn-danger-o,.gv .btn-success{display:inline-flex;align-items:center;justify-content:center;
+     gap:var(--sp-3);min-height:40px;padding:0 var(--sp-9);border-radius:var(--r);font:inherit;font-size:var(--fs-body);font-weight:600;
+     cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
+.gv .btn-primary{background:var(--brand);color:var(--text-on-brand);border:1px solid var(--brand)}
+.gv .btn-primary:hover{background:var(--brand-hover);border-color:var(--brand-hover)}
+.gv .btn-primary:disabled,.gv .btn-success:disabled{opacity:.6;cursor:not-allowed}
+.gv .btn-ghost{background:var(--bg-band);color:var(--text-1);border:1px solid var(--bg-band)}
+.gv .btn-ghost:hover{filter:brightness(.97)}
+.gv .btn-soft{background:var(--brand-soft);color:var(--brand-hover);border:1px solid var(--brand-border)}
+.gv .btn-soft:hover{filter:brightness(.97)}
+.gv .btn-success{background:var(--success);color:var(--text-on-brand);border:1px solid var(--success)}
+.gv .btn-success:hover{background:var(--success-fg);border-color:var(--success-fg)}
+.gv .btn-danger-o{background:var(--bg-card);color:var(--danger);border:1px solid var(--danger)}
+.gv .btn-danger-o:hover{background:var(--danger-soft)}
+.gv .btn-link{display:inline-flex;align-items:center;gap:var(--sp-2);border:0;background:none;padding:0;font:inherit;
+     font-size:var(--fs-body);font-weight:600;color:var(--brand-hover);cursor:pointer}
+.gv .btn-link:hover{text-decoration:underline}
+.gv .gv-nut-icon{display:inline-grid;place-items:center;flex:none;width:30px;height:30px;border:0;border-radius:var(--r-sm);
+     background:transparent;color:var(--text-2);cursor:pointer}
+.gv .gv-nut-icon:hover{background:var(--bg-page);color:var(--brand-hover)}
+.gv .gv-nut-icon.is-xoa:hover{background:var(--danger-soft);color:var(--danger-fg)}
+.gv .gv-nut-icon svg.gv-ic{width:16px;height:16px}
+.gv .btn-primary:focus-visible,.gv .btn-ghost:focus-visible,.gv .btn-soft:focus-visible,.gv .btn-success:focus-visible,
+.gv .btn-danger-o:focus-visible,.gv .btn-link:focus-visible,.gv .gv-nut-icon:focus-visible,.gv .gv-tab:focus-visible,
+.gv .gv-tab-nho:focus-visible,.gv .gv-pg button:focus-visible,.gv .gv-o:focus-visible,.gv .gv-tha:focus-visible,
+.gv .gv-nguoi-o:focus-within{outline:0;box-shadow:var(--focus-ring)}
+
+.gv .ico-tile{display:inline-grid;place-items:center;flex:none;width:36px;height:36px;border-radius:var(--r-md);
+     background:var(--tile-blue);color:var(--text-on-brand)}
+.gv .ico-tile svg.gv-ic{width:18px;height:18px}
+.gv .ico-tile--success{background:var(--tile-green)}
+.gv .ico-tile--warning{background:var(--tile-orange)}
+.gv .ico-tile--danger{background:var(--tile-red)}
+.gv .ico-tile--tim{background:var(--tile-violet)}
+.gv .ico-tile--neutral{background:var(--tile-slate)}
+
+.gv .pill{display:inline-flex;align-items:center;gap:var(--sp-3);height:24px;padding:0 var(--sp-5);
+     border-radius:var(--r-full);font-size:var(--fs-eyebrow);font-weight:600;line-height:1;white-space:nowrap}
+.gv .pill::before{content:"";width:8px;height:8px;border-radius:var(--r-full);background:currentColor;flex:none}
+.gv .pill--brand{background:var(--brand-soft);color:var(--brand-hover)}
+.gv .pill--success{background:var(--success-soft);color:var(--success-fg)}
+.gv .pill--danger{background:var(--danger-soft);color:var(--danger-fg)}
+.gv .pill--warning{background:var(--warning-soft);color:var(--warning-fg)}
+.gv .pill--neutral{background:var(--bg-band);color:var(--text-3)}
+.gv .gv-uu{display:inline-flex;align-items:center;gap:var(--sp-3);white-space:nowrap;color:var(--text-1)}
+.gv .gv-uu::before{content:"";width:8px;height:8px;border-radius:var(--r-full);background:var(--text-3)}
+.gv .gv-uu--high::before{background:var(--danger)}
+.gv .gv-uu--med::before{background:var(--warning)}
+
+/* ── Tab lớn đầu trang — Subnav dạng 2 ──────────────────────────────────── */
+.gv .gv-tabs{display:flex;gap:var(--sp-10);margin:0 0 var(--sp-8);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.gv .gv-tabs::-webkit-scrollbar{display:none}
+.gv .gv-tab{display:inline-flex;align-items:center;gap:var(--sp-4);padding:var(--sp-6) 0 var(--sp-5);margin-bottom:-1px;border:0;
+     border-bottom:2px solid transparent;background:none;font:inherit;font-size:var(--fs-body-lg);font-weight:500;color:var(--text-2);cursor:pointer;white-space:nowrap}
+.gv .gv-tab:hover{color:var(--brand-hover)}
+.gv .gv-tab.is-chon{color:var(--brand-hover);font-weight:600;border-bottom-color:var(--brand)}
+.gv .gv-tab small{font-size:var(--fs-meta);color:var(--text-3);font-variant-numeric:tabular-nums}
+
+/* ── Lưới ────────────────────────────────────────────────────────────────── */
+.gv .gv-hang{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-8);margin-bottom:var(--sp-8)}
+@media(min-width:1280px){
+  .gv .gv-hang--tao{grid-template-columns:minmax(0,1fr) 360px;align-items:stretch}
+  .gv .gv-hang--2{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
 }
-.page-header::before{content:'';position:absolute;top:-40%;right:-10%;width:380px;height:380px;background:rgba(255 0%,transparent 70%);pointer-events:none;z-index:0}
-.page-header > *{position:relative;z-index:1}
-/* Elevate first content section over hero (overlap pattern giống stats-bar) */
-.gv-bucket-tabs{margin-top:-40px;position:relative;z-index:5}
+@media(min-width:1600px){.gv .gv-hang--tao{grid-template-columns:minmax(0,1fr) 400px}}
+.gv .gv-hang > .card{display:flex;flex-direction:column}
+.gv .gv-hang > .card > .gv-gian{flex:1}
 
-.page-header-icon{width:54px;height:54px;background:var(--bg-card);border:1px solid var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center;color:var(--brand);font-size:22px;flex-shrink:0;position:relative;z-index:1}
-.page-header-text{position:relative;z-index:1}
-.page-header-text h4{margin:0;font-weight:800;color:var(--brand-hover);font-size:22px;letter-spacing:-.4px}
-.page-header-text p{font-size:13px;color:var(--text-2);margin:4px 0 0}
-.btn-refresh{padding:9px 16px;background:var(--bg-card);color:var(--brand-hover);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;margin-left:auto;position:relative;z-index:1}
-.btn-refresh:hover{filter:brightness(.95)}
+/* ── Form tạo việc ──────────────────────────────────────────────────────── */
+.gv .gv-form{display:grid;grid-template-columns:minmax(0,1fr);gap:0 var(--sp-8)}
+@media(min-width:900px){.gv .gv-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.gv .gv-form-3{display:grid;grid-template-columns:minmax(0,1fr);gap:0 var(--sp-8)}
+@media(min-width:640px){.gv .gv-form-3{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.gv .form-field{margin-bottom:var(--sp-7);min-width:0}
+.gv .form-field.is-rong{grid-column:1 / -1}
+.gv .form-field > label,.gv .gv-nhan{display:block;margin-bottom:var(--sp-3);font-size:var(--fs-body);font-weight:500;color:var(--text-1)}
+.gv .gv-sao{color:var(--danger)}
+.gv .gv-tuy{font-size:var(--fs-meta);font-weight:400;color:var(--text-3)}
+.gv .form-field input,.gv .form-field select,.gv .form-field textarea,.gv .gv-nhap{width:100%;min-height:40px;padding:var(--sp-4) var(--sp-6);
+     border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card);color:var(--text-1);font:inherit;font-size:var(--fs-body);outline:none}
+.gv .form-field textarea{min-height:128px;resize:vertical;line-height:var(--lh-body)}
+.gv .form-field input:focus,.gv .form-field select:focus,.gv .form-field textarea:focus,.gv .gv-nhap:focus{border-color:var(--brand);box-shadow:var(--focus-ring)}
+.gv .gv-dem{margin-top:var(--sp-2);font-size:var(--fs-meta);color:var(--text-3);text-align:right;font-variant-numeric:tabular-nums}
+.gv .gv-goi-y{margin-top:var(--sp-2);font-size:var(--fs-meta);color:var(--text-3)}
+.gv .gv-cot-trai{display:flex;flex-direction:column}
+.gv .gv-cot-trai .form-field.is-gian{flex:1;display:flex;flex-direction:column}
+.gv .gv-cot-trai .form-field.is-gian textarea{flex:1}
 
-/* ── Page wrap ── */
-.page-wrap{max-width:1200px;margin:0 auto;padding:0 18px 30px;width:100%}
-.page-wrap > *:not(.page-header){position:relative;z-index:2}
+/* Ô chọn người nhận: chip + tìm kiếm + danh sách gợi ý */
+.gv .gv-nguoi{position:relative}
+.gv .gv-nguoi-o{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap;min-height:40px;padding:var(--sp-2) var(--sp-4);
+     border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card);cursor:text}
+.gv .gv-nguoi-o input{flex:1;min-width:140px;min-height:30px;border:0;outline:none;background:transparent;font:inherit;font-size:var(--fs-body);color:var(--text-1)}
+.gv .gv-chip{display:inline-flex;align-items:center;gap:var(--sp-3);min-height:28px;padding:0 var(--sp-2) 0 var(--sp-2);
+     border:1px solid var(--brand-border);border-radius:var(--r-full);background:var(--brand-soft);color:var(--brand-hover);font-size:var(--fs-meta);font-weight:600}
+.gv .gv-chip .gv-ava{width:22px;height:22px;font-size:var(--fs-micro)}
+.gv .gv-chip button{display:inline-grid;place-items:center;width:20px;height:20px;border:0;border-radius:var(--r-full);background:transparent;color:var(--brand-hover);cursor:pointer}
+.gv .gv-chip button:hover{background:var(--bg-card)}
+.gv .gv-chip svg.gv-ic{width:12px;height:12px}
+.gv .gv-goi{position:absolute;left:0;right:0;top:calc(100% + var(--sp-2));z-index:40;max-height:280px;overflow-y:auto;padding:var(--sp-3);
+     border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-card);box-shadow:var(--shadow-pop, var(--shadow-lg))}
+.gv .gv-goi-nhom{padding:var(--sp-3) var(--sp-4) var(--sp-2);font-size:var(--fs-eyebrow);font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3)}
+.gv .gv-goi button{display:flex;align-items:center;gap:var(--sp-5);width:100%;padding:var(--sp-3) var(--sp-4);border:0;border-radius:var(--r-sm);
+     background:transparent;font:inherit;text-align:left;cursor:pointer}
+.gv .gv-goi button:hover,.gv .gv-goi button.is-tro{background:var(--brand-soft)}
+.gv .gv-goi b{display:block;font-weight:600;color:var(--text-1)}
+.gv .gv-goi small{display:block;font-size:var(--fs-meta);color:var(--text-3)}
+.gv .gv-goi p{padding:var(--sp-5);color:var(--text-3)}
 
-/* ── Stats bar (overlap hero) ── */
-.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:-40px;margin-bottom:18px;position:relative;z-index:5}
-@media(max-width:700px){.stats-bar{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:420px){.stats-bar{grid-template-columns:1fr}}
-.stat-card{background:#fff;border-radius:14px;border:1px solid var(--line);padding:14px 16px;display:flex;align-items:center;gap:13px;cursor:pointer;transition:all .15s;box-shadow:0 4px 12px rgba(15,23,42,.06);position:relative;overflow:hidden}
-.stat-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line);border-radius:14px 0 0 14px}
-.stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(15,23,42,.1)}
-.stat-card.active{box-shadow:0 0 0 2px var(--primary),0 4px 12px rgba(15,23,42,.06)}
-.stat-card.active::before{background:var(--primary)}
-.stat-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
-.stat-icon.nghi{background:var(--amber-bg);color:var(--amber-txt)}
-.stat-icon.chi{background:var(--purple-bg);color:var(--purple-txt)}
-.stat-icon.lenh{background:var(--blue-bg);color:var(--blue-txt)}
-.stat-icon.ct{background:var(--green-bg);color:var(--green-txt)}
-.stat-num{font-size:22px;font-weight:800;color:var(--text);line-height:1}
-.stat-label{font-size:11px;color:var(--muted);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+/* Ô kéo thả tệp */
+.gv .gv-tha{display:flex;align-items:center;justify-content:center;gap:var(--sp-6);min-height:88px;padding:var(--sp-7);
+     border:1px dashed var(--border);border-radius:var(--r-md);background:var(--bg-page);color:var(--text-2);text-align:left;cursor:pointer}
+.gv .gv-tha:hover,.gv .gv-tha.is-keo{border-color:var(--brand);background:var(--brand-soft)}
+.gv .form-field > label.gv-tha{display:flex;margin:0;font-size:var(--fs-body);font-weight:400;color:var(--text-2)}
+.gv .gv-tha svg.gv-ic{width:26px;height:26px;color:var(--brand-hover)}
+.gv .gv-tha b{font-weight:600;color:var(--brand-hover)}
+.gv .gv-tha small{display:block;margin-top:var(--sp-1);font-size:var(--fs-meta);color:var(--text-3)}
+.gv .gv-tep-ds{list-style:none;display:flex;flex-direction:column;gap:var(--sp-3);margin-top:var(--sp-5)}
+.gv .gv-tep-ds:empty{display:none}
+.gv .gv-tep{display:flex;align-items:center;gap:var(--sp-5);min-width:0;padding:var(--sp-3) var(--sp-5);border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card)}
+.gv .gv-tep .ico-tile{width:28px;height:28px;border-radius:var(--r-sm)}
+.gv .gv-tep .ico-tile svg.gv-ic{width:14px;height:14px}
+.gv .gv-tep-ten{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-1)}
+.gv a.gv-tep-ten{color:var(--brand-hover);text-decoration:none}
+.gv a.gv-tep-ten:hover{text-decoration:underline}
+.gv .gv-tep-co{flex:none;font-size:var(--fs-meta);color:var(--text-3);white-space:nowrap}
+.gv .gv-nut-form{display:flex;justify-content:flex-end;gap:var(--sp-5);flex-wrap:wrap}
 
-/* ── Filter Tabs ── */
-.tabs-bar{background:#fff;border-radius:12px;border:1px solid var(--line);padding:6px;display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px;box-shadow:0 2px 6px rgba(15,23,42,.04)}
-.tab-btn{padding:9px 18px;border:0;background:transparent;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-radius:9px;transition:all .15s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-family:inherit}
-.tab-btn:hover{background:var(--bg-page);color:var(--brand-hover)}
-.tab-btn.active{background:var(--brand-soft);color:var(--brand-hover);font-weight:700}
+/* Cột phụ: hướng dẫn (bước đánh số) + Lưu ý ở đáy thẻ (nền trắng → xanh nhạt, như Chấm công v2) */
+.gv .gv-buoc{list-style:none;display:flex;flex-direction:column;gap:var(--sp-6);counter-reset:buoc}
+.gv .gv-buoc li{display:grid;grid-template-columns:26px minmax(0,1fr);gap:var(--sp-5);align-items:start;color:var(--text-1);counter-increment:buoc}
+.gv .gv-buoc li::before{content:counter(buoc);display:inline-grid;place-items:center;width:26px;height:26px;border-radius:var(--r-full);
+     background:var(--brand-soft);color:var(--brand-hover);font-size:var(--fs-meta);font-weight:700}
+.gv .gv-luu-y{padding:var(--sp-8) var(--sp-9) var(--sp-9);background:linear-gradient(to top, var(--brand-soft), var(--bg-card))}
+.gv .gv-luu-y h3{display:flex;align-items:center;gap:var(--sp-4);margin-bottom:var(--sp-5);font-size:var(--fs-title);font-weight:700;color:var(--text-1)}
+.gv .gv-luu-y h3 .ico-tile{width:26px;height:26px;border-radius:var(--r-full)}
+.gv .gv-luu-y h3 .ico-tile svg.gv-ic{width:14px;height:14px}
+.gv .gv-luu-y ul{list-style:none;display:flex;flex-direction:column;gap:var(--sp-4)}
+.gv .gv-luu-y li{position:relative;padding-left:var(--sp-7);color:var(--text-2)}
+.gv .gv-luu-y li::before{content:"";position:absolute;left:var(--sp-1);top:.6em;width:5px;height:5px;border-radius:var(--r-full);background:var(--brand)}
 
-/* ── Table ── */
-.tbl-wrap{background:#fff;border-radius:14px;border:1px solid var(--line);overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.04)}
-.tbl-scroll{overflow-x:auto}
-.data-table{width:100%;border-collapse:collapse;font-size:13px}
-.data-table thead th{background:var(--bg-page);color:var(--muted);padding:11px 13px;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--line)}
-.data-table tbody tr{border-bottom:1px solid var(--bg-page);transition:background .15s}
-.data-table tbody tr:hover{background:var(--bg-page)}
-.data-table tbody td{padding:11px 13px;vertical-align:middle}
-.empty-row td{text-align:center;color:var(--text-3);padding:44px 0;font-size:13px}
+/* ── Danh sách: tab nhỏ + bộ lọc + bảng + phân trang ───────────────────── */
+.gv .gv-tabs-nho{display:flex;gap:var(--sp-3);flex-wrap:wrap;padding:0 var(--sp-9) var(--sp-6)}
+.gv .gv-tab-nho{min-height:32px;padding:0 var(--sp-7);border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card);
+     font:inherit;font-size:var(--fs-body);font-weight:500;color:var(--text-2);cursor:pointer}
+.gv .gv-tab-nho:hover{border-color:var(--brand-border);color:var(--brand-hover)}
+.gv .gv-tab-nho.is-chon{border-color:var(--brand-border);background:var(--brand-soft);color:var(--brand-hover);font-weight:600}
+.gv .gv-loc{display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;padding:0 var(--sp-9) var(--sp-6)}
+.gv .gv-loc select,.gv .gv-o{height:36px;padding:0 var(--sp-5);border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card);
+     color:var(--text-1);font:inherit;font-size:var(--fs-body);outline:none}
+.gv .gv-loc select{min-width:150px}
+.gv .gv-loc select:focus{border-color:var(--brand);box-shadow:var(--focus-ring)}
+.gv .gv-o{display:inline-flex;align-items:center;gap:var(--sp-4);white-space:nowrap;cursor:pointer}
+.gv .gv-o:hover{border-color:var(--brand-border)}
+.gv .gv-o svg.gv-ic{width:15px;height:15px;color:var(--text-2)}
+.gv .gv-o .is-trong{color:var(--text-3)}
+.gv .gv-bat{position:relative}
+.gv .gv-noi{position:absolute;top:calc(100% + var(--sp-3));left:0;z-index:40;width:280px;max-width:calc(100vw - 24px);padding:var(--sp-7);
+     border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-card);box-shadow:var(--shadow-pop, var(--shadow-lg))}
+.gv .gv-noi-nhanh{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);margin-bottom:var(--sp-6)}
+.gv .gv-noi-nhanh button{min-height:32px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card);font:inherit;font-size:var(--fs-body);color:var(--text-2);cursor:pointer}
+.gv .gv-noi-nhanh button:hover{border-color:var(--brand-border);color:var(--brand-hover)}
+.gv .gv-noi label{display:flex;flex-direction:column;gap:var(--sp-2);margin-bottom:var(--sp-5);font-size:var(--fs-meta);font-weight:600;color:var(--text-2)}
+.gv .gv-noi input{min-height:36px;padding:0 var(--sp-4);border:1px solid var(--border);border-radius:var(--r);font:inherit;font-size:var(--fs-body);color:var(--text-1)}
+.gv .gv-noi-chan{display:flex;justify-content:flex-end;gap:var(--sp-4)}
+.gv .gv-noi-chan button{min-height:32px;padding:0 var(--sp-6)}
 
-/* ── NV cell ── */
-.nv-cell{display:flex;align-items:center;gap:9px}
-.nv-ava{width:32px;height:32px;border-radius:50%;background:var(--info);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 4px rgba(0,132,255,.25)}
+.gv .gv-bang{container-type:inline-size}
+/* position:relative để thẻ .gv-sr (absolute) trong ô tiêu đề lấy khung cuộn làm mốc — thiếu nó, thẻ
+   thoát ra ngoài, trang rộng thêm bằng bề ngang bảng và điện thoại thu nhỏ cả màn (đo 390px: 472px). */
+.gv .tbl-wrap{position:relative;overflow-x:auto;padding:0 var(--sp-9);border:0;border-radius:0;background:transparent;box-shadow:none}
+.gv .data-table{width:100%;min-width:0;border-collapse:separate;border-spacing:0;font-size:var(--fs-body)}
+.gv .data-table thead th{padding:var(--sp-5) var(--sp-5);background:var(--bg-band);color:var(--text-2);font-size:var(--fs-meta);
+     font-weight:600;text-align:left;white-space:nowrap;text-transform:none;letter-spacing:normal;border:0;box-shadow:none}
+.gv .data-table thead th:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm)}
+.gv .data-table thead th:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
+.gv .data-table tbody td{padding:var(--sp-5) var(--sp-5);border-bottom:1px solid var(--border-soft);color:var(--text-2);vertical-align:middle}
+.gv .data-table tbody tr{cursor:pointer}
+.gv .data-table tbody tr:last-child td{border-bottom:0}
+.gv .data-table tbody tr:hover td{background:var(--bg-page)}
+.gv .data-table tbody tr:hover > td:first-child{box-shadow:none}
+.gv .data-table tr.empty-row{cursor:default}
+.gv .data-table tr.empty-row td{padding:36px var(--sp-5);text-align:center;color:var(--text-3)}
+.gv .data-table tr.empty-row:hover td{background:transparent}
+.gv .c-stt{width:32px;color:var(--text-3);font-variant-numeric:tabular-nums}
+.gv .c-han{white-space:nowrap;font-variant-numeric:tabular-nums}
+.gv .c-han.is-qua{color:var(--danger-fg);font-weight:600}
+.gv .c-nut{width:1%;text-align:right;white-space:nowrap}
+.gv .gv-td-ten{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;min-width:140px;color:var(--text-1);font-weight:500}
+.gv .gv-td-phu{display:block;font-size:var(--fs-meta);color:var(--text-3)}
+.gv .nv-cell{display:flex;align-items:center;gap:var(--sp-4);min-width:0}
+.gv .gv-ava{display:inline-grid;place-items:center;flex:none;width:28px;height:28px;border-radius:var(--r-full);
+     background:var(--brand-soft);color:var(--brand-hover);font-size:var(--fs-eyebrow);font-weight:700}
+.gv .gv-ava + .gv-ava{margin-left:calc(-1 * var(--sp-4));box-shadow:0 0 0 2px var(--bg-card)}
+.gv .nv-ten{font-weight:500;color:var(--text-1);white-space:nowrap}
+.gv .gv-con{display:inline-flex;align-items:center;height:24px;padding:0 var(--sp-5);border-radius:var(--r-sm);font-size:var(--fs-meta);font-weight:600;white-space:nowrap}
+.gv .gv-con--danger{background:var(--danger-soft);color:var(--danger-fg)}
+.gv .gv-con--warning{background:var(--warning-soft);color:var(--warning-fg)}
+.gv .gv-con--neutral{background:var(--bg-band);color:var(--text-2)}
+@container (max-width:640px){.gv .gv-bang .c-stt{display:none}}
+@container (max-width:560px){.gv .gv-bang .c-an-hep{display:none}}
 
-/* ── Type badge ── */
-.type-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
-.type-nghi{background:var(--amber-bg);color:var(--amber-txt);border:1px solid var(--amber-bd)}
-.type-chi{background:var(--purple-bg);color:var(--purple-txt);border:1px solid var(--purple-bd)}
-.type-lenh{background:var(--blue-bg);color:var(--blue-txt);border:1px solid var(--blue-bd)}
-.type-ct{background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd)}
+.gv .gv-pg{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-6);flex-wrap:wrap;padding:var(--sp-7) var(--sp-9) var(--sp-8);color:var(--text-2)}
+.gv .gv-pg-so{display:flex;align-items:center;gap:var(--sp-3)}
+.gv .gv-pg button{display:inline-grid;place-items:center;min-width:32px;height:32px;padding:0 var(--sp-3);border:1px solid var(--border);border-radius:var(--r);
+     background:var(--bg-card);color:var(--text-1);font:inherit;font-size:var(--fs-body);cursor:pointer}
+.gv .gv-pg button:hover:not(:disabled){border-color:var(--brand-border);color:var(--brand-hover)}
+.gv .gv-pg button.is-active{background:var(--brand);border-color:var(--brand);color:var(--text-on-brand)}
+.gv .gv-pg button:disabled{opacity:.45;cursor:default}
+.gv .gv-pg select{height:32px;padding:0 var(--sp-3);border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card);font:inherit;font-size:var(--fs-body)}
+.gv .gv-pg-dem{display:flex;align-items:center;gap:var(--sp-4)}
 
-/* ── Action btns ── */
-.btn-approve{padding:6px 13px;background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
-.btn-approve:hover{background:var(--success);color:#fff;border-color:var(--success);transform:translateY(-1px)}
-.btn-reject{padding:6px 13px;background:#fee2e2;color:#991b1b;border:1px solid var(--danger-soft);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
-.btn-reject:hover{background:var(--danger);color:#fff;border-color:var(--danger);transform:translateY(-1px)}
+/* ── Thống kê ────────────────────────────────────────────────────────────── */
+.gv .gv-tk{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-6);padding:0 var(--sp-9) var(--sp-9)}
+@media(min-width:640px){.gv .gv-tk{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.gv .gv-tk-o{display:flex;flex-direction:column;gap:var(--sp-3);min-width:0;padding:var(--sp-7);border:1px solid var(--border);border-radius:var(--r-md)}
+/* Chỉ nhãn đầu ô — bản đầu viết `.gv-tk-o span` nên đè màu nét trắng của ô icon và cắt chữ "so tháng trước". */
+.gv .gv-tk-o > span:first-child{font-size:var(--fs-meta);font-weight:600;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gv .gv-tk-so{display:flex;align-items:center;gap:var(--sp-5)}
+.gv .gv-tk-so .ico-tile{width:30px;height:30px;border-radius:var(--r-sm)}
+.gv .gv-tk-so .ico-tile svg.gv-ic{width:15px;height:15px}
+.gv .gv-tk-so b{font-size:var(--fs-kpi);font-weight:700;color:var(--text-1);line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.gv .gv-tk-doi{font-size:var(--fs-meta);font-weight:600;color:var(--text-3)}
+.gv .gv-tk-doi.is-tot{color:var(--success-fg)}
+.gv .gv-tk-doi.is-xau{color:var(--danger-fg)}
 
-/* ── Card (shared) ── */
-.card{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:16px;box-shadow:0 2px 6px rgba(15,23,42,.04);overflow:hidden}
-.card-header{padding:16px 20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid transparent;transition:background .15s}
-.card-header:hover{background:var(--bg-page)}
-.card-header h3{font-size:15px;font-weight:700;color:var(--text);margin:0;display:flex;align-items:center;gap:9px}
-.card-toolbar{display:flex;align-items:center;gap:8px}
-.card-body{padding:0 20px 20px}
-.month-select{padding:7px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:12.5px;color:var(--text);background:#fff;font-family:inherit;cursor:pointer}
-.month-select:focus{outline:0;box-shadow:var(--focus-ring)}
+/* ── Modal ───────────────────────────────────────────────────────────────── */
+.gv .modal-overlay{position:fixed;inset:0;z-index:1060;display:none;align-items:center;justify-content:center;padding:var(--sp-8);background:rgba(15,23,42,.45)}
+.gv .modal-overlay.show{display:flex}
+.gv .modal-box{width:680px;max-width:96vw;max-height:90vh;overflow-y:auto;background:var(--bg-card);border-radius:var(--r-lg);box-shadow:var(--shadow-pop, var(--shadow-lg))}
+.gv .modal-box.is-nho{width:460px}
+.gv .modal-header{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:var(--sp-5);padding:var(--sp-8) var(--sp-10);background:var(--bg-card);border-bottom:1px solid var(--border)}
+.gv .modal-header h2{font-size:var(--fs-title);font-weight:700;color:var(--text-1);min-width:0}
+.gv .modal-close{margin-left:auto;display:inline-grid;place-items:center;flex:none;width:32px;height:32px;border:0;border-radius:var(--r);background:transparent;color:var(--text-3);cursor:pointer}
+.gv .modal-close:hover{background:var(--bg-page);color:var(--text-1)}
+.gv .modal-body{padding:var(--sp-9) var(--sp-10)}
+.gv .modal-footer{display:flex;justify-content:flex-end;gap:var(--sp-4);flex-wrap:wrap;padding:var(--sp-7) var(--sp-10);border-top:1px solid var(--border);background:var(--bg-page)}
+.gv .modal-footer .is-trai{margin-right:auto}
+.gv .gv-ct{display:grid;grid-template-columns:120px minmax(0,1fr);gap:var(--sp-4) var(--sp-6)}
+.gv .gv-ct dt{color:var(--text-3)}
+.gv .gv-ct dd{color:var(--text-1);min-width:0;overflow-wrap:anywhere}
+.gv .gv-muc{margin:var(--sp-8) 0 var(--sp-4);font-size:var(--fs-meta);font-weight:600;color:var(--text-3)}
+.gv .gv-hop{padding:var(--sp-6) var(--sp-7);border:1px solid var(--border);border-radius:var(--r);background:var(--bg-page);white-space:pre-wrap;word-break:break-word;color:var(--text-1)}
+.gv .gv-hop--dung{background:var(--warning-soft);border-color:var(--warning-soft);color:var(--warning-fg)}
+.gv .gv-tien{list-style:none;display:flex;flex-direction:column;gap:var(--sp-3)}
+.gv .gv-tien li{display:flex;justify-content:space-between;gap:var(--sp-6);color:var(--text-2)}
+.gv .gv-tien b{font-weight:500;color:var(--text-1);font-variant-numeric:tabular-nums}
+.gv .gv-textarea{width:100%;min-height:84px;padding:var(--sp-5) var(--sp-6);border:1px solid var(--border);border-radius:var(--r);font:inherit;font-size:var(--fs-body);color:var(--text-1);resize:vertical;outline:none}
+.gv .gv-textarea:focus{border-color:var(--brand);box-shadow:var(--focus-ring)}
+.gv .gv-textarea[readonly]{background:var(--bg-page)}
 
-/* ── Modal ── */
-.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:1060;display:none;align-items:center;justify-content:center;padding:16px}
-.modal-overlay.show{display:flex}
-.modal-box{background:#fff;border-radius:16px;width:520px;max-width:96vw;box-shadow:0 20px 60px rgba(15,23,42,.3);overflow:hidden;animation:modalIn .25s ease-out}
-@keyframes modalIn{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
-.modal-header{background:var(--brand-soft);padding:18px 22px;display:flex;align-items:center;gap:10px}
-.modal-header h5{color:var(--brand-hover);margin:0;font-weight:800;font-size:16px}
-.modal-body{padding:22px 24px}
-.modal-footer{padding:14px 24px;border-top:1px solid var(--bg-page);display:flex;gap:8px;justify-content:flex-end;background:var(--bg-page)}
-.modal-info-card{background:var(--bg-page);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-bottom:18px}
-.info-chip{background:var(--blue-bg);color:var(--blue-txt);border-radius:7px;padding:4px 11px;font-size:12px;font-weight:600;display:inline-block;margin:2px 4px 2px 0;border:1px solid var(--blue-bd)}
-.modal-textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:9px;font-size:13px;outline:none;resize:vertical;min-height:80px;font-family:inherit;transition:border-color .15s,box-shadow .15s}
-.modal-textarea:focus{box-shadow:var(--focus-ring)}
-.btn-modal-approve{background:var(--success);color:#fff;border:none;border-radius:9px;padding:10px 20px;font-weight:700;cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
-.btn-modal-approve:hover{background:var(--success-fg);transform:translateY(-1px)}
-.btn-modal-reject{background:var(--danger);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-weight:700;cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
-.btn-modal-reject:hover{background:var(--danger-fg);transform:translateY(-1px)}
-.btn-cancel-m{background:#fff;color:var(--text);border:1.5px solid var(--line);border-radius:9px;padding:10px 16px;font-weight:600;cursor:pointer;font-size:13px;font-family:inherit;transition:all .15s}
-.btn-cancel-m:hover{background:var(--bg-page);border-color:var(--text-3)}
+.gv .toast-wrap{position:fixed;right:24px;bottom:24px;z-index:9999;display:flex;flex-direction:column;gap:var(--sp-4);pointer-events:none}
+.gv .toast{max-width:360px;padding:var(--sp-6) var(--sp-9);border-radius:var(--r);font-size:var(--fs-body);font-weight:600;color:var(--text-on-brand);box-shadow:var(--shadow-lg);opacity:0;transform:translateY(12px);transition:all .25s}
+.gv .toast.show{opacity:1;transform:none}
+.gv .toast.success{background:var(--success)}
+.gv .toast.error{background:var(--danger)}
+.gv .toast.warning{background:var(--warning)}
+.gv .toast.info{background:var(--brand)}
 
-/* ── Loading spinner ── */
-.loading-row td{text-align:center;padding:44px 0}
-.spinner{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* ── Toast ── */
-.toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast{padding:13px 20px;border-radius:10px;font-size:13px;font-weight:600;color:#fff;box-shadow:0 6px 22px rgba(15,23,42,.25);opacity:0;transform:translateY(12px);transition:all .28s;pointer-events:none;max-width:340px;display:flex;align-items:center;gap:8px}
-.toast.show{opacity:1;transform:translateY(0)}
-.toast.success{background:var(--success)}
-.toast.error{background:var(--danger)}
-.toast.info{background:var(--brand-soft);color:var(--brand-hover)}
-.toast.warning{background:var(--warn)}
-
-/* ── Preserved utility classes (giao_viec specific) ── */
-.page-header h1{margin:0;font-weight:800;color:var(--brand-hover);font-size:22px;letter-spacing:-.3px}
-.form-control{padding:8px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;outline:none;background:#fff;font-family:inherit;color:var(--text);transition:border-color .15s,box-shadow .15s}
-.form-control:focus{box-shadow:var(--focus-ring)}
-.btn{padding:8px 16px;border-radius:8px;border:1.5px solid var(--line);background:#fff;color:var(--text);font-weight:700;font-size:13px;cursor:pointer;transition:all .15s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-family:inherit}
-.btn:hover{background:var(--bg-page);border-color:var(--text-3)}
-.btn-primary{background:var(--brand-soft);color:var(--brand-hover);border-color:var(--brand-soft)}
-.btn-primary:hover{filter:brightness(.95)}
-.btn-danger{background:var(--danger);color:#fff;border-color:var(--danger)}
-.btn-danger:hover{background:var(--danger-fg);border-color:var(--danger-fg)}
-.btn-success{background:var(--success);color:#fff;border-color:var(--success)}
-.btn-success:hover{background:var(--success-fg);border-color:var(--success-fg)}
-.btn-warning{background:var(--bg-card);color:var(--warning-fg);border-color:var(--border)}
-.btn-warning:hover{background:var(--warning-soft);border-color:var(--warning)}
-.btn-info{background:var(--info-fg);color:#fff;border-color:var(--info-fg)}
-.btn-info:hover{background:var(--info-fg);border-color:var(--info-fg)}
-#qlpps-toast{position:fixed;bottom:20px;right:20px;padding:13px 22px;background:var(--brand-soft);color:var(--brand-hover);border-radius:10px;font-size:13px;font-weight:600;display:none;z-index:9999;box-shadow:0 8px 24px rgba(15,23,42,.25)}
-#qlpps-toast.success{background:var(--success)}
-#qlpps-toast.error{background:var(--danger)}
-</style>
-<style>
-  .gv-actions {
-    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
-    margin-bottom: 4px;
-  }
-  .gv-actions .form-control {
-    width: auto; min-width: 140px;
-  }
-  .gv-tabs {
-    display: flex; gap: 4px; margin-bottom: 12px;
- border-bottom: 1px solid var(--border, var(--border));
-  }
-  .gv-tab {
-    padding: 8px 16px; cursor: pointer;
-    border: none; background: transparent;
- color: var(--gray-600, var(--text-3)); font-weight: 600; font-size: 13px;
-    border-bottom: 2px solid transparent;
-    transition: all .12s;
-  }
- .gv-tab:hover { color: var(--navy, var(--brand)); }
-  .gv-tab.active {
- color: var(--navy, var(--brand));
- border-bottom-color: var(--navy, var(--brand));
-  }
-  .gv-tab .tab-count {
-    display: inline-block; min-width: 20px; padding: 1px 7px;
-    margin-left: 6px; border-radius: 10px;
- background: var(--gray-200, var(--border)); color: var(--gray-700, var(--text-2));
-    font-size: 11px; font-weight: 700;
-  }
-  .gv-tab.active .tab-count {
- background: var(--brand-soft); color: var(--brand-hover);
-  }
-  /* Bucket tabs (waiting/working/finished/all) */
-  .gv-bucket-tabs {
-    display: flex; gap: 6px; flex-wrap: wrap;
-    margin: 0 0 12px 0;
-  }
-  .gv-bucket-tab {
-    padding: 8px 14px; border-radius: 8px; cursor: pointer;
- border: 1.5px solid var(--border, var(--border)); background: #fff;
- color: var(--gray-700, var(--text-2)); font-weight: 700; font-size: 13px;
-    transition: all .12s; display: inline-flex; align-items: center; gap: 8px;
-  }
- .gv-bucket-tab:hover { border-color: var(--navy, var(--brand)); }
-  .gv-bucket-tab .bk-dot {
-    display: inline-block; min-width: 22px; padding: 1px 8px;
-    border-radius: 12px; font-size: 11px; font-weight: 800;
- background: var(--gray-200, var(--border)); color: var(--gray-700, var(--text-2));
-    text-align: center;
-  }
- .gv-bucket-tab.active.bk-waiting { background: var(--warning-soft); border-color: #f59e0b; color: var(--warning-fg); }
-  .gv-bucket-tab.active.bk-waiting .bk-dot { background: #f59e0b; color: #fff; }
- .gv-bucket-tab.active.bk-working { background: var(--info-soft); border-color: #2563eb; color: var(--info-fg); }
-  .gv-bucket-tab.active.bk-working .bk-dot { background: #2563eb; color: #fff; }
- .gv-bucket-tab.active.bk-finished { background: var(--success-soft); border-color: var(--success-fg); color: var(--success-fg); }
- .gv-bucket-tab.active.bk-finished .bk-dot { background: var(--success-fg); color: #fff; }
- .gv-bucket-tab.active.bk-all { background: var(--brand-soft); border-color: var(--brand); color: var(--brand-hover); }
- .gv-bucket-tab.active.bk-all .bk-dot { background: #fff; color: var(--brand); }
-
-  /* KPI row */
-  .gv-kpis {
-    display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr));
-    gap: 10px; margin-bottom: 14px;
-  }
-  @media(max-width:640px){ .gv-kpis{ grid-template-columns: 1fr 1fr; } }
-  .gv-kpi {
- background: #fff; border: 1px solid var(--border, var(--border)); border-radius: 8px;
-    padding: 10px 12px;
-  }
- .gv-kpi .lbl { font-size: 11.5px; color: var(--gray-600, var(--text-3)); font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
- .gv-kpi .val { font-size: 22px; font-weight: 800; margin-top: 2px; color: var(--gray-800, var(--text-1)); }
- .gv-kpi.danger .val { color: #dc2626; }
- .gv-kpi.warning .val { color: var(--warning); }
- .gv-kpi.success .val { color: var(--success-fg); }
-
-  .gv-card {
-    display: block; padding: 14px 16px;
- border: 1px solid var(--border, var(--border));
-    border-radius: 8px; background: #fff;
-    margin-bottom: 10px; cursor: pointer;
-    transition: all .12s;
-  }
-  .gv-card:hover {
- border-color: var(--navy, var(--brand));
-    box-shadow: 0 2px 6px rgba(0,0,0,.06);
-  }
-  .gv-card .gv-head {
-    display: flex; align-items: flex-start; gap: 8px;
-    margin-bottom: 6px;
-  }
-  .gv-card .gv-prio {
-    width: 8px; height: 8px; border-radius: 50%;
-    margin-top: 7px; flex-shrink: 0;
- background: var(--gray-400, var(--text-3));
-  }
- .gv-card.prio-high .gv-prio { background: #dc2626; }
- .gv-card.prio-med .gv-prio { background: #f59e0b; }
- .gv-card.prio-low .gv-prio { background: var(--info); }
-  .gv-card .gv-title {
- font-weight: 600; font-size: 14px; color: var(--gray-800, var(--text-1));
-    flex: 1; line-height: 1.4;
-  }
-  /* Status badges (5 trạng thái mới + backward compat) */
-  .gv-status {
-    font-size: 11px; padding: 2px 8px; border-radius: 4px;
- background: var(--gray-100, var(--bg-page)); color: var(--gray-700, var(--text-2));
-    font-weight: 600; letter-spacing: .2px;
-    display: inline-flex; align-items: center; gap: 4px;
-    white-space: nowrap;
-  }
- .gv-status.assigned { background: var(--brand-soft); color: var(--brand-hover); }
- .gv-status.open { background: #dbeafe; color: var(--info-fg); } /* legacy */
- .gv-status.in_progress { background: var(--info-fg); color: #fff; }
- .gv-status.blocked { background: #fef3c7; color: #92400e; }
- .gv-status.done { background: var(--success-soft); color: var(--success-fg); }
- .gv-status.cancelled { background: #fee2e2; color: #991b1b; }
- .gv-status.dropped { background: #fee2e2; color: #991b1b; } /* legacy */
-
-  .gv-card .gv-meta {
-    display: flex; flex-wrap: wrap; gap: 12px;
- font-size: 12px; color: var(--gray-600, var(--text-3));
-  }
-  .gv-card .gv-meta .badge-app {
- background: var(--gray-100, var(--bg-page)); color: var(--gray-800, var(--text-1));
-    padding: 1px 8px; border-radius: 4px; font-weight: 600;
-  }
-  .gv-card .gv-due.overdue { color: #dc2626; font-weight: 600; }
-  .gv-card .gv-body {
- margin-top: 8px; font-size: 13px; color: var(--gray-700, var(--text-2));
-    line-height: 1.45; white-space: pre-wrap;
-  }
-  .gv-card .gv-resp {
-    margin-top: 8px; padding: 8px 10px;
-    background: #fef3c7; border-left: 3px solid #f59e0b;
-    border-radius: 4px;
- font-size: 12.5px; color: var(--gray-800, var(--text-1));
-    white-space: pre-wrap;
-  }
-  .gv-card .gv-resp .resp-label {
-    display: block; font-weight: 700; color: #92400e;
-    font-size: 11px; text-transform: uppercase; margin-bottom: 3px;
-  }
-  .gv-card .gv-track {
-    margin-top: 6px; display: flex; flex-wrap: wrap; gap: 8px;
- font-size: 11.5px; color: var(--gray-600, var(--text-3));
-  }
-  .gv-card .gv-track .tk {
- background: var(--bg-page); padding: 2px 8px; border-radius: 10px;
-  }
- .gv-card .gv-track .tk.blocked-tk { background: var(--warning-soft); color: var(--warning-fg); font-weight: 600; }
- .gv-card .gv-track .tk.silent-tk { background: #fee2e2; color: #991b1b; font-weight: 700; }
- .gv-card .gv-track .tk.done-tk { background: var(--success-soft); color: var(--success-fg); }
- .gv-card .gv-track .tk.ack-tk { background: var(--info-soft); color: var(--brand-hover); }
-
-  .gv-modal {
-    position: fixed; inset: 0; background: rgba(0,0,0,.5);
-    z-index: 9999; display: none;
-    align-items: center; justify-content: center;
-  }
-  .gv-modal.show { display: flex; }
-  .gv-modal-inner {
-    background: #fff; border-radius: 10px;
-    padding: 24px; width: 92%; max-width: 560px;
-    max-height: 90vh; overflow-y: auto;
-    box-shadow: 0 20px 50px rgba(0,0,0,.25);
-  }
-  .gv-modal-inner h3 {
- margin: 0 0 16px 0; color: var(--navy, var(--brand));
- font-size: 16px;
-  }
-  .gv-modal-inner .form-group { margin-bottom: 12px; }
-  .gv-modal-inner label {
-    display: block; font-weight: 600; font-size: 12.5px;
- color: var(--gray-700, var(--text-2)); margin-bottom: 4px;
-  }
-  .gv-modal-inner .form-control {
-    width: 100%; padding: 8px 12px;
- border: 1px solid var(--border, var(--border)); border-radius: 6px;
-    font-size: 13px; font-family: inherit;
-  }
-  .gv-modal-inner textarea.form-control { resize: vertical; min-height: 80px; }
-  .gv-modal-inner .form-row {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
-  }
-  @media(max-width:480px){ .gv-modal-inner .form-row{ grid-template-columns: 1fr; } }
-  .gv-modal-inner .form-actions {
-    display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;
-    flex-wrap: wrap;
-  }
-
-  .gv-track-block {
- background: var(--bg-page); border: 1px solid var(--border); border-radius: 6px;
-    padding: 10px 12px; margin-bottom: 12px;
- font-size: 12.5px; color: var(--gray-700, var(--text-2));
-  }
-  .gv-track-block .tk-row {
-    display: flex; gap: 6px; margin-bottom: 3px;
-  }
- .gv-track-block .tk-row b { min-width: 110px; color: var(--gray-800, var(--text-1)); }
-  .gv-track-block .tk-blocked-reason {
-    margin-top: 4px; padding: 6px 8px; background: var(--warning-soft);
-    border-left: 3px solid #f59e0b; border-radius: 4px;
-    color: #92400e;
-  }
-
-  .gv-empty {
-    padding: 40px 20px; text-align: center;
- color: var(--gray-500, var(--text-3)); font-size: 13px;
-  }
- .gv-empty .emoji { font-size: 22px; margin-bottom: 8px; }
-
-  .gv-parts-wrap { position: relative; }
-  .gv-parts-box {
- border: 1px solid var(--border, var(--border)); border-radius: 6px;
-    padding: 6px; background: #fff; min-height: 38px;
-    display: flex; flex-wrap: wrap; gap: 5px;
-  }
-  .gv-parts-box .pchip {
- background: #dbeafe; color: var(--info-fg);
-    padding: 3px 9px; border-radius: 12px;
-    font-size: 12px; font-weight: 600;
-    display: inline-flex; align-items: center; gap: 5px;
-  }
- .gv-parts-box .pchip .x { cursor: pointer; color: var(--info-fg); font-weight: 700; }
-  .gv-parts-box input {
-    border: none; outline: none; background: transparent;
-    min-width: 140px; font-size: 13px; padding: 4px;
-  }
-  .gv-suggest {
-    position: absolute; left: 0; right: 0;
- background: #fff; border: 1px solid var(--border, var(--border));
-    border-radius: 6px; max-height: 180px; overflow-y: auto;
-    z-index: 50; display: none;
-    box-shadow: 0 6px 18px rgba(0,0,0,.12);
-  }
-  .gv-suggest.show { display: block; }
-  .gv-suggest .suggest-item { padding: 7px 10px; cursor: pointer; font-size: 12.5px; }
- .gv-suggest .suggest-item:hover { background: var(--gray-50, var(--bg-page)); }
-/* ── Bucket tabs (stat-card style giống phe_duyet) ── */
-.gv-bucket-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:-40px;margin-bottom:18px;position:relative;z-index:5}
-@media(max-width:700px){.gv-bucket-tabs{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:420px){.gv-bucket-tabs{grid-template-columns:1fr}}
-.gv-bucket-tab{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:13px;cursor:pointer;transition:all .15s;box-shadow:0 4px 12px rgba(15,23,42,.06);position:relative;overflow:hidden;text-align:left;font-family:inherit;color:var(--text)}
-.gv-bucket-tab::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line);border-radius:14px 0 0 14px}
-.gv-bucket-tab:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(15,23,42,.1)}
-.gv-bucket-tab.active{box-shadow:0 0 0 2px var(--primary),0 4px 12px rgba(15,23,42,.06)}
-.gv-bucket-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;background:var(--blue-bg)}
-.gv-bucket-tab.bk-waiting .gv-bucket-icon{background:var(--amber-bg)}
-.gv-bucket-tab.bk-working .gv-bucket-icon{background:var(--blue-bg)}
-.gv-bucket-tab.bk-finished .gv-bucket-icon{background:var(--green-bg)}
-.gv-bucket-tab.bk-all .gv-bucket-icon{background:var(--purple-bg)}
-.gv-bucket-tab.bk-waiting.active::before{background:var(--warn)}
-.gv-bucket-tab.bk-working.active::before{background:var(--primary)}
-.gv-bucket-tab.bk-finished.active::before{background:var(--success)}
-.gv-bucket-tab.bk-all.active::before{background:var(--purple-txt)}
-.gv-bucket-num{font-size:22px;font-weight:800;color:var(--text);line-height:1}
-.gv-bucket-label{font-size:11px;color:var(--muted);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+@media(max-width:767px){
+  .gv .card-header{padding:var(--sp-7) var(--sp-7) var(--sp-6)}
+  .gv .card-body{padding:0 var(--sp-7) var(--sp-7)}
+  .gv .gv-tabs-nho,.gv .gv-loc{padding-left:var(--sp-7);padding-right:var(--sp-7)}
+  .gv .gv-loc select,.gv .gv-o{flex:1 1 140px}
+  .gv .tbl-wrap{padding:0 var(--sp-7)}
+  .gv .gv-pg{padding:var(--sp-6) var(--sp-7)}
+  .gv .gv-tk{padding:0 var(--sp-7) var(--sp-7)}
+  .gv .gv-tk-so b{font-size:var(--fs-h)}
+  .gv .gv-ct{grid-template-columns:100px minmax(0,1fr)}
+  .gv .form-field input,.gv .form-field select,.gv .form-field textarea,.gv .gv-nguoi-o input,.gv .gv-textarea{font-size:16px}
+  .gv .modal-overlay{align-items:flex-start;overflow-y:auto;padding:var(--sp-3)}
+  .gv .modal-box{width:100%;max-height:none}
+  .gv .toast-wrap{left:8px;right:8px;bottom:12px}
+}
+@media(prefers-reduced-motion:reduce){.gv *{transition:none}}
 </style>
 </head>
 <body>
 {% include "_header.html" %}
-<div class="page-wrap">
-<div class="page-header">
-  <h1>Giao việc / Chỉ đạo</h1>
-  <div class="gv-actions">
-    <button class="btn btn-primary" onclick="gvOpenCreate()">
-      Tạo task
-    </button>
-    <select id="gv-app-filter" class="form-control" onchange="gvLoadList()">
-      <option value="">Tất cả app</option>
-      <option value="baogia">Báo Giá</option>
-      <option value="marketing">Marketing</option>
-      <option value="muahang">Mua Hàng</option>
-      <option value="hcns">HCNS</option>
-      <option value="ketoan">Kế Toán</option>
-      <option value="saleadmin">Sale Admin</option>
-    </select>
-    <input id="gv-to-user-filter" class="form-control" placeholder="Lọc theo username..."
-           onkeydown="if(event.key==='Enter') gvLoadList()">
+{% set ten_man = "Giao việc" %}{% include "_khung_man.html" %}
+{%- set _gv_role = ((user.role if user else '') or '')|lower -%}
+
+<div class="gv">
+<div class="gv-wrap">
+  <h1 class="gv-sr">Giao việc</h1>
+
+  <nav class="gv-tabs" role="tablist" aria-label="Chế độ xem">
+    <button type="button" class="gv-tab" id="gv-tab-giao" role="tab" data-view="giao" onclick="gvChonView('giao')" hidden>
+      <svg class="gv-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Giao việc <small id="gv-dem-giao"></small></button>
+    <button type="button" class="gv-tab" id="gv-tab-cua-toi" role="tab" data-view="cua-toi" onclick="gvChonView('cua-toi')">
+      <svg class="gv-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Việc của tôi <small id="gv-dem-cua-toi"></small></button>
+  </nav>
+
+  <!-- ═══ VIEW: GIAO VIỆC (người có quyền giao) ═══ -->
+  <div id="gv-view-giao" hidden>
+    <div class="gv-hang gv-hang--tao">
+      <section class="card" aria-labelledby="gv-tao-tieu-de">
+        <div class="card-header"><h2 id="gv-tao-tieu-de">Tạo giao việc mới</h2></div>
+        <form class="card-body gv-gian" id="gv-form" novalidate onsubmit="event.preventDefault(); gvGiao();">
+          <div class="gv-form">
+            <div class="gv-cot-trai">
+              <div class="form-field"><label for="gv-f-title">Tiêu đề công việc <span class="gv-sao">*</span></label>
+                <input id="gv-f-title" maxlength="255" placeholder="VD: Lên kế hoạch chiến dịch Tết 2026" autocomplete="off"></div>
+              <div class="form-field">
+                <span class="gv-nhan" id="gv-f-nguoi-nhan">Nhân viên được giao <span class="gv-sao">*</span></span>
+                <div class="gv-nguoi" id="gv-nguoi">
+                  <div class="gv-nguoi-o" onclick="document.getElementById('gv-f-tim').focus()">
+                    <span id="gv-chips"></span>
+                    <input id="gv-f-tim" placeholder="Gõ tên hoặc mã nhân viên..." autocomplete="off" aria-labelledby="gv-f-nguoi-nhan"
+                           role="combobox" aria-expanded="false" aria-controls="gv-goi" oninput="gvGoiY()" onfocus="gvGoiY()" onkeydown="gvPhimNguoi(event)">
+                  </div>
+                  <div class="gv-goi" id="gv-goi" role="listbox" hidden></div>
+                </div>
+                <p class="gv-goi-y" id="gv-f-nguoi-goi-y">Có thể giao cùng lúc cho nhiều người — mỗi người nhận một việc riêng.</p>
+              </div>
+              <div class="form-field is-gian"><label for="gv-f-body">Mô tả chi tiết <span class="gv-sao">*</span></label>
+                <textarea id="gv-f-body" maxlength="1000" placeholder="Mục tiêu, phạm vi, kết quả cần bàn giao..." oninput="gvDem()"></textarea>
+                <p class="gv-dem" id="gv-f-dem" aria-live="polite">0/1000</p></div>
+            </div>
+            <div>
+              <div class="gv-form-3">
+                <div class="form-field"><label for="gv-f-due">Hạn hoàn thành <span class="gv-sao">*</span></label><input id="gv-f-due" type="date"></div>
+                <div class="form-field"><label for="gv-f-priority">Độ ưu tiên <span class="gv-sao">*</span></label>
+                  <select id="gv-f-priority"><option value="high">Cao</option><option value="med" selected>Trung bình</option><option value="low">Thấp</option></select></div>
+                <div class="form-field"><label for="gv-f-app">Mảng công việc <span class="gv-sao">*</span></label><select id="gv-f-app"></select></div>
+              </div>
+              <div class="form-field" id="gv-tep-o">
+                <span class="gv-nhan">Tệp đính kèm <span class="gv-tuy">(nếu có)</span></span>
+                <label class="gv-tha" id="gv-tha" for="gv-tep-chon" tabindex="0">
+                  <svg class="gv-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M16 16 12 12l-4 4M12 12v9"/><path d="M20.4 18.6A5 5 0 0 0 18 9h-1.3A8 8 0 1 0 3 16.3"/></svg>
+                  <span><span>Kéo thả tệp hoặc <b>chọn tệp</b></span><small>PDF, DOC, DOCX, XLS, XLSX, JPG, PNG — tối đa 10MB mỗi tệp</small></span>
+                </label>
+                <input type="file" id="gv-tep-chon" multiple hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onchange="gvThemTep(this.files); this.value=''">
+                <ul class="gv-tep-ds" id="gv-tep-ds"></ul>
+              </div>
+              <div class="gv-nut-form">
+                <button type="button" class="btn-ghost" onclick="gvDatLai()">Huỷ</button>
+                <button type="submit" class="btn-primary" id="gv-nut-giao">
+                  <svg class="gv-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>Giao việc</button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="gv-hd-tieu-de">
+        <div class="card-header">
+          <span class="ico-tile ico-tile--warning" aria-hidden="true"><svg class="gv-ic" viewBox="0 0 24 24" focusable="false"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V16h8v-1.3A7 7 0 0 0 12 2Z"/></svg></span>
+          <h2 id="gv-hd-tieu-de">Hướng dẫn giao việc</h2>
+        </div>
+        <div class="card-body gv-gian">
+          <ol class="gv-buoc">
+            <li>Đặt tiêu đề ngắn, nói rõ kết quả cần có.</li>
+            <li>Chọn đúng người phụ trách — có thể chọn nhiều người.</li>
+            <li>Đặt hạn hoàn thành và độ ưu tiên.</li>
+            <li>Đính kèm tài liệu liên quan nếu có.</li>
+            <li>Người được giao nhận thông báo, bấm "Đã nhận" / "Bắt đầu" và cập nhật tiến độ ngay trên hệ thống.</li>
+          </ol>
+        </div>
+        <div class="gv-luu-y">
+          <h3><span class="ico-tile" aria-hidden="true"><svg class="gv-ic" viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>Lưu ý</h3>
+          <ul>
+            <li>Việc có hạn sẽ tự lên Lịch làm việc của người nhận.</li>
+            <li>Trao đổi, phản hồi ngay trong chi tiết việc để giữ lịch sử.</li>
+            <li>Người giao đóng việc khi đã nhận kết quả; có thể yêu cầu làm lại.</li>
+            <li>Việc quá hạn hiện nhãn đỏ "Quá hạn" ở cả hai phía.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <div class="gv-hang gv-hang--2">
+      <section class="card gv-bang" aria-labelledby="gv-da-giao-tieu-de">
+        <div class="card-header"><h2 id="gv-da-giao-tieu-de">Danh sách công việc đã giao</h2></div>
+        {# Phạm vi rộng chỉ CEO/Admin (chốt 12/09/2026): quản lý chỉ xem việc do chính mình
+           giao, nên ẩn hẳn hàng nút thay vì để bấm rồi nhận 403 từ router. #}
+        {%- if _gv_role in ['admin', 'ceo', 'assistant_ceo'] %}
+        <div class="gv-tabs-nho" role="tablist" aria-label="Phạm vi">
+          <button type="button" class="gv-tab-nho is-chon" data-pv="toi_giao" onclick="gvChonPhamVi(this.dataset.pv)">Tôi giao</button>
+          <button type="button" class="gv-tab-nho" data-pv="phong_ban" onclick="gvChonPhamVi(this.dataset.pv)">Phòng ban của tôi</button>
+          <button type="button" class="gv-tab-nho" data-pv="tat_ca" onclick="gvChonPhamVi(this.dataset.pv)">Tất cả</button>
+        </div>
+        {%- endif %}
+        <div class="gv-loc">
+          <select id="gv-l-tt" aria-label="Trạng thái" onchange="gvVeDaGiao(1)"></select>
+          <select id="gv-l-app" aria-label="Mảng công việc" onchange="gvVeDaGiao(1)"></select>
+          <div class="gv-bat">
+            <button type="button" class="gv-o" id="gv-l-ky-nut" aria-haspopup="dialog" aria-expanded="false" onclick="gvMoKy(this)">
+              <svg class="gv-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              <span class="is-trong" id="gv-l-ky">Từ ngày - Đến ngày</span></button>
+            <div class="gv-noi" id="gv-l-noi" role="dialog" aria-label="Khoảng ngày giao" hidden>
+              <div class="gv-noi-nhanh">
+                <button type="button" onclick="gvKyNhanh('thang_nay')">Tháng này</button>
+                <button type="button" onclick="gvKyNhanh('thang_truoc')">Tháng trước</button>
+              </div>
+              <label>Từ ngày<input type="date" id="gv-l-tu"></label>
+              <label>Đến ngày<input type="date" id="gv-l-den"></label>
+              <div class="gv-noi-chan">
+                <button type="button" class="btn-link" onclick="gvXoaKy()">Xoá lọc</button>
+                <button type="button" class="btn-soft" onclick="gvApKy()">Áp dụng</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tbl-wrap gv-gian">
+          <table class="data-table">
+            <thead><tr><th class="c-stt">#</th><th>Tiêu đề công việc</th><th>Người thực hiện</th><th class="c-an-hep">Hạn hoàn thành</th><th>Trạng thái</th><th class="c-nut"><span class="gv-sr">Thao tác</span></th></tr></thead>
+            <tbody id="gv-da-giao-than"><tr class="empty-row"><td colspan="6">Đang tải...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="gv-pg" id="gv-da-giao-pg"></div>
+      </section>
+
+      <section class="card gv-bang" aria-labelledby="gv-cua-toi-tieu-de">
+        <div class="card-header"><h2 id="gv-cua-toi-tieu-de">Công việc của tôi</h2></div>
+        <div class="gv-tabs-nho" role="tablist" aria-label="Loại"><button type="button" class="gv-tab-nho is-chon" tabindex="-1">Được giao cho tôi</button></div>
+        <div class="gv-loc">
+          <select id="gv-m-tt" aria-label="Trạng thái" onchange="gvVeCuaToi('gon', 1)"></select>
+          <select id="gv-m-app" aria-label="Mảng công việc" onchange="gvVeCuaToi('gon', 1)"></select>
+        </div>
+        <div class="tbl-wrap gv-gian">
+          <table class="data-table">
+            <thead><tr><th class="c-stt">#</th><th>Tiêu đề công việc</th><th class="c-an-hep">Hạn hoàn thành</th><th>Trạng thái</th></tr></thead>
+            <tbody id="gv-cua-toi-gon"><tr class="empty-row"><td colspan="4">Đang tải...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="gv-pg" id="gv-cua-toi-gon-pg"></div>
+      </section>
+    </div>
+
+    <div class="gv-hang gv-hang--2">
+      <section class="card gv-bang" aria-labelledby="gv-han-tieu-de">
+        <div class="card-header">
+          <span class="ico-tile ico-tile--warning" aria-hidden="true"><svg class="gv-ic" viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          <h2 id="gv-han-tieu-de">Công việc sắp đến hạn</h2>
+          <div class="card-toolbar"><span class="gv-goi-y">Trong 7 ngày tới và đã quá hạn</span></div>
+        </div>
+        <div class="tbl-wrap gv-gian">
+          <table class="data-table">
+            <thead><tr><th class="c-stt">#</th><th>Tiêu đề công việc</th><th>Người thực hiện</th><th class="c-an-hep">Hạn hoàn thành</th><th>Còn lại</th></tr></thead>
+            <tbody id="gv-han-than"><tr class="empty-row"><td colspan="5">Đang tải...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="gv-tk-tieu-de">
+        <div class="card-header">
+          <span class="ico-tile" aria-hidden="true"><svg class="gv-ic" viewBox="0 0 24 24" focusable="false"><path d="M3 3v18h18"/><path d="M7 16v-4M12 16V8M17 16v-7"/></svg></span>
+          <h2 id="gv-tk-tieu-de">Thống kê công việc</h2>
+          <div class="card-toolbar gv-loc" style="padding:0"><select id="gv-tk-thang" aria-label="Tháng thống kê" onchange="gvVeThongKe()"></select></div>
+        </div>
+        <div class="gv-tk gv-gian" id="gv-tk"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ═══ VIEW: VIỆC CỦA TÔI ═══ -->
+  <div id="gv-view-cua-toi" hidden>
+    <section class="card" style="margin-bottom:var(--sp-8)" aria-labelledby="gv-tk2-tieu-de">
+      <div class="card-header">
+        <span class="ico-tile" aria-hidden="true"><svg class="gv-ic" viewBox="0 0 24 24" focusable="false"><path d="M3 3v18h18"/><path d="M7 16v-4M12 16V8M17 16v-7"/></svg></span>
+        <h2 id="gv-tk2-tieu-de">Việc được giao cho tôi</h2>
+        <div class="card-toolbar gv-loc" style="padding:0"><select id="gv-tk2-thang" aria-label="Tháng thống kê" onchange="gvVeThongKe()"></select></div>
+      </div>
+      <div class="gv-tk" id="gv-tk2"></div>
+    </section>
+    <section class="card gv-bang" aria-labelledby="gv-ds2-tieu-de">
+      <div class="card-header"><h2 id="gv-ds2-tieu-de">Danh sách việc của tôi</h2></div>
+      <div class="gv-loc">
+        <select id="gv-d-tt" aria-label="Trạng thái" onchange="gvVeCuaToi('day', 1)"></select>
+        <select id="gv-d-app" aria-label="Mảng công việc" onchange="gvVeCuaToi('day', 1)"></select>
+      </div>
+      <div class="tbl-wrap">
+        <table class="data-table">
+          <thead><tr><th class="c-stt">#</th><th>Tiêu đề công việc</th><th>Người giao</th><th class="c-an-hep">Mảng</th><th class="c-an-hep">Ưu tiên</th><th>Hạn hoàn thành</th><th>Trạng thái</th></tr></thead>
+          <tbody id="gv-cua-toi-day"><tr class="empty-row"><td colspan="7">Đang tải...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="gv-pg" id="gv-cua-toi-day-pg"></div>
+    </section>
   </div>
 </div>
 
-<!-- Tab phân loại task theo bucket (waiting/working/finished/all) -->
-<div class="gv-bucket-tabs">
-  <button class="gv-bucket-tab bk-waiting active" data-bucket="waiting" onclick="gvSwitchBucket('waiting')">
-    <div class="gv-bucket-meta">
-      <div class="gv-bucket-num" id="gv-bk-waiting">0</div>
-      <div class="gv-bucket-label">Đã giao</div>
-    </div>
-  </button>
-  <button class="gv-bucket-tab bk-working" data-bucket="working" onclick="gvSwitchBucket('working')">
-    <div class="gv-bucket-meta">
-      <div class="gv-bucket-num" id="gv-bk-working">0</div>
-      <div class="gv-bucket-label">Đang làm</div>
-    </div>
-  </button>
-  <button class="gv-bucket-tab bk-finished" data-bucket="finished" onclick="gvSwitchBucket('finished')">
-    <div class="gv-bucket-meta">
-      <div class="gv-bucket-num" id="gv-bk-finished">0</div>
-      <div class="gv-bucket-label">Đã xong</div>
-    </div>
-  </button>
-  <button class="gv-bucket-tab bk-all" data-bucket="all" onclick="gvSwitchBucket('all')">
-    <div class="gv-bucket-meta">
-      <div class="gv-bucket-num" id="gv-bk-all">0</div>
-      <div class="gv-bucket-label">Tất cả</div>
-    </div>
-  </button>
-</div>
-
-<!-- KPI row -->
-<div class="gv-kpis">
-  <div class="gv-kpi"><div class="lbl">Tổng task</div><div class="val" id="gv-kpi-total">0</div></div>
-  <div class="gv-kpi danger"><div class="lbl">Đang quá hạn</div><div class="val" id="gv-kpi-overdue">0</div></div>
-  <div class="gv-kpi warning"><div class="lbl">Im lặng &gt; 3 ngày</div><div class="val" id="gv-kpi-silent">0</div></div>
-  <div class="gv-kpi success"><div class="lbl">Tỷ lệ hoàn thành tháng</div><div class="val" id="gv-kpi-done-rate">0%</div></div>
-</div>
-
-<div class="gv-tabs">
-  <button class="gv-tab active" data-view="sent" onclick="gvSwitchTab('sent')">
-    Đã giao <span id="gv-count-sent" class="tab-count">0</span>
-  </button>
-  <button class="gv-tab" data-view="inbox" onclick="gvSwitchTab('inbox')">
-    Hộp thư của tôi <span id="gv-count-inbox" class="tab-count">0</span>
-  </button>
-</div>
-
-<div class="csfp-bar" data-key="gv_list">
-  <span class="csfp-lbl">Thời gian:</span>
-  <button class="csfp-chip active" data-k="" onclick="csfpRange('gv_list','')">Tất cả</button>
-  <button class="csfp-chip" data-k="thang_nay" onclick="csfpRange('gv_list','thang_nay')">Tháng này</button>
-  <button class="csfp-chip" data-k="thang_truoc" onclick="csfpRange('gv_list','thang_truoc')">Tháng trước</button>
-  <button class="csfp-chip" data-k="nam_nay" onclick="csfpRange('gv_list','nam_nay')">Năm nay</button>
-  <input type="month" class="csfp-month" onchange="csfpMonth('gv_list',this.value)" title="Chọn tháng cụ thể">
-  <span class="csfp-count"></span>
-</div>
-<div id="gv-list-wrap"></div>
-<div id="csfp-pager-gv_list"></div>
-
-<!-- Modal: Tạo task ─────────────────────────────────────────── -->
-<div id="gv-create-modal" class="gv-modal">
-  <div class="gv-modal-inner">
-    <h3>Tạo task mới</h3>
-    <form id="gv-create-form">
-      <div class="form-group">
-        <label>Tiêu đề <span style="color:#dc2626">*</span></label>
-        <input name="title" class="form-control" required maxlength="255"
-               placeholder="VD: Báo cáo doanh số tuần này">
-      </div>
-      <div class="form-group">
-        <label>Mô tả chi tiết</label>
-        <textarea name="body" class="form-control" rows="4"
-                  placeholder="Mô tả task chi tiết..."></textarea>
-      </div>
-      <div class="form-group">
-        <label>App <span style="color:#dc2626">*</span></label>
-        <select name="app" class="form-control" required>
-          <option value="">-- Chọn app --</option>
-          <option value="baogia">Báo Giá</option>
-          <option value="marketing">Marketing</option>
-          <option value="muahang">Mua Hàng</option>
-          <option value="hcns">HCNS</option>
-          <option value="ketoan">Kế Toán</option>
-          <option value="saleadmin">Sale Admin</option>
-        </select>
-      </div>
-      <div class="form-group gv-parts-wrap">
-        <label>NV nhận <span style="color:#dc2626">*</span>
- <span style="color:var(--text-3);font-weight:400">— có thể chọn nhiều người</span>
-        </label>
-        <select id="gv-to-user-dropdown" class="form-control" style="margin-bottom:6px">
-          <option value="">-- Chọn nhân viên từ danh sách --</option>
-        </select>
-        <div class="gv-parts-box" id="gv-parts-box">
-          <input type="text" id="gv-parts-input" placeholder="Hoặc gõ tên/username để tìm thêm…" autocomplete="off">
-        </div>
-        <div class="gv-suggest" id="gv-parts-suggest"></div>
- <small id="gv-parts-hint" style="color:var(--text-3);font-size:11px">Đang nạp danh sách NV…</small>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Mức độ ưu tiên</label>
-          <select name="priority" class="form-control">
-            <option value="low">Thấp</option>
-            <option value="med" selected>Vừa</option>
-            <option value="high">Cao</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Hạn hoàn thành</label>
-          <input name="due_date" type="date" class="form-control">
-        </div>
-      </div>
-      <div class="form-actions">
-        <button type="button" class="btn" onclick="gvCloseCreate()">Hủy</button>
-        <button type="submit" class="btn btn-primary">Giao task</button>
-      </div>
-    </form>
+<!-- Modal chi tiết việc -->
+<div class="modal-overlay" id="gv-hop-ct" onclick="if(event.target===this)gvDong('gv-hop-ct')">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="gv-ct-tieu-de">
+    <div class="modal-header"><h2 id="gv-ct-tieu-de">Chi tiết công việc</h2>
+      <button type="button" class="modal-close" onclick="gvDong('gv-hop-ct')" aria-label="Đóng"><svg class="gv-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body" id="gv-ct-than"></div>
+    <div class="modal-footer" id="gv-ct-chan"></div>
   </div>
 </div>
 
-<!-- Modal: Detail / Close / Respond ─────────────────────────── -->
-<div id="gv-detail-modal" class="gv-modal">
-  <div class="gv-modal-inner">
-    <h3 id="gv-detail-title">Chi tiết task</h3>
-    <div id="gv-detail-body"></div>
-    <div class="form-actions">
-      <button type="button" class="btn" onclick="gvCloseDetail()">Đóng</button>
-    </div>
+<!-- Modal nhập lý do / kết quả -->
+<div class="modal-overlay" id="gv-hop-ly-do" onclick="if(event.target===this)gvDong('gv-hop-ly-do')">
+  <div class="modal-box is-nho" role="dialog" aria-modal="true" aria-labelledby="gv-ly-do-tieu-de">
+    <div class="modal-header"><h2 id="gv-ly-do-tieu-de">Nhập lý do</h2>
+      <button type="button" class="modal-close" onclick="gvDong('gv-hop-ly-do')" aria-label="Đóng"><svg class="gv-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body"><label class="gv-nhan" for="gv-ly-do" id="gv-ly-do-nhan">Lý do</label><textarea class="gv-textarea" id="gv-ly-do"></textarea></div>
+    <div class="modal-footer"><button type="button" class="btn-ghost" onclick="gvDong('gv-hop-ly-do')">Huỷ</button><button type="button" class="btn-primary" id="gv-ly-do-ok">Xác nhận</button></div>
   </div>
 </div>
+
+<input type="file" id="gv-tep-them" multiple hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onchange="gvTepThemDaChon(this)">
+<div class="toast-wrap" id="gv-toast"></div>
 </div>
-<div id="qlpps-toast"></div>
+
 <script>
-window.esc = function(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
-window.toast = function(msg, type){
-  const el = document.getElementById('qlpps-toast');
-  if (!el) return;
-  el.textContent = msg;
-  el.className = type || '';
-  el.style.display = 'block';
-  clearTimeout(el._t);
-  el._t = setTimeout(()=>{el.style.display='none';}, 3500);
-};
-window.api = async function(url, opts){
-  opts = opts || {};
-  const o = {method: opts.method||'GET', headers: Object.assign({'Content-Type':'application/json'}, opts.headers||{}), credentials:'same-origin'};
-  if (opts.body){ o.body = (typeof opts.body==='string') ? opts.body : JSON.stringify(opts.body); }
-  const r = await fetch(url, o);
-  if (r.status===401){ window.location.href='/login'; throw new Error('unauth'); }
-  if (!r.ok){ let m='HTTP '+r.status; try{ const t=await r.text(); const j=JSON.parse(t); m=j.detail||j.error||m; }catch{} throw new Error(m); }
-  const ct = r.headers.get('content-type')||'';
-  return ct.includes('json') ? r.json() : r.text();
-};
-window.fmtDate = window.fmtDate || function(s){
-  if (!s) return '';
-  const str = String(s);
-  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
-  return str;
-};
-window.fmtDateTime = window.fmtDateTime || function(s){
-  if (!s) return '';
-  const d = new Date(s);
-  if (isNaN(d.getTime())) return String(s);
-  const pad = n => String(n).padStart(2,'0');
-  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
-</script>
-<script>
-const GV_APP_LABEL = {
-  baogia: 'Báo Giá', marketing: 'Marketing', muahang: 'Mua Hàng',
-  hcns: 'HCNS', ketoan: 'Kế Toán', saleadmin: 'Sale Admin',
-};
-const GV_PRIO_LABEL = { high: 'Cao', med: 'Vừa', low: 'Thấp' };
+const GV_ME = {{ (user.username if user else '')|tojson }};
+const GV_ROLE = {{ _gv_role|tojson }};
+const GV_SUPER = ['admin', 'ceo', 'assistant_ceo'].indexOf(GV_ROLE) >= 0;
+const GV_CAN_ASSIGN = GV_SUPER || ['manager', 'leader'].indexOf(GV_ROLE) >= 0;
+const GV_APP_HIEN = {{ ((request.app.state.app_name if request else '') or '')|tojson }};
 
-const GV_STATUS_LABEL = {
- assigned: ' Đã giao',
- open: ' Đã giao',
- in_progress: ' Đang làm',
- blocked: '⏸️ Đang chờ',
- done: ' Đã xong',
- cancelled: ' Đã hủy',
- dropped: ' Đã hủy',
+const _GV_APP = { baogia: 'Báo giá', marketing: 'Marketing', muahang: 'Mua hàng', hcns: 'Nhân sự', ketoan: 'Kế toán', saleadmin: 'Sale Admin', congnghe: 'Công nghệ', ceo: 'CEO' };
+const _GV_APP_GIAO = ['marketing', 'baogia', 'muahang', 'saleadmin', 'ketoan', 'hcns', 'congnghe'];   // khớp regex CreateBody.app của router
+const _GV_UU = { high: 'Cao', med: 'Trung bình', low: 'Thấp' };
+const _GV_TT = {
+  assigned:    ['neutral', 'Chưa bắt đầu'], open: ['neutral', 'Chưa bắt đầu'],
+  in_progress: ['brand',   'Đang thực hiện'],
+  blocked:     ['warning', 'Tạm dừng'],
+  done:        ['success', 'Hoàn thành'],
+  cancelled:   ['neutral', 'Đã huỷ'], dropped: ['neutral', 'Đã huỷ'],
+  qua_han:     ['danger',  'Quá hạn']
 };
+const _GV_LOC_TT = [['', 'Tất cả trạng thái'], ['assigned', 'Chưa bắt đầu'], ['in_progress', 'Đang thực hiện'], ['blocked', 'Tạm dừng'],
+                    ['qua_han', 'Quá hạn'], ['done', 'Hoàn thành'], ['cancelled', 'Đã huỷ']];
+const _GV_TEP_EXT = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png'];
+const _GV_TEP_MAX = 10 * 1024 * 1024, _GV_TEP_SL = 10;
 
-function gvBucketOf(st) {
-  if (st === 'in_progress') return 'working';
-  if (st === 'done' || st === 'cancelled' || st === 'dropped') return 'finished';
-  return 'waiting';
+const _GV_IC = {
+  dong: '<path d="M18 6 6 18M6 6l12 12"/>', ba: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  pdf: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
+  anh: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
+  xoa: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>', len: '<path d="M8 13h8M8 17h8M8 9h2"/>',
+  tong: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M12 8v8"/>', chay: '<circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4Z"/>',
+  xong: '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>', gio: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+};
+function _gvSvg(t) { return '<svg class="gv-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + (_GV_IC[t] || '') + '</svg>'; }
+function _gvE(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function _gvNgay(s) { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : String(s); }
+function _gvNgayGio(s) { if (!s) return ''; const d = new Date(s); if (isNaN(d)) return String(s); const h = n => String(n).padStart(2, '0'); return `${h(d.getDate())}/${h(d.getMonth() + 1)}/${d.getFullYear()} ${h(d.getHours())}:${h(d.getMinutes())}`; }
+function _gvISO(d) { const h = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${h(d.getMonth() + 1)}-${h(d.getDate())}`; }
+function _gvHomNay() { return _gvISO(new Date()); }
+/* Chữ viết tắt: bỏ phần trong ngoặc ("(DEV)") và từ không bắt đầu bằng chữ cái, lấy 2 từ cuối. */
+function _gvChuDau(t) { const w = String(t || '').replace(/\(.*?\)/g, ' ').trim().split(/\s+/).filter(x => /^\p{L}/u.test(x)); return (w.length ? w.slice(-2).map(x => x[0]).join('') : '?').toUpperCase(); }
+function _gvCo(n) { return n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1).replace('.', ',')} MB`; }
+function _gvDuoi(t) { return ((String(t || '').match(/\.[^.]+$/) || [''])[0]).toLowerCase(); }
+function _gvToast(msg, loai = 'info') {
+  const w = document.getElementById('gv-toast'); if (!w) return;
+  const t = document.createElement('div'); t.className = `toast ${loai}`; t.setAttribute('role', loai === 'error' ? 'alert' : 'status'); t.textContent = msg;
+  w.appendChild(t); setTimeout(() => t.classList.add('show'), 30);
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, loai === 'error' ? 6000 : 3200);
+}
+function gvMo(id) { document.getElementById(id).classList.add('show'); }
+function gvDong(id) { document.getElementById(id).classList.remove('show'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.querySelectorAll('.gv .modal-overlay.show').forEach(m => gvDong(m.id)); gvDongKy(); _gvAnGoi(); } });
+
+async function _gvApi(url, o) {
+  o = o || {};
+  const opt = { method: o.method || 'GET', credentials: 'include', headers: {} };
+  if (o.form) opt.body = o.form;
+  else if (o.body !== undefined) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(o.body); }
+  const r = await fetch(url, opt);
+  if (r.status === 401) { location.href = '/login'; throw Object.assign(new Error('Hết phiên đăng nhập'), { status: 401 }); }
+  if (r.status === 204) return null;
+  const d = (r.headers.get('Content-Type') || '').includes('json') ? await r.json().catch(() => null) : await r.text();
+  if (!r.ok) { const ct = d && d.detail; throw Object.assign(new Error(typeof ct === 'string' ? ct : (ct ? 'Dữ liệu gửi lên chưa hợp lệ' : `Lỗi máy chủ (HTTP ${r.status})`)), { status: r.status }); }
+  return d;
 }
 
-const GV_CURRENT_USER = '{{ user.username }}';
-let gvCurrentView = 'sent';
-let gvCurrentBucket = 'waiting';
-let gvCurrentRole = '{{ user.role|lower }}';
-const GV_IS_CEO = ['admin','ceo','assistant_ceo'].includes(gvCurrentRole);
-const GV_CAN_ASSIGN = ['admin','ceo','assistant_ceo','manager','leader'].includes(gvCurrentRole);
+// ── Trạng thái màn ──────────────────────────────────────────────────────────
+const _gv = { view: '', daGiao: [], cuaToi: [], nguoiNhan: [], chon: [], tep: [], pv: 'toi_giao', coPv: true, coTep: false,
+              tu: '', den: '', trang: { 'da-giao': 1, gon: 1, day: 1 }, co: { 'da-giao': 5, gon: 5, day: 10 }, tro: -1 };
 
-function gvSwitchTab(view) {
-  gvCurrentView = view;
-  document.querySelectorAll('.gv-tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.view === view);
-  });
-  const isInbox = view === 'inbox';
-  document.getElementById('gv-app-filter').disabled = isInbox;
-  document.getElementById('gv-to-user-filter').disabled = isInbox;
-  gvLoadList();
+function _gvDong(it) { return ['done', 'cancelled', 'dropped'].indexOf(it.status) >= 0; }
+function _gvQuaHan(it) { return !!it.due_date && String(it.due_date).slice(0, 10) < _gvHomNay() && !_gvDong(it); }
+function _gvTTHien(it) { return _gvQuaHan(it) ? 'qua_han' : it.status; }
+function _gvPill(tt) { const [ho, nhan] = _GV_TT[tt] || ['neutral', 'Chưa đặt tên']; if (!_GV_TT[tt]) console.warn('Trạng thái việc chưa có nhãn:', tt); return `<span class="pill pill--${ho}">${nhan}</span>`; }
+function _gvAppNhan(a) { return _GV_APP[a] || 'Khác'; }
+
+/* Gộp việc giao cùng một lượt cho nhiều người (group_id) thành một dòng. */
+function _gvNhom(items) {
+  const m = new Map(), thu = [];
+  items.forEach(it => { const k = it.group_id ? 'g:' + it.group_id : 's:' + it.id; if (!m.has(k)) { m.set(k, []); thu.push(k); } m.get(k).push(it); });
+  return thu.map(k => m.get(k));
 }
-
-function gvSwitchBucket(bk) {
-  gvCurrentBucket = bk;
-  document.querySelectorAll('.gv-bucket-tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.bucket === bk);
-  });
-  gvLoadList();
-}
-
-function _gvGroupItems(items, isInbox) {
-  if (isInbox) return items.map(it => [it]);
-  const map = new Map();
-  const order = [];
-  for (const it of items) {
-    const key = it.group_id ? ('g:' + it.group_id) : ('s:' + it.id);
-    if (!map.has(key)) { order.push(key); map.set(key, []); }
-    map.get(key).push(it);
-  }
-  return order.map(k => map.get(k));
-}
-
-function _gvAggStatus(group) {
-  const s = group.map(x => x.status);
-  if (s.some(x => x === 'in_progress')) return 'in_progress';
- if (s.some(x => x === 'blocked')) return 'blocked';
+function _gvTTNhom(g) {
+  const s = g.map(x => x.status);
+  if (g.some(_gvQuaHan)) return 'qua_han';
+  if (s.indexOf('in_progress') >= 0) return 'in_progress';
+  if (s.indexOf('blocked') >= 0) return 'blocked';
   if (s.some(x => x === 'assigned' || x === 'open')) return 'assigned';
- if (s.every(x => x === 'done')) return 'done';
+  if (s.every(x => x === 'done')) return 'done';
   if (s.every(x => x === 'cancelled' || x === 'dropped')) return 'cancelled';
-  if (s.every(x => x === 'done' || x === 'cancelled' || x === 'dropped')) return 'done';
-  return s[0] || 'assigned';
+  return 'done';
 }
+function _gvKhopTT(tt, loc) { if (!loc) return true; if (loc === 'cancelled') return tt === 'cancelled' || tt === 'dropped'; if (loc === 'assigned') return tt === 'assigned' || tt === 'open'; return tt === loc; }
 
-function _gvDaysBetween(iso) {
-  if (!iso) return null;
-  const t = new Date(iso).getTime();
-  if (isNaN(t)) return null;
-  return Math.floor((Date.now() - t) / 86400000);
-}
-
-function _gvKpiUpdate(items) {
-  const today = new Date().toISOString().slice(0, 10);
-  const monthPrefix = today.slice(0, 7);
-  let overdue = 0, silent = 0;
-  let totalThisMonth = 0, doneThisMonth = 0;
-  for (const it of items) {
-    const st = it.status;
-    const isClosed = (st === 'done' || st === 'cancelled' || st === 'dropped');
-    if (it.due_date && it.due_date < today && !isClosed) overdue++;
-    if (!isClosed) {
-      const d = _gvDaysBetween(it.last_activity_at || it.created_at);
-      if (d !== null && d > 3) silent++;
-    }
-    const createdMonth = (it.created_at || '').slice(0, 7);
-    if (createdMonth === monthPrefix) {
-      totalThisMonth++;
-      if (st === 'done') doneThisMonth++;
-    }
-  }
-  const rate = totalThisMonth ? Math.round(doneThisMonth * 100 / totalThisMonth) : 0;
-  document.getElementById('gv-kpi-total').textContent = items.length;
-  document.getElementById('gv-kpi-overdue').textContent = overdue;
-  document.getElementById('gv-kpi-silent').textContent = silent;
-  document.getElementById('gv-kpi-done-rate').textContent = rate + '%';
-}
-
-function _gvBucketCounts(items) {
-  const c = { waiting: 0, working: 0, finished: 0, all: items.length };
-  for (const it of items) {
-    const b = gvBucketOf(it.status);
-    c[b] = (c[b] || 0) + 1;
-  }
- document.getElementById('gv-bk-waiting').textContent = c.waiting;
- document.getElementById('gv-bk-working').textContent = c.working;
-  document.getElementById('gv-bk-finished').textContent = c.finished;
- document.getElementById('gv-bk-all').textContent = c.all;
-}
-
-// ══ Helper dùng chung: lọc thời gian (chip) + phân trang cho 1 danh sách client-side ══
-(function(){
-  if (document.getElementById('csfp-style')) return;
-  const s = document.createElement('style'); s.id = 'csfp-style';
- s.textContent = ".csfp-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 12px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 14px;box-shadow:0 2px 6px rgba(15,23,42,.04)}"
- + ".csfp-lbl{font-size:12px;font-weight:700;color:var(--text-2);white-space:nowrap}"
- + ".csfp-chip{padding:6px 13px;border:1.5px solid var(--border);border-radius:20px;font-size:12px;font-weight:600;color:var(--text-3);background:#fff;cursor:pointer;font-family:inherit;transition:all .15s}"
- + ".csfp-chip:hover{border-color:var(--brand);color:var(--brand)}.csfp-chip.active{background:var(--brand-soft);color:var(--brand-hover);border-color:var(--brand-soft);font-weight:700}"
- + ".csfp-month{padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;color:var(--text-1)}"
- + ".csfp-count{margin-left:auto;font-size:12px;color:var(--text-3);font-weight:600}"
-    + ".csfp-pager{display:flex;justify-content:center;align-items:center;gap:12px;padding:14px 0 2px}"
- + ".csfp-pg{padding:6px 14px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--text-1);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}"
- + ".csfp-pg:hover:not(:disabled){border-color:var(--brand);color:var(--brand)}.csfp-pg:disabled{opacity:.4;cursor:not-allowed}.csfp-pgtxt{font-size:13px;color:var(--text-3)}";
-  document.head.appendChild(s);
-})();
-window._csfp = window._csfp || {};
-function csfpInit(key, opt){ window._csfp[key] = Object.assign({all:[],page:1,per:15,range:'',month:''}, window._csfp[key]||{}, opt||{}); return window._csfp[key]; }
-function csfpInRange(s, st){
-  s = (s||'').slice(0,10); if(!s) return true;
-  if(st.month) return s.slice(0,7)===st.month;
-  if(!st.range) return true;
-  const bd=new Date(s), now=new Date(); if(isNaN(bd.getTime())) return true;
-  if(st.range==='thang_nay') return bd.getFullYear()===now.getFullYear() && bd.getMonth()===now.getMonth();
-  if(st.range==='nam_nay') return bd.getFullYear()===now.getFullYear();
-  if(st.range==='thang_truoc'){const m=new Date(now.getFullYear(),now.getMonth()-1,1);return bd.getFullYear()===m.getFullYear()&&bd.getMonth()===m.getMonth();}
-  return true;
-}
-function csfpApply(key){
-  const st=window._csfp[key]; if(!st) return;
-  const gd = st.getDate || (d=>d.created_at);
-  const filtered = (st.all||[]).filter(d=>csfpInRange(gd(d), st));
-  const totalPages = Math.max(1, Math.ceil(filtered.length/st.per));
-  if(st.page>totalPages) st.page=totalPages; if(st.page<1) st.page=1;
-  const rows = filtered.slice((st.page-1)*st.per, st.page*st.per);
-  const meta = {page:st.page, totalPages, total:filtered.length, totalAll:(st.all||[]).length};
-  if(st.render) st.render(rows, meta);
-  const cnt=document.querySelector('.csfp-bar[data-key="'+key+'"] .csfp-count');
-  if(cnt) cnt.textContent = meta.total + ' mục' + (meta.total!==meta.totalAll ? (' / '+meta.totalAll) : '');
-}
-function csfpSetData(key, all){ const st=window._csfp[key]; if(!st) return; st.all=all||[]; st.page=1; csfpApply(key); }
-function _csfpChips(key, active){ document.querySelectorAll('.csfp-bar[data-key="'+key+'"] .csfp-chip').forEach(b=>b.classList.toggle('active', active!==null && b.dataset.k===active)); }
-function csfpRange(key, k){ const st=window._csfp[key]; if(!st) return; st.range=k; st.month=''; _csfpChips(key,k); const mo=document.querySelector('.csfp-bar[data-key="'+key+'"] .csfp-month'); if(mo) mo.value=''; st.page=1; csfpApply(key); }
-function csfpMonth(key, v){ const st=window._csfp[key]; if(!st) return; st.month=v||''; if(v){st.range='';_csfpChips(key,null);}else{_csfpChips(key,'');} st.page=1; csfpApply(key); }
-function csfpGo(key, delta){ const st=window._csfp[key]; if(!st) return; st.page+=delta; csfpApply(key); }
-function csfpPagerHtml(key, meta){
-  if(meta.totalPages<=1) return '';
-  return '<div class="csfp-pager">'
-    + '<button class="csfp-pg" '+(meta.page<=1?'disabled':'')+' onclick="csfpGo(\''+key+'\',-1)">‹ Trước</button>'
-    + '<span class="csfp-pgtxt">Trang <b>'+meta.page+'</b>/'+meta.totalPages+'</span>'
-    + '<button class="csfp-pg" '+(meta.page>=meta.totalPages?'disabled':'')+' onclick="csfpGo(\''+key+'\',1)">Sau ›</button></div>';
-}
-
-async function gvLoadList() {
-  const wrap = document.getElementById('gv-list-wrap');
- wrap.innerHTML = '<div class="gv-empty"><div class="emoji"></div>Đang tải…</div>';
-  let url, isInbox = (gvCurrentView === 'inbox');
-  if (isInbox) {
-    url = '/api/giao-viec/inbox?status=all';
-  } else {
-    const app = document.getElementById('gv-app-filter').value;
-    const toUser = document.getElementById('gv-to-user-filter').value.trim();
-    url = '/api/giao-viec/list?status=all';
-    if (app) url += '&app=' + encodeURIComponent(app);
-    if (toUser) url += '&to_user=' + encodeURIComponent(toUser);
-  }
-  try {
-    const data = await window.api(url);
-    const items = data.items || [];
-    _gvKpiUpdate(items);
-    _gvBucketCounts(items);
-    const filtered = gvCurrentBucket === 'all'
-      ? items
-      : items.filter(it => gvBucketOf(it.status) === gvCurrentBucket);
-    const groups = _gvGroupItems(filtered, isInbox);
-    document.getElementById(isInbox ? 'gv-count-inbox' : 'gv-count-sent').textContent = groups.length;
-    csfpInit('gv_list', { per:12, getDate:g=>(g[0]&&g[0].created_at)||'', render:(rows,meta)=>{
-      if(!rows.length){
- wrap.innerHTML = '<div class="gv-empty"><div class="emoji"></div>'+(meta.totalAll?'Không có task trong khoảng đã chọn':'Không có task ở mục này')+'</div>';
-      } else {
-        wrap.innerHTML = rows.map(g => gvRenderCard(g, isInbox)).join('');
-        wrap.querySelectorAll('.gv-card').forEach(el => {
-          const gid = el.dataset.groupId;
-          if (gid) el.addEventListener('click', () => gvOpenGroupDetail(gid));
-          else el.addEventListener('click', () => gvOpenDetail(parseInt(el.dataset.id, 10), isInbox));
-        });
-      }
-      const pg=document.getElementById('csfp-pager-gv_list'); if(pg) pg.innerHTML=csfpPagerHtml('gv_list',meta);
-    }});
-    csfpSetData('gv_list', groups);
-  } catch (e) {
- wrap.innerHTML = '<div class="gv-empty"><div class="emoji"></div>Lỗi: ' + window.esc(e.message) + '</div>';
-  }
-}
-
-function _gvTrackChips(it) {
-  const chips = [];
-  if (it.acknowledged_at) {
- chips.push('<span class="tk ack-tk"> Đã nhận ' + window.fmtDateTime(it.acknowledged_at) + '</span>');
-  }
-  if (it.status === 'blocked' && (it.blocked_reason || it.blocked_at)) {
-    const r = it.blocked_reason ? (': ' + window.esc(it.blocked_reason)) : '';
-    chips.push('<span class="tk blocked-tk">⏸️ Tạm dừng' + r + '</span>');
-  }
-  const isClosed = (it.status === 'done' || it.status === 'cancelled' || it.status === 'dropped');
-  if (!isClosed) {
-    const d = _gvDaysBetween(it.last_activity_at || it.created_at);
-    if (d !== null && d > 3) {
- chips.push('<span class="tk silent-tk"> Im lặng ' + d + ' ngày</span>');
-    }
-  }
-  if (it.completed_at) {
- chips.push('<span class="tk done-tk"> Hoàn thành ' + window.fmtDateTime(it.completed_at) + '</span>');
-  }
-  return chips.length ? '<div class="gv-track">' + chips.join('') + '</div>' : '';
-}
-
-function gvRenderCard(group, isInbox) {
-  const head = group[0];
-  const today = new Date().toISOString().slice(0, 10);
-  const agg = _gvAggStatus(group);
-  const isOpen = !(agg === 'done' || agg === 'cancelled' || agg === 'dropped');
-  const overdue = head.due_date && head.due_date < today && isOpen;
-  const dueText = head.due_date
- ? '<span class="gv-due ' + (overdue ? 'overdue' : '') + '"> ' + window.fmtDate(head.due_date) + (overdue ? ' (quá hạn)' : '') + '</span>'
-    : '';
-  let recipient;
-  if (isInbox) recipient = '<span>Từ: <b>' + window.esc(head.from_user_name) + '</b></span>';
-  else if (group.length === 1) recipient = '<span>Cho: <b>' + window.esc(head.to_user_name) + '</b></span>';
-  else {
-    const doneCount = group.filter(x => x.status === 'done').length;
-    const names = group.map(x => window.esc(x.to_user_name)).join(', ');
-    recipient = '<span>Cho <b>' + group.length + ' NV</b> (' + doneCount + '/' + group.length + ' xong): ' + names + '</span>';
-  }
-  const respHtml = (group.length === 1 && head.response)
-    ? '<div class="gv-resp"><span class="resp-label">Phản hồi NV</span>' + window.esc(head.response) + '</div>' : '';
-  const bodyHtml = head.body ? '<div class="gv-body">' + window.esc(head.body) + '</div>' : '';
-  const trackHtml = (group.length === 1) ? _gvTrackChips(head) : '';
-  const dataAttr = (!isInbox && group.length > 1 && head.group_id)
-    ? 'data-group-id="' + window.esc(head.group_id) + '"'
-    : 'data-id="' + head.id + '"';
-  return '<div class="gv-card prio-' + head.priority + '" ' + dataAttr + '>'
-    + '<div class="gv-head">'
-    + '<span class="gv-prio" title="Ưu tiên: ' + (GV_PRIO_LABEL[head.priority] || '') + '"></span>'
-    + '<div class="gv-title">' + window.esc(head.title) + '</div>'
-    + '<span class="gv-status ' + agg + '">' + (GV_STATUS_LABEL[agg] || agg) + '</span>'
-    + '</div>'
-    + '<div class="gv-meta">'
-    + '<span class="badge-app">' + (GV_APP_LABEL[head.app] || head.app) + '</span>'
-    + recipient + dueText
- + '<span> ' + window.fmtDateTime(head.created_at) + '</span>'
-    + '</div>' + bodyHtml + respHtml + trackHtml + '</div>';
-}
-
-async function gvOpenGroupDetail(groupId) {
-  const m = document.getElementById('gv-detail-modal');
-  const body = document.getElementById('gv-detail-body');
-  const titleEl = document.getElementById('gv-detail-title');
- body.innerHTML = '<div class="gv-empty"> Đang tải…</div>';
-  m.classList.add('show');
-  try {
-    const app = document.getElementById('gv-app-filter').value;
-    let url = '/api/giao-viec/list?status=all';
-    if (app) url += '&app=' + encodeURIComponent(app);
-    const data = await window.api(url);
-    const group = (data.items || []).filter(x => x.group_id === groupId);
-    if (!group.length) throw new Error('Không tìm thấy nhóm');
-    titleEl.textContent = 'Task nhóm (' + group.length + ' NV)';
-    const head = group[0];
-    const rows = group.map(it => {
-      const sb = '<span class="gv-status ' + it.status + '">' + (GV_STATUS_LABEL[it.status] || it.status) + '</span>';
-      const resp = (it.response || '').trim() || '—';
-      const acts = [];
-      if (GV_CAN_ASSIGN) {
-        if (it.status === 'done') {
-          acts.push('<button class="btn btn-warning" data-act="reopen" data-id="' + it.id + '">Yêu cầu làm lại</button>');
-        }
-        if (it.status !== 'done' && it.status !== 'cancelled' && it.status !== 'dropped') {
-          acts.push('<button class="btn btn-danger" data-act="cancel" data-id="' + it.id + '">Hủy</button>');
-        }
-      }
- return '<tr><td>' + window.esc(it.to_user_name) + '<br><small style="color:var(--text-3)">' + window.esc(it.to_user) + '</small></td><td>' + sb + '</td><td style="font-size:12.5px;white-space:pre-wrap">' + window.esc(resp) + '</td><td style="white-space:nowrap;display:flex;gap:4px;flex-wrap:wrap">' + acts.join(' ') + '</td></tr>';
-    }).join('');
- body.innerHTML = '<div style="margin-bottom:14px"><div style="font-size:16px;font-weight:600;color:var(--brand);margin-bottom:8px">' + window.esc(head.title) + '</div>'
- + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:13px;color:var(--text-2)">'
-      + '<div><b>App:</b> ' + (GV_APP_LABEL[head.app] || head.app) + '</div>'
-      + '<div><b>Từ:</b> ' + window.esc(head.from_user_name) + '</div>'
-      + '<div><b>Ưu tiên:</b> ' + (GV_PRIO_LABEL[head.priority] || head.priority) + '</div>'
-      + (head.due_date ? '<div><b>Hạn:</b> ' + window.fmtDate(head.due_date) + '</div>' : '')
-      + '<div><b>Tạo lúc:</b> ' + window.fmtDateTime(head.created_at) + '</div></div></div>'
- + (head.body ? '<div class="form-group"><label>Mô tả</label><div style="white-space:pre-wrap;font-size:13px;line-height:1.5;background:var(--bg-page);padding:8px 10px;border-radius:6px">' + window.esc(head.body) + '</div></div>' : '')
-      + '<div class="form-group"><label>Tiến độ từng người (' + group.length + ')</label>'
- + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:480px"><thead><tr style="background:var(--bg-page);border-bottom:1px solid var(--border)">'
-      + '<th style="text-align:left;padding:6px">NV</th><th style="text-align:left;padding:6px">Trạng thái</th>'
-      + '<th style="text-align:left;padding:6px">Phản hồi</th><th style="text-align:left;padding:6px">Hành động</th>'
-      + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
-    document.querySelectorAll('#gv-detail-body button[data-act]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = parseInt(btn.dataset.id, 10);
-        const act = btn.dataset.act;
-        try {
-          if (act === 'reopen') {
-            const reason = prompt('Lý do yêu cầu làm lại:') || '';
-            if (!reason.trim()) { window.toast('Cần nhập lý do', 'warning'); return; }
-            await window.api('/api/giao-viec/' + id + '/reopen', { method: 'POST', body: { reason } });
-            window.toast('Đã yêu cầu NV làm lại', 'success');
-          } else if (act === 'cancel') {
-            const reason = prompt('Lý do hủy task:') || '';
-            await window.api('/api/giao-viec/' + id + '/close', { method: 'POST', body: { status: 'dropped', note: reason || undefined } });
-            window.toast('Đã hủy task', 'success');
-          }
-          gvCloseDetail(); gvLoadList();
-        } catch (e) { window.toast('Lỗi: ' + e.message, 'error'); }
-      });
-    });
- } catch (e) { body.innerHTML = '<div class="gv-empty"> ' + window.esc(e.message) + '</div>'; }
-}
-
-
-async function gvOpenDetail(id, isInbox) {
-  const m = document.getElementById('gv-detail-modal');
-  const body = document.getElementById('gv-detail-body');
- body.innerHTML = '<div class="gv-empty"> Đang tải…</div>';
-  m.classList.add('show');
-
-  try {
-    let it;
-    if (GV_CAN_ASSIGN && !isInbox) {
-      it = await window.api(`/api/giao-viec/${id}`);
-    } else {
-      const data = await window.api(`/api/giao-viec/inbox?status=all`);
-      it = (data.items || []).find(x => x.id === id);
-      if (!it) throw new Error('Không tìm thấy task');
-    }
-    body.innerHTML = gvRenderDetail(it, isInbox);
-    gvBindDetailActions(it, isInbox);
-  } catch (e) {
- body.innerHTML = `<div class="gv-empty"> ${window.esc(e.message)}</div>`;
-  }
-}
-
-function _gvTrackBlock(it) {
-  const rows = [];
-  if (it.acknowledged_at) rows.push(`<div class="tk-row"><b>Đã nhận:</b> ${window.fmtDateTime(it.acknowledged_at)}</div>`);
- if (it.started_at) rows.push(`<div class="tk-row"><b>Bắt đầu:</b> ${window.fmtDateTime(it.started_at)}</div>`);
-  if (it.blocked_at && it.status === 'blocked') rows.push(`<div class="tk-row"><b>Tạm dừng lúc:</b> ${window.fmtDateTime(it.blocked_at)}</div>`);
-  if (it.last_activity_at) rows.push(`<div class="tk-row"><b>Hoạt động gần nhất:</b> ${window.fmtDateTime(it.last_activity_at)}</div>`);
- if (it.completed_at) rows.push(`<div class="tk-row"><b>Hoàn thành lúc:</b> ${window.fmtDateTime(it.completed_at)}</div>`);
- if (it.closed_at) rows.push(`<div class="tk-row"><b>Đóng lúc:</b> ${window.fmtDateTime(it.closed_at)}</div>`);
-  if (it.status === 'blocked' && it.blocked_reason) {
-    rows.push(`<div class="tk-blocked-reason"><b>⏸️ Lý do dừng:</b> ${window.esc(it.blocked_reason)}</div>`);
-  }
-  if (!rows.length) return '';
-  return `<div class="gv-track-block">${rows.join('')}</div>`;
-}
-
-function gvRenderDetail(it, isInbox) {
-  const today = new Date().toISOString().slice(0, 10);
-  const isClosed = (it.status === 'done' || it.status === 'cancelled' || it.status === 'dropped');
-  const overdue = it.due_date && it.due_date < today && !isClosed;
-  const meta = [
-    `<div><b>App:</b> ${GV_APP_LABEL[it.app] || it.app}</div>`,
-    `<div><b>Từ:</b> ${window.esc(it.from_user_name)} (${window.esc(it.from_user)})</div>`,
-    `<div><b>Cho:</b> ${window.esc(it.to_user_name)} (${window.esc(it.to_user)})</div>`,
-    `<div><b>Ưu tiên:</b> ${GV_PRIO_LABEL[it.priority] || it.priority}</div>`,
- `<div><b>Trạng thái:</b><span class="gv-status ${it.status}">${GV_STATUS_LABEL[it.status] || it.status}</span></div>`,
-    it.due_date ? `<div><b>Hạn:</b> ${window.fmtDate(it.due_date)}${overdue ? ' <span style="color:#dc2626">(quá hạn)</span>' : ''}</div>` : '',
-    `<div><b>Tạo lúc:</b> ${window.fmtDateTime(it.created_at)}</div>`,
-  ].filter(Boolean).join('');
-
-  const bodyBlock = it.body
- ? `<div class="form-group"><label>Mô tả</label><div style="white-space:pre-wrap;font-size:13px;line-height:1.5;background:var(--bg-page);padding:8px 10px;border-radius:6px">${window.esc(it.body)}</div></div>`
-    : '';
-
-  const trackBlock = _gvTrackBlock(it);
-
-  const isOwnTask = (it.to_user === GV_CURRENT_USER);
-  const canRespond = isOwnTask && !isClosed;
-  const respBlock = `
-    <div class="form-group">
-      <label>Phản hồi từ NV</label>
-      <textarea id="gv-resp-textarea" class="form-control" rows="3"
-                ${canRespond ? '' : 'readonly'}
-                placeholder="${canRespond ? 'Cập nhật tiến độ / ghi chú...' : (it.response ? '' : 'Chưa có phản hồi')}">${window.esc(it.response || '')}</textarea>
-    </div>
-  `;
-
-  const actions = [];
-  const st = it.status;
-  const isAssigned = (st === 'assigned' || st === 'open');
-
-  if (isOwnTask) {
-    if (canRespond) {
-      actions.push(`<button class="btn" id="gv-btn-respond">Lưu phản hồi</button>`);
-    }
-    if (isAssigned) {
- actions.push(`<button class="btn btn-success" id="gv-btn-ack"> Đã nhận</button>`);
-      actions.push(`<button class="btn btn-info" id="gv-btn-start">▶️ Bắt đầu làm</button>`);
-    }
-    if (st === 'in_progress') {
-      actions.push(`<button class="btn btn-warning" id="gv-btn-pause">⏸️ Tạm dừng</button>`);
- actions.push(`<button class="btn btn-success" id="gv-btn-complete"> Hoàn thành</button>`);
-    }
-    if (st === 'blocked') {
-      actions.push(`<button class="btn btn-info" id="gv-btn-resume">▶️ Tiếp tục làm</button>`);
- actions.push(`<button class="btn btn-success" id="gv-btn-complete"> Hoàn thành</button>`);
-    }
-  }
-
-  const isSender = (it.from_user === GV_CURRENT_USER);
-  if (!isInbox && (GV_CAN_ASSIGN || isSender)) {
-    if (st === 'done') {
- actions.push(`<button class="btn btn-warning" id="gv-btn-reopen"> Yêu cầu làm lại</button>`);
-    }
-    if (!isClosed) {
- actions.push(`<button class="btn btn-danger" id="gv-btn-drop"> Hủy task</button>`);
-    }
-    actions.push(`<button class="btn btn-danger" id="gv-btn-delete" style="margin-left:auto">Xoá task</button>`);
-  }
-  if (isInbox && (GV_CAN_ASSIGN || isSender) && !isClosed && !actions.find(a => a.includes('gv-btn-drop'))) {
- actions.push(`<button class="btn btn-danger" id="gv-btn-drop"> Hủy task</button>`);
-  }
-
-  return `
-    <div style="margin-bottom:14px">
- <div style="font-size:16px;font-weight:600;color:var(--brand);margin-bottom:8px">${window.esc(it.title)}</div>
- <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:13px;color:var(--text-2)">${meta}</div>
-    </div>
-    ${bodyBlock}
-    ${trackBlock}
-    ${respBlock}
-    <div class="form-actions" id="gv-detail-actions">${actions.join('')}</div>
-  `;
-}
-
-async function _gvCallAction(id, path, body, okMsg) {
-  try {
-    await window.api(`/api/giao-viec/${id}${path}`, { method: 'POST', body: body || {} });
-    window.toast(okMsg, 'success');
-    gvCloseDetail();
-    gvLoadList();
-  } catch (e) { window.toast('Lỗi: ' + e.message, 'error'); }
-}
-
-function gvBindDetailActions(it, isInbox) {
-  const respBtn = document.getElementById('gv-btn-respond');
-  if (respBtn) {
-    respBtn.addEventListener('click', async () => {
-      const txt = (document.getElementById('gv-resp-textarea').value || '').trim();
-      if (!txt) { window.toast('Vui lòng nhập phản hồi', 'warning'); return; }
-      try {
-        await window.api(`/api/giao-viec/${it.id}/respond`, {
-          method: 'POST', body: { response: txt },
-        });
-        window.toast('Đã cập nhật phản hồi', 'success');
-        gvCloseDetail();
-        gvLoadList();
-      } catch (e) { window.toast('Lỗi: ' + e.message, 'error'); }
-    });
-  }
-
-  const ackBtn = document.getElementById('gv-btn-ack');
-  if (ackBtn) ackBtn.addEventListener('click', () => _gvCallAction(it.id, '/ack', {}, 'Đã xác nhận nhận task'));
-
-  const startBtn = document.getElementById('gv-btn-start');
-  if (startBtn) startBtn.addEventListener('click', () => _gvCallAction(it.id, '/start', {}, 'Đã bắt đầu làm task'));
-
-  const pauseBtn = document.getElementById('gv-btn-pause');
-  if (pauseBtn) pauseBtn.addEventListener('click', () => {
-    const reason = prompt('Lý do tạm dừng:') || '';
-    if (!reason.trim()) { window.toast('Cần nhập lý do tạm dừng', 'warning'); return; }
-    _gvCallAction(it.id, '/pause', { reason }, 'Đã tạm dừng task');
-  });
-
-  const resumeBtn = document.getElementById('gv-btn-resume');
-  if (resumeBtn) resumeBtn.addEventListener('click', () => _gvCallAction(it.id, '/resume', {}, 'Đã tiếp tục làm task'));
-
-  const completeBtn = document.getElementById('gv-btn-complete');
-  if (completeBtn) completeBtn.addEventListener('click', () => {
-    const txtArea = document.getElementById('gv-resp-textarea');
-    const existing = (txtArea && txtArea.value || '').trim();
-    const result = prompt('Kết quả / mô tả ngắn khi hoàn thành:', existing) || '';
-    if (!result.trim()) { window.toast('Cần ghi kết quả hoàn thành', 'warning'); return; }
-    _gvCallAction(it.id, '/complete', { response: result }, 'Đã đánh dấu hoàn thành');
-  });
-
-  const reopenBtn = document.getElementById('gv-btn-reopen');
-  if (reopenBtn) reopenBtn.addEventListener('click', () => {
-    const reason = prompt('Lý do yêu cầu làm lại:') || '';
-    if (!reason.trim()) { window.toast('Cần nhập lý do', 'warning'); return; }
-    _gvCallAction(it.id, '/reopen', { reason }, 'Đã yêu cầu NV làm lại');
-  });
-
-  const dropBtn = document.getElementById('gv-btn-drop');
-  if (dropBtn) {
-    dropBtn.addEventListener('click', async () => {
-      const reason = prompt('Lý do hủy task:') || '';
-      if (!reason.trim()) { window.toast('Cần nhập lý do hủy', 'warning'); return; }
-      try {
-        await window.api(`/api/giao-viec/${it.id}/close`, {
-          method: 'POST', body: { status: 'dropped', note: reason },
-        });
-        window.toast('Đã hủy task', 'success');
-        gvCloseDetail();
-        gvLoadList();
-      } catch (e) { window.toast('Lỗi: ' + e.message, 'error'); }
-    });
-  }
-
-  const delBtn = document.getElementById('gv-btn-delete');
-  if (delBtn) {
-    delBtn.addEventListener('click', () => gvDeleteTask(it.id, it.title));
-  }
-}
-
-async function gvDeleteTask(id, title) {
-  if (!confirm(`Xoá hẳn task "${title}"?\n\nThao tác này không thể hoàn tác.`)) return;
-  try {
-    await window.api(`/api/giao-viec/${id}`, { method: 'DELETE' });
-    window.toast('Đã xoá task', 'success');
-    gvCloseDetail();
-    gvLoadList();
-  } catch (e) { window.toast('Lỗi xoá: ' + e.message, 'error'); }
-}
-
-function gvCloseDetail() { document.getElementById('gv-detail-modal').classList.remove('show'); }
-
-let GV_RECIPIENTS = [];
-let gvSelected = [];
-
-async function gvLoadRecipients() {
-  const hint = document.getElementById('gv-parts-hint');
-  try {
-    const r = await window.api('/api/giao-viec/recipients');
-    GV_RECIPIENTS = (r.items || []).map(u => ({
-      username: u.username, ho_ten: u.ho_ten || u.username,
-      phong_ban: u.phong_ban || '', chuc_vu: u.chuc_vu || '',
-    }));
-    gvPopulateDropdown();
-    if (hint) hint.textContent = `Có ${GV_RECIPIENTS.length} NV — chọn từ dropdown hoặc gõ tìm thêm.`;
-  } catch (err) {
-    GV_RECIPIENTS = [];
-    if (hint) hint.innerHTML = `<span style="color:#dc2626">Không nạp được danh sách NV: ${err.message}</span>`;
-  }
-}
-
-function gvPopulateDropdown() {
-  const sel = document.getElementById('gv-to-user-dropdown');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">-- Chọn nhân viên từ danh sách --</option>';
-  const groups = {};
-  GV_RECIPIENTS.forEach(u => {
-    const pb = u.phong_ban || '(Chưa rõ phòng)';
-    if (!groups[pb]) groups[pb] = [];
-    groups[pb].push(u);
-  });
-  Object.keys(groups).sort().forEach(pb => {
-    const og = document.createElement('optgroup');
-    og.label = pb;
-    groups[pb].forEach(u => {
-      const opt = document.createElement('option');
-      opt.value = u.username;
-      const cv = u.chuc_vu ? ` — ${u.chuc_vu}` : '';
-      opt.textContent = `${u.ho_ten}${cv} (${u.username})`;
-      opt.dataset.ho_ten = u.ho_ten;
-      og.appendChild(opt);
-    });
-    sel.appendChild(og);
-  });
-  sel.onchange = () => {
-    const v = sel.value;
-    if (!v) return;
-    const opt = sel.options[sel.selectedIndex];
-    const ho_ten = opt.dataset.ho_ten || v;
-    gvAddRecipient(v, ho_ten);
-    sel.value = '';
-  };
-}
-
-function gvAddRecipient(username, ho_ten) {
-  username = (username || '').trim();
-  if (!username) return;
-  if (gvSelected.some(p => p.username === username)) return;
-  gvSelected.push({ username, ho_ten: ho_ten || username });
-  gvRenderChips();
-}
-
-function gvRenderChips() {
-  const box = document.getElementById('gv-parts-box');
-  const input = document.getElementById('gv-parts-input');
-  box.querySelectorAll('.pchip').forEach(c => c.remove());
-  gvSelected.forEach(p => {
-    const chip = document.createElement('span');
-    chip.className = 'pchip';
-    chip.innerHTML = `${window.esc(p.ho_ten)} <span class="x">×</span>`;
-    chip.querySelector('.x').onclick = () => {
-      gvSelected = gvSelected.filter(x => x.username !== p.username);
-      gvRenderChips();
-    };
-    box.insertBefore(chip, input);
-  });
-}
-
-function gvBindPartsInput() {
-  const input = document.getElementById('gv-parts-input');
-  const suggest = document.getElementById('gv-parts-suggest');
-  if (!input || input.dataset.bound) return;
-  input.dataset.bound = '1';
-  input.addEventListener('input', () => {
-    const q = input.value.trim().toLowerCase();
-    if (!q || !GV_RECIPIENTS.length) { suggest.classList.remove('show'); return; }
-    const matches = GV_RECIPIENTS.filter(u =>
-      !gvSelected.some(p => p.username === u.username) &&
-      ((u.username || '').toLowerCase().includes(q) || (u.ho_ten || '').toLowerCase().includes(q))
-    ).slice(0, 10);
-    if (!matches.length) { suggest.classList.remove('show'); return; }
-    suggest.innerHTML = matches.map(u =>
- `<div class="suggest-item" data-u="${window.esc(u.username)}" data-n="${window.esc(u.ho_ten)}">${window.esc(u.ho_ten)} <small style="color:var(--text-3)">(${window.esc(u.username)})</small></div>`
-    ).join('');
-    suggest.classList.add('show');
-    suggest.querySelectorAll('.suggest-item').forEach(it => {
-      it.onclick = () => {
-        gvAddRecipient(it.dataset.u, it.dataset.n);
-        input.value = '';
-        suggest.classList.remove('show');
-      };
-    });
-  });
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const v = input.value.trim();
-      if (v) { gvAddRecipient(v, v); input.value = ''; suggest.classList.remove('show'); }
-    } else if (e.key === 'Backspace' && !input.value && gvSelected.length) {
-      gvSelected.pop(); gvRenderChips();
-    }
-  });
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.gv-parts-wrap')) suggest.classList.remove('show');
-  });
-}
-
-function gvOpenCreate() {
-  if (!GV_CAN_ASSIGN) { window.toast('Bạn không có quyền tạo task', 'error'); return; }
-  document.getElementById('gv-create-form').reset();
-  gvSelected = [];
-  gvRenderChips();
-  document.getElementById('gv-create-modal').classList.add('show');
-  gvBindPartsInput();
-  if (GV_RECIPIENTS.length === 0) gvLoadRecipients();
-}
-function gvCloseCreate() {
-  document.getElementById('gv-create-modal').classList.remove('show');
-}
-
-document.getElementById('gv-create-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (!gvSelected.length) {
-    window.toast('Chưa chọn nhân viên nhận task', 'warning');
+// ── Nạp dữ liệu ─────────────────────────────────────────────────────────────
+async function gvTaiDaGiao() {
+  if (!GV_CAN_ASSIGN) return;
+  const than = document.getElementById('gv-da-giao-than');
+  than.innerHTML = '<tr class="empty-row"><td colspan="6">Đang tải...</td></tr>';
+  let d;
+  try { d = await _gvApi('/api/giao-viec/list?status=all&limit=500' + (_gv.coPv ? '&pham_vi=' + _gv.pv : '')); }
+  catch (e) {
+    // Máy chủ chưa có tham số pham_vi (422) → lấy danh sách cũ, lọc ở trình duyệt.
+    if (e.status === 422 && _gv.coPv) { _gv.coPv = false; return gvTaiDaGiao(); }
+    than.innerHTML = `<tr class="empty-row"><td colspan="6">Không tải được danh sách: ${_gvE(e.message)} <button type="button" class="btn-link" onclick="gvTaiDaGiao()">Thử lại</button></td></tr>`;
     return;
   }
-  const fd = new FormData(e.target);
-  const body = Object.fromEntries(fd.entries());
-  if (!body.due_date) delete body.due_date;
-  if (!body.body) delete body.body;
-  body.to_users = gvSelected.map(p => p.username);
-
-  try {
-    const r = await window.api('/api/giao-viec', { method: 'POST', body });
-    const n = r.count || (r.ids ? r.ids.length : 1);
-    window.toast(n > 1 ? `Đã giao task cho ${n} người` : 'Đã giao task', 'success');
-    gvCloseCreate();
-    gvLoadList();
-  } catch (err) {
-    window.toast('Lỗi: ' + err.message, 'error');
-  }
-});
-
-document.querySelectorAll('.gv-modal').forEach(m => {
-  m.addEventListener('click', (e) => { if (e.target === m) m.classList.remove('show'); });
-});
-
-// Init: NV thường mở tab "inbox"; CEO/Manager/Leader mở tab "sent" + nạp recipients
-if (!GV_CAN_ASSIGN) {
-  gvSwitchTab('inbox');
-} else {
-  gvLoadList();
-  gvLoadRecipients();
-  window.api('/api/giao-viec/inbox?status=all').then(d => {
-    document.getElementById('gv-count-inbox').textContent = (d.items || []).length;
-  }).catch(() => {});
+  let items = (d && d.items) || [];
+  if (!_gv.coPv && _gv.pv === 'toi_giao') items = items.filter(it => it.from_user === GV_ME);
+  _gv.daGiao = items;
+  if (items.some(it => Array.isArray(it.tep_dinh_kem))) _gv.coTep = true;
+  _gvCapNhatTep();
+  document.getElementById('gv-dem-giao').textContent = _gvNhom(items).length || '';
+  gvVeDaGiao(1);
+  gvVeSapHan();
+  gvVeThongKe();
 }
+async function gvTaiCuaToi() {
+  try {
+    const d = await _gvApi('/api/giao-viec/inbox?status=all');
+    _gv.cuaToi = (d && d.items) || [];
+    if (_gv.cuaToi.some(it => Array.isArray(it.tep_dinh_kem))) _gv.coTep = true;
+  } catch (e) {
+    ['gv-cua-toi-gon', 'gv-cua-toi-day'].forEach(id => { document.getElementById(id).innerHTML =
+      `<tr class="empty-row"><td colspan="7">Không tải được việc của bạn: ${_gvE(e.message)} <button type="button" class="btn-link" onclick="gvTaiCuaToi()">Thử lại</button></td></tr>`; });
+    return;
+  }
+  document.getElementById('gv-dem-cua-toi').textContent = _gv.cuaToi.filter(it => !_gvDong(it)).length || '';
+  gvVeCuaToi('gon', 1); gvVeCuaToi('day', 1);
+  if (!GV_CAN_ASSIGN) gvVeSapHan();
+  gvVeThongKe();
+}
+async function gvTaiNguoiNhan() {
+  if (!GV_CAN_ASSIGN) return;
+  try {
+    const d = await _gvApi('/api/giao-viec/recipients');
+    _gv.nguoiNhan = ((d && d.items) || []).map(u => ({ username: u.username, ho_ten: u.ho_ten || u.username, phong_ban: u.phong_ban || '', chuc_vu: u.chuc_vu || '', ma_nv: u.ma_nv || '' }));
+    document.getElementById('gv-f-nguoi-goi-y').textContent = `Có ${_gv.nguoiNhan.length} người bạn được giao việc — có thể chọn nhiều người, mỗi người nhận một việc riêng.`;
+  } catch (e) {
+    document.getElementById('gv-f-nguoi-goi-y').textContent = 'Không tải được danh sách nhân viên: ' + (e.message || '');
+  }
+}
+
+// ── Vẽ bảng ─────────────────────────────────────────────────────────────────
+function _gvDsTrang(p, n) {
+  if (n <= 7) return Array.from({ length: n }, (_, i) => i + 1);
+  const a = [1], d = Math.max(2, p - 1), c = Math.min(n - 1, p + 1);
+  if (d > 2) a.push(null); for (let i = d; i <= c; i++) a.push(i); if (c < n - 1) a.push(null); a.push(n);
+  return a;
+}
+function _gvVePhanTrang(khoa, tong, veLai) {
+  const o = document.getElementById(khoa === 'da-giao' ? 'gv-da-giao-pg' : `gv-cua-toi-${khoa}-pg`);
+  const co = _gv.co[khoa], n = Math.max(1, Math.ceil(tong / co)), p = Math.min(_gv.trang[khoa], n);
+  _gv.trang[khoa] = p;
+  if (!tong) { o.innerHTML = ''; return; }
+  const dau = (p - 1) * co + 1, cuoi = Math.min(tong, p * co);
+  o.innerHTML = `<span>Hiển thị ${dau}-${cuoi} / ${tong}</span>`
+    + `<div class="gv-pg-so"><button type="button" ${p <= 1 ? 'disabled' : ''} data-p="${p - 1}" aria-label="Trang trước">‹</button>`
+    + _gvDsTrang(p, n).map(x => x === null ? '<span>…</span>' : `<button type="button" class="${x === p ? 'is-active' : ''}" data-p="${x}" ${x === p ? 'aria-current="page"' : ''}>${x}</button>`).join('')
+    + `<button type="button" ${p >= n ? 'disabled' : ''} data-p="${p + 1}" aria-label="Trang sau">›</button></div>`
+    + `<label class="gv-pg-dem">Số dòng<select aria-label="Số dòng mỗi trang">${[5, 10, 20, 50].map(x => `<option ${x === co ? 'selected' : ''}>${x}</option>`).join('')}</select></label>`;
+  o.querySelectorAll('button[data-p]').forEach(b => b.onclick = () => veLai(Number(b.dataset.p)));
+  o.querySelector('select').onchange = e => { _gv.co[khoa] = Number(e.target.value); veLai(1); };
+}
+function gvVeDaGiao(trang) {
+  if (trang) _gv.trang['da-giao'] = trang;
+  const tt = document.getElementById('gv-l-tt').value, app = document.getElementById('gv-l-app').value;
+  const nhom = _gvNhom(_gv.daGiao).filter(g => {
+    const h = g[0], ngay = String(h.created_at || '').slice(0, 10);
+    return _gvKhopTT(_gvTTNhom(g), tt) && (!app || h.app === app) && (!_gv.tu || ngay >= _gv.tu) && (!_gv.den || ngay <= _gv.den);
+  });
+  const than = document.getElementById('gv-da-giao-than'), co = _gv.co['da-giao'];
+  _gvVePhanTrang('da-giao', nhom.length, gvVeDaGiao);
+  const p = _gv.trang['da-giao'], ds = nhom.slice((p - 1) * co, p * co);
+  if (!ds.length) {
+    than.innerHTML = `<tr class="empty-row"><td colspan="6">${_gv.daGiao.length ? 'Không có việc khớp bộ lọc.' : 'Chưa có việc nào — tạo việc đầu tiên ở thẻ phía trên.'}</td></tr>`;
+    return;
+  }
+  than.innerHTML = ds.map((g, i) => {
+    const h = g[0], tt = _gvTTNhom(g), nhieu = g.length > 1;
+    const nguoi = nhieu
+      ? `<div class="nv-cell"><span>${g.slice(0, 3).map(x => `<span class="gv-ava" title="${_gvE(x.to_user_name)}">${_gvE(_gvChuDau(x.to_user_name))}</span>`).join('')}</span>`
+        + `<span class="nv-ten">${g.length} người <span class="gv-td-phu">${g.filter(x => x.status === 'done').length}/${g.length} hoàn thành</span></span></div>`
+      : `<div class="nv-cell"><span class="gv-ava">${_gvE(_gvChuDau(h.to_user_name))}</span><span class="nv-ten">${_gvE(h.to_user_name || h.to_user)}</span></div>`;
+    return `<tr data-k="${nhieu ? 'g:' + _gvE(h.group_id) : h.id}" onclick="gvMoCT(this.dataset.k)">`
+      + `<td class="c-stt">${(p - 1) * co + i + 1}</td>`
+      + `<td><span class="gv-td-ten" title="${_gvE(h.title)}">${_gvE(h.title)}</span><span class="gv-td-phu">${_gvAppNhan(h.app)}</span></td>`
+      + `<td>${nguoi}</td><td class="c-han c-an-hep${g.some(_gvQuaHan) ? ' is-qua' : ''}">${_gvNgay(h.due_date) || '—'}</td>`
+      + `<td>${_gvPill(tt)}</td><td class="c-nut"><button type="button" class="gv-nut-icon" aria-label="Chi tiết" onclick="event.stopPropagation(); gvMoCT(this.closest('tr').dataset.k)">${_gvSvg('ba')}</button></td></tr>`;
+  }).join('');
+}
+function gvVeCuaToi(kieu, trang) {
+  if (trang) _gv.trang[kieu] = trang;
+  const tt = document.getElementById(kieu === 'gon' ? 'gv-m-tt' : 'gv-d-tt').value;
+  const app = document.getElementById(kieu === 'gon' ? 'gv-m-app' : 'gv-d-app').value;
+  const ds0 = _gv.cuaToi.filter(it => _gvKhopTT(_gvTTHien(it), tt) && (!app || it.app === app))
+    .sort((a, b) => (_gvDong(a) - _gvDong(b)) || String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')));
+  const than = document.getElementById(`gv-cua-toi-${kieu}`), co = _gv.co[kieu], cot = kieu === 'gon' ? 4 : 7;
+  _gvVePhanTrang(kieu, ds0.length, t => gvVeCuaToi(kieu, t));
+  const p = _gv.trang[kieu], ds = ds0.slice((p - 1) * co, p * co);
+  if (!ds.length) { than.innerHTML = `<tr class="empty-row"><td colspan="${cot}">${_gv.cuaToi.length ? 'Không có việc khớp bộ lọc.' : 'Chưa có việc nào được giao cho bạn.'}</td></tr>`; return; }
+  than.innerHTML = ds.map((it, i) => `<tr data-k="${it.id}" data-hop="1" onclick="gvMoCT(this.dataset.k, true)">`
+    + `<td class="c-stt">${(p - 1) * co + i + 1}</td>`
+    + `<td><span class="gv-td-ten" title="${_gvE(it.title)}">${_gvE(it.title)}</span>${kieu === 'gon' ? `<span class="gv-td-phu">Từ ${_gvE(it.from_user_name || it.from_user)}</span>` : ''}</td>`
+    + (kieu === 'day' ? `<td><div class="nv-cell"><span class="gv-ava">${_gvE(_gvChuDau(it.from_user_name))}</span><span class="nv-ten">${_gvE(it.from_user_name || it.from_user)}</span></div></td>`
+       + `<td class="c-an-hep">${_gvAppNhan(it.app)}</td><td class="c-an-hep"><span class="gv-uu gv-uu--${_gvE(it.priority)}">${_GV_UU[it.priority] || '—'}</span></td>` : '')
+    + `<td class="c-han${kieu === 'gon' ? ' c-an-hep' : ''}${_gvQuaHan(it) ? ' is-qua' : ''}">${_gvNgay(it.due_date) || '—'}</td><td>${_gvPill(_gvTTHien(it))}</td></tr>`).join('');
+}
+function gvVeSapHan() {
+  const nguon = GV_CAN_ASSIGN ? _gv.daGiao : _gv.cuaToi, hom = new Date(_gvHomNay() + 'T00:00:00');
+  const ds = nguon.filter(it => !_gvDong(it) && it.due_date).map(it => ({ it, con: Math.round((new Date(String(it.due_date).slice(0, 10) + 'T00:00:00') - hom) / 86400000) }))
+    .filter(x => x.con <= 7).sort((a, b) => a.con - b.con).slice(0, 8);
+  const than = document.getElementById('gv-han-than');
+  if (!ds.length) { than.innerHTML = '<tr class="empty-row"><td colspan="5">Không có việc nào sắp đến hạn trong 7 ngày tới.</td></tr>'; return; }
+  than.innerHTML = ds.map(({ it, con }, i) => {
+    const [ho, chu] = con < 0 ? ['danger', `Quá ${-con} ngày`] : con === 0 ? ['danger', 'Hôm nay'] : con <= 2 ? ['danger', `${con} ngày`] : con <= 5 ? ['warning', `${con} ngày`] : ['neutral', `${con} ngày`];
+    const ai = GV_CAN_ASSIGN ? (it.to_user_name || it.to_user) : (it.from_user_name || it.from_user);
+    return `<tr data-k="${it.id}" onclick="gvMoCT(this.dataset.k, ${GV_CAN_ASSIGN ? 'false' : 'true'})"><td class="c-stt">${i + 1}</td>`
+      + `<td><span class="gv-td-ten">${_gvE(it.title)}</span></td>`
+      + `<td><div class="nv-cell"><span class="gv-ava">${_gvE(_gvChuDau(ai))}</span><span class="nv-ten">${_gvE(ai)}</span></div></td>`
+      + `<td class="c-han c-an-hep">${_gvNgay(it.due_date)}</td><td><span class="gv-con gv-con--${ho}">${chu}</span></td></tr>`;
+  }).join('');
+}
+function gvVeThongKe() {
+  const thangCua = (sel) => document.getElementById(sel).value;
+  const ve = (idO, nguon, thang) => {
+    const truoc = (() => { const [y, m] = thang.split('-').map(Number); const d = new Date(y, m - 2, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+    const dem = t => { const ds = nguon.filter(it => String(it.created_at || '').slice(0, 7) === t);
+      return { tong: ds.length, chay: ds.filter(it => it.status === 'in_progress').length, xong: ds.filter(it => it.status === 'done').length, qua: ds.filter(_gvQuaHan).length }; };
+    const a = dem(thang), b = dem(truoc);
+    const doi = (x, y, tot) => { if (!y) return '<span class="gv-tk-doi">—</span>'; const pct = Math.round((x - y) * 100 / y); if (!pct) return '<span class="gv-tk-doi">Như tháng trước</span>';
+      const len = pct > 0; return `<span class="gv-tk-doi ${tot === null ? '' : ((len === tot) ? 'is-tot' : 'is-xau')}">${len ? '↑' : '↓'} ${Math.abs(pct)}% so tháng trước</span>`; };
+    const o = (nhan, so, ic, tile, dp) => `<div class="gv-tk-o"><span>${nhan}</span><div class="gv-tk-so"><span class="ico-tile ${tile}" aria-hidden="true">${_gvSvg(ic)}</span><b>${so}</b></div>${dp}</div>`;
+    document.getElementById(idO).innerHTML = o('Tổng công việc', a.tong, 'tong', '', doi(a.tong, b.tong, null))
+      + o('Đang thực hiện', a.chay, 'chay', 'ico-tile--tim', doi(a.chay, b.chay, null))
+      + o('Hoàn thành', a.xong, 'xong', 'ico-tile--success', doi(a.xong, b.xong, true))
+      + o('Quá hạn', a.qua, 'gio', 'ico-tile--danger', doi(a.qua, b.qua, false));
+  };
+  if (GV_CAN_ASSIGN) ve('gv-tk', _gv.daGiao, thangCua('gv-tk-thang'));
+  ve('gv-tk2', _gv.cuaToi, thangCua('gv-tk2-thang'));
+}
+
+// ── Bộ lọc ──────────────────────────────────────────────────────────────────
+(function _gvVeBoLoc() {
+  const tt = _GV_LOC_TT.map(([v, n]) => `<option value="${v}">${n}</option>`).join('');
+  const app = '<option value="">Tất cả mảng</option>' + Object.keys(_GV_APP).map(k => `<option value="${k}">${_GV_APP[k]}</option>`).join('');
+  ['gv-l-tt', 'gv-m-tt', 'gv-d-tt'].forEach(id => { document.getElementById(id).innerHTML = tt; });
+  ['gv-l-app', 'gv-m-app', 'gv-d-app'].forEach(id => { document.getElementById(id).innerHTML = app; });
+  document.getElementById('gv-f-app').innerHTML = _GV_APP_GIAO.map(k => `<option value="${k}" ${k === GV_APP_HIEN ? 'selected' : ''}>${_GV_APP[k]}</option>`).join('');
+  const d = new Date(), th = [];
+  for (let i = 0; i < 12; i++) { const x = new Date(d.getFullYear(), d.getMonth() - i, 1); th.push(`${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}`); }
+  const opt = th.map(t => `<option value="${t}">Tháng ${Number(t.slice(5))}/${t.slice(0, 4)}</option>`).join('');
+  ['gv-tk-thang', 'gv-tk2-thang'].forEach(id => { document.getElementById(id).innerHTML = opt; });
+})();
+function gvChonPhamVi(pv) {
+  // Chỉ CEO/Admin có phạm vi rộng; role khác gọi tới router sẽ nhận 403 nên chặn tại đây.
+  if (!GV_SUPER && pv !== 'toi_giao') return;
+  _gv.pv = pv;
+  document.querySelectorAll('.gv-tab-nho[data-pv]').forEach(b => { b.classList.toggle('is-chon', b.dataset.pv === pv); b.setAttribute('aria-selected', b.dataset.pv === pv); });
+  gvTaiDaGiao();
+}
+function gvMoKy(nut) { const n = document.getElementById('gv-l-noi'), mo = n.hidden; n.hidden = !mo; nut.setAttribute('aria-expanded', mo); if (mo) { document.getElementById('gv-l-tu').value = _gv.tu; document.getElementById('gv-l-den').value = _gv.den; } }
+function gvDongKy() { const n = document.getElementById('gv-l-noi'); if (n && !n.hidden) { n.hidden = true; document.getElementById('gv-l-ky-nut').setAttribute('aria-expanded', 'false'); } }
+document.addEventListener('click', e => { if (!e.target.closest('.gv-bat')) gvDongKy(); if (!e.target.closest('.gv-nguoi')) _gvAnGoi(); });
+function gvKyNhanh(k) {
+  const d = new Date(), dau = k === 'thang_nay' ? new Date(d.getFullYear(), d.getMonth(), 1) : new Date(d.getFullYear(), d.getMonth() - 1, 1);
+  const cuoi = new Date(dau.getFullYear(), dau.getMonth() + 1, 0);
+  document.getElementById('gv-l-tu').value = _gvISO(dau); document.getElementById('gv-l-den').value = _gvISO(cuoi);
+}
+function gvApKy() {
+  _gv.tu = document.getElementById('gv-l-tu').value; _gv.den = document.getElementById('gv-l-den').value;
+  const o = document.getElementById('gv-l-ky');
+  o.textContent = (_gv.tu || _gv.den) ? `${_gvNgay(_gv.tu) || '…'} - ${_gvNgay(_gv.den) || '…'}` : 'Từ ngày - Đến ngày';
+  o.classList.toggle('is-trong', !(_gv.tu || _gv.den));
+  gvDongKy(); gvVeDaGiao(1);
+}
+function gvXoaKy() { document.getElementById('gv-l-tu').value = ''; document.getElementById('gv-l-den').value = ''; gvApKy(); }
+
+// ── Chọn người nhận ─────────────────────────────────────────────────────────
+function _gvAnGoi() { const g = document.getElementById('gv-goi'); if (g) { g.hidden = true; document.getElementById('gv-f-tim').setAttribute('aria-expanded', 'false'); } }
+function gvGoiY() {
+  const q = document.getElementById('gv-f-tim').value.trim().toLowerCase(), g = document.getElementById('gv-goi');
+  const ds = _gv.nguoiNhan.filter(u => !_gv.chon.some(c => c.username === u.username)
+    && (!q || [u.ho_ten, u.username, u.ma_nv, u.phong_ban].join(' ').toLowerCase().indexOf(q) >= 0)).slice(0, 40);
+  _gv.tro = -1;
+  if (!_gv.nguoiNhan.length) { g.innerHTML = '<p>Chưa có danh sách nhân viên.</p>'; }
+  else if (!ds.length) { g.innerHTML = '<p>Không tìm thấy nhân viên phù hợp.</p>'; }
+  else {
+    let pb = null;
+    g.innerHTML = ds.map(u => {
+      const dau = u.phong_ban !== pb ? `<div class="gv-goi-nhom">${_gvE(u.phong_ban || 'Chưa rõ phòng ban')}</div>` : '';
+      pb = u.phong_ban;
+      return dau + `<button type="button" role="option" data-u="${_gvE(u.username)}" onclick="gvChonNguoi(this.dataset.u)"><span class="gv-ava">${_gvE(_gvChuDau(u.ho_ten))}</span>`
+        + `<span><b>${_gvE(u.ho_ten)}</b><small>${_gvE([u.ma_nv, u.chuc_vu].filter(Boolean).join(' · ') || u.username)}</small></span></button>`;
+    }).join('');
+  }
+  g.hidden = false;
+  document.getElementById('gv-f-tim').setAttribute('aria-expanded', 'true');
+}
+function gvPhimNguoi(e) {
+  const nut = [...document.querySelectorAll('#gv-goi button')];
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault(); if (!nut.length) return;
+    _gv.tro = (_gv.tro + (e.key === 'ArrowDown' ? 1 : -1) + nut.length) % nut.length;
+    nut.forEach((b, i) => b.classList.toggle('is-tro', i === _gv.tro)); nut[_gv.tro].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') { e.preventDefault(); if (nut[_gv.tro] || nut.length === 1) gvChonNguoi((nut[_gv.tro] || nut[0]).dataset.u); }
+  else if (e.key === 'Backspace' && !e.target.value && _gv.chon.length) { _gv.chon.pop(); _gvVeChip(); }
+}
+function gvChonNguoi(u) {
+  const x = _gv.nguoiNhan.find(n => n.username === u); if (!x || _gv.chon.some(c => c.username === u)) return;
+  _gv.chon.push(x); _gvVeChip();
+  const t = document.getElementById('gv-f-tim'); t.value = ''; t.focus(); gvGoiY();
+}
+function gvBoNguoi(u) { _gv.chon = _gv.chon.filter(c => c.username !== u); _gvVeChip(); }
+function _gvVeChip() {
+  document.getElementById('gv-chips').innerHTML = _gv.chon.map(c => `<span class="gv-chip"><span class="gv-ava">${_gvE(_gvChuDau(c.ho_ten))}</span>`
+    + `${_gvE(c.ho_ten)}${c.ma_nv ? ' - ' + _gvE(c.ma_nv) : ''}<button type="button" data-u="${_gvE(c.username)}" onclick="event.stopPropagation(); gvBoNguoi(this.dataset.u)" aria-label="Bỏ ${_gvE(c.ho_ten)}">${_gvSvg('dong')}</button></span>`).join('');
+}
+
+// ── Tệp đính kèm ────────────────────────────────────────────────────────────
+function _gvCapNhatTep() { document.getElementById('gv-tep-o').hidden = !_gv.coTep; }
+function _gvIcTep(ten) { const pdf = _gvDuoi(ten) === '.pdf', anh = ['.jpg', '.jpeg', '.png'].indexOf(_gvDuoi(ten)) >= 0; return `<span class="ico-tile ${pdf ? 'ico-tile--danger' : anh ? 'ico-tile--neutral' : ''}" aria-hidden="true">${_gvSvg(anh ? 'anh' : 'pdf')}</span>`; }
+function gvThemTep(ds) {
+  let bo = 0, to = 0;
+  for (const f of Array.from(ds || [])) {
+    if (_GV_TEP_EXT.indexOf(_gvDuoi(f.name)) < 0) { bo++; continue; }
+    if (f.size > _GV_TEP_MAX) { to++; continue; }
+    if (_gv.tep.some(g => g.name === f.name && g.size === f.size)) continue;
+    if (_gv.tep.length >= _GV_TEP_SL) { _gvToast(`Mỗi việc tối đa ${_GV_TEP_SL} tệp`, 'error'); break; }
+    _gv.tep.push(f);
+  }
+  if (bo) _gvToast(`Bỏ qua ${bo} tệp không đúng định dạng`, 'error');
+  if (to) _gvToast(`Bỏ qua ${to} tệp quá 10MB`, 'error');
+  _gvVeTep();
+}
+function _gvVeTep() {
+  document.getElementById('gv-tep-ds').innerHTML = _gv.tep.map((f, i) => `<li class="gv-tep">${_gvIcTep(f.name)}<span class="gv-tep-ten" title="${_gvE(f.name)}">${_gvE(f.name)}</span>`
+    + `<span class="gv-tep-co">${_gvCo(f.size)}</span><button type="button" class="gv-nut-icon is-xoa" data-i="${i}" onclick="_gv.tep.splice(Number(this.dataset.i),1); _gvVeTep()" aria-label="Bỏ ${_gvE(f.name)}">${_gvSvg('dong')}</button></li>`).join('');
+}
+(function _gvKeoTha() {
+  const z = document.getElementById('gv-tha'); if (!z) return;
+  ['dragenter', 'dragover'].forEach(ev => z.addEventListener(ev, e => { e.preventDefault(); z.classList.add('is-keo'); }));
+  ['dragleave', 'drop'].forEach(ev => z.addEventListener(ev, e => { e.preventDefault(); z.classList.remove('is-keo'); }));
+  z.addEventListener('drop', e => gvThemTep(e.dataTransfer && e.dataTransfer.files));
+  z.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.getElementById('gv-tep-chon').click(); } });
+  // Dán tệp (Ctrl+V) vào form — tính năng của bản riêng marketing cũ.
+  document.getElementById('gv-form').addEventListener('paste', e => { const fs = e.clipboardData && e.clipboardData.files; if (fs && fs.length && _gv.coTep) { e.preventDefault(); gvThemTep(fs); } });
+})();
+async function _gvTaiTep(id, files) {
+  let ok = 0; const loi = [];
+  for (const f of files) {
+    const fd = new FormData(); fd.append('file', f);
+    try { await _gvApi(`/api/giao-viec/${id}/tep`, { method: 'POST', form: fd }); ok++; }
+    catch (e) { loi.push(`${f.name}: ${e.message}`); }
+  }
+  if (loi.length) _gvToast('Không tải lên được: ' + loi.join(' · '), 'error');
+  return ok;
+}
+
+// ── Tạo việc ────────────────────────────────────────────────────────────────
+function gvDem() { document.getElementById('gv-f-dem').textContent = document.getElementById('gv-f-body').value.length + '/1000'; }
+function gvDatLai() {
+  ['gv-f-title', 'gv-f-body', 'gv-f-due', 'gv-f-tim'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('gv-f-priority').value = 'med';
+  _gv.chon = []; _gv.tep = []; _gvVeChip(); _gvVeTep(); gvDem();
+}
+async function gvGiao() {
+  const v = id => document.getElementById(id).value.trim();
+  const loi = (id, msg) => { _gvToast(msg, 'error'); document.getElementById(id).focus(); return false; };
+  if (!v('gv-f-title')) return loi('gv-f-title', 'Nhập tiêu đề công việc');
+  if (!_gv.chon.length) return loi('gv-f-tim', 'Chọn ít nhất một nhân viên được giao');
+  if (!v('gv-f-body')) return loi('gv-f-body', 'Nhập mô tả chi tiết để người nhận hiểu việc cần làm');
+  if (!v('gv-f-due')) return loi('gv-f-due', 'Chọn hạn hoàn thành');
+  if (v('gv-f-due') < _gvHomNay()) return loi('gv-f-due', 'Hạn hoàn thành không được trước hôm nay');
+  const nut = document.getElementById('gv-nut-giao'); nut.disabled = true;
+  try {
+    const r = await _gvApi('/api/giao-viec', { method: 'POST', body: { title: v('gv-f-title'), body: v('gv-f-body'), due_date: v('gv-f-due'),
+      priority: v('gv-f-priority'), app: v('gv-f-app'), to_users: _gv.chon.map(c => c.username) } });
+    const ids = (r && r.ids) || [], n = (r && r.count) || ids.length || 1;
+    let tep = '';
+    if (_gv.tep.length && ids.length) {
+      let ok = 0; for (const id of ids) ok += await _gvTaiTep(id, _gv.tep);
+      tep = ` · tải lên ${ok}/${_gv.tep.length * ids.length} tệp`;
+    }
+    _gvToast((n > 1 ? `Đã giao việc cho ${n} người` : 'Đã giao việc') + tep, 'success');
+    gvDatLai();
+    await gvTaiDaGiao();
+  } catch (e) { _gvToast(e.message || 'Không giao được việc', 'error'); }
+  finally { nut.disabled = false; }
+}
+
+// ── Chi tiết + thao tác ─────────────────────────────────────────────────────
+function _gvTim(id) { return _gv.daGiao.concat(_gv.cuaToi).find(x => String(x.id) === String(id)); }
+function gvMoCT(k, laCuaToi) {
+  const than = document.getElementById('gv-ct-than'), chan = document.getElementById('gv-ct-chan');
+  if (String(k).startsWith('g:')) {
+    const g = _gv.daGiao.filter(x => 'g:' + x.group_id === k); if (!g.length) return;
+    _gvVeNhom(g); gvMo('gv-hop-ct'); return;
+  }
+  const it = _gvTim(k); if (!it) return;
+  const cuaToi = it.to_user === GV_ME, laNguoiGiao = it.from_user === GV_ME, dong = _gvDong(it), st = it.status;
+  document.getElementById('gv-ct-tieu-de').textContent = it.title || 'Chi tiết công việc';
+  const dong_ = (dt, dd) => dd ? `<dt>${dt}</dt><dd>${dd}</dd>` : '';
+  const tien = [['Đã nhận', it.acknowledged_at], ['Bắt đầu', it.started_at], ['Tạm dừng', st === 'blocked' ? it.blocked_at : ''],
+                ['Hoạt động gần nhất', it.last_activity_at], ['Hoàn thành', it.completed_at], ['Đóng', it.closed_at]].filter(x => x[1]);
+  const tep = Array.isArray(it.tep_dinh_kem) ? it.tep_dinh_kem : null;
+  const themTep = tep && (cuaToi || laNguoiGiao || GV_SUPER) && tep.length < _GV_TEP_SL;
+  than.innerHTML = `<dl class="gv-ct">${dong_('Người giao', _gvE(it.from_user_name || it.from_user))}${dong_('Người thực hiện', _gvE(it.to_user_name || it.to_user))}`
+    + `${dong_('Mảng', _gvAppNhan(it.app))}${dong_('Độ ưu tiên', `<span class="gv-uu gv-uu--${_gvE(it.priority)}">${_GV_UU[it.priority] || '—'}</span>`)}`
+    + `${dong_('Trạng thái', _gvPill(_gvTTHien(it)))}${dong_('Hạn hoàn thành', _gvNgay(it.due_date) || 'Không đặt hạn')}${dong_('Giao lúc', _gvNgayGio(it.created_at))}</dl>`
+    + (it.body ? `<p class="gv-muc">Mô tả</p><div class="gv-hop">${_gvE(it.body)}</div>` : '')
+    + (st === 'blocked' && it.blocked_reason ? `<p class="gv-muc">Lý do tạm dừng</p><div class="gv-hop gv-hop--dung">${_gvE(it.blocked_reason)}</div>` : '')
+    + (tien.length ? `<p class="gv-muc">Tiến trình</p><ul class="gv-tien">${tien.map(([n, t]) => `<li><span>${n}</span><b>${_gvNgayGio(t)}</b></li>`).join('')}</ul>` : '')
+    + (tep ? `<p class="gv-muc" style="display:flex;justify-content:space-between"><span>Tệp đính kèm (${tep.length})</span>`
+        + (themTep ? `<button type="button" class="btn-link" data-id="${it.id}" onclick="gvChonTepThem(this.dataset.id)">+ Thêm tệp</button>` : '') + '</p>'
+        + (tep.length ? '<ul class="gv-tep-ds">' + tep.map(t => `<li class="gv-tep">${_gvIcTep(t.ten)}<a class="gv-tep-ten" href="${_gvE(t.url)}" target="_blank" rel="noopener">${_gvE(t.ten)}</a>`
+          + `<span class="gv-tep-co">${t.kich_thuoc ? _gvCo(t.kich_thuoc) : ''}</span>`
+          + ((laNguoiGiao || GV_SUPER) ? `<button type="button" class="gv-nut-icon is-xoa" data-id="${it.id}" data-ma="${_gvE(t.ma)}" data-ten="${_gvE(t.ten)}" onclick="gvXoaTep(this.dataset.id,this.dataset.ma,this.dataset.ten)" aria-label="Xoá ${_gvE(t.ten)}">${_gvSvg('xoa')}</button>` : '')
+          + '</li>').join('') + '</ul>' : '<p class="gv-goi-y">Chưa có tệp đính kèm.</p>') : '')
+    + `<p class="gv-muc"><label for="gv-ct-phan-hoi">Phản hồi của người thực hiện</label></p>`
+    + `<textarea class="gv-textarea" id="gv-ct-phan-hoi" ${cuaToi && !dong ? '' : 'readonly'} placeholder="${cuaToi && !dong ? 'Cập nhật tiến độ, kết quả, vướng mắc...' : 'Chưa có phản hồi'}">${_gvE(it.response || '')}</textarea>`;
+  const nut = [];
+  if (cuaToi && !dong) {
+    nut.push(`<button type="button" class="btn-ghost is-trai" onclick="gvPhanHoi(${it.id})">Lưu phản hồi</button>`);
+    if (st === 'assigned' || st === 'open') { if (!it.acknowledged_at) nut.push(`<button type="button" class="btn-soft" onclick="gvLam(${it.id},'/ack',{},'Đã xác nhận nhận việc')">Đã nhận</button>`);
+      nut.push(`<button type="button" class="btn-primary" onclick="gvLam(${it.id},'/start',{},'Đã bắt đầu làm')">Bắt đầu làm</button>`); }
+    if (st === 'in_progress') { nut.push(`<button type="button" class="btn-ghost" onclick="gvHoiLyDo(${it.id},'/pause','Lý do tạm dừng','Đã tạm dừng việc')">Tạm dừng</button>`);
+      nut.push(`<button type="button" class="btn-success" onclick="gvHoanThanh(${it.id})">Hoàn thành</button>`); }
+    if (st === 'blocked') { nut.push(`<button type="button" class="btn-ghost" onclick="gvLam(${it.id},'/resume',{},'Đã tiếp tục làm')">Tiếp tục</button>`);
+      nut.push(`<button type="button" class="btn-success" onclick="gvHoanThanh(${it.id})">Hoàn thành</button>`); }
+  }
+  if (!laCuaToi && (laNguoiGiao || GV_SUPER)) {
+    if (st === 'done') nut.push(`<button type="button" class="btn-soft" onclick="gvHoiLyDo(${it.id},'/reopen','Lý do yêu cầu làm lại','Đã yêu cầu làm lại')">Yêu cầu làm lại</button>`);
+    if (!dong) nut.push(`<button type="button" class="btn-danger-o" onclick="gvHoiLyDo(${it.id},'/close','Lý do huỷ việc','Đã huỷ việc',true)">Huỷ việc</button>`);
+    nut.push(`<button type="button" class="btn-danger-o is-trai" data-id="${it.id}" onclick="gvXoa(this.dataset.id)">Xoá</button>`);
+  }
+  if (!nut.length) nut.push(`<button type="button" class="btn-ghost" onclick="gvDong('gv-hop-ct')">Đóng</button>`);
+  chan.innerHTML = nut.join('');
+  gvMo('gv-hop-ct');
+}
+function _gvVeNhom(g) {
+  const h = g[0];
+  document.getElementById('gv-ct-tieu-de').textContent = `${h.title} (${g.length} người)`;
+  document.getElementById('gv-ct-than').innerHTML = `<dl class="gv-ct"><dt>Mảng</dt><dd>${_gvAppNhan(h.app)}</dd><dt>Độ ưu tiên</dt><dd><span class="gv-uu gv-uu--${_gvE(h.priority)}">${_GV_UU[h.priority] || '—'}</span></dd>`
+    + `<dt>Hạn hoàn thành</dt><dd>${_gvNgay(h.due_date) || 'Không đặt hạn'}</dd><dt>Giao lúc</dt><dd>${_gvNgayGio(h.created_at)}</dd></dl>`
+    + (h.body ? `<p class="gv-muc">Mô tả</p><div class="gv-hop">${_gvE(h.body)}</div>` : '')
+    + `<p class="gv-muc">Tiến độ từng người</p><div class="tbl-wrap" style="padding:0"><table class="data-table"><thead><tr><th>Người thực hiện</th><th>Trạng thái</th><th>Phản hồi</th><th class="c-nut"><span class="gv-sr">Thao tác</span></th></tr></thead><tbody>`
+    + g.map(it => `<tr data-k="${it.id}" onclick="gvMoCT(this.dataset.k)"><td><div class="nv-cell"><span class="gv-ava">${_gvE(_gvChuDau(it.to_user_name))}</span><span class="nv-ten">${_gvE(it.to_user_name || it.to_user)}</span></div></td>`
+      + `<td>${_gvPill(_gvTTHien(it))}</td><td><span class="gv-td-ten">${_gvE(it.response || '—')}</span></td><td class="c-nut">${_gvSvg('ba')}</td></tr>`).join('')
+    + '</tbody></table></div>';
+  document.getElementById('gv-ct-chan').innerHTML = `<button type="button" class="btn-ghost" onclick="gvDong('gv-hop-ct')">Đóng</button>`;
+}
+async function gvLam(id, path, body, ok) {
+  try { await _gvApi(`/api/giao-viec/${id}${path}`, { method: 'POST', body: body || {} }); _gvToast(ok, 'success'); gvDong('gv-hop-ct'); gvTaiLai(); }
+  catch (e) { _gvToast(e.message || 'Thao tác không thành công', 'error'); }
+}
+async function gvPhanHoi(id) {
+  const t = document.getElementById('gv-ct-phan-hoi').value.trim();
+  if (!t) { _gvToast('Nhập nội dung phản hồi', 'error'); return; }
+  gvLam(id, '/respond', { response: t }, 'Đã lưu phản hồi');
+}
+function gvHoiLyDo(id, path, nhan, ok, laHuy) {
+  document.getElementById('gv-ly-do-tieu-de').textContent = nhan;
+  document.getElementById('gv-ly-do-nhan').textContent = nhan;
+  const t = document.getElementById('gv-ly-do'); t.value = '';
+  document.getElementById('gv-ly-do-ok').onclick = () => {
+    const v = t.value.trim();
+    if (!v) { _gvToast('Cần nhập ' + nhan.toLowerCase(), 'error'); t.focus(); return; }
+    gvDong('gv-hop-ly-do');
+    gvLam(id, path, laHuy ? { status: 'dropped', note: v } : { reason: v }, ok);
+  };
+  gvMo('gv-hop-ly-do'); setTimeout(() => t.focus(), 30);
+}
+function gvHoanThanh(id) {
+  const cu = (document.getElementById('gv-ct-phan-hoi') || {}).value || '';
+  gvHoiLyDo(id, '/complete', 'Kết quả hoàn thành', 'Đã đánh dấu hoàn thành');
+  document.getElementById('gv-ly-do').value = cu;
+  document.getElementById('gv-ly-do-ok').onclick = () => {
+    const v = document.getElementById('gv-ly-do').value.trim();
+    if (!v) { _gvToast('Ghi ngắn kết quả trước khi hoàn thành', 'error'); return; }
+    gvDong('gv-hop-ly-do'); gvLam(id, '/complete', { response: v }, 'Đã đánh dấu hoàn thành');
+  };
+}
+async function gvXoa(id) {
+  const it = _gvTim(id);
+  if (!confirm(`Xoá hẳn việc "${it ? it.title : ''}"? Tệp đính kèm cũng bị xoá, không khôi phục được.`)) return;
+  try { await _gvApi(`/api/giao-viec/${id}`, { method: 'DELETE' }); _gvToast('Đã xoá việc', 'success'); gvDong('gv-hop-ct'); gvTaiLai(); }
+  catch (e) { _gvToast(e.message || 'Không xoá được việc', 'error'); }
+}
+function gvChonTepThem(id) { const i = document.getElementById('gv-tep-them'); i.dataset.id = id; i.value = ''; i.click(); }
+async function gvTepThemDaChon(inp) {
+  const id = inp.dataset.id, fs = Array.from(inp.files || []).filter(f => _GV_TEP_EXT.indexOf(_gvDuoi(f.name)) >= 0 && f.size <= _GV_TEP_MAX);
+  if (!id || !fs.length) { if (inp.files && inp.files.length) _gvToast('Tệp không đúng định dạng hoặc quá 10MB', 'error'); return; }
+  const ok = await _gvTaiTep(id, fs);
+  if (ok) _gvToast(`Đã tải lên ${ok} tệp`, 'success');
+  await gvTaiLai(); gvMoCT(id, _gv.cuaToi.some(x => String(x.id) === String(id)) && !_gv.daGiao.some(x => String(x.id) === String(id)));
+}
+async function gvXoaTep(id, ma, ten) {
+  if (!confirm(`Xoá tệp "${ten}"? Không khôi phục được.`)) return;
+  try { await _gvApi(`/api/giao-viec/${id}/tep?ma=${encodeURIComponent(ma)}`, { method: 'DELETE' }); _gvToast('Đã xoá tệp', 'success'); await gvTaiLai(); gvMoCT(id); }
+  catch (e) { _gvToast(e.message || 'Không xoá được tệp', 'error'); }
+}
+async function gvTaiLai() { await Promise.all([gvTaiDaGiao(), gvTaiCuaToi()]); }
+
+// ── Chế độ xem ──────────────────────────────────────────────────────────────
+function gvChonView(v) {
+  if (v === 'giao' && !GV_CAN_ASSIGN) v = 'cua-toi';
+  _gv.view = v;
+  ['giao', 'cua-toi'].forEach(k => {
+    document.getElementById('gv-view-' + k).hidden = k !== v;
+    const t = document.getElementById('gv-tab-' + k); t.classList.toggle('is-chon', k === v); t.setAttribute('aria-selected', k === v);
+  });
+  try { history.replaceState(null, '', v === 'giao' ? location.pathname : '#viec-cua-toi'); } catch (e) {}
+}
+(function () {
+  document.getElementById('gv-tab-giao').hidden = !GV_CAN_ASSIGN;
+  gvChonView(GV_CAN_ASSIGN && location.hash !== '#viec-cua-toi' ? 'giao' : 'cua-toi');
+  _gvCapNhatTep();
+  gvTaiCuaToi();
+  if (GV_CAN_ASSIGN) { gvTaiDaGiao(); gvTaiNguoiNhan(); }
+})();
 </script>
 </body>
 </html>

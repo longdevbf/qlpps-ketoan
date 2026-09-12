@@ -2,24 +2,36 @@
 
 Mounted at /api/xin-nghi in: marketing, muahang, ketoan, saleadmin, ceo
 Read-only mount (GET only) in: hcns
+
+11/09/2026: thêm tệp đính kèm cho đơn (`/{rid}/tep`, không đổi bảng DB) và phép năm
+của chính người đang đăng nhập (`/phep-nam`) cho màn Xin nghỉ dùng chung 8 app.
 """
 import calendar
+import logging
+import re
+import shutil
+import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from pathlib import Path
 from typing import Annotated, List, Optional
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func as sqlfunc, or_, select, text
 from sqlalchemy.orm import Session
 
 from shared.auth import JWTPayload, current_user
+from shared.config import settings
 from shared.db import get_db
 from shared.models.leave_request import LeaveRequest
 from shared.templates import _lookup_user_info
 
 router = APIRouter()
 _AUTH = Depends(current_user)
+log = logging.getLogger(__name__)
 
 _APPROVER_ROLES = {"admin", "ceo", "assistant_ceo", "manager", "leader"}
 _SUPER_ROLES = {"admin", "ceo", "assistant_ceo"}
@@ -97,6 +109,59 @@ def _calc_so_ngay(ngay_bat_dau: date, ngay_ket_thuc: date, buoi: str) -> Decimal
     return Decimal(str(total_days))
 
 
+# ── Tệp đính kèm (11/09/2026) ────────────────────────────────────────────────
+# KHÔNG thêm cột DB: tệp của đơn #N nằm trong `<upload_dir>/xin_nghi/N/`, danh sách tệp
+# = danh sách file trong thư mục đó. Tên trên đĩa `<12 hex>__<tên gốc đã lọc>` — giữ
+# được tên gốc để hiện mà không cần bảng phụ. Thư mục uploads dùng chung mọi app (dev:
+# `./_storage` gắn vào cả 8 container) nên nộp ở app nào, người duyệt ở app khác vẫn mở.
+_TEP_SUBDIR = "xin_nghi"
+_TEP_EXT = {".pdf", ".jpg", ".jpeg", ".png"}
+_TEP_MAX = 5 * 1024 * 1024   # 5 MB — đúng dòng "tối đa 5MB" trên form
+_TEP_TOI_DA = 10             # số tệp tối đa mỗi đơn
+_TEP_MA_RE = re.compile(r"^[a-f0-9]{12}__[^/\\]{1,120}$")
+
+
+def _tep_dir(rid: int) -> Path:
+    return Path(settings.upload_dir).expanduser().resolve() / _TEP_SUBDIR / str(int(rid))
+
+
+def _ds_tep(rid: int) -> list[dict]:
+    """Tệp của đơn, cũ trước mới sau. Thư mục chưa có → []."""
+    d = _tep_dir(rid)
+    if not d.is_dir():
+        return []
+    files = [f for f in d.iterdir() if f.is_file() and _TEP_MA_RE.match(f.name)]
+    files.sort(key=lambda f: f.stat().st_mtime)
+    return [{"ma": f.name, "ten": f.name.split("__", 1)[1],
+             "url": f"/api/xin-nghi/{int(rid)}/tep/{quote(f.name)}",
+             "kich_thuoc": f.stat().st_size} for f in files]
+
+
+def _ten_goc_an_toan(filename: Optional[str], ext: str) -> str:
+    """Tên gốc để hiện lại: bỏ thư mục, ký tự lạ; giữ chữ có dấu. Rỗng → 'tep'."""
+    stem = Path((filename or "").replace("\\", "/")).stem
+    stem = re.sub(r"[^\w\-. ()]+", "_", stem).strip(" ._") or "tep"
+    return stem[:80] + ext
+
+
+def _la_chu_don(rec: "LeaveRequest", user: JWTPayload) -> bool:
+    return (rec.username or "").lower() == (user.username or "").lower()
+
+
+def _xem_duoc_don(db: Session, user: JWTPayload, rec: "LeaveRequest") -> bool:
+    """Người gửi, admin/CEO, hoặc manager/leader của đúng phòng ban đơn — cùng phạm vi
+    với danh sách `GET ""` (ai thấy đơn trong danh sách thì mở được tệp của đơn)."""
+    if _la_chu_don(rec, user):
+        return True
+    if not _is_approver(user):
+        return False
+    depts = _approver_depts(db, user)
+    if depts is None:
+        return True
+    rp = (rec.phong_ban or "").strip().lower()
+    return any(rp.startswith(d) for d in depts)
+
+
 # ── Schemas ───────────────────────────────────────────────────────────────────
 class LeaveCreate(BaseModel):
     loai_nghi: str
@@ -110,6 +175,13 @@ class LeaveCreate(BaseModel):
 class LeaveReview(BaseModel):
     trang_thai: str  # da_duyet | tu_choi
     nhan_xet_duyet: str = ""
+
+
+class TepOut(BaseModel):
+    ma: str          # tên trên đĩa — dùng để mở / xoá
+    ten: str         # tên gốc để hiện
+    url: str
+    kich_thuoc: int
 
 
 class LeaveOut(BaseModel):
@@ -133,6 +205,8 @@ class LeaveOut(BaseModel):
     ngay_duyet: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+    # Không phải cột DB — gắn tay từ thư mục tệp (`_ds_tep`) trước khi trả về.
+    tep_dinh_kem: List[TepOut] = []
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -177,7 +251,10 @@ def list_leave_requests(
             )
         except Exception:
             pass
-    return db.execute(stmt).scalars().all()
+    recs = db.execute(stmt).scalars().all()
+    for r in recs:
+        r.tep_dinh_kem = _ds_tep(r.id)
+    return recs
 
 
 @router.post("", response_model=LeaveOut, status_code=status.HTTP_201_CREATED)
@@ -269,6 +346,8 @@ def cancel_leave_request(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Chỉ có thể hủy đơn đang chờ duyệt")
     db.delete(rec)
     db.commit()
+    # Đơn đã xoá khỏi DB thì tệp của nó không còn đường nào mở được — dọn luôn.
+    shutil.rmtree(_tep_dir(rid), ignore_errors=True)
 
 
 @router.put("/{rid}/duyet", response_model=LeaveOut)
@@ -340,6 +419,7 @@ def duyet_leave_request(
     # không tạo record. Idempotent: re-duyệt cùng đơn không nhân đôi.
     _sync_cham_cong_from_leave(db, rec)
 
+    rec.tep_dinh_kem = _ds_tep(rec.id)
     return rec
 
 
@@ -416,6 +496,148 @@ def _sync_cham_cong_from_leave(db: Session, rec: "LeaveRequest") -> None:
             db.rollback()
         except Exception:
             pass
+
+
+# ── Tệp đính kèm: tải lên · mở · xoá ────────────────────────────────────────
+@router.post("/{rid}/tep", response_model=LeaveOut)
+async def upload_tep(
+    rid: int,
+    user: Annotated[JWTPayload, _AUTH],
+    db: Annotated[Session, Depends(get_db)],
+    file: UploadFile = File(...),
+):
+    """Tải một tệp lên đơn. Người gửi đơn (hoặc admin/CEO) mới được."""
+    rec = db.get(LeaveRequest, rid)
+    if not rec:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đơn")
+    if not _la_chu_don(rec, user) and (user.role or "").lower() not in _SUPER_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Chỉ người gửi đơn mới tải tài liệu lên được")
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in _TEP_EXT:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Chỉ nhận tệp PDF, JPG, PNG")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Tệp trống")
+    if len(data) > _TEP_MAX:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Tệp quá lớn — tối đa 5MB")
+    if len(_ds_tep(rid)) >= _TEP_TOI_DA:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Mỗi đơn tối đa {_TEP_TOI_DA} tệp")
+    d = _tep_dir(rid)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{uuid.uuid4().hex[:12]}__{_ten_goc_an_toan(file.filename, ext)}").write_bytes(data)
+    rec.tep_dinh_kem = _ds_tep(rid)
+    return rec
+
+
+@router.get("/{rid}/tep/{ma}")
+def xem_tep(
+    rid: int,
+    ma: str,
+    user: Annotated[JWTPayload, _AUTH],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Mở tệp — ai thấy đơn trong danh sách thì mở được (`_xem_duoc_don`)."""
+    if not _TEP_MA_RE.match(ma):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tên tệp không hợp lệ")
+    rec = db.get(LeaveRequest, rid)
+    if not rec:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đơn")
+    if not _xem_duoc_don(db, user, rec):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Không có quyền xem tài liệu của đơn này")
+    d = _tep_dir(rid)
+    f = (d / ma).resolve()
+    if f.parent != d or not f.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tệp không tồn tại")
+    return FileResponse(str(f), filename=ma.split("__", 1)[1], content_disposition_type="inline")
+
+
+@router.delete("/{rid}/tep", response_model=LeaveOut)
+def xoa_tep(
+    rid: int,
+    ma: str,
+    user: Annotated[JWTPayload, _AUTH],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Xoá một tệp. Người gửi khi đơn còn chờ duyệt, hoặc admin/CEO."""
+    if not _TEP_MA_RE.match(ma or ""):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tên tệp không hợp lệ")
+    rec = db.get(LeaveRequest, rid)
+    if not rec:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đơn")
+    la_super = (user.role or "").lower() in _SUPER_ROLES
+    if not ((_la_chu_don(rec, user) and rec.trang_thai == "cho_duyet") or la_super):
+        raise HTTPException(status.HTTP_403_FORBIDDEN,
+                            "Chỉ xoá được tài liệu của đơn đang chờ duyệt do chính bạn gửi")
+    d = _tep_dir(rid)
+    f = (d / ma).resolve()
+    if f.parent == d and f.is_file():
+        f.unlink()
+    rec.tep_dinh_kem = _ds_tep(rid)
+    return rec
+
+
+# ── Phép năm của CHÍNH người đang đăng nhập ──────────────────────────────────
+@router.get("/phep-nam")
+def phep_nam_cua_toi(
+    user: Annotated[JWTPayload, _AUTH],
+    db: Annotated[Session, Depends(get_db)],
+    nam: Optional[int] = None,
+):
+    """Phép năm của người đang đăng nhập — CÙNG con số màn Quota phép năm của HCNS.
+
+    Gọi thẳng `quota_phep_summary` của HCNS rồi lấy đúng dòng của người này, KHÔNG chép
+    lại công thức (1 ngày cho mỗi tháng chính thức, chốt sổ khi thôi việc). Endpoint gốc
+    `/api/quota-phep` chỉ mount ở HCNS, đòi quyền app hcns và trả cả công ty — không dùng
+    được cho màn Xin nghỉ ở 8 app.
+
+    - tong_ca_nam: số ngày được cấp cả năm (tháng chính thức trong năm, trừ sau thôi việc)
+    - da_cap: cấp đến tháng hiện tại · da_dung: đã duyệt · con_lai = da_cap - da_dung
+    """
+    nam = nam if (nam and 2020 <= nam <= 2099) else date.today().year
+    kq = {"nam": nam, "co_quota": False, "ly_do": "", "tong_ca_nam": 0, "da_cap": 0,
+          "da_dung": 0, "con_lai": 0, "cho_duyet": 0.0, "thang_hien_tai": None,
+          "het_han": f"{nam}-12-31"}
+    cho = db.execute(text(
+        "SELECT COALESCE(SUM(so_ngay), 0) FROM shared.leave_requests "
+        "WHERE LOWER(username) = LOWER(:u) AND loai_nghi = 'nghi_phep' "
+        "AND trang_thai = 'cho_duyet' AND EXTRACT(YEAR FROM ngay_bat_dau) = :nam"
+    ), {"u": user.username or "", "nam": nam}).scalar()
+    kq["cho_duyet"] = float(cho or 0)
+
+    emp = db.execute(text(
+        "SELECT ma_nv, trang_thai, loai_hop_dong FROM hcns.employees "
+        "WHERE LOWER(username) = LOWER(:u) LIMIT 1"
+    ), {"u": user.username or ""}).mappings().first()
+    if not emp:
+        kq["ly_do"] = "Tài khoản chưa gắn hồ sơ nhân viên"
+        return kq
+    # Cùng điều kiện lọc với quota_phep_summary: chỉ NV CHÍNH THỨC đang làm.
+    if emp["trang_thai"] != "Đang làm" or emp["loai_hop_dong"] != "Chính thức":
+        kq["ly_do"] = "Phép năm chỉ cấp cho nhân viên chính thức đang làm"
+        return kq
+    try:
+        from hcns.app.routers.quota_phep import quota_phep_summary  # lazy — shared không phụ thuộc hcns lúc import
+        tong = quota_phep_summary(user=user, db=db, nam=nam)
+    except Exception:
+        log.exception("phep-nam: không tính được quota cho %s", user.username)
+        kq["ly_do"] = "Máy chủ chưa tính được phép năm"
+        return kq
+    ma = (emp["ma_nv"] or "").upper()
+    row = next((r for r in tong.get("rows", []) if (r.get("ma_nv") or "").upper() == ma), None)
+    if not row:
+        kq["ly_do"] = "Không tìm thấy dòng phép năm của nhân viên"
+        return kq
+    moi_thang = tong.get("phep_cap_per_month", 1)
+    kq.update({
+        "co_quota": True,
+        "tong_ca_nam": sum(moi_thang for m in (row.get("monthly") or [])
+                           if not m.get("before_official") and not m.get("after_resign")),
+        "da_cap": row.get("tong_cap_nam", 0),
+        "da_dung": row.get("tong_dung_nam", 0),
+        "con_lai": row.get("tong_con_nam", 0),
+        "thang_hien_tai": tong.get("current_month"),
+    })
+    return kq
 
 
 @router.get("/stats")

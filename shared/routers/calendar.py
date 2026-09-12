@@ -4,7 +4,7 @@ Cùng table `shared.calendar_events` + `shared.event_participants`. User tạo
 event cá nhân, mời thành viên, response invitation, query conflicts.
 
 Endpoints (mount /api/calendar):
-  GET    /events?start=&end=&include_shared=true
+  GET    /events?start=&end=&include_shared=true&pham_vi=toi|phong_ban|cong_ty|hop
   POST   /events
   GET    /events/{id}
   PUT    /events/{id}
@@ -20,7 +20,7 @@ xem lịch invite. Admin/CEO/assistant_ceo bypass khi DELETE.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from typing import Annotated, Any, Literal, Optional
 
 import jwt as _jwt
@@ -29,7 +29,8 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, bindparam, func, or_, select, text as sql_text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload
 
 from shared.auth import JWTPayload, current_user
@@ -378,6 +379,249 @@ def _notify_invited(db: Session, ev: CalendarEvent, target: str, by: str):
         log.debug("notify_invited skip: %s", e)
 
 
+# ── Phạm vi xem lịch (tab) · lệnh đi công tác ảo · làm giàu field ──────────
+#
+# Người duyệt chốt 12/09/2026: được mở rộng API, KHÔNG thêm bảng/cột/migration. Mọi thứ
+# dưới đây vì vậy chỉ ĐỌC thêm rồi ghép vào response, không ghi gì xuống DB.
+
+# Nguồn do calendar_sync chép từ nghiệp vụ gốc. Giờ của chúng là hệ quả của đơn nghỉ /
+# hạn việc / buổi đào tạo: kéo thả trên lịch làm lịch lệch bản gốc, và lần đồng bộ kế
+# tiếp ghi đè mất — người dùng tưởng đã dời mà thật ra không.
+NGUON_HE_THONG = frozenset({"leave_request", "directive", "dao_tao_session"})
+
+# hcns.lenh_di_do có HAI giá trị "đã duyệt": router HCNS ghi 'da_duyet', luồng duyệt cũ
+# bên CEO từng ghi 'duyet' (ghi chú lỗi ở qlpps-ceo/app/ai_brief/tools_approve.py:217).
+# Dev 12/09/2026: 22 dòng 'da_duyet' + 6 dòng 'duyet' — bỏ 'duyet' là mất chuyến đi thật.
+LENH_DI_DA_DUYET = ("da_duyet", "duyet")
+
+# Offset cố định giống calendar_sync._VN_TZ: VN không có giờ mùa hè, khỏi phụ thuộc tzdata.
+_VN_TZ = timezone(timedelta(hours=7))
+# Router HCNS chặn giờ check-out tối đa 17:30 (lenh_di_do.py:495) → dùng làm giờ kết thúc
+# khi NV đã check-in mà chưa check-out.
+_GIO_HET_CA = time(17, 30)
+
+
+def _chuan_hoa_ten_dn(username: Optional[str]) -> str:
+    """So khớp username giữa calendar_events / hcns.employees / shared.users theo
+    trim + lower — cùng cách xin_nghi.py và templates.py đang tra hcns.employees."""
+    return (username or "").strip().lower()
+
+
+def _dong_nghiep_cung_phong(db: Session, username: str) -> list[str]:
+    """username (đã chuẩn hoá) của mọi NV cùng phong_ban với `username`, gồm cả chính họ.
+
+    [] khi người xem không có hồ sơ HCNS hoặc hồ sơ để trống phòng ban → caller lùi về
+    phạm vi 'toi'. KHÔNG bọc try: đây là ranh giới ai được xem lịch của ai — đọc hỏng
+    phải ra lỗi thật, không được lặng lẽ biến thành "phòng không có lịch".
+    """
+    rows = db.execute(sql_text(
+        "SELECT DISTINCT LOWER(TRIM(e2.username)) "
+        "FROM hcns.employees e1 "
+        "JOIN hcns.employees e2 ON LOWER(TRIM(e2.phong_ban)) = LOWER(TRIM(e1.phong_ban)) "
+        "WHERE LOWER(TRIM(e1.username)) = :u "
+        "  AND COALESCE(TRIM(e1.phong_ban), '') <> '' "
+        "  AND COALESCE(TRIM(e2.username), '') <> ''"
+    ), {"u": _chuan_hoa_ten_dn(username)}).scalars().all()
+    return [u for u in rows if u]
+
+
+def _phai_che(ev: CalendarEvent, username: str) -> bool:
+    """Quy tắc riêng tư người duyệt chốt 12/09/2026: tab Phòng ban cho cả phòng xem lịch
+    nhau, nhưng sự kiện RIÊNG (personal) của người khác mà mình không được mời chỉ lộ
+    giờ + chữ "Bận"."""
+    return ev.event_type == "personal" and not _can_view(ev, username)
+
+
+def _che_chi_tiet(item: dict[str, Any]) -> dict[str, Any]:
+    # Xoá cả danh sách tệp: tên tệp cũng lộ nội dung (vd "CV_ung_vien.pdf").
+    item.update(
+        title="Bận", description=None, location=None,
+        participants=[], attachments=[], an_chi_tiet=True,
+    )
+    return item
+
+
+def _lenh_di_cong_tac(
+    db: Session,
+    usernames: list[str],
+    nguoi_xem: str,
+    range_start: datetime,
+    range_end: datetime,
+    canh_bao: list[str],
+    *,
+    che_nguoi_khac: bool,
+) -> list[dict[str, Any]]:
+    """Sự kiện ẢO chỉ-đọc từ hcns.lenh_di_do đã duyệt của `usernames` (đã chuẩn hoá).
+
+    Ảo vì không được thêm bảng/cột, và lệnh đi còn đổi trạng thái / giờ check-in ở HCNS:
+    chép sang calendar_events là phải giữ hai bản khớp nhau. id âm để không bao giờ trùng
+    id thật (PUT/DELETE vào id âm chỉ ra 404, không đụng sự kiện nào).
+    Đọc chéo schema hcns nên fail-soft theo luật erp-architecture — nhưng có log và
+    `canh_bao` để màn hình biết lịch đang thiếu chuyến đi, không im lặng.
+    """
+    if not usernames:
+        return []
+    # Lấy dư 1 ngày đầu khoảng (lệch múi giờ của mốc start), lọc chồng lấn chính xác bên dưới.
+    tu_ngay = range_start.astimezone(_VN_TZ).date() - timedelta(days=1)
+    den_ngay = range_end.astimezone(_VN_TZ).date()
+    stmt = sql_text(
+        "SELECT l.id, l.ngay, l.dia_diem, l.muc_dich, l.gio_vao, l.gio_ra, "
+        "       l.created_at, l.approved_at, TRIM(e.username) AS username "
+        "FROM hcns.lenh_di_do l "
+        "JOIN hcns.employees e ON e.ma_nv = l.ma_nv "
+        "WHERE LOWER(TRIM(e.username)) IN :usernames "
+        "  AND l.status IN :da_duyet "
+        "  AND l.ngay >= CAST(:tu_ngay AS date) "
+        "  AND l.ngay <= CAST(:den_ngay AS date) "
+        "ORDER BY l.ngay, l.id"
+    ).bindparams(
+        bindparam("usernames", expanding=True),
+        bindparam("da_duyet", expanding=True),
+    )
+    try:
+        # SAVEPOINT: một câu lỗi làm hỏng cả transaction Postgres; lùi về savepoint thì
+        # các câu sau (tra họ tên, trạng thái việc) vẫn chạy được.
+        with db.begin_nested():
+            rows = db.execute(stmt, {
+                "usernames": sorted(set(usernames)),
+                "da_duyet": list(LENH_DI_DA_DUYET),
+                "tu_ngay": tu_ngay,
+                "den_ngay": den_ngay,
+            }).mappings().all()
+    except SQLAlchemyError as exc:
+        log.warning("calendar.list_events: không đọc được hcns.lenh_di_do: %s", exc)
+        canh_bao.append("Không đọc được lệnh đi công tác từ HCNS — lịch đang thiếu các chuyến đi.")
+        return []
+
+    nguoi_xem_cd = _chuan_hoa_ten_dn(nguoi_xem)
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        ngay = r["ngay"]
+        if r["gio_vao"] is not None:
+            bat_dau = datetime.combine(ngay, r["gio_vao"], tzinfo=_VN_TZ)
+            ket_thuc = datetime.combine(ngay, r["gio_ra"] or _GIO_HET_CA, tzinfo=_VN_TZ)
+            if ket_thuc <= bat_dau:
+                # Dev có lệnh check-in và check-out cùng phút (id 26); khối 0 phút không vẽ được.
+                ket_thuc = bat_dau + timedelta(minutes=30)
+            ca_ngay = False
+        else:
+            # Chưa check-in thì chỉ biết ngày → cả ngày, cùng khuôn 00:00–23:59 với nghỉ phép.
+            bat_dau = datetime.combine(ngay, time(0, 0), tzinfo=_VN_TZ)
+            ket_thuc = datetime.combine(ngay, time(23, 59), tzinfo=_VN_TZ)
+            ca_ngay = True
+        if not (bat_dau < range_end and ket_thuc > range_start):
+            continue
+
+        dia_diem = (r["dia_diem"] or "").strip()
+        muc_dich = (r["muc_dich"] or "").strip()
+        la_cua_toi = _chuan_hoa_ten_dn(r["username"]) == nguoi_xem_cd
+        item = EventOut(
+            id=-int(r["id"]),
+            owner_username=r["username"],
+            title=f"Đi công tác: {dia_diem or muc_dich or 'chưa ghi địa điểm'}",
+            description=muc_dich or None,
+            # Trả UTC ("...Z") giống sự kiện thật đọc từ timestamptz — FE chỉ gặp một định dạng.
+            start_dt=bat_dau.astimezone(timezone.utc),
+            end_dt=ket_thuc.astimezone(timezone.utc),
+            all_day=ca_ngay,
+            event_type="personal",
+            location=dia_diem or None,
+            timezone=DEFAULT_TZ,
+            source="lenh_di_do",
+            source_ref_id=str(r["id"]),
+            created_at=r["created_at"],
+            updated_at=r["approved_at"] or r["created_at"],
+            # Người khác không phải participant → None, cùng nghĩa với _my_status.
+            my_status="accepted" if la_cua_toi else None,
+            occ_id=f"ldd-{r['id']}",
+            master_id=None,
+        ).model_dump(mode="json")
+        item["chi_doc"] = True
+        if che_nguoi_khac and not la_cua_toi:
+            _che_chi_tiet(item)
+        out.append(item)
+    return out
+
+
+def _tra_ho_ten(db: Session, ten_dn: set[str], canh_bao: list[str]) -> dict[str, str]:
+    """username đã chuẩn hoá → họ tên, 1 câu IN cho mỗi bảng.
+
+    Ưu tiên hcns.employees.ho_ten (tên nhân sự chính thức); thiếu thì shared.users.full_name
+    — tài khoản không có hồ sơ HCNS như admin, dx_nv ở dev.
+    """
+    if not ten_dn:
+        return {}
+    ds = sorted(ten_dn)
+    ket_qua: dict[str, str] = {}
+    try:
+        # Đọc chéo schema hcns → fail-soft có SAVEPOINT như _lenh_di_cong_tac.
+        with db.begin_nested():
+            rows = db.execute(sql_text(
+                "SELECT LOWER(TRIM(username)), TRIM(ho_ten) FROM hcns.employees "
+                "WHERE LOWER(TRIM(username)) IN :ds AND COALESCE(TRIM(ho_ten), '') <> ''"
+            ).bindparams(bindparam("ds", expanding=True)), {"ds": ds}).all()
+        ket_qua.update({u: t for u, t in rows})
+    except SQLAlchemyError as exc:
+        log.warning("calendar.list_events: không đọc được họ tên hcns.employees: %s", exc)
+        canh_bao.append("Không đọc được họ tên từ HCNS — một số họ tên đang trống.")
+
+    thieu = [u for u in ds if u not in ket_qua]
+    if thieu:
+        rows = db.execute(sql_text(
+            "SELECT LOWER(TRIM(username)), TRIM(full_name) FROM shared.users "
+            "WHERE LOWER(TRIM(username)) IN :ds AND COALESCE(TRIM(full_name), '') <> ''"
+        ).bindparams(bindparam("ds", expanding=True)), {"ds": thieu}).all()
+        for u, t in rows:
+            ket_qua.setdefault(u, t)
+    return ket_qua
+
+
+def _lam_giau(db: Session, items: list[dict[str, Any]], canh_bao: list[str]) -> None:
+    """Thêm owner_ho_ten, participants[].ho_ten, trang_thai, an_chi_tiet, chi_doc cho MỌI item.
+
+    Gom khoá của cả danh sách rồi tra một lần mỗi bảng — tra theo từng sự kiện là N+1
+    query (tuần 50 sự kiện = 50+ lượt gọi DB).
+    """
+    ten_dn: set[str] = set()
+    ma_viec: set[int] = set()
+    for it in items:
+        ten_dn.add(_chuan_hoa_ten_dn(it.get("owner_username")))
+        for p in it.get("participants") or []:
+            ten_dn.add(_chuan_hoa_ten_dn(p.get("username")))
+        ref = (it.get("source_ref_id") or "").strip()
+        if it.get("source") == "directive" and ref.isdigit():
+            ma_viec.add(int(ref))
+    ten_dn.discard("")
+    ho_ten = _tra_ho_ten(db, ten_dn, canh_bao)
+
+    trang_thai_viec: dict[str, str] = {}
+    if ma_viec:
+        # Cùng schema shared với calendar_events → không fail-soft, hỏng thì để lỗi nổi lên.
+        rows = db.execute(
+            sql_text("SELECT id, status FROM shared.directives WHERE id IN :ids")
+            .bindparams(bindparam("ids", expanding=True)),
+            {"ids": sorted(ma_viec)},
+        ).all()
+        trang_thai_viec = {str(r[0]): r[1] for r in rows}
+
+    for it in items:
+        it.setdefault("an_chi_tiet", False)
+        it.setdefault("chi_doc", False)
+        it["owner_ho_ten"] = ho_ten.get(_chuan_hoa_ten_dn(it.get("owner_username")))
+        for p in it.get("participants") or []:
+            p["ho_ten"] = ho_ten.get(_chuan_hoa_ten_dn(p.get("username")))
+        nguon = it.get("source")
+        if nguon in ("leave_request", "lenh_di_do"):
+            # calendar_sync xoá sự kiện nghỉ khi đơn rời da_duyet; lệnh đi ảo chỉ lấy lệnh đã duyệt.
+            it["trang_thai"] = "da_duyet"
+        elif nguon == "directive":
+            it["trang_thai"] = trang_thai_viec.get((it.get("source_ref_id") or "").strip())
+        elif it.get("event_type") == "meeting":
+            it["trang_thai"] = it.get("my_status")
+        else:
+            it["trang_thai"] = None
+
+
 # ── 1. List events trong khoảng ────────────────────────────────────────────
 
 @router.get("/events")
@@ -387,8 +631,24 @@ def list_events(
     start: datetime = Query(..., description="ISO 8601 start (inclusive)"),
     end: datetime = Query(..., description="ISO 8601 end (exclusive)"),
     include_shared: bool = Query(True, description="Include events user được invite"),
+    pham_vi: Literal["toi", "phong_ban", "cong_ty", "hop"] = Query(
+        "toi", description="toi (mặc định, như cũ) | phong_ban | cong_ty | hop",
+    ),
 ) -> dict:
-    """List events user là owner HOẶC participant (accepted/invited) overlap [start,end)."""
+    """List events overlap [start,end) theo phạm vi = tab của trang Lịch làm việc.
+
+    - toi (mặc định): owner HOẶC participant (invited/accepted) — y như trước khi có
+      tham số này — cộng lệnh đi công tác đã duyệt của chính mình (ảo, chi_doc=true).
+    - phong_ban: owner cùng phong_ban (hcns.employees, trim+lower), gồm cả của mình, cộng
+      lệnh đi của cả phòng. personal của người khác mà mình không được mời → che
+      (title "Bận", an_chi_tiet=true). Không có phòng ban → như toi.
+    - cong_ty: event_type='public' của mọi người.
+    - hop: event_type='meeting' mà mình là owner hoặc participant invited/accepted.
+
+    Mọi item thêm: owner_ho_ten, participants[].ho_ten, trang_thai, an_chi_tiet, chi_doc.
+    Response: {total, items, pham_vi = phạm vi THỰC áp ('toi' khi phong_ban phải lùi),
+    canh_bao = [câu tiếng Việt] khi phần đọc chéo HCNS hỏng}.
+    """
     start_aw = _ensure_aware(start)
     end_aw = _ensure_aware(end)
     if not (start_aw < end_aw):
@@ -430,6 +690,21 @@ def list_events(
     else:
         cond = CalendarEvent.owner_username == user.username
 
+    # 'toi' giữ nguyên `cond` ở trên — client cũ không truyền pham_vi thấy y như trước.
+    pham_vi_thuc = pham_vi
+    dong_nghiep: list[str] = []
+    if pham_vi == "phong_ban":
+        dong_nghiep = _dong_nghiep_cung_phong(db, user.username)
+        if dong_nghiep:
+            cond = func.lower(func.trim(CalendarEvent.owner_username)).in_(dong_nghiep)
+        else:
+            pham_vi_thuc = "toi"
+    elif pham_vi == "cong_ty":
+        cond = CalendarEvent.event_type == "public"
+    elif pham_vi == "hop":
+        # Ai được thấy cuộc họp vẫn theo luật tab của tôi (owner/participant), chỉ lọc thêm loại.
+        cond = and_(CalendarEvent.event_type == "meeting", cond)
+
     stmt = (
         select(CalendarEvent)
         .where(and_(time_cond, cond))
@@ -439,8 +714,22 @@ def list_events(
     rows = db.execute(stmt).scalars().all()
     items: list[dict[str, Any]] = []
     for ev in rows:
-        items.extend(_expand_events(ev, user.username, start_aw, end_aw))
-    return {"total": len(items), "items": items}
+        occs = _expand_events(ev, user.username, start_aw, end_aw)
+        if pham_vi_thuc == "phong_ban" and _phai_che(ev, user.username):
+            occs = [_che_chi_tiet(it) for it in occs]
+        items.extend(occs)
+
+    canh_bao: list[str] = []
+    if pham_vi_thuc in ("toi", "phong_ban"):
+        items.extend(_lenh_di_cong_tac(
+            db, dong_nghiep or [_chuan_hoa_ten_dn(user.username)], user.username,
+            start_aw, end_aw, canh_bao, che_nguoi_khac=(pham_vi_thuc == "phong_ban"),
+        ))
+    _lam_giau(db, items, canh_bao)
+    return {
+        "total": len(items), "items": items,
+        "pham_vi": pham_vi_thuc, "canh_bao": canh_bao,
+    }
 
 
 # ── 2. Create event ────────────────────────────────────────────────────────
@@ -559,6 +848,32 @@ def get_event(
 
 # ── 4. Update (chỉ owner) ──────────────────────────────────────────────────
 
+def _doi_thoi_gian(ev: CalendarEvent, data: dict[str, Any], tz_str: str) -> bool:
+    """True nếu body PUT làm ĐỔI start_dt / end_dt / all_day so với bản đang lưu.
+
+    So theo giá trị, không theo có-mặt-key: client gửi lại nguyên giờ cũ kèm field khác
+    thì không phải dời lịch. Sự kiện cả ngày so theo NGÀY lịch — FullCalendar gửi mốc cuối
+    00:00 hôm sau, còn calendar_sync lưu 23:59 cùng ngày; có giờ thì lệch từ 1 phút mới tính.
+    """
+    if data.get("all_day") is not None and bool(data["all_day"]) != bool(ev.all_day):
+        return True
+    tz = _resolve_tz(ev.timezone or tz_str)
+    for key, cu, la_moc_cuoi in (("start_dt", ev.start_dt, False), ("end_dt", ev.end_dt, True)):
+        moi = data.get(key)
+        if moi is None:
+            continue
+        moi = _ensure_aware(moi, tz_str)
+        cu = _ensure_aware(cu, ev.timezone)
+        if ev.all_day:
+            # Mốc cuối là mốc loại trừ: lùi 1 micro-giây rồi mới lấy ngày.
+            lui = timedelta(microseconds=1) if la_moc_cuoi else timedelta(0)
+            if (moi - lui).astimezone(tz).date() != (cu - lui).astimezone(tz).date():
+                return True
+        elif abs((moi - cu).total_seconds()) >= 60:
+            return True
+    return False
+
+
 @router.put("/events/{id}")
 def update_event(
     id: int,
@@ -579,6 +894,11 @@ def update_event(
 
     data = body.model_dump(exclude_unset=True)
     tz_str = data.get("timezone") or ev.timezone or DEFAULT_TZ
+
+    # Kéo thả sự kiện đơn nghỉ / hạn việc / buổi đào tạo làm lịch lệch bản gốc, rồi lần
+    # đồng bộ sau của calendar_sync ghi đè mất. Chặn TRƯỚC khi gán field nào vào `ev`.
+    if ev.source in NGUON_HE_THONG and _doi_thoi_gian(ev, data, tz_str):
+        raise HTTPException(403, "Sự kiện do hệ thống tạo — đổi thời gian ở đơn / việc gốc")
 
     if "title" in data and data["title"] is not None:
         ev.title = data["title"]

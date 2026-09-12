@@ -1,0 +1,916 @@
+{# SINH TỰ ĐỘNG — ĐỪNG sửa file này trong repo.
+   Sửa `claude-kit/core/shared/templates/phe_duyet_core.html` rồi chạy:
+       cd d:\PapaSanIT\claude-kit && python sync.py
+   File này giống hệt nhau ở cả 8 repo. Muốn một app khác đi thì đặt
+   bản riêng trong templates/ của app đó (Jinja đọc templates/ trước). -#}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="stylesheet" href="/static/css/theme.css?v=xanh1">
+<title>Phê duyệt — QLPPS</title>
+<link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
+<link rel="shortcut icon" href="/static/papasan.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   PHÊ DUYỆT — màn dùng chung cho cả 8 app (bố cục v2, 12/09/2026).
+
+   Theo ảnh mẫu người dùng gửi 12/09/2026 ("màn phê duyệt đang không đồng nhất,
+   làm như ảnh"): khẩu hiệu bên phải · 4 thẻ số · hàng [tab loại yêu cầu … khoảng
+   ngày · tìm · Bộ lọc] trên nền trang · bảng + phân trang trong một thẻ · NGĂN CHI
+   TIẾT bên phải (Thông tin chung · Tệp đính kèm · Lịch sử) · chân ngăn có ô ý kiến
+   và hai nút Từ chối / Phê duyệt.
+
+   KHÁC ẢNH MẪU — có chủ ý, vì chỉ hiện dữ liệu CÓ THẬT:
+     · Tab = 4 nguồn đã có API "chờ tôi duyệt": Xin nghỉ · Đi công tác (lệnh đi đo +
+       công trình) · Đề xuất · Duyệt chi. Ảnh có thêm "Đơn PO" và "Đơn hàng" —
+       hai loại này CHƯA có endpoint chờ-duyệt nên chưa hiện (người dùng chốt
+       12/09/2026: làm loại đã có API trước).
+     · Riêng app CEO có thêm tab "Nguồn khác" lấy từ `/api/inbox` (đơn PO, báo giá,
+       đề nghị thanh toán…) — CEO vốn có màn gom 8 nguồn, không được để mất.
+     · Không có tab "Sản phẩm" trong ngăn chi tiết: không nguồn nào trả dòng hàng.
+     · "Giá trị / Thời gian" = tiền với Duyệt chi + Đề xuất, số ngày với Xin nghỉ,
+       khoảng giờ với lệnh đi đo — đúng thứ mỗi loại thật sự có.
+     · Không có ô chọn nhiều dòng: không API nào duyệt hàng loạt.
+
+   Màu/khoảng cách/cỡ chữ chỉ lấy token `theme.css` (ADR-012). MỌI selector nằm dưới
+   `.pd` — màn này chạy trong 8 khung app, có app nạp Bootstrap / components.css riêng.
+   ═══════════════════════════════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:100vh;color:var(--text-1);
+     -webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+.pd{color:var(--text-2);font-size:var(--fs-body);line-height:var(--lh-body)}
+.pd [hidden]{display:none !important}
+.pd .pd-wrap{max-width:none;margin:0;padding:var(--sp-8) var(--sp-8) 40px}
+@media(min-width:768px){.pd .pd-wrap{padding:var(--sp-8) var(--sp-9) 40px}}
+@media(min-width:1600px){.pd .pd-wrap{padding:var(--sp-9) var(--sp-10) 48px}}
+.pd .pd-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
+     clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.pd svg.pd-ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── Hàng đầu: khẩu hiệu bên phải (tên màn đã lên thanh trên cùng) ────────── */
+.pd .pd-dau{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-6) var(--sp-10);flex-wrap:wrap;
+     margin-bottom:var(--sp-8)}
+.pd .pd-khau-hieu{font-size:var(--fs-title);font-style:italic;color:var(--text-2);text-align:right;line-height:1.45}
+
+/* ── 4 thẻ số ────────────────────────────────────────────────────────────── */
+.pd .kpi-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-6);margin-bottom:var(--sp-9)}
+@media(min-width:1024px){.pd .kpi-row{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:479px){.pd .kpi-row{grid-template-columns:minmax(0,1fr)}}
+.pd .kpi{display:flex;align-items:center;gap:var(--sp-7);min-width:0;padding:var(--sp-8) var(--sp-9);
+     border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-card);box-shadow:var(--shadow-sm)}
+.pd .kpi-chu{flex:1;min-width:0;overflow:hidden}
+.pd .kpi-nhan{display:block;font-size:var(--fs-body);color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pd .kpi-so{display:block;margin-top:var(--sp-1);font-size:var(--fs-kpi);font-weight:700;color:var(--text-1);
+     line-height:var(--lh-tight);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pd .kpi-so--cho{color:var(--warning-fg)}
+.pd .kpi-so--duyet{color:var(--success-fg)}
+.pd .kpi-so--tu-choi{color:var(--danger-fg)}
+.pd .ico-tile{display:inline-grid;place-items:center;flex:none;width:48px;height:48px;border-radius:var(--r-full);
+     background:var(--tile-blue);color:var(--text-on-brand)}
+.pd .ico-tile svg.pd-ic{width:22px;height:22px}
+.pd .ico-tile--success{background:var(--tile-green)}
+.pd .ico-tile--warning{background:var(--tile-orange)}
+.pd .ico-tile--danger{background:var(--tile-red)}
+.pd .ico-tile--tim{background:var(--tile-violet)}
+.pd .ico-tile--neutral{background:var(--tile-slate)}
+
+/* ── Nút ─────────────────────────────────────────────────────────────────── */
+.pd .btn-primary,.pd .btn-ghost,.pd .btn-soft,.pd .btn-approve,.pd .btn-reject{display:inline-flex;align-items:center;
+     justify-content:center;gap:var(--sp-3);min-height:40px;padding:0 var(--sp-9);border-radius:var(--r);font:inherit;
+     font-size:var(--fs-body);font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
+.pd .btn-primary{background:var(--brand);color:var(--text-on-brand);border:1px solid var(--brand)}
+.pd .btn-primary:hover{background:var(--brand-hover);border-color:var(--brand-hover)}
+.pd .btn-ghost{background:var(--bg-band);color:var(--text-1);border:1px solid var(--bg-band)}
+.pd .btn-ghost:hover{filter:brightness(.97)}
+.pd .btn-soft{background:var(--brand-soft);color:var(--brand-hover);border:1px solid var(--brand-border)}
+.pd .btn-approve{flex:1;background:var(--success);color:var(--text-on-brand);border:1px solid var(--success)}
+.pd .btn-approve:hover{background:var(--success-fg);border-color:var(--success-fg)}
+.pd .btn-reject{flex:1;background:var(--bg-card);color:var(--danger);border:1px solid var(--danger)}
+.pd .btn-reject:hover{background:var(--danger-soft)}
+.pd .btn-approve:disabled,.pd .btn-reject:disabled,.pd .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+.pd .btn-link{display:inline-flex;align-items:center;gap:var(--sp-2);border:0;background:none;padding:0;font:inherit;
+     font-size:var(--fs-meta);font-weight:600;color:var(--brand-hover);cursor:pointer}
+.pd .btn-link:hover{text-decoration:underline}
+.pd .pd-nut-icon{display:inline-grid;place-items:center;flex:none;width:32px;height:32px;border:0;border-radius:var(--r);
+     background:transparent;color:var(--text-2);cursor:pointer}
+.pd .pd-nut-icon:hover{background:var(--bg-page);color:var(--text-1)}
+.pd .btn-primary:focus-visible,.pd .btn-ghost:focus-visible,.pd .btn-soft:focus-visible,.pd .btn-approve:focus-visible,
+.pd .btn-reject:focus-visible,.pd .pd-nut-icon:focus-visible,.pd .btn-link:focus-visible,.pd .tab-btn:focus-visible,
+.pd .pd-pg button:focus-visible,.pd .pd-o:focus-visible,.pd .pd-tab-ct:focus-visible{outline:0;box-shadow:var(--focus-ring)}
+
+/* ── Hàng tab + công cụ ──────────────────────────────────────────────────── */
+.pd .pd-thanh{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-5) var(--sp-8);flex-wrap:wrap;
+     margin-bottom:var(--sp-7)}
+.pd .tabs-bar{display:flex;gap:var(--sp-9);flex:0 1 auto;min-width:0;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.pd .tabs-bar::-webkit-scrollbar{display:none}
+.pd .tab-btn{display:inline-flex;align-items:center;gap:var(--sp-2);padding:var(--sp-5) 0 var(--sp-4);border:0;
+     border-bottom:2px solid transparent;background:none;font:inherit;font-size:var(--fs-body);font-weight:500;
+     color:var(--text-2);cursor:pointer;white-space:nowrap}
+.pd .tab-btn:hover{color:var(--brand-hover)}
+.pd .tab-btn.active{color:var(--brand-hover);font-weight:600;border-bottom-color:var(--brand)}
+.pd .tab-badge{font-variant-numeric:tabular-nums}
+.pd .tab-badge::before{content:"("}
+.pd .tab-badge::after{content:")"}
+.pd .pd-cong-cu{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-5);flex:1 1 auto;min-width:0}
+.pd .pd-o{display:inline-flex;align-items:center;gap:var(--sp-4);height:40px;padding:0 var(--sp-6);border:1px solid var(--border);
+     border-radius:var(--r);background:var(--bg-card);color:var(--text-1);font:inherit;font-size:var(--fs-body);
+     white-space:nowrap;cursor:pointer}
+.pd .pd-o:hover{border-color:var(--brand-border)}
+.pd .pd-o[aria-expanded="true"]{border-color:var(--brand);box-shadow:var(--focus-ring)}
+.pd .pd-o svg.pd-ic{width:16px;height:16px;color:var(--text-2)}
+.pd .pd-tim{position:relative;flex:1 1 160px;min-width:150px;max-width:280px}
+.pd .pd-tim input{width:100%;height:40px;padding:0 var(--sp-6) 0 36px;border:1px solid var(--border);border-radius:var(--r);
+     background:var(--bg-card);color:var(--text-1);font:inherit;font-size:var(--fs-body);outline:none}
+.pd .pd-tim input:focus{border-color:var(--brand);box-shadow:var(--focus-ring)}
+.pd .pd-tim svg.pd-ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text-3);pointer-events:none}
+.pd .pd-bat{position:relative;flex:none}
+.pd .pd-noi{position:absolute;top:calc(100% + var(--sp-3));right:0;z-index:40;width:292px;max-width:calc(100vw - 24px);
+     padding:var(--sp-7);border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-card);
+     box-shadow:var(--shadow-pop, var(--shadow-lg))}
+.pd .pd-ky-nhanh{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
+.pd .pd-ky-nhanh button{min-height:34px;padding:0 var(--sp-5);border:1px solid var(--border);border-radius:var(--r);
+     background:var(--bg-card);color:var(--text-2);font:inherit;font-size:var(--fs-body);text-align:left;cursor:pointer}
+.pd .pd-ky-nhanh button:hover{border-color:var(--brand-border);color:var(--brand-hover)}
+.pd .pd-noi-nhan{margin:var(--sp-7) 0 var(--sp-4);font-size:var(--fs-meta);font-weight:600;color:var(--text-3)}
+.pd .pd-noi-2cot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-4)}
+.pd .pd-noi label{display:flex;flex-direction:column;gap:var(--sp-2);font-size:var(--fs-meta);font-weight:600;color:var(--text-2)}
+.pd .pd-noi input,.pd .pd-noi select{width:100%;min-width:0;min-height:36px;padding:0 var(--sp-4);border:1px solid var(--border);
+     border-radius:var(--r);background:var(--bg-card);color:var(--text-1);font:inherit;font-size:var(--fs-body);font-weight:400;outline:none}
+.pd .pd-noi input:focus,.pd .pd-noi select:focus{border-color:var(--brand);box-shadow:var(--focus-ring)}
+.pd .pd-noi-chan{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-5);margin-top:var(--sp-7)}
+.pd .pd-noi-chan .btn-soft{min-height:34px;padding:0 var(--sp-8)}
+
+/* ── Thân: thẻ bảng + ngăn chi tiết ──────────────────────────────────────── */
+.pd .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);
+     box-shadow:var(--shadow-sm);overflow:hidden;min-width:0}
+.pd .pd-than{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-8);align-items:start}
+@media(min-width:1280px){.pd .pd-than.co-panel{grid-template-columns:minmax(0,1fr) 380px}}
+@media(min-width:1600px){.pd .pd-than.co-panel{grid-template-columns:minmax(0,1fr) 420px}}
+.pd .pd-bang{container-type:inline-size}
+
+/* ── Bảng ────────────────────────────────────────────────────────────────── */
+.pd .tbl-wrap{position:relative;overflow-x:auto;padding:var(--sp-6) var(--sp-7) 0;border:0;border-radius:0;
+     background:transparent;box-shadow:none}
+.pd .data-table{width:100%;min-width:0;border-collapse:separate;border-spacing:0;font-size:var(--fs-body)}
+.pd .data-table thead th{padding:var(--sp-5);background:var(--bg-band);color:var(--text-2);font-size:var(--fs-meta);
+     font-weight:600;text-align:left;white-space:nowrap;text-transform:none;letter-spacing:normal;border:0;box-shadow:none}
+.pd .data-table thead th:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm)}
+.pd .data-table thead th:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
+.pd .data-table thead th.c-gt{text-align:right}
+.pd .data-table thead th.c-mo{text-align:center}
+.pd .data-table tbody td{padding:var(--sp-5);border-bottom:1px solid var(--border-soft);color:var(--text-2);vertical-align:middle}
+.pd .data-table tbody tr{cursor:pointer}
+.pd .data-table tbody tr:last-child td{border-bottom:0}
+.pd .data-table tbody tr:hover td{background:var(--bg-page)}
+.pd .data-table tbody tr:hover > td:first-child{box-shadow:none}
+.pd .data-table tbody tr.is-chon td{background:var(--brand-soft)}
+.pd .data-table tr.empty-row{cursor:default}
+.pd .data-table tr.empty-row td{padding:40px var(--sp-5);text-align:center;color:var(--text-3);border-bottom:0}
+.pd .data-table tr.empty-row:hover td{background:transparent}
+.pd .c-stt{width:36px;color:var(--text-3);font-variant-numeric:tabular-nums}
+.pd .c-ngay b{display:block;font-weight:500;color:var(--text-1);white-space:nowrap;font-variant-numeric:tabular-nums}
+.pd .c-ngay small{display:block;font-size:var(--fs-meta);color:var(--text-3)}
+.pd td.c-nd{min-width:150px}
+.pd .pd-nd-t{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;color:var(--text-1);font-weight:500}
+.pd .pd-nd-p{display:block;font-size:var(--fs-meta);color:var(--text-3)}
+.pd .c-gt{text-align:right;font-weight:600;color:var(--text-1);white-space:nowrap;font-variant-numeric:tabular-nums}
+.pd td.c-gt{text-align:right}
+.pd .c-mo{width:44px;text-align:center}
+.pd .pd-han{white-space:nowrap;font-variant-numeric:tabular-nums}
+.pd .pd-han.is-qua{color:var(--danger-fg);font-weight:600}
+.pd .nv-cell{display:flex;align-items:center;gap:var(--sp-5);min-width:0}
+.pd .nv-ava{display:inline-grid;place-items:center;flex:none;width:30px;height:30px;border-radius:var(--r-full);
+     background:var(--brand-soft);color:var(--brand-hover);font-size:var(--fs-eyebrow);font-weight:700}
+.pd .nv-ten{min-width:0;font-weight:500;color:var(--text-1);white-space:nowrap}
+/* Cột phụ ẩn dần theo bề rộng THẺ BẢNG (ngăn chi tiết mở/đóng, thanh bên thu/mở). */
+/* Mở ngăn chi tiết thì thẻ bảng hẹp lại; cột mũi tên bị cắt ở mép phải (ảnh thật hcns
+   12/09/2026). Cả dòng vốn bấm được nên bỏ cột mũi tên trước, không mất chức năng nào. */
+@container (max-width:1040px){.pd .pd-bang .c-stt,.pd .pd-bang .c-mo{display:none}}
+@container (max-width:920px){.pd .pd-bang .c-pb{display:none}}
+@container (max-width:780px){.pd .pd-bang .c-han{display:none}}
+@container (max-width:660px){.pd .pd-bang .c-nguoi{display:none}}
+
+/* Nhãn loại yêu cầu */
+.pd .pd-loai{display:inline-flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-5);border-radius:var(--r-full);
+     background:var(--bg-band);color:var(--text-2);font-size:var(--fs-meta);font-weight:600;white-space:nowrap}
+.pd .pd-loai svg.pd-ic{width:14px;height:14px}
+.pd .pd-loai--nghi{background:var(--info-soft);color:var(--info-fg, var(--text-2))}
+.pd .pd-loai--di{background:var(--brand-soft);color:var(--brand-hover)}
+.pd .pd-loai--dx{background:var(--warning-soft);color:var(--warning-fg)}
+.pd .pd-loai--chi{background:var(--success-soft);color:var(--success-fg)}
+.pd .pd-loai--khac{background:var(--bg-band);color:var(--text-2)}
+
+/* Pill trạng thái */
+.pd .pill{display:inline-flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-5);border-radius:var(--r-full);
+     font-size:var(--fs-meta);font-weight:600;white-space:nowrap}
+.pd .pill::before{content:"";width:6px;height:6px;border-radius:var(--r-full);background:currentColor}
+.pd .pill--warning{background:var(--warning-soft);color:var(--warning-fg)}
+.pd .pill--success{background:var(--success-soft);color:var(--success-fg)}
+.pd .pill--danger{background:var(--danger-soft);color:var(--danger-fg)}
+.pd .pill--neutral{background:var(--bg-band);color:var(--text-3)}
+
+/* Phân trang */
+.pd .pd-pg{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-5) var(--sp-7);flex-wrap:wrap;
+     padding:var(--sp-6) var(--sp-9) var(--sp-7)}
+.pd .pd-pg-chu{font-size:var(--fs-meta);color:var(--text-3)}
+.pd .pd-pg-nut{display:flex;align-items:center;gap:var(--sp-3)}
+.pd .pd-pg button{min-width:32px;height:32px;padding:0 var(--sp-4);border:1px solid var(--border);border-radius:var(--r-sm);
+     background:var(--bg-card);color:var(--text-2);font:inherit;font-size:var(--fs-meta);font-weight:600;cursor:pointer}
+.pd .pd-pg button:hover:not(:disabled){border-color:var(--brand-border);color:var(--brand-hover)}
+.pd .pd-pg button.is-chon{background:var(--brand);border-color:var(--brand);color:var(--text-on-brand)}
+.pd .pd-pg button:disabled{opacity:.45;cursor:default}
+.pd .pd-pg select{height:32px;padding:0 var(--sp-4);border:1px solid var(--border);border-radius:var(--r-sm);
+     background:var(--bg-card);color:var(--text-2);font:inherit;font-size:var(--fs-meta);cursor:pointer}
+
+/* ── Ngăn chi tiết ───────────────────────────────────────────────────────── */
+.pd .pd-panel{position:sticky;top:var(--sp-8);display:flex;flex-direction:column;max-height:calc(100vh - 96px)}
+@media(max-width:1279px){.pd .pd-panel{position:static;max-height:none}}
+.pd .pd-panel-dau{display:flex;align-items:flex-start;gap:var(--sp-6);padding:var(--sp-8) var(--sp-9);
+     border-bottom:1px solid var(--border-soft)}
+.pd .pd-panel-dau .ico-tile{width:40px;height:40px;border-radius:var(--r-md)}
+.pd .pd-panel-dau .ico-tile svg.pd-ic{width:20px;height:20px}
+.pd .pd-panel-ten{flex:1;min-width:0}
+.pd .pd-panel-ten h2{font-size:var(--fs-title);font-weight:700;color:var(--text-1);overflow-wrap:anywhere}
+.pd .pd-panel-ten small{display:block;margin-top:var(--sp-2);font-size:var(--fs-meta);color:var(--text-3)}
+.pd .pd-panel-tabs{display:flex;gap:var(--sp-8);padding:0 var(--sp-9);border-bottom:1px solid var(--border-soft)}
+.pd .pd-tab-ct{padding:var(--sp-5) 0 var(--sp-4);border:0;border-bottom:2px solid transparent;background:none;font:inherit;
+     font-size:var(--fs-body);font-weight:500;color:var(--text-2);cursor:pointer;white-space:nowrap}
+.pd .pd-tab-ct.active{color:var(--brand-hover);font-weight:600;border-bottom-color:var(--brand)}
+.pd .pd-panel-than{flex:1;overflow-y:auto;padding:var(--sp-8) var(--sp-9)}
+.pd .pd-nhom-nhan{margin-bottom:var(--sp-6);font-size:var(--fs-body);font-weight:700;color:var(--text-1)}
+.pd .pd-ct{display:grid;grid-template-columns:132px minmax(0,1fr);gap:var(--sp-5) var(--sp-6)}
+.pd .pd-ct dt{display:flex;align-items:center;gap:var(--sp-4);font-size:var(--fs-meta);color:var(--text-3)}
+.pd .pd-ct dt svg.pd-ic{width:15px;height:15px;color:var(--text-3)}
+.pd .pd-ct dd{min-width:0;color:var(--text-1);overflow-wrap:anywhere;white-space:pre-wrap}
+.pd .pd-ct dd b{font-weight:600}
+.pd .pd-tep{display:flex;align-items:center;gap:var(--sp-5);min-width:0;padding:var(--sp-5) var(--sp-6);
+     border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card)}
+.pd .pd-tep + .pd-tep{margin-top:var(--sp-4)}
+.pd .pd-tep-bieu{display:inline-grid;place-items:center;flex:none;width:32px;height:32px;border-radius:var(--r-sm);
+     background:var(--danger-soft);color:var(--danger-fg)}
+.pd .pd-tep-ten{flex:1;min-width:0}
+.pd .pd-tep-ten b{display:block;font-weight:500;color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pd .pd-tep-ten small{font-size:var(--fs-meta);color:var(--text-3)}
+.pd .pd-ls{list-style:none;position:relative;display:flex;flex-direction:column;gap:var(--sp-7);padding-left:var(--sp-8)}
+.pd .pd-ls::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--border-soft)}
+.pd .pd-ls li{position:relative}
+.pd .pd-ls li::before{content:"";position:absolute;left:calc(-1 * var(--sp-8) + 1px);top:5px;width:10px;height:10px;
+     border-radius:var(--r-full);background:var(--brand)}
+.pd .pd-ls b{display:block;color:var(--text-1)}
+.pd .pd-ls small{display:block;font-size:var(--fs-meta);color:var(--text-3)}
+.pd .pd-panel-chan{padding:var(--sp-7) var(--sp-9) var(--sp-8);border-top:1px solid var(--border-soft);background:var(--bg-card)}
+.pd .pd-panel-chan textarea{width:100%;min-height:40px;padding:var(--sp-5) var(--sp-6);border:1px solid var(--border);
+     border-radius:var(--r);background:var(--bg-card);color:var(--text-1);font:inherit;font-size:var(--fs-body);
+     resize:vertical;outline:none}
+.pd .pd-panel-chan textarea:focus{border-color:var(--brand);box-shadow:var(--focus-ring)}
+.pd .pd-nut-quyet{display:flex;gap:var(--sp-5);margin-top:var(--sp-6)}
+.pd .pd-trong{display:grid;place-items:center;gap:var(--sp-5);padding:56px var(--sp-9);text-align:center;color:var(--text-3)}
+.pd .pd-trong svg.pd-ic{width:28px;height:28px;color:var(--text-3)}
+
+/* ── Lưu ý ───────────────────────────────────────────────────────────────── */
+.pd .pd-luu-y{margin-top:var(--sp-8);padding:var(--sp-8) var(--sp-9);border:1px solid var(--border);
+     border-radius:var(--r-lg);background:linear-gradient(180deg, var(--bg-card) 0%, var(--brand-soft) 100%)}
+.pd .pd-luu-y-dau{display:flex;align-items:center;gap:var(--sp-5);margin-bottom:var(--sp-6)}
+.pd .pd-luu-y-dau .ico-tile{width:32px;height:32px;border-radius:var(--r-md)}
+.pd .pd-luu-y-dau .ico-tile svg.pd-ic{width:17px;height:17px}
+.pd .pd-luu-y-dau b{font-size:var(--fs-body);font-weight:700;color:var(--text-1)}
+.pd .pd-luu-y ul{list-style:none;display:flex;flex-direction:column;gap:var(--sp-4)}
+.pd .pd-luu-y li{position:relative;padding-left:var(--sp-7);color:var(--text-2)}
+.pd .pd-luu-y li::before{content:"";position:absolute;left:var(--sp-3);top:9px;width:5px;height:5px;border-radius:var(--r-full);
+     background:var(--brand)}
+
+/* Dải cảnh báo nguồn không lấy được */
+.pd .pd-canh{display:flex;align-items:flex-start;gap:var(--sp-5);margin-bottom:var(--sp-7);padding:var(--sp-6) var(--sp-8);
+     border:1px solid var(--warning-border, var(--border));border-radius:var(--r);background:var(--warning-soft);color:var(--warning-fg)}
+
+/* ── Toast ───────────────────────────────────────────────────────────────── */
+.pd .toast-wrap{position:fixed;right:24px;bottom:24px;z-index:9999;display:flex;flex-direction:column;gap:var(--sp-4);pointer-events:none}
+.pd .toast{max-width:340px;padding:var(--sp-6) var(--sp-9);border-radius:var(--r);font-size:var(--fs-body);font-weight:600;
+     color:var(--text-on-brand);box-shadow:var(--shadow-lg);opacity:0;transform:translateY(12px);transition:all .25s}
+.pd .toast.show{opacity:1;transform:none}
+.pd .toast.error{background:var(--danger)}
+.pd .toast.info{background:var(--brand)}
+.pd .toast.ok{background:var(--success)}
+
+@media(max-width:767px){
+  .pd .pd-wrap{padding:var(--sp-7) var(--sp-7) 32px}
+  .pd .pd-dau{justify-content:flex-start}
+  .pd .pd-khau-hieu{text-align:left;font-size:var(--fs-body)}
+  .pd .pd-cong-cu{flex-wrap:wrap;justify-content:flex-start}
+  .pd .tbl-wrap{padding:var(--sp-5) var(--sp-6) 0}
+  .pd .pd-ct{grid-template-columns:108px minmax(0,1fr)}
+  .pd .toast-wrap{left:8px;right:8px;bottom:12px}
+}
+@media(prefers-reduced-motion:reduce){.pd *{transition:none}}
+</style>
+</head>
+<body>
+{% include "_header.html" %}
+{% set ten_man = "Phê duyệt" %}{% include "_khung_man.html" %}
+
+{%- set _pd_role = ((user.role if user else '') or '')|lower -%}
+<div class="pd">
+<div class="pd-wrap">
+  <h1 class="pd-sr">Phê duyệt</h1>
+
+  <div class="pd-dau">
+    <p class="pd-khau-hieu">“Phê duyệt đúng lúc<br>Giúp công việc thông suốt”</p>
+  </div>
+
+  <!-- 4 thẻ số -->
+  <div class="kpi-row">
+    <div class="kpi">
+      <span class="ico-tile ico-tile--neutral"><svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg></span>
+      <div class="kpi-chu"><span class="kpi-nhan">Tổng yêu cầu</span><span class="kpi-so" id="pd-k-tong">—</span></div></div>
+    <div class="kpi">
+      <span class="ico-tile ico-tile--warning"><svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+      <div class="kpi-chu"><span class="kpi-nhan">Chờ phê duyệt</span><span class="kpi-so kpi-so--cho" id="pd-k-cho">—</span></div></div>
+    <div class="kpi">
+      <span class="ico-tile ico-tile--success"><svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m20 6-11 11-5-5"/></svg></span>
+      <div class="kpi-chu"><span class="kpi-nhan">Đã phê duyệt</span><span class="kpi-so kpi-so--duyet" id="pd-k-duyet">—</span></div></div>
+    <div class="kpi">
+      <span class="ico-tile ico-tile--danger"><svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg></span>
+      <div class="kpi-chu"><span class="kpi-nhan">Từ chối</span><span class="kpi-so kpi-so--tu-choi" id="pd-k-tu-choi">—</span></div></div>
+  </div>
+
+  <div class="pd-canh" id="pd-canh" hidden>
+    <svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+    <span id="pd-canh-chu"></span>
+  </div>
+
+  <!-- Tab loại yêu cầu + công cụ -->
+  <div class="pd-thanh">
+    <div class="tabs-bar" role="tablist" aria-label="Loại yêu cầu" id="pd-tabs"></div>
+    <div class="pd-cong-cu">
+      <div class="pd-bat">
+        <button type="button" class="pd-o" id="pd-ky-nut" aria-haspopup="dialog" aria-expanded="false" onclick="pdMoKy(this)">
+          <svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          <span id="pd-ky-chu">Tất cả thời gian</span></button>
+        <div class="pd-noi" id="pd-ky-noi" role="dialog" aria-label="Chọn khoảng ngày" hidden>
+          <div class="pd-ky-nhanh">
+            <button type="button" onclick="pdKyNhanh('tat_ca')">Tất cả thời gian</button>
+            <button type="button" onclick="pdKyNhanh('thang_nay')">Tháng này</button>
+            <button type="button" onclick="pdKyNhanh('thang_truoc')">Tháng trước</button>
+            <button type="button" onclick="pdKyNhanh('7ngay')">7 ngày qua</button>
+          </div>
+          <p class="pd-noi-nhan">Khoảng tuỳ chọn</p>
+          <div class="pd-noi-2cot">
+            <label>Từ ngày<input type="date" id="pd-tu"></label>
+            <label>Đến ngày<input type="date" id="pd-den"></label>
+          </div>
+          <div class="pd-noi-chan">
+            <button type="button" class="btn-ghost" style="min-height:34px;padding:0 var(--sp-8)" onclick="pdXoaKy()">Xoá</button>
+            <button type="button" class="btn-soft" onclick="pdApKy()">Áp dụng</button>
+          </div>
+        </div>
+      </div>
+      <div class="pd-tim">
+        <svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" id="pd-tim" placeholder="Tìm kiếm yêu cầu..." aria-label="Tìm kiếm yêu cầu" oninput="pdTimGo()">
+      </div>
+      <div class="pd-bat">
+        <button type="button" class="pd-o" id="pd-loc-nut" aria-haspopup="dialog" aria-expanded="false" onclick="pdMoLoc(this)">
+          <svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16M7 12h10M10 19h4"/></svg>
+          Bộ lọc</button>
+        <div class="pd-noi" id="pd-loc-noi" role="dialog" aria-label="Bộ lọc" hidden>
+          <label>Trạng thái
+            <select id="pd-l-tt" onchange="pdVe(1)">
+              <option value="">Tất cả trạng thái</option>
+              <option value="cho_duyet">Chờ phê duyệt</option>
+              <option value="da_duyet">Đã phê duyệt</option>
+              <option value="tu_choi">Từ chối</option>
+            </select></label>
+          <p class="pd-noi-nhan">Phòng ban</p>
+          <label class="pd-sr" for="pd-l-pb">Phòng ban</label>
+          <select id="pd-l-pb" onchange="pdVe(1)"><option value="">Tất cả phòng ban</option></select>
+          <div class="pd-noi-chan"><button type="button" class="btn-soft" onclick="pdDongLoc()">Xong</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bảng + ngăn chi tiết -->
+  <div class="pd-than" id="pd-than">
+    <section class="card pd-bang" aria-labelledby="pd-bang-ten">
+      <h2 class="pd-sr" id="pd-bang-ten">Danh sách yêu cầu chờ phê duyệt</h2>
+      <div class="tbl-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th class="c-stt">#</th>
+            <th class="c-ngay">Ngày tạo</th>
+            <th>Loại yêu cầu</th>
+            <th class="c-nd">Nội dung</th>
+            <th class="c-nguoi">Người gửi</th>
+            <th class="c-pb">Phòng ban</th>
+            <th class="c-gt">Giá trị / Thời gian</th>
+            <th>Trạng thái</th>
+            <th class="c-han">Hạn phê duyệt</th>
+            <th class="c-mo"><span class="pd-sr">Xem chi tiết</span></th>
+          </tr></thead>
+          <tbody id="pd-than-bang"><tr class="empty-row"><td colspan="10">Đang tải...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pd-pg">
+        <span class="pd-pg-chu" id="pd-pg-chu">—</span>
+        <div class="pd-pg-nut" id="pd-pg-nut"></div>
+        <span class="pd-pg-chu">Hiển thị
+          <select id="pd-pg-co" onchange="pdDoiCo(this.value)"><option>10</option><option>20</option><option>50</option></select>
+          dòng/trang</span>
+      </div>
+    </section>
+
+    <aside class="card pd-panel" id="pd-panel" hidden aria-label="Chi tiết yêu cầu">
+      <div class="pd-panel-dau">
+        <span class="ico-tile" id="pd-p-bieu"><svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+        <div class="pd-panel-ten"><h2 id="pd-p-ten">—</h2><small id="pd-p-phu"></small></div>
+        <span id="pd-p-tt"></span>
+        <button type="button" class="pd-nut-icon" onclick="pdDongPanel()" aria-label="Đóng chi tiết">
+          <svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m18 6-12 12M6 6l12 12"/></svg></button>
+      </div>
+      <div class="pd-panel-tabs" role="tablist" aria-label="Nội dung chi tiết">
+        <button type="button" class="pd-tab-ct active" data-ct="tt" onclick="pdTabCT('tt')">Thông tin</button>
+        <button type="button" class="pd-tab-ct" data-ct="ls" onclick="pdTabCT('ls')">Lịch sử <span id="pd-p-ls-dem"></span></button>
+      </div>
+      <div class="pd-panel-than" id="pd-p-than"></div>
+      <div class="pd-panel-chan" id="pd-p-chan">
+        <textarea id="pd-p-ykien" rows="1" placeholder="Nhập ý kiến (nếu có)..." aria-label="Ý kiến khi phê duyệt"></textarea>
+        <div class="pd-nut-quyet">
+          <button type="button" class="btn-reject" id="pd-nut-tu-choi" onclick="pdQuyet('tu_choi')">
+            <svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m18 6-12 12M6 6l12 12"/></svg>Từ chối</button>
+          <button type="button" class="btn-approve" id="pd-nut-duyet" onclick="pdQuyet('da_duyet')">
+            <svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m20 6-11 11-5-5"/></svg>Phê duyệt</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="pd-luu-y" aria-label="Lưu ý">
+    <div class="pd-luu-y-dau">
+      <span class="ico-tile"><svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></span>
+      <b>Lưu ý</b>
+    </div>
+    <ul>
+      <li>Màn này gom các yêu cầu <b>đang chờ chính bạn duyệt</b>; đơn của phòng khác hoặc cấp khác không hiện ở đây.</li>
+      <li>Duyệt chi và Đề xuất đi theo nhiều cấp — duyệt xong ở cấp của bạn, đơn tự chuyển cho cấp kế tiếp.</li>
+      <li>Từ chối bắt buộc ghi lý do; lý do được gửi tới người tạo đơn và lưu vào lịch sử.</li>
+      <li>Số liệu lấy trực tiếp từ từng nguồn khi mở màn — bấm tải lại trình duyệt để cập nhật.</li>
+    </ul>
+  </section>
+</div>
+<div class="toast-wrap" id="pd-toast"></div>
+</div>
+
+<script>
+const PD_ME = {{ (user.username if user else '')|tojson }};
+const PD_ROLE = {{ _pd_role|tojson }};
+/* Chỉ app CEO mới có `/api/inbox` (gom đơn PO, báo giá, đề nghị thanh toán). Hỏi đúng app
+   đó thay vì hỏi khắp nơi rồi ăn 404 — 404 vẫn hiện đỏ trong tab Network của người dùng. */
+const PD_APP = {{ ((request.app.state.app_name if request else '') or '')|tojson }};
+const PD_SUPER = ['admin', 'ceo', 'assistant_ceo'].indexOf(PD_ROLE) >= 0;
+/* Ai mở được màn: role duyệt được ít nhất một loại. NV thường không có gì để duyệt —
+   `/api/xin-nghi` với họ trả về ĐƠN CỦA CHÍNH HỌ, hiện lên đây là hiểu sai màn hình. */
+const PD_DUYET = PD_SUPER || ['manager', 'leader', 'kt', 'hr_manager'].indexOf(PD_ROLE) >= 0;
+
+const _pd = {
+  hang: [], loi: [], tab: 'all', tim: '', tu: '', den: '', trang: 1, co: 10, chon: null, ct: 'tt', dangGui: false,
+};
+
+const _PD_LOAI = {
+  nghi:  { nhan: 'Xin nghỉ',     lop: 'pd-loai--nghi', tile: 'ico-tile--tim',     tab: 'nghi' },
+  ldd:   { nhan: 'Đi công tác',  lop: 'pd-loai--di',   tile: 'ico-tile',          tab: 'di' },
+  ct:    { nhan: 'Đi công tác',  lop: 'pd-loai--di',   tile: 'ico-tile',          tab: 'di' },
+  dx:    { nhan: 'Đề xuất',      lop: 'pd-loai--dx',   tile: 'ico-tile--warning', tab: 'dx' },
+  chi:   { nhan: 'Duyệt chi',    lop: 'pd-loai--chi',  tile: 'ico-tile--success', tab: 'chi' },
+  khac:  { nhan: 'Nguồn khác',   lop: 'pd-loai--khac', tile: 'ico-tile--neutral', tab: 'khac' },
+};
+const _PD_TAB = [
+  ['all', 'Tất cả'], ['nghi', 'Xin nghỉ'], ['di', 'Đi công tác'], ['dx', 'Đề xuất'], ['chi', 'Duyệt chi'], ['khac', 'Nguồn khác'],
+];
+const _PD_TT = {
+  cho_duyet: ['warning', 'Chờ phê duyệt'], da_duyet: ['success', 'Đã phê duyệt'], tu_choi: ['danger', 'Từ chối'],
+  pending: ['warning', 'Chờ phê duyệt'], approved: ['success', 'Đã phê duyệt'], rejected: ['danger', 'Từ chối'],
+  huy: ['neutral', 'Đã huỷ'], cancelled: ['neutral', 'Đã huỷ'],
+  // Dữ liệu cũ của Xin nghỉ còn 28 dòng `duyet` (không phải `da_duyet`); chính router cũng
+  // gộp hai giá trị này khi thống kê (xin_nghi.py:240, :683) nên màn phải hiểu giống vậy.
+  duyet: ['success', 'Đã phê duyệt'],
+};
+/* Nhãn chép NGUYÊN VĂN từ router để hai nơi không nói khác nhau:
+   xin_nghi.py:_LOAI_NGHI_LABELS · duyet_chi.py:_LOAI_CHI_LABELS · de_xuat.py:_LOAI_LABELS.
+   Đoán nhãn là hiện chữ thô kiểu "nghi_khong_luong" trên bảng (thấy ở ảnh thật 12/09/2026). */
+const _PD_NGHI = {
+  nghi_khong_luong: 'Nghỉ Không Lương', nghi_phep: 'Nghỉ Phép Năm', doi_ca: 'Nghỉ Đổi Ca',
+  xin_thoi_viec: 'Xin Thôi Việc', nghi_bu: 'Nghỉ Bù', nghi_om: 'Nghỉ Ốm',
+  viec_rieng: 'Việc Riêng', nghi_le: 'Nghỉ Lễ / Tết',
+};
+const _PD_CHI = {
+  di_chuyen: 'Di Chuyển / Xăng xe', van_phong: 'Văn Phòng Phẩm', tiep_thi: 'Tiếp Thị / Quảng cáo',
+  dao_tao: 'Đào Tạo', khach_hang: 'Tiếp Khách', khac: 'Chi Phí Khác',
+};
+const _PD_DX = {
+  cai_tien: 'Cải tiến cách làm', viec_moi: 'Việc mới / Sáng kiến', van_de: 'Vấn đề cần xử lý', khac: 'Khác',
+};
+const _PD_MUC_DO = { thap: 'Thấp', trung: 'Trung bình', cao: 'Cao' };
+
+function _pdE(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function _pdTien(v) {
+  const n = Number(v);
+  if (!isFinite(n) || v == null || v === '') return '';
+  return n.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + ' đ';
+}
+function _pdNgay(v) { if (!v) return ''; const s = String(v).slice(0, 10).split('-'); return s.length === 3 ? `${s[2]}/${s[1]}/${s[0]}` : String(v); }
+/* API trả `so_ngay` kiểu Decimal ("1.0", "0.5") — in thẳng ra thành "1.0 ngày" trông như lỗi. */
+function _pdSoNgay(v) {
+  const n = Number(v);
+  if (!isFinite(n)) return String(v || '');
+  return (Math.round(n * 10) / 10).toString().replace('.', ',') + ' ngày';
+}
+function _pdGio(v) { if (!v) return ''; const t = String(v); return t.length >= 5 ? t.slice(0, 5) : t; }
+function _pdISO(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function _pdHomNay() { return _pdISO(new Date()); }
+function _pdChuDau(ten) {
+  const tu = String(ten || '').replace(/\(.*?\)/g, ' ').split(/\s+/).filter(t => /[^\W\d_]/u.test(t));
+  return (tu.slice(-2).map(t => t[0]).join('') || '?').toUpperCase();
+}
+function _pdPill(tt) { const [ho, nhan] = _PD_TT[tt] || ['neutral', tt || '—']; return `<span class="pill pill--${ho}">${_pdE(nhan)}</span>`; }
+function _pdToast(chu, kieu) {
+  const wrap = document.getElementById('pd-toast'), el = document.createElement('div');
+  el.className = 'toast ' + (kieu || 'info'); el.textContent = chu; wrap.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3600);
+}
+async function _pdApi(url, opts) {
+  const r = await fetch(url, Object.assign({ credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } }, opts || {}));
+  const chu = await r.text();
+  let d = null; try { d = chu ? JSON.parse(chu) : null; } catch (e) { d = null; }
+  if (!r.ok) { const e = new Error((d && (d.error || d.detail)) || `HTTP ${r.status}`); e.status = r.status; throw e; }
+  return d;
+}
+
+/* ── Nạp từng nguồn ──────────────────────────────────────────────────────────
+   Mỗi nguồn fail-soft: 403 (không phải người duyệt loại đó) và 404 (app chưa mount
+   router) chỉ làm mất nguồn đó, không làm hỏng cả màn. Nguồn hỏng được kể tên ở dải
+   cảnh báo để không ai tưởng "hết đơn". */
+async function _pdLay(ten, url) {
+  try {
+    const d = await _pdApi(url);
+    return Array.isArray(d) ? d : ((d && d.items) || []);
+  } catch (e) {
+    if (e.status !== 403 && e.status !== 404) _pd.loi.push(`${ten} (${e.message})`);
+    return null;
+  }
+}
+function _pdHangNghi(x) {
+  return {
+    khoa: 'nghi:' + x.id, nguon: 'nghi', id: x.id, ma: 'NGHI-' + x.id,
+    tieu_de: (_PD_NGHI[x.loai_nghi] || x.loai_nghi || 'Xin nghỉ') + ' — ' + _pdSoNgay(x.so_ngay),
+    phu: x.ly_do || '', nguoi: x.ho_ten || x.username, nguoi_id: x.username, phong_ban: x.phong_ban || '',
+    gia_tri: _pdSoNgay(x.so_ngay), ngay_tao: x.created_at, han: '', trang_thai: x.trang_thai,
+    tep: (x.tep_dinh_kem || []).map(t => ({ ten: t.ten, url: t.url, co: t.kich_thuoc })),
+    ct: [
+      ['Loại nghỉ', _PD_NGHI[x.loai_nghi] || x.loai_nghi],
+      ['Từ ngày', _pdNgay(x.ngay_bat_dau)], ['Đến ngày', _pdNgay(x.ngay_ket_thuc)],
+      ['Buổi', x.buoi === 'ca_ngay' ? 'Cả ngày' : (x.buoi === 'sang' ? 'Buổi sáng' : (x.buoi === 'chieu' ? 'Buổi chiều' : x.buoi))],
+      ['Số ngày', _pdSoNgay(x.so_ngay)], ['Lý do', x.ly_do], ['Ghi chú', x.ghi_chu],
+    ],
+    ls: x.ngay_duyet ? [{ chu: (_PD_TT[x.trang_thai] || [, x.trang_thai])[1], boi: x.ho_ten_nguoi_duyet || x.nguoi_duyet, luc: x.ngay_duyet, ghi: x.nhan_xet_duyet }] : [],
+    raw: x,
+  };
+}
+function _pdHangChi(x) {
+  return {
+    khoa: 'chi:' + x.id, nguon: 'chi', id: x.id, ma: 'CHI-' + x.id, tieu_de: x.tieu_de || 'Đề nghị chi',
+    phu: _PD_CHI[x.loai_chi] || x.loai_chi || '', nguoi: x.ho_ten || x.username, nguoi_id: x.username,
+    phong_ban: x.phong_ban || '', gia_tri: _pdTien(x.so_tien), so: Number(x.so_tien) || 0,
+    ngay_tao: x.created_at || x.ngay_de_xuat, han: x.han_thanh_toan || '', trang_thai: x.trang_thai,
+    tep: (x.chung_tu_urls || []).map(u => ({ ten: String(u).split('/').pop(), url: u })),
+    ct: [
+      ['Loại chi', _PD_CHI[x.loai_chi] || x.loai_chi], ['Số tiền', _pdTien(x.so_tien)],
+      ['Ngày đề xuất', _pdNgay(x.ngay_de_xuat)], ['Hạn thanh toán', _pdNgay(x.han_thanh_toan)],
+      ['Cấp đang duyệt', x.approval_level], ['Mục đích', x.muc_dich], ['Ghi chú', x.ghi_chu],
+    ],
+    ls: (x.approval_history || []).map(h => ({ chu: (h.action || h.trang_thai || h.level), boi: h.ho_ten || h.username, luc: h.at || h.time || h.created_at, ghi: h.nhan_xet || h.comment })),
+    raw: x,
+  };
+}
+function _pdHangDx(x) {
+  return {
+    khoa: 'dx:' + x.id, nguon: 'dx', id: x.id, ma: 'DX-' + x.id, tieu_de: x.tieu_de || 'Đề xuất',
+    phu: _PD_DX[x.loai] || x.loai || '', nguoi: x.ho_ten || x.username, nguoi_id: x.username,
+    phong_ban: x.phong_ban || '', gia_tri: x.ngan_sach_du_kien ? _pdTien(x.ngan_sach_du_kien) : '—',
+    so: Number(x.ngan_sach_du_kien) || 0, ngay_tao: x.created_at, han: x.han_mong_muon || '', trang_thai: x.trang_thai,
+    tep: (x.tep_dinh_kem || []).map(u => ({ ten: String(u).split('/').pop(), url: u })),
+    ct: [
+      ['Loại', _PD_DX[x.loai] || x.loai], ['Mức độ', _PD_MUC_DO[x.muc_do] || x.muc_do],
+      ['Hạn mong muốn', _pdNgay(x.han_mong_muon)], ['Ngân sách', x.ngan_sach_du_kien ? _pdTien(x.ngan_sach_du_kien) : '—'],
+      ['Cấp đang duyệt', x.approval_level], ['Nội dung', x.noi_dung], ['Kết quả kỳ vọng', x.ket_qua_ky_vong],
+      ['Xin ý kiến CEO', x.xin_y_kien_ceo ? 'Có' : 'Không'],
+    ],
+    ls: (x.approval_history || []).map(h => ({ chu: (h.action || h.trang_thai || h.level), boi: h.ho_ten || h.username, luc: h.at || h.time || h.created_at, ghi: h.nhan_xet || h.comment })),
+    raw: x,
+  };
+}
+function _pdHangLdd(x) {
+  const gio = [_pdGio(x.gio_vao), _pdGio(x.gio_ra)].filter(Boolean).join(' - ');
+  return {
+    khoa: 'ldd:' + x.id, nguon: 'ldd', id: x.id, ma: 'LDD-' + x.id, tieu_de: 'Đi đo: ' + (x.dia_diem || ''),
+    phu: x.muc_dich || x.dia_chi || '', nguoi: x.ho_ten || x.ma_nv, nguoi_id: x.ma_nv, phong_ban: x.phong_ban || '',
+    gia_tri: gio || '1 ngày', ngay_tao: x.created_at || x.ngay, han: '', trang_thai: x.status, tep: [],
+    ct: [
+      ['Ngày đi', _pdNgay(x.ngay)], ['Địa điểm', x.dia_diem], ['Địa chỉ', x.dia_chi],
+      ['Mục đích', x.muc_dich], ['Giờ vào - ra', gio || '—'], ['Loại đi', x.loai_di], ['Ghi chú', x.ghi_chu],
+    ],
+    ls: [], raw: x,
+  };
+}
+function _pdHangCt(x) {
+  const d1 = new Date(x.ngay_bat_dau), d2 = new Date(x.ngay_ket_thuc);
+  const ngay = isFinite(d1) && isFinite(d2) ? Math.round((d2 - d1) / 86400000) + 1 : null;
+  return {
+    khoa: 'ct:' + x.id, nguon: 'ct', id: x.id, ma: 'CT-' + x.id, tieu_de: 'Công trình: ' + (x.dia_diem || ''),
+    phu: x.ly_do || '', nguoi: x.ho_ten || x.ma_nv, nguoi_id: x.ma_nv, phong_ban: x.phong_ban || '',
+    gia_tri: ngay ? ngay + ' ngày' : '—', ngay_tao: x.created_at, han: '', trang_thai: x.status, tep: [],
+    ct: [
+      ['Từ ngày', _pdNgay(x.ngay_bat_dau)], ['Đến ngày', _pdNgay(x.ngay_ket_thuc)],
+      ['Địa điểm', x.dia_diem], ['Lý do', x.ly_do], ['Ghi chú duyệt', x.note_duyet],
+    ],
+    ls: [], raw: x,
+  };
+}
+function _pdHangInbox(x) {
+  return {
+    khoa: 'khac:' + x.source + ':' + x.ref_id, nguon: 'khac', id: x.ref_id, nguon_phu: x.source,
+    ma: String(x.source || '').toUpperCase() + '-' + x.ref_id, tieu_de: x.title || x.label || 'Yêu cầu',
+    phu: x.subtitle || x.label || '', nguoi: x.requested_by_name || x.requested_by_username || '',
+    nguoi_id: x.requested_by_username || '', phong_ban: (x.extra && x.extra.phong_ban) || '',
+    gia_tri: x.amount ? _pdTien(x.amount) : '—', so: Number(x.amount) || 0, ngay_tao: x.created_at, han: '',
+    trang_thai: x.status, tep: [],
+    ct: [
+      ['Nguồn', x.label || x.source], ['Đang chờ', x.assigned_to_label || x.current_step],
+      ['Giá trị', x.amount ? _pdTien(x.amount) : '—'], ['Tuổi đơn', x.age_hours != null ? Math.round(x.age_hours) + ' giờ' : ''],
+      ['Ghi chú', x.subtitle],
+    ],
+    ls: [], raw: x, lien_ket: x.app_link || '',
+  };
+}
+
+async function pdTai() {
+  const than = document.getElementById('pd-than-bang');
+  if (!PD_DUYET) {
+    _pd.hang = []; pdVe(1); pdVeKpi(); pdVeTabs();
+    than.innerHTML = '<tr class="empty-row"><td colspan="10">Bạn không có yêu cầu nào cần phê duyệt. Màn này dành cho người duyệt (quản lý, kế toán, ban giám đốc).</td></tr>';
+    return;
+  }
+  _pd.loi = [];
+  const [nghiCho, nghiXong1, nghiXong2, chi, dx, ldd, ct, khac] = await Promise.all([
+    _pdLay('Xin nghỉ', '/api/xin-nghi?trang_thai=cho_duyet'),
+    _pdLay('Xin nghỉ', '/api/xin-nghi?trang_thai=da_duyet'),
+    _pdLay('Xin nghỉ', '/api/xin-nghi?trang_thai=tu_choi'),
+    _pdLay('Duyệt chi', '/api/duyet-chi/queue/me'),
+    _pdLay('Đề xuất', '/api/de-xuat/queue/me'),
+    _pdLay('Lệnh đi đo', '/api/lenh-di-do/cho-duyet'),
+    _pdLay('Công trình', '/api/cong-trinh/admin?status_filter=cho_duyet'),
+    PD_APP === 'ceo' ? _pdLay('Nguồn khác (CEO)', '/api/inbox/list?tab=all') : Promise.resolve(null),
+  ]);
+  const hang = []
+    .concat((nghiCho || []).map(_pdHangNghi), (nghiXong1 || []).map(_pdHangNghi), (nghiXong2 || []).map(_pdHangNghi))
+    .concat((chi || []).map(_pdHangChi), (dx || []).map(_pdHangDx))
+    .concat((ldd || []).map(_pdHangLdd), (ct || []).map(_pdHangCt))
+    .concat((khac || []).map(_pdHangInbox));
+  hang.sort((a, b) => String(b.ngay_tao || '').localeCompare(String(a.ngay_tao || '')));
+  _pd.hang = hang;
+  const canh = document.getElementById('pd-canh');
+  if (_pd.loi.length) {
+    document.getElementById('pd-canh-chu').textContent = 'Không tải được: ' + _pd.loi.join(' · ') + '. Số liệu đang thiếu phần đó.';
+    canh.hidden = false;
+  } else { canh.hidden = true; }
+  pdVeTabs(); pdVeKpi(); pdVePhongBan(); pdVe(1);
+  // Mở sẵn yêu cầu ĐANG CHỜ đầu tiên như ảnh mẫu — ngăn chi tiết trống trông như hỏng.
+  if (!_pd.chon) {
+    const dau = _pdLoc().find(h => h.trang_thai === 'cho_duyet' || h.trang_thai === 'pending');
+    if (dau) pdChon(dau.khoa);
+  }
+}
+
+function _pdLoc() {
+  const tt = document.getElementById('pd-l-tt').value, pb = document.getElementById('pd-l-pb').value;
+  const tim = _pd.tim.trim().toLowerCase();
+  return _pd.hang.filter(h => {
+    if (_pd.tab !== 'all' && (_PD_LOAI[h.nguon] || {}).tab !== _pd.tab) return false;
+    if (tt && !(h.trang_thai === tt || (tt === 'da_duyet' && h.trang_thai === 'duyet'))) return false;
+    if (pb && (h.phong_ban || '') !== pb) return false;
+    const ng = String(h.ngay_tao || '').slice(0, 10);
+    if (_pd.tu && ng && ng < _pd.tu) return false;
+    if (_pd.den && ng && ng > _pd.den) return false;
+    if (tim) {
+      const kho = [h.ma, h.tieu_de, h.phu, h.nguoi, h.phong_ban].join(' ').toLowerCase();
+      if (kho.indexOf(tim) < 0) return false;
+    }
+    return true;
+  });
+}
+function _pdTrongKy() {
+  // Cùng cơ sở với thẻ số và bảng: chỉ theo KHOẢNG NGÀY. Trước đây tab đếm toàn bộ dữ liệu
+  // nên hiện "Tất cả (219)" trong khi bảng chỉ có 5 dòng — nhìn như đếm sai.
+  return _pd.hang.filter(h => {
+    const ng = String(h.ngay_tao || '').slice(0, 10);
+    if (_pd.tu && ng && ng < _pd.tu) return false;
+    if (_pd.den && ng && ng > _pd.den) return false;
+    return true;
+  });
+}
+function pdVeTabs() {
+  const trong_ky = _pdTrongKy();
+  const co_khac = _pd.hang.some(h => h.nguon === 'khac');
+  document.getElementById('pd-tabs').innerHTML = _PD_TAB
+    .filter(([k]) => k !== 'khac' || co_khac)
+    .map(([k, nhan]) => {
+      const n = k === 'all' ? trong_ky.length : trong_ky.filter(h => (_PD_LOAI[h.nguon] || {}).tab === k).length;
+      return `<button type="button" role="tab" class="tab-btn${_pd.tab === k ? ' active' : ''}" aria-selected="${_pd.tab === k}"
+        onclick="pdChonTab('${k}')">${_pdE(nhan)} <span class="tab-badge">${n}</span></button>`;
+    }).join('');
+}
+function pdVeKpi() {
+  // Thẻ số đếm theo KHOẢNG NGÀY đang chọn (không theo tab/tìm kiếm) — cùng kỳ với bảng,
+  // nếu không thì "Tổng yêu cầu" luôn to hơn số dòng thấy được và trông như lỗi.
+  const h = _pdTrongKy();
+  document.getElementById('pd-k-tong').textContent = h.length;
+  document.getElementById('pd-k-cho').textContent = h.filter(x => x.trang_thai === 'cho_duyet' || x.trang_thai === 'pending').length;
+  document.getElementById('pd-k-duyet').textContent = h.filter(x => x.trang_thai === 'da_duyet' || x.trang_thai === 'approved' || x.trang_thai === 'duyet').length;
+  document.getElementById('pd-k-tu-choi').textContent = h.filter(x => x.trang_thai === 'tu_choi' || x.trang_thai === 'rejected').length;
+}
+function pdVePhongBan() {
+  const ds = [...new Set(_pd.hang.map(h => h.phong_ban).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
+  const sel = document.getElementById('pd-l-pb'), cu = sel.value;
+  sel.innerHTML = '<option value="">Tất cả phòng ban</option>' + ds.map(p => `<option value="${_pdE(p)}">${_pdE(p)}</option>`).join('');
+  sel.value = cu;
+}
+function pdVe(trang) {
+  if (trang) _pd.trang = trang;
+  const ds = _pdLoc(), tong = ds.length, sotrang = Math.max(1, Math.ceil(tong / _pd.co));
+  if (_pd.trang > sotrang) _pd.trang = sotrang;
+  const dau = (_pd.trang - 1) * _pd.co, phan = ds.slice(dau, dau + _pd.co);
+  const than = document.getElementById('pd-than-bang');
+  if (!tong) {
+    // Nói rõ đang lọc kỳ nào: mặc định là tháng này, người duyệt mở màn thấy trống trơn
+    // rất dễ tưởng hỏng trong khi đơn cũ vẫn còn (đo 12/09: quản lý nv26001 có 50 đơn
+    // nhưng không đơn nào trong tháng 9).
+    const ky = (_pd.tu || _pd.den) ? ` trong khoảng ${_pdNgay(_pd.tu) || '…'} - ${_pdNgay(_pd.den) || '…'}` : '';
+    const tong_ky = _pd.hang.length;
+    than.innerHTML = `<tr class="empty-row"><td colspan="10">Không có yêu cầu nào${ky}.`
+      + (tong_ky ? ` Toàn bộ nguồn đang có ${tong_ky} yêu cầu — đổi khoảng ngày hoặc bộ lọc để xem.` : '')
+      + '</td></tr>';
+  } else {
+    than.innerHTML = phan.map((h, i) => {
+      const L = _PD_LOAI[h.nguon] || _PD_LOAI.khac;
+      const qua = h.han && h.han < _pdHomNay() && (h.trang_thai === 'cho_duyet' || h.trang_thai === 'pending');
+      return `<tr class="${_pd.chon === h.khoa ? 'is-chon' : ''}" onclick="pdChon('${h.khoa}')">
+        <td class="c-stt">${dau + i + 1}</td>
+        <td class="c-ngay"><b>${_pdNgay(h.ngay_tao)}</b><small>${_pdE(String(h.ngay_tao || '').slice(11, 16))}</small></td>
+        <td><span class="pd-loai ${L.lop}">${_pdE(L.nhan)}</span></td>
+        <td class="c-nd"><span class="pd-nd-t">${_pdE(h.tieu_de)}</span>${h.phu ? `<small class="pd-nd-p">${_pdE(h.phu)}</small>` : ''}</td>
+        <td class="c-nguoi"><span class="nv-cell"><span class="nv-ava">${_pdE(_pdChuDau(h.nguoi))}</span><span class="nv-ten">${_pdE(h.nguoi)}</span></span></td>
+        <td class="c-pb">${_pdE(h.phong_ban || '—')}</td>
+        <td class="c-gt">${_pdE(h.gia_tri || '—')}</td>
+        <td>${_pdPill(h.trang_thai)}</td>
+        <td class="c-han"><span class="pd-han${qua ? ' is-qua' : ''}">${h.han ? _pdNgay(h.han) : '—'}</span></td>
+        <td class="c-mo"><svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg></td>
+      </tr>`;
+    }).join('');
+  }
+  document.getElementById('pd-pg-chu').textContent = tong ? `Hiển thị ${dau + 1} - ${Math.min(dau + _pd.co, tong)} / ${tong}` : 'Không có dòng nào';
+  const nut = [];
+  nut.push(`<button type="button" onclick="pdVe(${_pd.trang - 1})" ${_pd.trang <= 1 ? 'disabled' : ''} aria-label="Trang trước">‹</button>`);
+  for (let i = 1; i <= sotrang && i <= 5; i++) nut.push(`<button type="button" class="${i === _pd.trang ? 'is-chon' : ''}" onclick="pdVe(${i})">${i}</button>`);
+  nut.push(`<button type="button" onclick="pdVe(${_pd.trang + 1})" ${_pd.trang >= sotrang ? 'disabled' : ''} aria-label="Trang sau">›</button>`);
+  document.getElementById('pd-pg-nut').innerHTML = nut.join('');
+}
+function pdChonTab(k) { _pd.tab = k; pdVeTabs(); pdVe(1); }
+function pdDoiCo(v) { _pd.co = Number(v) || 10; pdVe(1); }
+function pdTimGo() { _pd.tim = document.getElementById('pd-tim').value; pdVe(1); }
+
+/* ── Khoảng ngày + bộ lọc ────────────────────────────────────────────────── */
+function pdMoKy(nut) { const n = document.getElementById('pd-ky-noi'), mo = n.hidden; n.hidden = !mo; nut.setAttribute('aria-expanded', mo); }
+function pdMoLoc(nut) { const n = document.getElementById('pd-loc-noi'), mo = n.hidden; n.hidden = !mo; nut.setAttribute('aria-expanded', mo); }
+function pdDongLoc() { document.getElementById('pd-loc-noi').hidden = true; document.getElementById('pd-loc-nut').setAttribute('aria-expanded', 'false'); }
+function pdKyNhanh(k) {
+  const d = new Date();
+  if (k === 'tat_ca') { _pd.tu = ''; _pd.den = ''; }
+  else if (k === 'thang_nay') { _pd.tu = _pdISO(new Date(d.getFullYear(), d.getMonth(), 1)); _pd.den = _pdISO(new Date(d.getFullYear(), d.getMonth() + 1, 0)); }
+  else if (k === 'thang_truoc') { _pd.tu = _pdISO(new Date(d.getFullYear(), d.getMonth() - 1, 1)); _pd.den = _pdISO(new Date(d.getFullYear(), d.getMonth(), 0)); }
+  else { const t = new Date(d); t.setDate(t.getDate() - 6); _pd.tu = _pdISO(t); _pd.den = _pdISO(d); }
+  document.getElementById('pd-tu').value = _pd.tu; document.getElementById('pd-den').value = _pd.den;
+  _pdCapNhatKy(); pdVe(1);
+}
+function pdApKy() { _pd.tu = document.getElementById('pd-tu').value; _pd.den = document.getElementById('pd-den').value; _pdCapNhatKy(); pdVe(1); }
+function pdXoaKy() { _pd.tu = ''; _pd.den = ''; document.getElementById('pd-tu').value = ''; document.getElementById('pd-den').value = ''; _pdCapNhatKy(); pdVe(1); }
+function _pdCapNhatKy() {
+  document.getElementById('pd-ky-chu').textContent = (_pd.tu || _pd.den) ? `${_pdNgay(_pd.tu) || '…'} - ${_pdNgay(_pd.den) || '…'}` : 'Tất cả thời gian';
+  document.getElementById('pd-ky-noi').hidden = true;
+  document.getElementById('pd-ky-nut').setAttribute('aria-expanded', 'false');
+  // Đổi kỳ thì tab và thẻ số phải đếm lại — nếu không chúng đứng ở số của kỳ trước.
+  pdVeTabs(); pdVeKpi();
+}
+document.addEventListener('click', e => { if (!e.target.closest('.pd-bat')) { document.getElementById('pd-ky-noi').hidden = true; pdDongLoc(); } });
+
+/* ── Ngăn chi tiết ───────────────────────────────────────────────────────── */
+function pdChon(khoa) {
+  const h = _pd.hang.find(x => x.khoa === khoa);
+  if (!h) return;
+  _pd.chon = khoa; _pd.ct = 'tt';
+  document.getElementById('pd-than').classList.add('co-panel');
+  document.getElementById('pd-panel').hidden = false;
+  const L = _PD_LOAI[h.nguon] || _PD_LOAI.khac;
+  document.getElementById('pd-p-bieu').className = 'ico-tile ' + (L.tile === 'ico-tile' ? '' : L.tile);
+  // Mã đứng riêng làm tiêu đề: ghép "Nguồn khác #BAOGIA_QUOTE-11815" thì mã dài vỡ dòng
+  // giữa chừng thành "BAOGIA_QUO / TE-11815" (thấy trên ảnh thật app CEO 12/09/2026).
+  document.getElementById('pd-p-ten').textContent = '#' + h.ma;
+  document.getElementById('pd-p-phu').textContent = `${L.nhan} · ${h.nguoi} · tạo ${_pdNgay(h.ngay_tao)}`;
+  document.getElementById('pd-p-tt').innerHTML = _pdPill(h.trang_thai);
+  document.getElementById('pd-p-ls-dem').textContent = h.ls && h.ls.length ? `(${h.ls.length})` : '';
+  const cho = h.trang_thai === 'cho_duyet' || h.trang_thai === 'pending';
+  document.getElementById('pd-p-chan').hidden = !cho;
+  document.getElementById('pd-p-ykien').value = '';
+  pdTabCT('tt'); pdVe();
+}
+function pdDongPanel() {
+  _pd.chon = null;
+  document.getElementById('pd-panel').hidden = true;
+  document.getElementById('pd-than').classList.remove('co-panel');
+  pdVe();
+}
+function pdTabCT(k) {
+  _pd.ct = k;
+  document.querySelectorAll('.pd-tab-ct').forEach(b => { const on = b.dataset.ct === k; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
+  const h = _pd.hang.find(x => x.khoa === _pd.chon);
+  const than = document.getElementById('pd-p-than');
+  if (!h) { than.innerHTML = ''; return; }
+  if (k === 'ls') {
+    than.innerHTML = (h.ls && h.ls.length)
+      ? `<ul class="pd-ls">${h.ls.map(m => `<li><b>${_pdE(m.chu || '')}</b><small>${_pdE(m.boi || '')}${m.luc ? ' · ' + _pdNgay(m.luc) : ''}</small>${m.ghi ? `<div>${_pdE(m.ghi)}</div>` : ''}</li>`).join('')}</ul>`
+      : '<p class="pd-trong">Chưa có bước xử lý nào được ghi lại.</p>';
+    return;
+  }
+  const dong = (h.ct || []).filter(([, v]) => v !== null && v !== undefined && v !== '')
+    .map(([nhan, v]) => `<dt>${_pdE(nhan)}</dt><dd>${_pdE(v)}</dd>`).join('');
+  const tep = (h.tep || []).map(t => `<div class="pd-tep">
+      <span class="pd-tep-bieu"><svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+      <span class="pd-tep-ten"><b>${_pdE(t.ten)}</b>${t.co ? `<small>${Math.max(1, Math.round(t.co / 1024))} KB</small>` : ''}</span>
+      <a class="btn-link" href="${_pdE(t.url)}" target="_blank" rel="noopener">Mở</a></div>`).join('');
+  than.innerHTML = `<p class="pd-nhom-nhan">Thông tin chung</p><dl class="pd-ct">
+      <dt>Mã yêu cầu</dt><dd>${_pdE(h.ma)}</dd>
+      <dt>Người gửi</dt><dd>${_pdE(h.nguoi)}</dd>
+      <dt>Phòng ban</dt><dd>${_pdE(h.phong_ban || '—')}</dd>
+      <dt>Ngày tạo</dt><dd>${_pdNgay(h.ngay_tao)}</dd>
+      ${dong}</dl>
+    ${tep ? `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Tệp đính kèm (${h.tep.length})</p>${tep}` : ''}
+    ${h.lien_ket ? `<p style="margin-top:var(--sp-8)"><a class="btn-link" href="${_pdE(h.lien_ket)}" target="_blank" rel="noopener">Mở ở app gốc →</a></p>` : ''}`;
+}
+
+/* ── Quyết định ──────────────────────────────────────────────────────────── */
+async function pdQuyet(quyet) {
+  if (_pd.dangGui) return;
+  const h = _pd.hang.find(x => x.khoa === _pd.chon);
+  if (!h) return;
+  const ykien = document.getElementById('pd-p-ykien').value.trim();
+  if (quyet === 'tu_choi' && !ykien) { _pdToast('Nhập lý do trước khi từ chối', 'error'); document.getElementById('pd-p-ykien').focus(); return; }
+  const nut1 = document.getElementById('pd-nut-duyet'), nut2 = document.getElementById('pd-nut-tu-choi');
+  _pd.dangGui = true; nut1.disabled = nut2.disabled = true;
+  try {
+    if (h.nguon === 'nghi') await _pdApi(`/api/xin-nghi/${h.id}/duyet`, { method: 'PUT', body: JSON.stringify({ trang_thai: quyet, nhan_xet_duyet: ykien }) });
+    else if (h.nguon === 'chi') await _pdApi(`/api/duyet-chi/${h.id}/duyet`, { method: 'PUT', body: JSON.stringify({ trang_thai: quyet, nhan_xet_duyet: ykien }) });
+    else if (h.nguon === 'dx') await _pdApi(`/api/de-xuat/${h.id}/duyet`, { method: 'PUT', body: JSON.stringify({ trang_thai: quyet, nhan_xet_duyet: ykien }) });
+    else if (h.nguon === 'ldd') await _pdApi(`/api/lenh-di-do/${h.id}/duyet`, { method: 'PATCH', body: JSON.stringify({ status: quyet, note_duyet: ykien }) });
+    else if (h.nguon === 'ct') await _pdApi(`/api/cong-trinh/${h.id}/duyet`, { method: 'PATCH', body: JSON.stringify({ status: quyet, note_duyet: ykien }) });
+    else if (h.nguon === 'khac') await _pdApi('/api/inbox/override', { method: 'POST', body: JSON.stringify({ source: h.nguon_phu, ref_id: String(h.id), decision: quyet === 'da_duyet' ? 'approve' : 'reject', comment: ykien }) });
+    else throw new Error('Loại yêu cầu này chưa hỗ trợ duyệt tại đây');
+    _pdToast(quyet === 'da_duyet' ? 'Đã phê duyệt' : 'Đã từ chối', 'ok');
+    pdDongPanel();
+    await pdTai();
+  } catch (e) {
+    _pdToast('Không gửi được: ' + (e.message || ''), 'error');
+  } finally {
+    _pd.dangGui = false; nut1.disabled = nut2.disabled = false;
+  }
+}
+
+/* Mặc định XEM THÁNG NÀY như ảnh mẫu (01/09 - 30/09). Không giới hạn kỳ thì màn đổ cả
+   lịch sử: đo 12/09/2026 trên dev là 212 đơn nghỉ đã xử lý từ nhiều tháng trước, đơn đang
+   chờ bị chìm mất. Muốn xem cũ hơn thì đổi ở nút khoảng ngày. */
+(function () {
+  const d = new Date();
+  _pd.tu = _pdISO(new Date(d.getFullYear(), d.getMonth(), 1));
+  _pd.den = _pdISO(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+  document.getElementById('pd-tu').value = _pd.tu;
+  document.getElementById('pd-den').value = _pd.den;
+  _pdCapNhatKy();
+})();
+pdTai();
+</script>
+</body>
+</html>

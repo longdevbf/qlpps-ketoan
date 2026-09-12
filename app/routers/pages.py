@@ -160,6 +160,18 @@ def xin_nghi_page(
     )
 
 
+@router.get("/bang-luong-thang", response_class=HTMLResponse, name="bang_luong_thang")
+def bang_luong_thang_page(
+    request: Request,
+    user: Annotated[JWTPayload, Depends(_require_user_redirect)],
+):
+    """Bảng lương cá nhân — màn dùng chung, số liệu lấy từ /api/payroll/me."""
+    return templates.TemplateResponse(
+        "bang_luong_thang.html",
+        {"request": request, "user": user_ctx(user)},
+    )
+
+
 @router.get("/duyet-chi", response_class=HTMLResponse, name="duyet_chi")
 def duyet_chi_page(
     request: Request,
@@ -167,6 +179,17 @@ def duyet_chi_page(
 ):
     return templates.TemplateResponse(
         "duyet_chi.html",
+        {"request": request, "user": user_ctx(user)},
+    )
+
+
+@router.get("/de-xuat", response_class=HTMLResponse, name="de_xuat")
+def de_xuat_page(
+    request: Request,
+    user: Annotated[JWTPayload, Depends(_require_user_redirect)],
+):
+    return templates.TemplateResponse(
+        "de_xuat.html",
         {"request": request, "user": user_ctx(user)},
     )
 

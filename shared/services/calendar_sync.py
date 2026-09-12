@@ -177,6 +177,10 @@ def upsert_event_from_leave(db: Session, leave_req: Any) -> Optional[int]:
         return None
 
 
+# Task còn phải làm thì mới chiếm chỗ trên lịch; xong hoặc huỷ thì gỡ ra.
+_CON_PHAI_LAM = ("assigned", "in_progress", "blocked")
+
+
 def upsert_event_from_directive(db: Session, directive: Any) -> Optional[int]:
     """Directive có due_date → event deadline cho directive.to_user.
 
@@ -192,7 +196,13 @@ def upsert_event_from_directive(db: Session, directive: Any) -> Optional[int]:
     try:
         status = getattr(directive, "status", None)
         due_date = getattr(directive, "due_date", None)
-        if status != "open" or not due_date:
+        # Trước đây so với "open" — giá trị của enum CŨ. Migration
+        # 0032_directive_status_v2 đã thay bằng assigned/in_progress/blocked/
+        # done/cancelled, nên "status != 'open'" LUÔN đúng và mọi task đều bị
+        # xoá khỏi lịch thay vì được tạo. Hậu quả đo được: bảng calendar_events
+        # có 0 dòng source='directive' trong khi leave_request/dao_tao_session
+        # vẫn bình thường. Tập dưới đây khớp nhóm "open" ở giao_viec.py:78.
+        if status not in _CON_PHAI_LAM or not due_date:
             delete_event_by_source(db, "directive", ref_id)
             return None
 

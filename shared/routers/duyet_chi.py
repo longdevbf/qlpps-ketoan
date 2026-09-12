@@ -703,15 +703,35 @@ def delete_chung_tu(
 @router.get("/chung-tu/{filename}")
 def serve_chung_tu(
     filename: str,
-    _user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _AUTH],
+    db: Annotated[Session, Depends(get_db)],
 ):
-    """Serve file chứng từ — auth required (cookie hoặc bearer)."""
-    if not re.fullmatch(r"[0-9]+_[a-f0-9]{6,32}\.[a-z0-9]{2,5}", filename):
+    """Serve file chứng từ — chỉ người gửi đơn, hoặc người duyệt trong phạm vi phòng ban.
+
+    Siết 12/09/2026: trước đó hàm chỉ hỏi "đã đăng nhập chưa", nên một nhân viên bất kỳ
+    tải được chứng từ thanh toán của đơn người khác chỉ cần biết tên tệp — đã thử thật ở
+    dev, nv26018 (Nhân Sự) lấy được tệp của đơn #168 phòng Mua Hàng. Tên tệp có dạng
+    `<id đơn>_<12hex>.<ext>` (xem upload :623) nên tra ngược id rồi áp ĐÚNG luật xem của
+    `GET /api/duyet-chi` (:361-370) thay vì nghĩ ra luật mới.
+    """
+    khop = re.fullmatch(r"([0-9]+)_[a-f0-9]{6,32}\.[a-z0-9]{2,5}", filename)
+    if not khop:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tên file không hợp lệ")
+    rec = db.get(ExpenseRequest, int(khop.group(1)))
+    if not rec:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File không tồn tại")
+    if rec.username != user.username:
+        # `_approver_dept_scope` trả None = xem được tất cả (admin/ceo/kt), set rỗng = không
+        # phòng nào. Người không duyệt được cấp nào thì chặn thẳng.
+        pham_vi = _approver_dept_scope(user, db) if _is_any_approver(user) else set()
+        if pham_vi is not None and (rec.phong_ban or "") not in pham_vi:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN, "Không có quyền xem chứng từ của đơn này"
+            )
     fpath = _chung_tu_dir() / filename
     if not fpath.exists() or not fpath.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File không tồn tại")
-    return FileResponse(str(fpath))
+    return FileResponse(str(fpath), headers={"X-Content-Type-Options": "nosniff"})
 
 
 @router.get("/stats")

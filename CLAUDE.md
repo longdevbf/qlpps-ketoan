@@ -62,9 +62,18 @@ mới là "đã chạy thử".
 4. **Không refactor ngoài phạm vi được giao.** Thấy code xấu chỗ khác thì báo
    bằng một dòng, không tự dọn.
 
-Quy ước đặt tên, comment, định dạng: `.claude/rules/coding-style.md` (luôn được
-nạp). Quy ước theo từng thư mục: các file còn lại trong `.claude/rules/` —
-Claude tự nạp khi bạn đụng file khớp, không cần gọi tay.
+Quy ước đặt tên, comment, định dạng: `.claude/rules/coding-style.md`. Rule
+không khai `paths:` (`coding-style.md`, `trung-thuc.md`, `dung-agent.md`) luôn
+được nạp; rule khai `paths:` **chỉ tự nạp khi tool `Read` mở file khớp**.
+
+## Trước khi sửa giao diện
+
+Rule giao diện đều khai `paths:`, nên xem file bằng Bash (`cat`/`sed`/`grep`)
+KHÔNG nạp chúng. Trước khi sửa template/CSS: `Read` `design-system.md`,
+`templates.md`, `frontend-ui.md`, `icon-net-trang.md`, `cap-chu.md` trong
+`.claude/rules/` — ít nhất `Read` file template sắp sửa (`offset`/`limit` vẫn
+nạp rule). Màu: **trắng + xanh `--brand` #2563EB** (ADR-012, `QLPPS-UI-DOC/01-ADR.md`);
+giá trị ở `static/css/theme.css` — dùng `var(--token)`, **cấm hard-code hex**.
 
 ## Điều cấm
 
@@ -214,12 +223,25 @@ Các bridge cùng kiểu: `chi_phi_from_ads`, `chi_phi_from_payroll`,
 - `lifespan` chạy vài `ALTER TABLE ... IF NOT EXISTS` ngoài Alembic — **nợ kỹ
   thuật, không phải mẫu**.
 
-### ⚠️ UI của app này đã TÁCH khỏi 7 app kia
+### ⚠️ UI: màu DÙNG CHUNG 8 app — phần riêng là thang chữ, điều hướng
 
-Hệ màu, điều hướng và thang chữ của Kế toán **không còn giống 7 app kia**.
-Đọc `BAN-GIAO-UI.md` ở gốc repo trước bất kỳ việc UI nào; luật đầy đủ nằm ở
-`.claude/rules/design-system.md` (bản riêng của repo này) — tự nạp khi bạn
-đụng `templates/**` hoặc `static/css/**`.
+**Màu không tách.** Kế toán nạp đúng `static/css/theme.css` mà
+`claude-kit/sync.py` rải cho cả 8 app — trắng + xanh `--brand #2563EB`
+(ADR-012, 11/09/2026). Không template/CSS nào của repo tự khai lại token màu
+(kiểm 11/09/2026). Đổi màu = sửa `claude-kit/core/static/css/theme.css` rồi
+sync; ở repo này không có "bảng màu riêng" nào để sửa. Mục 3 "Hệ màu — BẢN THỬ
+RIÊNG CỦA KETOAN" trong `BAN-GIAO-UI.md` và comment `templates/base.html`
+dòng 42–44 còn tả bản thử hổ phách 08/08 — **lỗi thời, đừng làm theo**.
+Khác ở CÁCH DÙNG token, không ở giá trị: `body` của Kế toán tô `--bg-card`
+(trắng, chốt 08/08/2026) chứ không `--bg-app` — ở `static/css/base.css` và
+`<style>` của nhiều trang (`index.html`, `phe_duyet.html`, `kt_duyet.html`…).
+
+**Phần riêng:** thang chữ — `body` 14px trong `base.css` (bậc `--fs-body-lg`,
+ketoan đã duyệt 08/08) thay vì 13px; và điều hướng sidebar dọc `.ab-sb` của
+đợt 08/08 — class này nay cũng có ở hcns, marketing, baogia, nên mức khác về
+điều hướng: chưa kiểm. Đọc `BAN-GIAO-UI.md` ở gốc repo trước bất kỳ việc UI nào
+(trừ mục 3 nói trên); luật đầy đủ nằm ở `.claude/rules/design-system.md` (bản
+riêng của repo này) — tự nạp khi bạn đụng `templates/**` hoặc `static/css/**`.
 
 ### ⚠️ Bảo mật
 

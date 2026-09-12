@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time as _time
 from typing import Optional
 
 from sqlalchemy import text
@@ -134,6 +135,70 @@ def _publish_realtime(
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("chat_post publish realtime failed (room=%s): %s", room_id, exc)
+
+
+# --- Ai dang phu trach mot phong ban -----------------------------------------
+# Anh Quang 07/09/2026: tin cua Mai goi chung chung "Moi Ke Toan duyet coc" thi
+# khong ai thay do la viec cua minh. Doi thanh goi dich danh "anh Nguyen Duy
+# Thanh". Tra DB chu KHONG go cung ten: hom nay phong Ke Toan co 1 nguoi, mai
+# nguoi do nghi thi cau chu tu cap nhat theo, khong bien thanh loi noi doi.
+_PHU_TRACH_CACHE: dict = {}
+_PHU_TRACH_TTL_SEC = 300.0   # 5 phut, cung ly do voi shared/templates.py
+
+# Thu tu uu tien khi mot phong co nhieu nguoi: ai lam dau moi thi goi ten nguoi do.
+_CHUC_VU_DAU_MOI = ("CEO", "Manager", "Leader")
+
+
+def _xung_ho(gioi_tinh: str) -> str:
+    """Gioi tinh -> xung ho: Nam -> "anh ", Nu -> "chi ", khong ro -> ""."""
+    g = (gioi_tinh or "").strip().lower()
+    if g.startswith("nam"):
+        return "anh "
+    if g.startswith("nữ") or g.startswith("nu"):
+        return "chị "
+    return ""
+
+
+def ten_phu_trach(db: Session, phong_ban: str) -> str:
+    """Ten nguoi dang phu trach `phong_ban`, vd "anh Nguyen Duy Thanh".
+
+    **Roi ve chinh ten phong ban** khi khong chac chan duoc mot nguoi (phong
+    trong, hoac nhieu nguoi ma khong ai la dau moi ro rang). Cau "Moi Ke Toan
+    duyet coc" hoi chung chung van tot hon la goi nham ten mot nguoi.
+
+    Fail-soft giong ca file nay: moi loi deu nuot, tra ve ten phong ban.
+    """
+    pb = (phong_ban or "").strip()
+    if not pb:
+        return ""
+    now = _time.time()
+    cached = _PHU_TRACH_CACHE.get(pb)
+    if cached and cached[1] > now:
+        return cached[0]
+
+    ten = pb
+    try:
+        rows = db.execute(
+            text(
+                "SELECT ho_ten, gioi_tinh, chuc_vu FROM hcns.employees "
+                "WHERE phong_ban = :pb AND trang_thai = :dl "
+                "AND ngay_nghi_viec IS NULL AND COALESCE(ho_ten, '') <> ''"
+            ),
+            {"pb": pb, "dl": "Đang làm"},
+        ).all()
+        if len(rows) > 1:
+            rows = [r for r in rows if (r[2] or "").strip() in _CHUC_VU_DAU_MOI]
+        if len(rows) == 1:
+            ten = _xung_ho(rows[0][1]) + (rows[0][0] or "").strip()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("chat_post ten_phu_trach(%r) that bai: %s", pb, exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+    _PHU_TRACH_CACHE[pb] = (ten, now + _PHU_TRACH_TTL_SEC)
+    return ten
 
 
 def post_to_group(

@@ -29,7 +29,9 @@ from sqlalchemy.orm import Session
 from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
-from shared.utils.uploads import delete_file, resolve_path, resolve_path_cross_app, save_upload
+from shared.utils.uploads import (
+    DAO_TAO_APPS, delete_file, resolve_path, save_upload, tim_tep_theo_app,
+)
 
 from shared.models import Product
 
@@ -277,11 +279,17 @@ def serve_upload(
     filename: str,
     user: Annotated[JWTPayload, _AUTH],
 ):
-    """Stream file local. 404 nếu path không hợp lệ / không tồn tại."""
-    p = resolve_path(_APP, scope, filename)
-    # dao_tao cross-app: file có thể ở app dir khác → fallback
-    if p is None and scope.startswith("dao_tao_"):
-        p = resolve_path_cross_app(scope, filename, prefer=_APP)
+    """Stream file local. 404 nếu path không hợp lệ / không tồn tại.
+
+    Chỉ thư mục của Kế toán; riêng tài liệu đào tạo (`dao_tao_*`) mới tìm sang app khác vì
+    một buổi đào tạo dùng chung nhưng tệp nằm ở app đã tải lên. Chuyển sang hàm dùng chung
+    `tim_tep_theo_app` ngày 12/09/2026 để luật này chỉ còn một bản (trước đó marketing và
+    baogia quét mù cả 7 thư mục app và bị khai thác thật).
+    """
+    p = tim_tep_theo_app(
+        _APP, scope, filename,
+        app_khac=DAO_TAO_APPS if scope.startswith("dao_tao_") else (),
+    )
     if p is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File không tồn tại")
     return FileResponse(str(p), filename=filename)

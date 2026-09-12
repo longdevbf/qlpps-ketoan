@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
+from shared.templates import _lookup_user_info
 
 from ._deps import require_ketoan_user
 
@@ -1535,11 +1536,13 @@ def toggle_hoan_sla(
                     "WHERE role IN ('ceo','assistant_ceo','admin') AND active = true"
                 )).all() if r[0]
             ]
+            # Tên thật thay mã NV (anh Quang 07/09/2026)
+            _kt_ten = _lookup_user_info(user.username)[0] or user.username
             notify_many(
                 db, ceo_targets,
                 source_app="ketoan", event_type="kt_hoan_sla",
                 title=f"KT hoãn đơn {ma_don} (chờ thu tiền)",
-                message=f"Kế toán {user.username} hoãn đơn {ma_don} — {_ly_do}. "
+                message=f"Kế toán {_kt_ten} hoãn đơn {ma_don} — {_ly_do}. "
                         f"Đơn đã giao nhưng chưa thu tiền → tạm loại khỏi SLA hoàn thành.",
                 ref_type="vanchuyen", ref_id=ma_vh,
                 url="https://ketoan.qlpps.com/",
@@ -1870,9 +1873,11 @@ def mark_vanchuyen_completed(
         from shared.services.chat_post import post_to_group
         _thu = float(revenue_info.get("so_tien") or 0) if isinstance(revenue_info, dict) else 0
         _thu_txt = f" — thu nốt {int(_thu):,}đ" if _thu > 0 else ""
+        # Tên thật thay cho mã NV — xem ghi chú ở kt_duyet.py
+        _kt_ten = _lookup_user_info(user.username)[0] or user.username
         _msg = (
             f"🏁 Đơn {ma_don} đã đối chiếu{_thu_txt}, đơn HOÀN THÀNH. "
-            f"(Kế Toán {user.username})"
+            f"(Kế Toán {_kt_ten})"
         )
         post_to_group(db, content=_msg)
     except Exception:

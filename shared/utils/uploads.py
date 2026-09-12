@@ -191,11 +191,51 @@ def resolve_path(app: str, scope: str, filename: str) -> Optional[Path]:
     return p
 
 
+# Tài liệu buổi đào tạo: một bảng dùng chung, nhưng tệp nằm ở thư mục của app đã tải lên —
+# cả 5 app này đều có route `POST /api/dao-tao/sessions/{sid}/upload`.
+DAO_TAO_APPS = ("baogia", "ketoan", "marketing", "muahang", "saleadmin")
+
+
+def tim_tep_theo_app(
+    app: str,
+    scope: str,
+    filename: str,
+    app_khac: tuple[str, ...] = (),
+) -> Optional[Path]:
+    """Tìm tệp trong thư mục CỦA APP MÌNH trước, rồi chỉ trong những app KHAI TƯỜNG MINH.
+
+    Dùng thay `resolve_path_cross_app` ở mọi endpoint nhận `scope` thẳng từ URL:
+
+        p = tim_tep_theo_app("marketing", scope, filename,
+                             app_khac=DAO_TAO_APPS if scope.startswith("dao_tao_") else ())
+
+    Vì sao cần (12/09/2026): quét mù cả 7 thư mục app khiến `GET /api/uploads/hoso_<ma_nv>/
+    <tệp>` ở marketing và baogia trả về hồ sơ nhân sự của app HCNS — đã khai thác thật ở dev
+    bằng tài khoản nhân viên thường, lấy được cả tệp phòng chat và chứng từ Mua Hàng.
+    Hàm này KHÔNG kiểm chủ sở hữu: endpoint vẫn phải tự hỏi "người gọi có quyền với bản ghi
+    gắn scope này không" (mẫu đúng: qlpps-hcns/app/routers/uploads.py:346-372).
+    """
+    p = resolve_path(app, scope, filename)
+    if p is not None:
+        return p
+    for khac in app_khac:
+        if khac == app:
+            continue
+        p = resolve_path(khac, scope, filename)
+        if p is not None:
+            return p
+    return None
+
+
 def resolve_path_cross_app(scope: str, filename: str, prefer: str = "") -> Optional[Path]:
     """Tìm file trong tất cả app dirs (cross-app fallback).
 
     Dùng khi file có thể nằm ở app khác (vd: dao_tao upload từ marketing, đọc từ ketoan).
     prefer = app ưu tiên tìm trước, sau đó mới scan các app còn lại.
+
+    CẢNH BÁO: KHÔNG gọi hàm này với `scope` lấy thẳng từ URL — nó đọc được thư mục của mọi
+    app, đó chính là lỗ đã khai thác được ngày 12/09/2026. Endpoint kiểu đó dùng
+    `tim_tep_theo_app` ở trên và khai rõ app được phép.
     """
     _APPS = ["marketing", "ketoan", "baogia", "muahang", "hcns", "saleadmin", "ceo"]
     order = [prefer] + [a for a in _APPS if a != prefer] if prefer else _APPS

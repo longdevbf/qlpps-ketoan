@@ -11,7 +11,7 @@ Status enum mới (v2 — migration 0032_directive_status_v2):
 
 Endpoints (mount /api/giao-viec):
   GET  /recipients      → CEO/manager/leader: list NV để chọn (dropdown)
-  GET  /list            → CEO/manager/leader: task đã giao
+  GET  /list            → CEO/manager/leader: task đã giao (?pham_vi=toi_giao|phong_ban|tat_ca)
   POST /                → CEO/manager/leader tạo task → notify NV
   GET  /{id}            → Detail (super hoặc from_user/to_user)
   POST /{id}/ack        → NV "Đã nhận" (assigned → assigned + acknowledged_at)
@@ -23,22 +23,32 @@ Endpoints (mount /api/giao-viec):
   POST /{id}/close      → CEO/from_user huỷ (cancelled) — legacy 'done' vẫn được map
   POST /{id}/respond    → NV cập nhật progress (giữ legacy)
   GET  /inbox           → NV xem task mình nhận (status / tab filter)
+  POST   /{id}/tep      → Tải tệp đính kèm lên task (from_user/to_user/super) — 12/09/2026
+  GET    /{id}/tep/{ma} → Mở tệp inline (ai xem được task thì mở được)
+  DELETE /{id}/tep?ma=  → Xoá tệp (from_user/super)
 
 KHÔNG đụng `ceo/app/routers/giao_viec.py` cũ — file đó sẽ replace bằng shim.
 """
 from __future__ import annotations
 
+import os
+import re
+import shutil
 import uuid
 from datetime import date, datetime, timezone
+from pathlib import Path
 from typing import Annotated, Any, Optional
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select, text as sql_text
+from sqlalchemy import bindparam, false, func, or_, select, text as sql_text
 from sqlalchemy.orm import Session
 
 from shared.audit import log_action
 from shared.auth import JWTPayload, current_user
+from shared.config import settings
 from shared.db import get_db
 from shared.models import Directive, User
 from shared.services.employees import lookup_employee, bulk_lookup
@@ -82,6 +92,33 @@ _LEGACY_STATUS_MAP = {
 # Endpoint /close (legacy semantic) — chấp nhận 4 giá trị, map về v2
 VALID_CLOSE_INPUT = frozenset({"done", "dropped", "cancelled", STATUS_CANCELLED})
 
+# /list?pham_vi= (12/09/2026). Không truyền → giữ nguyên hành vi cũ (super thấy hết, còn lại chỉ
+# thấy việc mình giao) để các màn đang gọi /list không đổi kết quả.
+_PHAM_VI = frozenset({"toi_giao", "phong_ban", "tat_ca"})
+
+# ── Tệp đính kèm (12/09/2026) ──────────────────────────────────────────────
+# KHÔNG thêm cột DB (người dùng chốt 12/09/2026): tệp của task #N nằm ở `<upload_dir>/giao_viec/N/`,
+# danh sách tệp = danh sách file trong thư mục đó. Tên trên đĩa `<12 hex>__<tên gốc đã lọc>` giữ
+# được tên gốc để hiện mà không cần bảng phụ — cùng cách với `xin_nghi.py`. Thư mục uploads gắn
+# chung mọi container nên tải lên ở app nào thì app khác vẫn mở được.
+_TEP_SUBDIR = "giao_viec"
+# Khai media type tường minh thay vì để FileResponse đoán theo đuôi: mimetypes trong image Python
+# của hệ không biết .docx/.xlsx (guess_type trả None, đã thử trong container 12/09/2026).
+# Key của dict này cũng là danh sách đuôi được nhận.
+_TEP_MIME = {
+    ".pdf": "application/pdf",
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xls": "application/vnd.ms-excel",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+}
+_TEP_MAX = 10 * 1024 * 1024   # 10 MB mỗi tệp
+_TEP_TOI_DA = 10              # số tệp tối đa mỗi task
+_TEP_MA_RE = re.compile(r"^[a-f0-9]{12}__[^/\\]{1,120}$")
+
 
 # ── Schemas ────────────────────────────────────────────────────────────────
 
@@ -118,6 +155,13 @@ class CompleteBody(BaseModel):
 
 class ReopenBody(BaseModel):
     reason: str = Field(min_length=1, max_length=2000)
+
+
+class TepOut(BaseModel):
+    ma: str          # tên trên đĩa — dùng để mở / xoá
+    ten: str         # tên gốc để hiện
+    url: str
+    kich_thuoc: int  # byte
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -241,8 +285,97 @@ def _bulk_names(db: Session, usernames) -> dict[str, str]:
     return {u: (infos.get(u, {}).get("ho_ten") or u) for u in unames}
 
 
-def _to_dict(d: Directive, name_map: dict[str, str]) -> dict[str, Any]:
-    return {
+def _bulk_names_pb(db: Session, usernames) -> tuple[dict[str, str], dict[str, Optional[str]]]:
+    """Như `_bulk_names` + {username: phong_ban} lấy từ CÙNG một lần bulk_lookup (không tốn thêm
+    truy vấn). Hàm riêng thay vì đổi `_bulk_names` để các endpoint đang gọi nó giữ nguyên."""
+    unames = [u for u in (usernames or []) if u]
+    if not unames:
+        return {}, {}
+    infos = bulk_lookup(db, unames) or {}
+    names = {u: (infos.get(u, {}).get("ho_ten") or u) for u in unames}
+    pbs = {u: ((infos.get(u, {}).get("phong_ban") or "").strip() or None) for u in unames}
+    return names, pbs
+
+
+def _usernames_cung_phong(db: Session, username: str) -> set[str]:
+    """Username (chữ thường) của mọi hồ sơ HCNS cùng phạm vi phòng với `username`.
+
+    Khớp phòng bằng `_dept_in_scope` — cùng luật lúc giao việc (trùng tên, tiền tố sub-team, alias
+    team Marketing). Phòng của chính mình lấy trong CÙNG truy vấn thay vì gọi `_user_phong_ban`:
+    helper đó nuốt lỗi DB thành None, trông y hệt "không có phòng ban" và làm danh sách rỗng im
+    lặng. Không xác định được phòng → set rỗng.
+    """
+    rows = db.execute(sql_text("""
+        SELECT LOWER(username) AS u, phong_ban
+        FROM hcns.employees
+        WHERE username IS NOT NULL AND username <> ''
+    """)).all()
+    me = (username or "").lower()
+    my_pb = next(((r.phong_ban or "").strip() for r in rows if r.u == me), "")
+    if not my_pb:
+        return set()
+    return {r.u for r in rows if _dept_in_scope(my_pb, r.phong_ban or "")}
+
+
+def _dieu_kien_phong(unames: set[str]):
+    """Task có người nhận HOẶC người giao nằm trong tập username (so chữ thường)."""
+    ds = sorted(unames)
+    return or_(func.lower(Directive.to_user).in_(ds), func.lower(Directive.from_user).in_(ds))
+
+
+def _tep_goc() -> Path:
+    return Path(settings.upload_dir).expanduser().resolve() / _TEP_SUBDIR
+
+
+def _tep_dir(did: int) -> Path:
+    return _tep_goc() / str(int(did))
+
+
+def _tep_item(did: int, ma: str, kich_thuoc: int) -> dict[str, Any]:
+    return {"ma": ma, "ten": ma.split("__", 1)[1],
+            "url": f"/api/giao-viec/{int(did)}/tep/{quote(ma)}", "kich_thuoc": kich_thuoc}
+
+
+def _ds_tep(did: int) -> list[dict[str, Any]]:
+    """Tệp của một task, cũ trước mới sau. Thư mục chưa có → [] (không listdir)."""
+    d = _tep_dir(did)
+    if not d.is_dir():
+        return []
+    tep = []
+    with os.scandir(d) as it:
+        for e in it:
+            if e.is_file() and _TEP_MA_RE.match(e.name):
+                st = e.stat()
+                tep.append((st.st_mtime, e.name, st.st_size))
+    tep.sort()
+    return [_tep_item(did, ten, size) for _, ten, size in tep]
+
+
+def _ds_tep_nhieu(ids) -> dict[int, list[dict[str, Any]]]:
+    """Tệp cho cả danh sách task: đọc thư mục `giao_viec/` MỘT lần để biết task nào có thư mục,
+    rồi chỉ đọc thư mục của các task đó — tránh mỗi task trong list (limit tới 2000) một lần stat."""
+    goc = _tep_goc()
+    if not goc.is_dir():
+        return {}
+    with os.scandir(goc) as it:
+        co_thu_muc = {e.name for e in it if e.is_dir()}
+    return {i: _ds_tep(i) for i in ids if str(i) in co_thu_muc}
+
+
+def _ten_goc_an_toan(filename: Optional[str], ext: str) -> str:
+    """Tên gốc để hiện lại: bỏ thư mục, ký tự lạ; giữ chữ có dấu. Rỗng → 'tep'."""
+    stem = Path((filename or "").replace("\\", "/")).stem
+    stem = re.sub(r"[^\w\-. ()]+", "_", stem).strip(" ._") or "tep"
+    return stem[:80] + ext
+
+
+def _to_dict(
+    d: Directive,
+    name_map: dict[str, str],
+    pb_map: Optional[dict[str, Optional[str]]] = None,
+    tep_map: Optional[dict[int, list[dict[str, Any]]]] = None,
+) -> dict[str, Any]:
+    out = {
         "id": d.id,
         "group_id": d.group_id,
         "from_user": d.from_user,
@@ -268,7 +401,15 @@ def _to_dict(d: Directive, name_map: dict[str, str]) -> dict[str, Any]:
         "last_activity_at": d.last_activity_at.isoformat() if d.last_activity_at else None,
         "completed_at": d.completed_at.isoformat() if d.completed_at else None,
         "days_silent": _days_silent(d),
+        # 12/09/2026 — không phải cột DB, đọc từ thư mục tệp. Danh sách truyền `tep_map` dựng sẵn
+        # (`_ds_tep_nhieu`); endpoint một task thì tự đọc thư mục của task đó.
+        "tep_dinh_kem": tep_map.get(d.id, []) if tep_map is not None else _ds_tep(d.id),
     }
+    # Chỉ gắn khi endpoint đã tra sẵn phòng ban (/list, /{id}). Endpoint khác không tra — trả null
+    # ở đó sẽ bị hiểu nhầm là "người nhận không có phòng ban".
+    if pb_map is not None:
+        out["to_user_phong_ban"] = pb_map.get(d.to_user)
+    return out
 
 
 def _resolve_recipient_id(db: Session, username: str) -> Optional[int]:
@@ -468,6 +609,22 @@ def list_recipients(
             "username": uname, "ho_ten": ho_ten,
             "phong_ban": pb or "", "chuc_vu": cv or "", "role": rrole,
         })
+    # 12/09/2026: gắn ma_nv bằng MỘT truy vấn riêng sau khi đã lọc, không thêm cột vào câu UNION
+    # ở trên — UNION khử trùng lặp theo CẢ dòng, thêm cột là đổi điều kiện khử của câu đang chạy.
+    # Một username có nhiều hồ sơ → ưu tiên hồ sơ 'Đang làm'. Chỉ có ở shared.users → ma_nv = "".
+    if items:
+        ma_rows = db.execute(
+            sql_text("""
+                SELECT DISTINCT ON (LOWER(username)) LOWER(username) AS u, ma_nv
+                FROM hcns.employees
+                WHERE LOWER(username) IN :unames
+                ORDER BY LOWER(username), (trang_thai = 'Đang làm') DESC NULLS LAST, ma_nv
+            """).bindparams(bindparam("unames", expanding=True)),
+            {"unames": sorted({(it["username"] or "").lower() for it in items})},
+        ).all()
+        ma_map = {r.u: r.ma_nv for r in ma_rows}
+        for it in items:
+            it["ma_nv"] = ma_map.get((it["username"] or "").lower()) or ""
     return {"items": items, "total": len(items)}
 
 
@@ -482,19 +639,49 @@ def list_directives(
     app: Optional[str] = None,
     to_user: Optional[str] = None,
     limit: int = Query(500, ge=1, le=2000),
+    pham_vi: Optional[str] = Query(None, description="toi_giao|phong_ban|tat_ca — bỏ trống = hành vi cũ"),
 ) -> dict:
     """List task đã giao.
 
+    Không truyền `pham_vi` (hành vi cũ):
     - super: xem all
     - manager/leader: chỉ xem task chính mình giao (from_user == username)
     - NV thường: 403
+
+    `pham_vi` (12/09/2026 — vẫn chỉ role được giao việc mới gọi được):
+    - toi_giao:  from_user == mình (mọi role được giao việc)
+    - phong_ban: CHỈ super. Người nhận HOẶC người giao cùng phạm vi phòng với mình
+                 (`_dept_in_scope`); không xác định được phòng của mình → rỗng
+    - tat_ca:    CHỈ super → tất cả
+
+    Siết lại 12/09/2026 theo yêu cầu người dùng: "nhân viên không thấy việc của nhân
+    viên, chỉ CEO mới thấy việc của các nhân viên". Manager/leader gọi `phong_ban` hay
+    `tat_ca` nhận 403 — họ chỉ còn phạm vi việc do chính mình giao. Đo trước khi siết:
+    manager phòng Kinh Doanh thấy 46 việc, trong đó 36 việc của người ngoài phòng (do
+    `_dept_in_scope` khớp theo tiền tố nên "Kinh Doanh" nuốt "Kinh Doanh Bán Lẻ Nhóm 1").
     """
     if not _can_assign(user):
         raise HTTPException(403, "Chỉ người có quyền giao task xem được list")
     q = db.query(Directive)
-    if not _is_super(user):
-        # Manager/leader chỉ thấy task của chính họ
+    pv = (pham_vi or "").strip().lower()
+    if not pv:
+        if not _is_super(user):
+            # Manager/leader chỉ thấy task của chính họ
+            q = q.filter(Directive.from_user == user.username)
+    elif pv not in _PHAM_VI:
+        raise HTTPException(400, "pham_vi phải thuộc {toi_giao, phong_ban, tat_ca}")
+    elif pv == "toi_giao":
         q = q.filter(Directive.from_user == user.username)
+    elif not _is_super(user):
+        # phong_ban / tat_ca chỉ dành cho CEO/Admin. Manager/leader vẫn giao việc được
+        # nhưng chỉ xem việc do chính mình giao (giao diện đã ẩn 2 nút này với họ).
+        raise HTTPException(403, "Chỉ CEO/Admin xem được phạm vi này")
+    elif pv == "phong_ban":
+        cung_phong = _usernames_cung_phong(db, user.username)
+        # false() thay vì return sớm: vẫn đi qua bước kiểm status/tab/app bên dưới, nên tham số
+        # sai vẫn nhận 400 như người có phòng ban.
+        q = q.filter(_dieu_kien_phong(cung_phong) if cung_phong else false())
+    # tat_ca của super: không lọc
 
     # tab ưu tiên hơn status_filter nếu cả 2 cùng có
     tab_statuses = _resolve_tab(tab)
@@ -513,8 +700,9 @@ def list_directives(
         q = q.filter(Directive.to_user == to_user)
     rows = q.order_by(Directive.created_at.desc()).limit(limit).all()
     unames = list({r.from_user for r in rows} | {r.to_user for r in rows})
-    name_map = _bulk_names(db, unames)
-    return {"total": len(rows), "items": [_to_dict(r, name_map) for r in rows]}
+    name_map, pb_map = _bulk_names_pb(db, unames)
+    tep_map = _ds_tep_nhieu([r.id for r in rows])
+    return {"total": len(rows), "items": [_to_dict(r, name_map, pb_map, tep_map) for r in rows]}
 
 
 # ── 2. Create ──────────────────────────────────────────────────────────────
@@ -656,7 +844,8 @@ def my_inbox(
 
     rows = q.order_by(Directive.created_at.desc()).limit(500).all()
     name_map = _bulk_names(db, [r.from_user for r in rows]) if rows else {}
-    return {"total": len(rows), "items": [_to_dict(r, name_map) for r in rows]}
+    tep_map = _ds_tep_nhieu([r.id for r in rows])
+    return {"total": len(rows), "items": [_to_dict(r, name_map, tep_map=tep_map) for r in rows]}
 
 
 # ── 3. Detail ──────────────────────────────────────────────────────────────
@@ -673,8 +862,8 @@ def get_directive(
     # Chỉ super, người giao, hoặc người nhận xem được
     if not _is_super(user) and user.username not in (d.from_user, d.to_user):
         raise HTTPException(403, "Không có quyền xem task này")
-    name_map = _bulk_names(db, [d.from_user, d.to_user])
-    return _to_dict(d, name_map)
+    name_map, pb_map = _bulk_names_pb(db, [d.from_user, d.to_user])
+    return _to_dict(d, name_map, pb_map)
 
 
 # ── 4. Close (CEO hoặc người giao) — semantic mới: 'cancelled' ────────────
@@ -793,6 +982,8 @@ def delete_directive(
     except Exception:
         pass
     db.commit()
+    # Task đã xoá khỏi DB thì tệp của nó không còn đường nào mở được — dọn luôn thư mục.
+    shutil.rmtree(_tep_dir(id), ignore_errors=True)
     log_action(
         db, app=app_name, action="delete_directive", user=user, request=request,
         resource=f"directive:{id}",
@@ -1112,3 +1303,103 @@ def reopen_directive(
 
     name_map = _bulk_names(db, [d.from_user, d.to_user])
     return {"ok": True, "id": d.id, "item": _to_dict(d, name_map)}
+
+
+# ── 8. Tệp đính kèm (12/09/2026) — tải lên · mở · xoá ──────────────────────
+# Quyền: tải lên = người giao, người nhận, super · mở = như GET /{id} · xoá = người giao, super.
+
+@router.post("/{id}/tep", response_model=TepOut, status_code=status.HTTP_201_CREATED)
+def upload_tep(
+    id: int,
+    request: Request,
+    user: Annotated[JWTPayload, Depends(current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    file: UploadFile = File(...),
+) -> dict:
+    """Tải một tệp lên task (multipart, field `file`).
+
+    `def` thường (không async) như các endpoint khác trong file: FastAPI chạy nó trong threadpool
+    nên đọc tệp và truy vấn DB đồng bộ không chặn event loop.
+    """
+    d = db.get(Directive, id)
+    if not d:
+        raise HTTPException(404, "Task không tồn tại")
+    if not _is_super(user) and user.username not in (d.from_user, d.to_user):
+        raise HTTPException(403, "Chỉ người giao, người nhận task hoặc CEO/admin mới tải tệp lên được")
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in _TEP_MIME:
+        raise HTTPException(400, "Chỉ nhận tệp PDF, Word (DOC, DOCX), Excel (XLS, XLSX), JPG, PNG")
+    if len(_ds_tep(id)) >= _TEP_TOI_DA:
+        raise HTTPException(400, f"Mỗi task tối đa {_TEP_TOI_DA} tệp")
+    # Đọc tối đa _TEP_MAX + 1 byte: đủ biết tệp vượt giới hạn mà không nạp cả tệp lớn vào RAM.
+    data = file.file.read(_TEP_MAX + 1)
+    if not data:
+        raise HTTPException(400, "Tệp trống")
+    if len(data) > _TEP_MAX:
+        raise HTTPException(413, "Tệp quá lớn — tối đa 10MB")
+    thu_muc = _tep_dir(id)
+    thu_muc.mkdir(parents=True, exist_ok=True)
+    ma = f"{uuid.uuid4().hex[:12]}__{_ten_goc_an_toan(file.filename, ext)}"
+    (thu_muc / ma).write_bytes(data)
+    log_action(
+        db, app=d.app or "ceo", action="upload_directive_tep", user=user, request=request,
+        resource=f"directive:{d.id}",
+        payload={"ma": ma, "kich_thuoc": len(data)},
+    )
+    return _tep_item(id, ma, len(data))
+
+
+@router.get("/{id}/tep/{ma}", response_class=FileResponse)
+def xem_tep(
+    id: int,
+    ma: str,
+    user: Annotated[JWTPayload, Depends(current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Mở tệp inline — ai xem được task (GET /{id}) thì mở được tệp của task."""
+    if not _TEP_MA_RE.match(ma):
+        raise HTTPException(400, "Tên tệp không hợp lệ")
+    d = db.get(Directive, id)
+    if not d:
+        raise HTTPException(404, "Task không tồn tại")
+    if not _is_super(user) and user.username not in (d.from_user, d.to_user):
+        raise HTTPException(403, "Không có quyền xem tệp của task này")
+    thu_muc = _tep_dir(id)
+    f = (thu_muc / ma).resolve()
+    # resolve() rồi so thư mục cha: chặn tên tệp tìm cách thoát ra ngoài thư mục của task.
+    if f.parent != thu_muc or not f.is_file():
+        raise HTTPException(404, "Tệp không tồn tại")
+    # Starlette tự viết `filename*=utf-8''…` (RFC 5987) khi tên có dấu tiếng Việt.
+    # nosniff: tệp do người dùng tải lên — không cho trình duyệt đoán kiểu khác media type đã khai.
+    return FileResponse(
+        str(f), filename=ma.split("__", 1)[1], content_disposition_type="inline",
+        media_type=_TEP_MIME.get(f.suffix.lower()),
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.delete("/{id}/tep", status_code=status.HTTP_204_NO_CONTENT)
+def xoa_tep(
+    id: int,
+    request: Request,
+    user: Annotated[JWTPayload, Depends(current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    ma: str = Query(..., description="giá trị `ma` trong tep_dinh_kem"),
+):
+    """Xoá một tệp. Người giao task hoặc CEO/admin — người nhận không xoá được."""
+    if not _TEP_MA_RE.match(ma):
+        raise HTTPException(400, "Tên tệp không hợp lệ")
+    d = db.get(Directive, id)
+    if not d:
+        raise HTTPException(404, "Task không tồn tại")
+    if not _is_super(user) and user.username != d.from_user:
+        raise HTTPException(403, "Chỉ người giao task hoặc CEO/admin mới xoá được tệp")
+    thu_muc = _tep_dir(id)
+    f = (thu_muc / ma).resolve()
+    if f.parent != thu_muc or not f.is_file():
+        raise HTTPException(404, "Tệp không tồn tại")
+    f.unlink()
+    log_action(
+        db, app=d.app or "ceo", action="delete_directive_tep", user=user, request=request,
+        resource=f"directive:{d.id}", payload={"ma": ma},
+    )

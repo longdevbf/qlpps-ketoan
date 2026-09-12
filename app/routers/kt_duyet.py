@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from shared.auth import JWTPayload, require_app
 from shared.audit import log_action
 from shared.db import get_db
+from shared.templates import _lookup_user_info
 from shared.events import emit_event
 
 router = APIRouter()
@@ -306,8 +307,12 @@ def kt_duyet(
             _coc = float(getattr(quote, "coc_so_tien", 0) or 0) or float(
                 getattr(quote, "deposit", 0) or 0
             )
+            # Hiện TÊN chứ không phải mã NV (anh Quang 07/09/2026): tin này
+            # cả nhóm Kinh Doanh lẫn Kế Toán đọc, "nv26006" thì không ai biết
+            # là ai. Rơi về mã cũ nếu tra không ra tên.
+            _kt_ten = _lookup_user_info(user.username)[0] or user.username
             _msg = (
-                f"✅ Kế Toán {user.username} đã duyệt cọc đơn {quote.quote_number} — "
+                f"✅ Kế Toán {_kt_ten} đã duyệt cọc đơn {quote.quote_number} — "
                 f"{int(_coc):,}đ đã vào sổ quỹ. KH {quote.customer_name or ''}."
             )
             post_to_group(db, content=_msg)

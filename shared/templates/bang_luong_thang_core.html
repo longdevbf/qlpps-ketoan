@@ -1,0 +1,550 @@
+{# SINH TỰ ĐỘNG — ĐỪNG sửa file này trong repo.
+   Sửa `claude-kit/core/shared/templates/bang_luong_thang_core.html` rồi chạy:
+       cd d:\PapaSanIT\claude-kit && python sync.py
+   File này giống hệt nhau ở cả 8 repo. Muốn một app khác đi thì đặt
+   bản riêng trong templates/ của app đó (Jinja đọc templates/ trước). -#}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<link rel="stylesheet" href="/static/css/theme.css?v=xanh1">
+<title>Bảng lương tháng — QLPPS</title>
+<link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
+<link rel="shortcut icon" href="/static/papasan.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   BẢNG LƯƠNG THÁNG — màn dùng chung cho cả 8 app (mới, 12/09/2026).
+
+   Theo ảnh mẫu người duyệt gửi 12/09/2026: thanh chọn tháng + "Tải bảng lương" · thẻ
+   nhân viên · 4 thẻ số (lương cơ bản · ngày công · tổng cộng · thực nhận) · chi tiết A.
+   khoản cộng / B. khoản trừ / lương thực nhận + lương trả M5, M15 · lịch sử bảng
+   lương · lưu ý. Trước đây phiếu lương cá nhân nằm trong tab của màn Hồ sơ cá nhân.
+   Khung theo Chấm công v2 (`_khung_man.html`).
+
+   Nguồn số: `GET /api/payroll/me?thang=` (tính trực tiếp từ chấm công, KHÔNG lưu) và
+   `GET /api/payroll/me/lich-su` (thêm 12/09/2026). M5/M15 tính ở MÁY CHỦ
+   (`luong_m5`, `luong_m15`) — màn này không tự tính lại công thức lương.
+
+   KHÁC ẢNH MẪU — người duyệt chốt 12/09/2026 "ẩn trường chưa có chỗ lưu":
+     · Không có "Ngày chốt công", cột "Trạng thái chi trả", "Vị trí": hệ thống chưa lưu.
+       Thay "Ngày chốt công" bằng dòng "Số liệu tạm tính" — lương tính lại mỗi lần xem.
+     · Khoản trừ thêm "Phạt vắng không phép" và "Khấu trừ khác" khi có số: máy chủ cộng
+       hai khoản này vào tổng trừ, thiếu dòng thì tổng không khớp các dòng.
+     · "Tải bảng lương" = in / lưu PDF bằng trình duyệt (chưa có API xuất phiếu).
+     · Lưu ý chỉ ghi điều hệ thống thật sự làm (không có "kế toán đã xác nhận").
+
+   Màu/khoảng cách/cỡ chữ chỉ lấy token `theme.css` (ADR-012). MỌI selector nằm dưới `.bl`.
+   ═══════════════════════════════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:100vh;color:var(--text-1);
+     -webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+.bl{color:var(--text-2);font-size:var(--fs-body);line-height:var(--lh-body)}
+.bl [hidden]{display:none !important}
+.bl .bl-wrap{max-width:none;margin:0;padding:var(--sp-8) var(--sp-8) 40px}
+@media(min-width:768px){.bl .bl-wrap{padding:var(--sp-8) var(--sp-9) 40px}}
+@media(min-width:1600px){.bl .bl-wrap{padding:var(--sp-9) var(--sp-10) 48px}}
+.bl .bl-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.bl svg.bl-ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── Thẻ — viền + bóng nhẹ như Tổng quan HCNS ─────────────────────────────── */
+.bl .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);
+     box-shadow:var(--shadow-sm);overflow:hidden;margin:0;min-width:0}
+.bl .card + .card,.bl .card + .bl-kpi,.bl .bl-kpi + .card{margin-top:var(--sp-8)}
+.bl .card-header{display:flex;align-items:center;gap:var(--sp-5) var(--sp-6);flex-wrap:wrap;
+     padding:var(--sp-8) var(--sp-9);border:0;background:transparent}
+.bl .card-header h2{font-size:var(--fs-h);font-weight:700;color:var(--text-1);line-height:var(--lh-tight)}
+.bl .card-toolbar{display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;margin-left:auto}
+.bl .card-body{padding:0 var(--sp-9) var(--sp-9)}
+
+/* ── Nút ─────────────────────────────────────────────────────────────────── */
+.bl .btn-primary,.bl .btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);min-height:40px;
+     padding:0 var(--sp-9);border-radius:var(--r);font:inherit;font-size:var(--fs-body);font-weight:600;cursor:pointer;white-space:nowrap}
+.bl .btn-primary{background:var(--brand);color:var(--text-on-brand);border:1px solid var(--brand)}
+.bl .btn-primary:hover{background:var(--brand-hover);border-color:var(--brand-hover)}
+.bl .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+.bl .btn-ghost{background:var(--bg-band);color:var(--text-1);border:1px solid var(--bg-band)}
+.bl .btn-link{display:inline-flex;align-items:center;gap:var(--sp-2);border:0;background:none;padding:0;font:inherit;
+     font-size:var(--fs-body);font-weight:600;color:var(--brand-hover);cursor:pointer}
+.bl .btn-link:hover{text-decoration:underline}
+.bl .bl-nut-icon{display:inline-grid;place-items:center;flex:none;width:36px;height:36px;border:1px solid var(--border);
+     border-radius:var(--r);background:var(--bg-card);color:var(--text-2);cursor:pointer}
+.bl .bl-nut-icon:hover:not(:disabled){border-color:var(--brand-border);color:var(--brand-hover)}
+.bl .bl-nut-icon:disabled{opacity:.45;cursor:default}
+.bl .btn-primary:focus-visible,.bl .btn-ghost:focus-visible,.bl .btn-link:focus-visible,.bl .bl-nut-icon:focus-visible,
+.bl .bl-thang select:focus-visible{outline:0;box-shadow:var(--focus-ring)}
+
+/* Ô icon nền đặc, nét trắng (ADR-009, ADR-011 — nhóm --tile-*) */
+.bl .ico-tile{display:inline-grid;place-items:center;flex:none;width:44px;height:44px;border-radius:var(--r-md);
+     background:var(--tile-blue);color:var(--text-on-brand)}
+.bl .ico-tile svg.bl-ic{width:22px;height:22px}
+.bl .ico-tile--success{background:var(--tile-green)}
+.bl .ico-tile--warning{background:var(--tile-orange)}
+.bl .ico-tile--danger{background:var(--tile-red)}
+.bl .ico-tile--tim{background:var(--tile-violet)}
+.bl .ico-tile--neutral{background:var(--tile-slate)}
+.bl .ico-tile.bl-nho{width:28px;height:28px;border-radius:var(--r-sm)}
+.bl .ico-tile.bl-nho svg.bl-ic{width:15px;height:15px}
+
+.bl .pill{display:inline-flex;align-items:center;gap:var(--sp-3);height:24px;padding:0 var(--sp-5);
+     border-radius:var(--r-full);font-size:var(--fs-eyebrow);font-weight:600;line-height:1;white-space:nowrap}
+.bl .pill::before{content:"";width:8px;height:8px;border-radius:var(--r-full);background:currentColor;flex:none}
+.bl .pill--success{background:var(--success-soft);color:var(--success-fg)}
+.bl .pill--neutral{background:var(--bg-band);color:var(--text-3)}
+
+/* ── Thanh chọn tháng ───────────────────────────────────────────────────── */
+.bl .bl-thanh{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-6) var(--sp-8);flex-wrap:wrap;
+     padding:var(--sp-6) var(--sp-9)}
+.bl .bl-thang{display:flex;align-items:center;gap:var(--sp-5);flex-wrap:wrap}
+.bl .bl-thang > span{font-weight:600;color:var(--text-1)}
+.bl .bl-chon{position:relative;display:flex;align-items:center}
+.bl .bl-chon svg.bl-ic{position:absolute;left:12px;width:16px;height:16px;color:var(--text-2);pointer-events:none}
+.bl .bl-thang select{height:40px;min-width:210px;padding:0 var(--sp-6) 0 38px;border:1px solid var(--border);border-radius:var(--r);
+     background:var(--bg-card);color:var(--text-1);font:inherit;font-size:var(--fs-body);font-weight:500;outline:none;cursor:pointer}
+.bl .bl-thang select:hover{border-color:var(--brand-border)}
+
+/* ── Thẻ nhân viên ─────────────────────────────────────────────────────── */
+.bl .bl-nv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--sp-6) var(--sp-9);align-items:center;padding:var(--sp-9)}
+.bl .bl-anh{display:grid;place-items:center;width:88px;height:88px;border-radius:var(--r-full);overflow:hidden;
+     background:var(--brand-soft);color:var(--brand-hover);font-size:var(--fs-h);font-weight:700}
+.bl .bl-anh img{width:100%;height:100%;object-fit:cover}
+.bl .bl-nv-ten{display:flex;align-items:center;gap:var(--sp-5);flex-wrap:wrap}
+.bl .bl-nv-ten h2{font-size:var(--fs-h);font-weight:800;color:var(--text-1);line-height:var(--lh-tight)}
+.bl .bl-nv-phu{margin-top:var(--sp-2);color:var(--text-2)}
+.bl .bl-nv-phu span + span::before{content:"·";margin:0 var(--sp-4);color:var(--text-3)}
+.bl .bl-nv-ct{list-style:none;display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-4);grid-column:1 / -1}
+.bl .bl-nv-ct li{display:grid;grid-template-columns:20px minmax(110px,auto) minmax(0,1fr);gap:var(--sp-5);align-items:center}
+.bl .bl-nv-ct svg.bl-ic{width:16px;height:16px;color:var(--text-3)}
+.bl .bl-nv-ct span{color:var(--text-3)}
+.bl .bl-nv-ct b{font-weight:600;color:var(--text-1);min-width:0;overflow-wrap:anywhere}
+@media(min-width:1024px){
+  .bl .bl-nv{grid-template-columns:auto minmax(0,1fr) minmax(320px,.8fr)}
+  .bl .bl-nv-ct{grid-column:auto;padding-left:var(--sp-10);border-left:1px solid var(--border)}
+}
+
+/* ── 4 thẻ số ───────────────────────────────────────────────────────────── */
+.bl .bl-kpi{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-6)}
+@media(min-width:1024px){.bl .bl-kpi{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.bl .kpi{display:flex;align-items:center;gap:var(--sp-7);min-width:0;padding:var(--sp-8) var(--sp-9);
+     border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-card);box-shadow:var(--shadow-sm)}
+.bl .kpi-chu{flex:1;min-width:0}
+.bl .kpi-nhan{display:block;font-size:var(--fs-eyebrow);font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3)}
+.bl .kpi-so{display:block;margin-top:var(--sp-2);font-size:var(--fs-h);font-weight:700;color:var(--text-1);
+     line-height:var(--lh-tight);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(min-width:1440px){.bl .kpi-so{font-size:var(--fs-kpi)}}
+.bl .kpi-so.is-tot{color:var(--success-fg)}
+.bl .kpi-so.is-am{color:var(--danger-fg)}
+
+/* ── Chi tiết: A khoản cộng | B khoản trừ + thực nhận ───────────────────── */
+.bl .bl-ct{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-8);padding:0 var(--sp-9) var(--sp-9)}
+@media(min-width:1024px){.bl .bl-ct{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
+.bl .bl-ghi-dau{display:inline-flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-meta);color:var(--text-3)}
+.bl .bl-ghi-dau svg.bl-ic{width:15px;height:15px}
+.bl .bl-khoi{border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden}
+.bl .bl-khoi-dau{padding:var(--sp-6) var(--sp-7);font-size:var(--fs-body);font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+.bl .bl-khoi--cong .bl-khoi-dau{background:var(--brand-soft);color:var(--brand-hover)}
+.bl .bl-khoi--tru .bl-khoi-dau{background:var(--danger-soft);color:var(--danger-fg)}
+.bl .bl-bang{width:100%;border-collapse:collapse;font-size:var(--fs-body)}
+.bl .bl-bang th{padding:var(--sp-4) var(--sp-7);font-size:var(--fs-meta);font-weight:600;color:var(--text-3);text-align:left;
+     border-bottom:1px solid var(--border-soft);background:transparent}
+.bl .bl-bang td{padding:var(--sp-5) var(--sp-7);border-bottom:1px solid var(--border-soft);color:var(--text-1)}
+.bl .bl-bang tr:last-child td{border-bottom:0}
+.bl .bl-bang .c-stt{width:52px;color:var(--text-3);font-variant-numeric:tabular-nums}
+.bl .bl-bang .c-tien{text-align:right;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bl .bl-bang td small{display:block;font-size:var(--fs-meta);color:var(--text-3)}
+.bl .bl-khoi--tru .c-tien{color:var(--danger-fg)}
+.bl .bl-bang tr.is-khong td{color:var(--text-3)}
+.bl .bl-bang tr.is-khong .c-tien{font-weight:500;color:var(--text-3)}
+.bl .bl-lech{margin-top:var(--sp-4);padding:var(--sp-4) var(--sp-7);font-size:var(--fs-meta);color:var(--warning-fg);background:var(--warning-soft)}
+.bl .bl-phai{display:flex;flex-direction:column;gap:var(--sp-7)}
+.bl .bl-nhan{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-6);flex-wrap:wrap;
+     padding:var(--sp-8) var(--sp-9);border:1px solid var(--success-soft);border-radius:var(--r-md);background:var(--success-soft)}
+.bl .bl-nhan span{font-size:var(--fs-body-lg);font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--success-fg)}
+.bl .bl-nhan b{font-size:var(--fs-kpi);font-weight:800;color:var(--success-fg);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bl .bl-nhan.is-am{border-color:var(--danger-soft);background:var(--danger-soft)}
+.bl .bl-nhan.is-am span,.bl .bl-nhan.is-am b{color:var(--danger-fg)}
+.bl .bl-tra{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:var(--sp-6);align-items:center;
+     padding:var(--sp-6) var(--sp-7);border:1px solid var(--border);border-radius:var(--r-md)}
+.bl .bl-tra b{display:block;font-weight:600;color:var(--text-1)}
+.bl .bl-tra small{display:block;font-size:var(--fs-meta);color:var(--text-3)}
+.bl .bl-tra strong{font-size:var(--fs-title);font-weight:700;color:var(--text-1);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bl .bl-tra strong.is-am{color:var(--danger-fg)}
+.bl .bl-trong{padding:40px var(--sp-9);text-align:center;color:var(--text-3)}
+.bl .bl-trong b{display:block;margin-bottom:var(--sp-3);font-size:var(--fs-title);color:var(--text-1)}
+
+/* ── Lịch sử bảng lương ─────────────────────────────────────────────────── */
+/* position:relative để thẻ .bl-sr (absolute) trong ô tiêu đề lấy khung cuộn làm mốc — thiếu nó, thẻ
+   thoát ra ngoài, trang rộng thêm bằng bề ngang bảng và điện thoại thu nhỏ cả màn (đo 390px: 542px). */
+.bl .tbl-wrap{position:relative;overflow-x:auto;padding:0 var(--sp-9);border:0;border-radius:0;background:transparent;box-shadow:none}
+.bl .data-table{width:100%;min-width:0;border-collapse:separate;border-spacing:0;font-size:var(--fs-body)}
+.bl .data-table thead th{padding:var(--sp-5) var(--sp-6);background:var(--bg-band);color:var(--text-2);font-size:var(--fs-meta);
+     font-weight:600;text-align:left;white-space:nowrap;text-transform:none;letter-spacing:normal;border:0;box-shadow:none}
+.bl .data-table thead th:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm)}
+.bl .data-table thead th:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
+.bl .data-table th.c-tien,.bl .data-table td.c-tien{text-align:right}
+.bl .data-table tbody td{padding:var(--sp-5) var(--sp-6);border-bottom:1px solid var(--border-soft);color:var(--text-2);
+     vertical-align:middle;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bl .data-table tbody tr:last-child td{border-bottom:0}
+.bl .data-table tbody tr:hover td{background:var(--bg-page)}
+.bl .data-table tbody tr:hover > td:first-child{box-shadow:none}
+.bl .data-table tbody tr.is-chon td{background:var(--brand-soft)}
+.bl .data-table td.c-thang{font-weight:600;color:var(--text-1)}
+.bl .data-table td.c-nhan{font-weight:700;color:var(--success-fg)}
+.bl .data-table td.c-nhan.is-am{color:var(--danger-fg)}
+.bl .data-table td.c-tru{color:var(--danger-fg)}
+.bl .data-table tr.empty-row td{padding:32px var(--sp-5);text-align:center;color:var(--text-3);white-space:normal}
+.bl .data-table tr.empty-row:hover td{background:transparent}
+.bl .c-nut{width:1%;text-align:right}
+
+/* Lưu ý — trong thẻ lịch sử, ở đáy thẻ: nền trắng (trên) → xanh nhạt (đáy), như Chấm công v2 */
+.bl .bl-luu-y{margin-top:var(--sp-8);padding:var(--sp-8) var(--sp-9) var(--sp-9);
+     background:linear-gradient(to top, var(--brand-soft), var(--bg-card))}
+.bl .bl-luu-y h3{display:flex;align-items:center;gap:var(--sp-4);margin-bottom:var(--sp-5);font-size:var(--fs-title);font-weight:700;color:var(--text-1)}
+.bl .bl-luu-y h3 .ico-tile{width:26px;height:26px;border-radius:var(--r-full)}
+.bl .bl-luu-y h3 .ico-tile svg.bl-ic{width:14px;height:14px}
+.bl .bl-luu-y ul{list-style:none;display:flex;flex-direction:column;gap:var(--sp-4)}
+.bl .bl-luu-y li{position:relative;padding-left:var(--sp-7);color:var(--text-2)}
+.bl .bl-luu-y li::before{content:"";position:absolute;left:var(--sp-1);top:.6em;width:5px;height:5px;border-radius:var(--r-full);background:var(--brand)}
+
+/* ── Toast ───────────────────────────────────────────────────────────────── */
+.bl .toast-wrap{position:fixed;right:24px;bottom:24px;z-index:9999;display:flex;flex-direction:column;gap:var(--sp-4);pointer-events:none}
+.bl .toast{max-width:340px;padding:var(--sp-6) var(--sp-9);border-radius:var(--r);font-size:var(--fs-body);font-weight:600;
+     color:var(--text-on-brand);box-shadow:var(--shadow-lg);opacity:0;transform:translateY(12px);transition:all .25s}
+.bl .toast.show{opacity:1;transform:none}
+.bl .toast.error{background:var(--danger)}
+.bl .toast.info{background:var(--brand)}
+
+@media(max-width:767px){
+  .bl .card-header{padding:var(--sp-7)}
+  .bl .bl-thanh{padding:var(--sp-6) var(--sp-7)}
+  .bl .bl-thang{flex:1 1 100%;flex-wrap:nowrap;min-width:0}
+  .bl .bl-chon{flex:1;min-width:0}
+  .bl .bl-thang select{min-width:0;width:100%}
+  .bl .bl-thanh .btn-primary{width:100%}
+  .bl .bl-nv{padding:var(--sp-7);gap:var(--sp-6)}
+  .bl .bl-anh{width:64px;height:64px}
+  .bl .kpi{padding:var(--sp-7);gap:var(--sp-5)}
+  .bl .ico-tile{width:36px;height:36px}
+  .bl .ico-tile svg.bl-ic{width:18px;height:18px}
+  .bl .bl-ct{padding:0 var(--sp-7) var(--sp-7)}
+  .bl .bl-bang td,.bl .bl-bang th{padding-left:var(--sp-5);padding-right:var(--sp-5)}
+  .bl .bl-bang .c-stt{width:36px}
+  .bl .bl-nhan b{font-size:var(--fs-h)}
+  .bl .tbl-wrap{padding:0 var(--sp-7)}
+  .bl .bl-thang select{font-size:16px}
+  .bl .toast-wrap{left:8px;right:8px;bottom:12px}
+}
+/* Dưới 480px, 2 cột chỉ còn ~97px cho số tiền: "12.000.000 đ" bị cắt thành "12.000...." (đo 390px).
+   Nhãn "Tháng" ẩn để nhường chỗ cho ô chọn; ô chọn vẫn có tên nhờ aria-labelledby. */
+@media(max-width:479px){
+  .bl .bl-kpi{grid-template-columns:minmax(0,1fr)}
+  .bl .bl-thang > span{display:none}
+}
+@media(prefers-reduced-motion:reduce){.bl *{transition:none}}
+
+/* ── In / lưu PDF ("Tải bảng lương") ─────────────────────────────────────── */
+@media print{
+  html body{padding:0 !important;margin:0 !important;background:var(--bg-card)}
+  body > *:not(.bl){display:none !important}
+  .bl .bl-wrap{padding:0}
+  .bl .bl-thanh .btn-primary,.bl .bl-nut-icon,.bl .bl-lich-su,.bl .toast-wrap{display:none !important}
+  .bl .card,.bl .kpi{box-shadow:none;break-inside:avoid}
+  .bl .bl-ct{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bl .bl-kpi{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+</style>
+</head>
+<body>
+{% include "_header.html" %}
+{% set ten_man = "Bảng lương tháng" %}{% include "_khung_man.html" %}
+
+<div class="bl">
+<div class="bl-wrap">
+  <h1 class="bl-sr">Bảng lương tháng</h1>
+
+  <!-- Thanh chọn tháng -->
+  <section class="card bl-thanh" aria-label="Chọn tháng">
+    <div class="bl-thang">
+      <span id="bl-nhan-thang">Tháng</span>
+      <label class="bl-chon">
+        <svg class="bl-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <select id="bl-thang" aria-labelledby="bl-nhan-thang" onchange="blChonThang(this.value)"></select>
+      </label>
+      <button type="button" class="bl-nut-icon" id="bl-truoc" onclick="blLui(1)" aria-label="Tháng trước">
+        <svg class="bl-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg></button>
+      <button type="button" class="bl-nut-icon" id="bl-sau" onclick="blLui(-1)" aria-label="Tháng sau">
+        <svg class="bl-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg></button>
+    </div>
+    <button type="button" class="btn-primary" id="bl-nut-tai" onclick="window.print()" disabled>
+      <svg class="bl-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></svg>Tải bảng lương</button>
+  </section>
+
+  <!-- Thẻ nhân viên -->
+  <section class="card" aria-labelledby="bl-ten">
+    <div class="bl-nv">
+      <div class="bl-anh"><img id="bl-anh-img" alt="" hidden><span id="bl-anh-chu" aria-hidden="true"></span></div>
+      <div>
+        <div class="bl-nv-ten"><h2 id="bl-ten">Đang tải...</h2><span id="bl-tt"></span></div>
+        <p class="bl-nv-phu" id="bl-nv-phu"></p>
+      </div>
+      <ul class="bl-nv-ct" id="bl-nv-ct"></ul>
+    </div>
+  </section>
+
+  <!-- 4 thẻ số -->
+  <div class="bl-kpi" id="bl-kpi" aria-live="polite">
+    <div class="kpi"><span class="ico-tile ico-tile--neutral" aria-hidden="true"><svg class="bl-ic" viewBox="0 0 24 24" focusable="false"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg></span>
+      <div class="kpi-chu"><span class="kpi-nhan">Lương cơ bản</span><span class="kpi-so" id="bl-k-cb">—</span></div></div>
+    <div class="kpi"><span class="ico-tile ico-tile--tim" aria-hidden="true"><svg class="bl-ic" viewBox="0 0 24 24" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></span>
+      <div class="kpi-chu"><span class="kpi-nhan">Số ngày công</span><span class="kpi-so" id="bl-k-cong">—</span></div></div>
+    <div class="kpi"><span class="ico-tile" aria-hidden="true"><svg class="bl-ic" viewBox="0 0 24 24" focusable="false"><path d="M3 3v18h18"/><path d="M7 16v-4M12 16V8M17 16v-7"/></svg></span>
+      <div class="kpi-chu"><span class="kpi-nhan">Tổng cộng</span><span class="kpi-so" id="bl-k-tong">—</span></div></div>
+    <div class="kpi"><span class="ico-tile ico-tile--success" aria-hidden="true"><svg class="bl-ic" viewBox="0 0 24 24" focusable="false"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span>
+      <div class="kpi-chu"><span class="kpi-nhan">Thực nhận</span><span class="kpi-so is-tot" id="bl-k-nhan">—</span></div></div>
+  </div>
+
+  <!-- Chi tiết -->
+  <section class="card" aria-labelledby="bl-ct-tieu-de">
+    <div class="card-header">
+      <h2 id="bl-ct-tieu-de">Bảng lương tháng — Chi tiết</h2>
+      <div class="card-toolbar"><span class="bl-ghi-dau">
+        <svg class="bl-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <span id="bl-ghi-dau">Số liệu tạm tính theo chấm công</span></span></div>
+    </div>
+    <div id="bl-ct"><div class="bl-trong">Đang tính bảng lương...</div></div>
+  </section>
+
+  <!-- Lịch sử -->
+  <section class="card bl-lich-su" id="bl-lich-su" aria-labelledby="bl-ls-tieu-de">
+    <div class="card-header"><h2 id="bl-ls-tieu-de">Lịch sử bảng lương</h2>
+      <div class="card-toolbar"><span class="bl-ghi-dau" id="bl-ls-ghi">6 tháng gần nhất</span></div></div>
+    <div class="tbl-wrap">
+      <table class="data-table">
+        <thead><tr><th>Tháng</th><th class="c-tien">Lương cơ bản</th><th class="c-tien">Tổng cộng</th><th class="c-tien">Khấu trừ</th>
+          <th class="c-tien">Thực nhận</th><th class="c-nut"><span class="bl-sr">Thao tác</span></th></tr></thead>
+        <tbody id="bl-ls-than"><tr class="empty-row"><td colspan="6">Đang tính lịch sử lương các tháng gần đây — có thể mất vài giây...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="bl-luu-y">
+      <h3><span class="ico-tile" aria-hidden="true"><svg class="bl-ic" viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>Lưu ý</h3>
+      <ul>
+        <li>Lương được tính trực tiếp từ chấm công, đơn nghỉ, hoa hồng và các khoản ứng tới thời điểm xem — số có thể thay đổi cho tới khi phòng Nhân sự chốt bảng lương tháng.</li>
+        <li>Lương trả ngày 5 (M5) = lương theo công + ăn trưa − BHXH − ứng lương − đoàn phí; ngày 15 (M15) trả phần còn lại.</li>
+        <li>Thực nhận có thể âm khi khoản trừ (phạt vắng không phép, ứng lương…) lớn hơn thu nhập trong tháng.</li>
+        <li>Thắc mắc về các khoản vui lòng liên hệ phòng Nhân sự hoặc Kế toán.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+<div class="toast-wrap" id="bl-toast"></div>
+</div>
+
+<script>
+function _blE(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+/* Một hàm định dạng tiền cho cả màn (frontend-ui.md luật 6): "1.538.462 đ", số âm dùng dấu trừ thật. */
+function _blTien(n) { const v = Math.round(Number(n) || 0); return (v < 0 ? '−' : '') + Math.abs(v).toLocaleString('vi-VN') + ' đ'; }
+function _blSo(n) { return (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 2 }); }
+function _blNgay(s) { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : String(s); }
+function _blThangNhan(t) { const [y, m] = String(t).split('-'); return `Tháng ${Number(m)} năm ${y}`; }
+function _blThangNgan(t) { const [y, m] = String(t).split('-'); return `${m}/${y}`; }
+function _blToast(msg, loai = 'info') {
+  const w = document.getElementById('bl-toast'); if (!w) return;
+  const t = document.createElement('div'); t.className = `toast ${loai}`; t.setAttribute('role', loai === 'error' ? 'alert' : 'status'); t.textContent = msg;
+  w.appendChild(t); setTimeout(() => t.classList.add('show'), 30);
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 5000);
+}
+async function _blApi(url) {
+  const r = await fetch(url, { credentials: 'include' });
+  if (r.status === 401) { location.href = '/login'; throw Object.assign(new Error('Hết phiên đăng nhập'), { status: 401 }); }
+  const d = await r.json().catch(() => null);
+  if (!r.ok) throw Object.assign(new Error((d && typeof d.detail === 'string') ? d.detail : `Lỗi máy chủ (HTTP ${r.status})`), { status: r.status });
+  return d;
+}
+const _BL_IC = {
+  pb:   '<path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/>',
+  loai: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  vao:  '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  lich: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  xem:  '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'
+};
+function _blSvg(ten) { return '<svg class="bl-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + (_BL_IC[ten] || '') + '</svg>'; }
+
+// ── Tháng ───────────────────────────────────────────────────────────────────
+const _bl = { thang: '', dang: 0 };
+function _blThangHienTai() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+(function _blVeChonThang() {
+  const sel = document.getElementById('bl-thang'), d = new Date(), ds = [];
+  for (let i = 0; i < 24; i++) { const x = new Date(d.getFullYear(), d.getMonth() - i, 1); ds.push(`${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}`); }
+  sel.innerHTML = ds.map(t => `<option value="${t}">${_blThangNhan(t)}</option>`).join('');
+})();
+function _blDongBoNut() {
+  const sel = document.getElementById('bl-thang');
+  document.getElementById('bl-truoc').disabled = sel.selectedIndex >= sel.options.length - 1;
+  document.getElementById('bl-sau').disabled = sel.selectedIndex <= 0;
+}
+function blLui(b) { const sel = document.getElementById('bl-thang'), i = sel.selectedIndex + b; if (i < 0 || i >= sel.options.length) return; sel.selectedIndex = i; blChonThang(sel.value); }
+function blChonThang(t) {
+  const sel = document.getElementById('bl-thang');
+  if (![...sel.options].some(o => o.value === t)) { const o = document.createElement('option'); o.value = t; o.textContent = _blThangNhan(t); sel.appendChild(o); }
+  sel.value = t;
+  _blDongBoNut();
+  try { history.replaceState(null, '', '?thang=' + t); } catch (e) {}
+  blTai(t);
+}
+
+// ── Nạp tháng ───────────────────────────────────────────────────────────────
+async function blTai(thang) {
+  _bl.thang = thang;
+  const luot = ++_bl.dang;
+  document.getElementById('bl-ct-tieu-de').textContent = `Bảng lương tháng ${_blThangNgan(thang)} — Chi tiết`;
+  document.getElementById('bl-ct').innerHTML = '<div class="bl-trong">Đang tính bảng lương...</div>';
+  document.getElementById('bl-nut-tai').disabled = true;
+  ['bl-k-cb', 'bl-k-cong', 'bl-k-tong', 'bl-k-nhan'].forEach(id => { document.getElementById(id).textContent = '—'; });
+  let d;
+  try { d = await _blApi('/api/payroll/me?thang=' + encodeURIComponent(thang)); }
+  catch (e) {
+    if (luot !== _bl.dang) return;
+    const chuaGan = e.status === 404 && /hồ sơ|NV|username/i.test(e.message || '');
+    document.getElementById('bl-ten').textContent = chuaGan ? 'Tài khoản chưa gắn hồ sơ nhân viên' : 'Không tải được bảng lương';
+    document.getElementById('bl-ct').innerHTML = `<div class="bl-trong"><b>${chuaGan ? 'Chưa có hồ sơ nhân viên' : 'Không tải được bảng lương'}</b>`
+      + `${_blE(e.message || '')}${chuaGan ? ' — liên hệ phòng Nhân sự để gắn tài khoản với hồ sơ.' : ''} `
+      + (chuaGan ? '' : `<button type="button" class="btn-link" onclick="blTai('${_blE(thang)}')">Thử lại</button>`) + '</div>';
+    return;
+  }
+  if (luot !== _bl.dang) return;
+  _blVeNhanVien(d.employee || {});
+  _blVeLuong(d.payroll, thang);
+}
+
+function _blVeNhanVien(e) {
+  document.getElementById('bl-ten').textContent = e.ho_ten || '—';
+  const tt = String(e.trang_thai || '').toLowerCase();
+  document.getElementById('bl-tt').innerHTML = !tt ? '' : tt.startsWith('đang')
+    ? '<span class="pill pill--success">Đang làm việc</span>' : `<span class="pill pill--neutral">${tt.includes('nghỉ') ? 'Đã nghỉ việc' : _blE(e.trang_thai)}</span>`;
+  document.getElementById('bl-nv-phu').innerHTML = [e.ma_nv, e.chuc_vu].filter(Boolean).map(x => `<span>${_blE(x)}</span>`).join('');
+  const dong = (ic, nhan, gt) => `<li>${_blSvg(ic)}<span>${nhan}</span><b>${_blE(gt || '—')}</b></li>`;
+  document.getElementById('bl-nv-ct').innerHTML = dong('pb', 'Phòng ban', e.phong_ban) + dong('loai', 'Loại nhân viên', e.loai_hop_dong)
+    + dong('vao', 'Ngày vào làm', _blNgay(e.ngay_vao));
+  const chu = document.getElementById('bl-anh-chu');
+  // Chữ viết tắt: bỏ phần trong ngoặc ("(DEV)") và từ không bắt đầu bằng chữ cái, lấy 2 từ cuối.
+  const tu = String(e.ho_ten || '').replace(/\(.*?\)/g, ' ').trim().split(/\s+/).filter(x => /^\p{L}/u.test(x));
+  if (!chu.textContent) chu.textContent = (tu.length ? tu.slice(-2).map(x => x[0]).join('') : '?').toUpperCase();
+}
+
+function _blVeLuong(p, thang) {
+  const o = document.getElementById('bl-ct');
+  if (!p) {
+    o.innerHTML = `<div class="bl-trong"><b>Tháng ${_blThangNgan(thang)} chưa có dữ liệu lương</b>`
+      + 'Chưa vào làm, đã nghỉ trước tháng này hoặc chưa có hồ sơ lương. Chọn tháng khác ở thanh phía trên.</div>';
+    return;
+  }
+  const am = Number(p.luong_thuc_nhan) < 0;
+  document.getElementById('bl-k-cb').textContent = _blTien(p.luong_co_ban);
+  document.getElementById('bl-k-cong').textContent = _blSo(p.so_ngay_cong) + ' ngày';
+  document.getElementById('bl-k-tong').textContent = _blTien(p.tong_cong);
+  const kn = document.getElementById('bl-k-nhan');
+  kn.textContent = _blTien(p.luong_thuc_nhan); kn.className = 'kpi-so ' + (am ? 'is-am' : 'is-tot');
+  document.getElementById('bl-nut-tai').disabled = false;
+
+  const cong = [
+    ['Lương theo công', p.luong_theo_cong, p.cong_le ? `Gồm ${_blSo(p.cong_le)} công lễ` : ''],
+    ['Ăn trưa', p.an_trua, ''],
+    ['Trách nhiệm', p.trach_nhiem, ''],
+    ['Công tác xưởng', p.cong_tac_xuong, p.cong_tac_so_lan ? `${_blSo(p.cong_tac_so_lan)} lần` : ''],
+    ['Hoa hồng', p.hoa_hong, ''],
+    ['OT ca gãy', p.ot_ca_gay, p.ot_so_gio ? `${_blSo(p.ot_so_gio)} giờ` : ''],
+    ['Trực tối', p.truc_toi, p.truc_toi_so_buoi ? `${_blSo(p.truc_toi_so_buoi)} buổi` : ''],
+    ['Tối ưu KD', p.toi_uu_kd, '']
+  ];
+  const tru = [
+    ['BHXH (10,5%)', p.bhxh_tru, ''],
+    ['Đoàn phí công đoàn', p.doan_phi_tru, ''],
+    ['Ứng lương', p.ung_luong, p.ung_luong_so_lan ? `${_blSo(p.ung_luong_so_lan)} lần` : '']
+  ];
+  // Máy chủ cộng hai khoản này vào tong_tru — thiếu dòng thì tổng không khớp (luật số liệu khớp nhau).
+  if (Number(p.phat_vang_tien)) tru.push(['Phạt vắng không phép', p.phat_vang_tien, p.phat_vang_cong ? `${_blSo(p.phat_vang_cong)} công` : '']);
+  if (Number(p.khau_tru_tay)) tru.push(['Khấu trừ khác', p.khau_tru_tay, 'Phòng Nhân sự nhập']);
+  const bang = ds => ds.map(([nhan, tien, phu], i) => `<tr class="${Number(tien) ? '' : 'is-khong'}"><td class="c-stt">${i + 1}</td>`
+    + `<td>${_blE(nhan)}${phu ? `<small>${_blE(phu)}</small>` : ''}</td><td class="c-tien">${_blTien(tien)}</td></tr>`).join('');
+  const lech = (ds, tong) => { const s = ds.reduce((t, r) => t + (Number(r[1]) || 0), 0), c = Math.round((Number(tong) || 0) - s);
+    return Math.abs(c) >= 1 ? `<p class="bl-lech">Tổng của máy chủ lệch các dòng trên ${_blTien(c)} — báo phòng Nhân sự kiểm tra.</p>` : ''; };
+  const coM = p.luong_m5 !== undefined && p.luong_m5 !== null;
+  const tra = (nhan, phu, tien) => `<div class="bl-tra"><span class="ico-tile bl-nho" aria-hidden="true">${_blSvg('lich')}</span>`
+    + `<div><b>${nhan}</b><small>${phu}</small></div><strong class="${Number(tien) < 0 ? 'is-am' : ''}">${coM ? _blTien(tien) : '—'}</strong></div>`;
+  o.innerHTML = `<div class="bl-ct">
+    <div class="bl-khoi bl-khoi--cong">
+      <div class="bl-khoi-dau">A. Khoản cộng (tổng: ${_blTien(p.tong_cong)})</div>
+      <table class="bl-bang"><thead><tr><th class="c-stt">STT</th><th>Nội dung</th><th class="c-tien">Số tiền</th></tr></thead><tbody>${bang(cong)}</tbody></table>
+      ${lech(cong, p.tong_cong)}
+    </div>
+    <div class="bl-phai">
+      <div class="bl-khoi bl-khoi--tru">
+        <div class="bl-khoi-dau">B. Khoản trừ (tổng: ${_blTien(p.tong_tru)})</div>
+        <table class="bl-bang"><thead><tr><th class="c-stt">STT</th><th>Nội dung</th><th class="c-tien">Số tiền</th></tr></thead><tbody>${bang(tru)}</tbody></table>
+        ${lech(tru, p.tong_tru)}
+      </div>
+      <div class="bl-nhan${am ? ' is-am' : ''}"><span>Lương thực nhận</span><b>${_blTien(p.luong_thuc_nhan)}</b></div>
+      ${tra('Lương trả M5', 'Ngày 5 · lương theo công + ăn trưa − BHXH − ứng lương − đoàn phí', p.luong_m5)}
+      ${tra('Lương trả M15', 'Ngày 15 · phần còn lại', p.luong_m15)}
+      ${coM ? '' : '<p class="bl-lech">Máy chủ chưa trả số M5 / M15 (chưa cập nhật) — xem ở phòng Kế toán.</p>'}
+    </div>
+  </div>`;
+  _blToDongLichSu();
+}
+
+// ── Lịch sử ─────────────────────────────────────────────────────────────────
+let _blLs = null;
+async function blTaiLichSu() {
+  const than = document.getElementById('bl-ls-than');
+  try {
+    const d = await _blApi('/api/payroll/me/lich-su?so_thang=6&den=' + _blThangHienTai());
+    _blLs = (d && d.items) || [];
+    if (!_blLs.length) { than.innerHTML = '<tr class="empty-row"><td colspan="6">Chưa có tháng lương nào trong 6 tháng gần đây.</td></tr>'; return; }
+    than.innerHTML = _blLs.map(r => {
+      const am = Number(r.luong_thuc_nhan) < 0;
+      return `<tr data-thang="${_blE(r.thang)}"><td class="c-thang">${_blThangNgan(r.thang)}</td><td class="c-tien">${_blTien(r.luong_co_ban)}</td>`
+        + `<td class="c-tien">${_blTien(r.tong_cong)}</td><td class="c-tien c-tru">${_blTien(r.tong_tru)}</td>`
+        + `<td class="c-tien c-nhan${am ? ' is-am' : ''}">${_blTien(r.luong_thuc_nhan)}</td>`
+        + `<td class="c-nut"><button type="button" class="btn-link" data-thang="${_blE(r.thang)}" onclick="blChonThang(this.dataset.thang)">${_blSvg('xem')}Xem</button></td></tr>`;
+    }).join('');
+    _blToDongLichSu();
+  } catch (e) {
+    if (e.status === 404 || e.status === 405) {
+      // Máy chủ chưa có API lịch sử → không hiện bảng rỗng, chỉ giữ khối Lưu ý.
+      document.querySelector('#bl-lich-su .tbl-wrap').hidden = true;
+      document.getElementById('bl-ls-tieu-de').textContent = 'Lưu ý về bảng lương';
+      document.getElementById('bl-ls-ghi').hidden = true;
+      return;
+    }
+    than.innerHTML = `<tr class="empty-row"><td colspan="6">Không tải được lịch sử: ${_blE(e.message || '')} <button type="button" class="btn-link" onclick="blTaiLichSu()">Thử lại</button></td></tr>`;
+  }
+}
+function _blToDongLichSu() {
+  document.querySelectorAll('#bl-ls-than tr[data-thang]').forEach(tr => tr.classList.toggle('is-chon', tr.dataset.thang === _bl.thang));
+}
+
+// Ảnh đại diện của chính mình
+(async function _blAnh() {
+  try {
+    const r = await fetch('/api/profile/avatar', { credentials: 'include' });
+    if (!r.ok || !(r.headers.get('Content-Type') || '').startsWith('image/')) return;
+    const img = document.getElementById('bl-anh-img');
+    img.src = URL.createObjectURL(await r.blob()); img.hidden = false;
+    document.getElementById('bl-anh-chu').hidden = true;
+  } catch (e) {}
+})();
+
+// ── Khởi động ───────────────────────────────────────────────────────────────
+(function () {
+  const q = new URLSearchParams(location.search).get('thang');
+  blChonThang(/^\d{4}-\d{2}$/.test(q || '') ? q : _blThangHienTai());
+  blTaiLichSu();
+})();
+</script>
+</body>
+</html>

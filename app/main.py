@@ -106,6 +106,7 @@ import baogia.app.models  # noqa: F401
 import ketoan.app.models  # noqa: F401
 from shared.routers.xin_nghi import router as xin_nghi_router
 from shared.routers.duyet_chi import router as duyet_chi_router
+from shared.routers.de_xuat import router as de_xuat_router
 from shared.routers.giao_viec import router as giao_viec_router
 from shared.routers.calendar import router as calendar_router
 from hcns.app.routers.cham_cong import router as cham_cong_router
@@ -374,6 +375,7 @@ app.include_router(product_files_router, tags=["product_files"])
 app.include_router(xin_nghi_router, prefix="/api/xin-nghi", tags=["xin-nghi"])
 # Duyệt Chi — cross-app expense request system
 app.include_router(duyet_chi_router, prefix="/api/duyet-chi", tags=["duyet-chi"])
+app.include_router(de_xuat_router, prefix="/api/de-xuat", tags=["de-xuat"])
 # Giao Việc — cross-app
 app.include_router(giao_viec_router, prefix="/api/giao-viec", tags=["giao-viec"])
 # Lịch Làm Việc — cross-app calendar

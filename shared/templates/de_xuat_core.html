@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<title>Đề Xuất — QLPPS</title>
+<link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
+<link rel="shortcut icon" href="/static/papasan.ico">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<style>
+/* Dùng token của theme.css. CHỈ khai lại các biến "soft/fg" mà theme không có —
+   khai lại token đã tồn tại (vd --success:var(--success)) sẽ tạo chu trình và
+   làm biến vô hiệu, đúng cái bẫy đã ghi trong duyet_chi_core.html. */
+:root{
+  /* KHÔNG dùng --brand-soft làm nền mảng lớn. Lý do: 5 app đã đổi token này
+     sang xám trung tính từ 26/08, nhưng ceo/congnghe/hcns còn giữ bản peach cũ
+     — cùng một thẻ CSS ra hai bộ mặt khác hẳn, và ở bản peach thì dải đầu
+     trang cộng khối kết quả kỳ vọng nhoè thành một mảng cam.
+     Theo đúng luật ghi trong theme.css: bề mặt luôn trung tính, cam chỉ là
+     mực; và viền là thứ gánh việc tách khối.
+     color-mix: pha token sẵn có với trong suốt để ra sắc nhạt hơn mà KHÔNG
+     đẻ thêm màu mới — hệ chỉ cho đúng 1 mức viền. */
+  --dx-vien:    color-mix(in srgb, var(--text-3) 34%, transparent);
+  --dx-vien-nh: color-mix(in srgb, var(--text-3) 18%, transparent);
+  --dx-lom:     var(--bg-page);          /* mat lom ben trong the */
+  --dx-cho-bg:  color-mix(in srgb, var(--warning) 14%, transparent);
+  --dx-cho-tx:  var(--warning);
+  --dx-ok-bg:   color-mix(in srgb, var(--success) 14%, transparent);
+  --dx-ok-tx:   var(--success);
+  --dx-no-bg:   color-mix(in srgb, var(--danger) 13%, transparent);
+  --dx-no-tx:   var(--danger);
+  --dx-ceo-bg:  color-mix(in srgb, var(--info) 14%, transparent);
+  --dx-ceo-tx:  var(--info);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+/* --bg-app là token DÀNH RIÊNG cho body (xám lạnh), --bg-page là mặt lõm bên
+   trong thẻ. Trước đây tôi dùng nhầm --bg-page cho body: ở app nào hai token
+   này gần bằng nhau thì thẻ trắng không nổi lên được. Fallback về --bg-page
+   phòng app chưa có --bg-app. */
+body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;
+     background:var(--bg-app, var(--bg-page));
+     color:var(--text-1);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+.page-wrap{max-width:1160px;margin:0 auto;padding:0 18px 64px}
+.page-header{background:var(--bg-card);border:1px solid var(--dx-vien);
+  border-left:4px solid var(--brand);border-radius:var(--r-lg);
+  padding:18px 22px;margin:20px 0 18px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.page-header h4{font-size:16px;font-weight:800;letter-spacing:-.2px;color:var(--brand)}
+.page-header p{font-size:13px;color:var(--text-2);margin-top:3px;max-width:62ch}
+.page-header .grow{margin-left:auto}
+
+.btn{border:none;cursor:pointer;font-weight:600;font-size:13px;border-radius:var(--r-md);
+  padding:9px 16px;display:inline-flex;align-items:center;gap:7px;transition:filter .15s;
+  font-family:inherit}
+.btn:hover{filter:brightness(.94)}
+.btn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.btn-primary{background:var(--brand);color:var(--text-on-brand)}
+.btn-ghost{background:var(--bg-card);color:var(--text-1);border:1px solid var(--border)}
+.btn-ok{background:var(--success);color:#fff}
+.btn-no{background:var(--danger);color:#fff}
+.btn-sm{padding:6px 12px;font-size:12.5px}
+
+/* ── Tab ── */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--dx-vien);margin-bottom:18px}
+.tab{background:none;border:none;cursor:pointer;font-family:inherit;font-size:13px;
+  font-weight:700;color:var(--text-3);padding:11px 16px;border-bottom:2px solid transparent;
+  margin-bottom:-1px;display:inline-flex;align-items:center;gap:7px}
+.tab:hover{color:var(--text-1)}
+.tab.on{color:var(--brand);border-bottom-color:var(--brand)}
+.tab .dem{background:var(--brand);color:var(--text-on-brand);font-size:11px;font-weight:700;
+  border-radius:var(--r-full);padding:1px 7px;min-width:18px;text-align:center}
+.tab.on .dem, .tab .dem:empty{display:inline-block}
+
+/* ── Thẻ đề xuất ── */
+.ds{display:flex;flex-direction:column;gap:12px}
+.the{background:var(--bg-card);border:1px solid var(--dx-vien);border-radius:var(--r-lg);
+  padding:0;overflow:hidden}
+/* Dau the co nen lom + ke duoi -> tach hai khoi bang HINH chu khong bang mau */
+.the-dau{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;
+  padding:13px 18px;background:var(--dx-lom);border-bottom:1px solid var(--dx-vien-nh)}
+.the-tieu-de{font-size:15px;font-weight:700;line-height:1.35;flex:1;min-width:200px}
+.the-meta{font-size:12px;color:var(--text-3);margin-top:5px;display:flex;flex-wrap:wrap;gap:4px 14px}
+.the-than{padding:15px 18px 0;font-size:13px;line-height:1.6;color:var(--text-2);
+  white-space:pre-wrap;overflow-wrap:anywhere}
+.kqkv{margin:12px 18px 0;padding:11px 14px;border:1px solid var(--dx-vien-nh);
+  border-left:3px solid var(--brand);background:var(--dx-lom);
+  border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:13px;color:var(--text-2);
+  white-space:pre-wrap;overflow-wrap:anywhere}
+.kqkv b{display:block;font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--brand);margin-bottom:4px;font-weight:800}
+.the-cuoi{margin-top:15px;padding:12px 18px;border-top:1px solid var(--dx-vien-nh);
+  background:var(--dx-lom);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+.chip{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  padding:3px 9px;border-radius:var(--r-full);white-space:nowrap}
+.c-cho{background:var(--dx-cho-bg);color:var(--dx-cho-tx)}
+.c-ceo{background:var(--dx-ceo-bg);color:var(--dx-ceo-tx)}
+.c-ok {background:var(--dx-ok-bg); color:var(--dx-ok-tx)}
+.c-no {background:var(--dx-no-bg); color:var(--dx-no-tx)}
+.c-xam{background:var(--bg-page);color:var(--text-3);border:1px solid var(--border)}
+
+.lich-su{margin:12px 18px 0;padding-bottom:2px;font-size:12.5px;color:var(--text-3);
+  display:flex;flex-direction:column;gap:5px}
+.lich-su div{padding-left:14px;position:relative}
+.lich-su div::before{content:"";position:absolute;left:0;top:7px;width:6px;height:6px;
+  border-radius:50%;background:var(--border)}
+.lich-su .cmt{color:var(--text-2);font-style:italic}
+
+.the > *:last-child{margin-bottom:0}
+.the-than:last-child, .kqkv:last-child, .lich-su:last-child, .tep:last-child{padding-bottom:16px}
+.trong{text-align:center;padding:52px 20px;color:var(--text-3);font-size:14px;
+  background:var(--bg-card);border:1px dashed var(--dx-vien);border-radius:var(--r-lg)}
+.trong i{font-size:22px;display:block;margin-bottom:12px;opacity:.45}
+
+/* ── Modal ── */
+.nen-mo{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;z-index:1200;
+  align-items:flex-start;justify-content:center;padding:28px 16px;overflow-y:auto}
+.nen-mo.hien{display:flex}
+.hop{background:var(--bg-card);border-radius:var(--r-lg);width:100%;max-width:640px;
+  box-shadow:var(--shadow-lg);overflow:hidden}
+.hop-dau{padding:16px 22px;border-bottom:1px solid var(--border);display:flex;
+  align-items:center;gap:10px}
+.hop-dau h5{font-size:16px;font-weight:800;flex:1}
+.hop-than{padding:20px 22px;display:flex;flex-direction:column;gap:15px}
+.hop-cuoi{padding:14px 22px;border-top:1px solid var(--border);display:flex;
+  justify-content:flex-end;gap:9px;background:var(--bg-page)}
+.dong label{display:block;font-size:12px;font-weight:700;color:var(--text-2);
+  margin-bottom:5px;letter-spacing:.02em}
+.dong .goi-y{font-weight:400;color:var(--text-3);text-transform:none;letter-spacing:0}
+input[type=text],input[type=date],input[type=number],select,textarea{
+  width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-md);
+  font-size:13px;font-family:inherit;background:var(--bg-card);color:var(--text-1)}
+textarea{resize:vertical;min-height:78px;line-height:1.55}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent)}
+.hang{display:flex;gap:12px;flex-wrap:wrap}
+.hang>*{flex:1;min-width:150px}
+.tick{display:flex;align-items:flex-start;gap:9px;font-size:13px;cursor:pointer;
+  padding:9px 11px;border:1px solid var(--border);border-radius:var(--r-md);line-height:1.45}
+.tick input{margin-top:2px;flex:none;accent-color:var(--brand)}
+.tick span small{display:block;color:var(--text-3);font-size:11.5px;margin-top:2px}
+
+.canh-bao{font-size:12.5px;padding:10px 12px;border-radius:var(--r-md);
+  background:var(--dx-ceo-bg);color:var(--dx-ceo-tx);display:none;line-height:1.5}
+.canh-bao.hien{display:block}
+
+.tep{display:flex;flex-wrap:wrap;gap:7px;margin:10px 18px 0}
+.tep a{font-size:12px;color:var(--brand);text-decoration:none;background:var(--dx-lom);
+  border:1px solid var(--dx-vien-nh);
+  padding:4px 10px;border-radius:var(--r-full);display:inline-flex;align-items:center;gap:5px}
+.tep a:hover{text-decoration:underline}
+
+#dx-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:2000;
+  display:flex;flex-direction:column;gap:8px;align-items:center}
+.toast{background:var(--text-1);color:var(--bg-card);padding:10px 18px;border-radius:var(--r-md);
+  font-size:13px;box-shadow:var(--shadow-lg);max-width:88vw}
+.toast.loi{background:var(--danger);color:#fff}
+.toast.ok{background:var(--success);color:#fff}
+
+@media (max-width:640px){
+  .page-header{padding:16px 18px}
+  .page-header .grow{margin-left:0;width:100%}
+  .page-header .grow .btn{width:100%;justify-content:center}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ══ ĐIỆN THOẠI ══════════════════════════════════════════════════════════
+   Bổ sung cho khối 640px ngay trên (khối đó chỉ lo hàng nút ở đầu trang).
+   Ngưỡng 768px = đúng ngưỡng `_header.html:261` thu gọn thanh trên, dùng
+   thống nhất với `duyet_chi_core.html` / `xin_nghi_core.html` /
+   `giao_viec_core.html`. Đặt SAU khối 640 để phần chồng nhau thì bản này
+   thắng — nhưng ở đây cố ý không đụng lại thuộc tính nào của khối kia. */
+@media (max-width:768px){
+  html,body{overflow-x:hidden}
+  .page-wrap{padding:0 12px 40px}
+
+  /* Thanh tab cuộn ngang thay vì gãy dòng */
+  .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:0 0 auto;padding:10px 13px}
+
+  /* Thẻ đề xuất: thu đệm ngang cho đỡ hẹp phần chữ */
+  .the-dau{padding:12px 14px}
+  .the-tieu-de{min-width:0}
+  .the-than{padding:13px 14px 0}
+  .the-cuoi{padding:11px 14px}
+  .kqkv,.lich-su,.tep{margin-left:14px;margin-right:14px}
+
+  /* iOS Safari tự phóng to trang khi chạm ô nhập < 16px và KHÔNG thu lại —
+     người dùng thấy đúng là "bố cục vỡ". 16px là ngưỡng của trình duyệt,
+     không phải lựa chọn thẩm mỹ. */
+  input[type=text],input[type=date],input[type=number],select,textarea{
+    font-size:16px}
+
+  /* Hộp thoại: `.nen-mo` vốn đã căn từ trên xuống và tự cuộn — chỉ cần thu
+     đệm và cho hàng nút chia đều, đủ 44px chiều cao để chạm. */
+  .nen-mo{padding:10px}
+  .hop-dau{padding:14px 16px}
+  .hop-than{padding:16px;gap:13px}
+  .hop-cuoi{padding:12px 16px;flex-wrap:wrap}
+  .hop-cuoi>.btn{flex:1 1 auto;min-height:44px;justify-content:center}
+  .hang{gap:10px}
+  /* Kể cả `.btn-sm` (nút Đóng ở đầu hộp thoại): trên điện thoại vùng
+     chạm 40px quan trọng hơn việc nút giữ dáng nhỏ. Viết rõ cả hai để
+     người đọc sau không tưởng `.btn-sm` bị đè nhầm. */
+  .btn,.btn-sm{min-height:40px}
+}
+</style>
+</head>
+<body>
+{% include "_header.html" %}
+
+<div class="page-wrap">
+
+  <div class="page-header">
+    <div>
+      <h4>Đề Xuất</h4>
+      <p>Đề xuất công việc lên cấp trên. Được duyệt thì tự thành một việc trong Giao Việc
+         để theo dõi tới lúc xong.</p>
+    </div>
+    <div class="grow">
+      <button class="btn btn-primary" id="dx-nut-tao">
+        <i class="bi bi-plus-lg"></i> Gửi đề xuất
+      </button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" data-tab="cua-toi">
+      <i class="bi bi-send"></i> Đề xuất của tôi <span class="dem" id="dem-toi">0</span>
+    </button>
+    <button class="tab" data-tab="cho-duyet" id="tab-duyet" style="display:none">
+      <i class="bi bi-check2-square"></i> Chờ tôi duyệt <span class="dem" id="dem-duyet">0</span>
+    </button>
+  </div>
+
+  <div class="ds" id="ds-cua-toi"></div>
+  <div class="ds" id="ds-cho-duyet" style="display:none"></div>
+
+</div>
+
+<!-- Gửi đề xuất -->
+<div class="nen-mo" id="mo-tao">
+  <div class="hop">
+    <div class="hop-dau">
+      <h5>Gửi đề xuất</h5>
+      <button class="btn btn-ghost btn-sm" data-dong>Đóng</button>
+    </div>
+    <div class="hop-than">
+      <div class="dong">
+        <label for="f-tieu-de">Tiêu đề</label>
+        <input type="text" id="f-tieu-de" maxlength="256" placeholder="Một câu nói rõ đề xuất gì">
+      </div>
+      <div class="hang">
+        <div class="dong">
+          <label for="f-loai">Loại</label>
+          <select id="f-loai"></select>
+        </div>
+        <div class="dong">
+          <label for="f-muc-do">Mức độ</label>
+          <select id="f-muc-do"></select>
+        </div>
+        <div class="dong">
+          <label for="f-han">Hạn mong muốn</label>
+          <input type="date" id="f-han">
+        </div>
+      </div>
+      <div class="dong">
+        <label for="f-noi-dung">Nội dung <span class="goi-y">— đề xuất gì và vì sao</span></label>
+        <textarea id="f-noi-dung" placeholder="Mô tả việc cần làm và lý do"></textarea>
+      </div>
+      <div class="dong">
+        <label for="f-kqkv">Kết quả kỳ vọng
+          <span class="goi-y">— duyệt xong thì đạt được gì, đo bằng gì</span></label>
+        <textarea id="f-kqkv" placeholder="Ví dụ: giảm thời gian làm báo cáo tuần từ 3 giờ xuống 30 phút"></textarea>
+      </div>
+      <div class="dong">
+        <label for="f-ngan-sach">Ngân sách dự kiến
+          <span class="goi-y">— để trống nếu không tốn tiền</span></label>
+        <input type="number" id="f-ngan-sach" min="0" step="1000" placeholder="0">
+      </div>
+      <label class="tick">
+        <input type="checkbox" id="f-lien-phong">
+        <span>Ảnh hưởng nhiều phòng ban
+          <small>Việc này cần phòng khác phối hợp</small></span>
+      </label>
+      <label class="tick">
+        <input type="checkbox" id="f-xin-ceo">
+        <span>Xin ý kiến CEO
+          <small>Muốn CEO xem trực tiếp chứ không dừng ở quản lý phòng</small></span>
+      </label>
+      <div class="canh-bao" id="bao-ceo">
+        <i class="bi bi-info-circle"></i> Đề xuất này sẽ cần CEO chốt sau khi quản lý phòng duyệt.
+      </div>
+    </div>
+    <div class="hop-cuoi">
+      <button class="btn btn-ghost" data-dong>Huỷ</button>
+      <button class="btn btn-primary" id="dx-nut-gui">Gửi đề xuất</button>
+    </div>
+  </div>
+</div>
+
+<!-- Duyệt -->
+<div class="nen-mo" id="mo-duyet">
+  <div class="hop" style="max-width:520px">
+    <div class="hop-dau">
+      <h5 id="duyet-tieu-de">Duyệt đề xuất</h5>
+      <button class="btn btn-ghost btn-sm" data-dong>Đóng</button>
+    </div>
+    <div class="hop-than">
+      <div class="dong">
+        <label for="f-nhan-xet">Nhận xét <span class="goi-y">— bắt buộc khi từ chối</span></label>
+        <textarea id="f-nhan-xet" placeholder="Lý do duyệt hoặc từ chối"></textarea>
+      </div>
+      <label class="tick" id="boc-day-ceo">
+        <input type="checkbox" id="f-day-ceo">
+        <span>Đẩy lên CEO chốt
+          <small>Việc lớn hơn tưởng — muốn CEO quyết thay vì mình chốt</small></span>
+      </label>
+    </div>
+    <div class="hop-cuoi">
+      <button class="btn btn-no" id="dx-nut-tu-choi">Từ chối</button>
+      <button class="btn btn-ok" id="dx-nut-duyet">Duyệt</button>
+    </div>
+  </div>
+</div>
+
+<div id="dx-toast"></div>
+
+<script>
+(function () {
+  "use strict";
+  var API = "/api/de-xuat";
+  var META = { loai: [], muc_do: [], la_nguoi_duyet: false };
+  var TAB = "cua-toi";
+  var DANG_DUYET = null;
+
+  var NHAN_TT = {
+    cho_duyet: ["Chờ duyệt", "c-cho"],
+    da_duyet:  ["Đã duyệt", "c-ok"],
+    tu_choi:   ["Từ chối", "c-no"],
+    huy:       ["Đã rút", "c-xam"]
+  };
+  var NHAN_CAP = { manager: "Chờ quản lý phòng", ceo: "Chờ CEO" };
+  var NHAN_HANH_DONG = {
+    approve: "duyệt", reject: "từ chối", escalate: "đẩy lên CEO",
+    cancel: "rút lại", no_task: "ghi chú"
+  };
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function tien(n) {
+    if (n == null || n === "") return "";
+    return Number(n).toLocaleString("vi-VN") + "đ";
+  }
+  function ngay(s) {
+    if (!s) return "";
+    var d = new Date(s);
+    return isNaN(d) ? "" : d.toLocaleDateString("vi-VN");
+  }
+  function gio(s) {
+    if (!s) return "";
+    var d = new Date(s);
+    return isNaN(d) ? "" : d.toLocaleString("vi-VN", { day: "2-digit", month: "2-digit",
+      hour: "2-digit", minute: "2-digit" });
+  }
+  function toast(msg, loai) {
+    var b = document.getElementById("dx-toast");
+    var t = document.createElement("div");
+    t.className = "toast" + (loai ? " " + loai : "");
+    t.textContent = msg;
+    b.appendChild(t);
+    setTimeout(function () { t.remove(); }, 4200);
+  }
+
+  async function goi(duong, opt) {
+    opt = opt || {};
+    var o = { method: opt.method || "GET", credentials: "same-origin", headers: {} };
+    if (opt.body !== undefined) {
+      o.headers["Content-Type"] = "application/json";
+      o.body = JSON.stringify(opt.body);
+    }
+    var r = await fetch(API + duong, o);
+    if (r.status === 204) return null;
+    var d = null;
+    try { d = await r.json(); } catch (e) { d = null; }
+    if (!r.ok) {
+      // FastAPI trả lỗi ở `detail`; hiện đúng câu đó thay vì "có lỗi xảy ra"
+      var m = d && (d.detail || d.message);
+      if (Array.isArray(m)) m = m.map(function (x) { return x.msg || x; }).join("; ");
+      throw new Error(m || ("Lỗi " + r.status));
+    }
+    return d;
+  }
+
+  // ── Dựng thẻ ──────────────────────────────────────────────────────────
+  function theHtml(r, cho_duyet) {
+    var tt = NHAN_TT[r.trang_thai] || [r.trang_thai, "c-xam"];
+    var chip = '<span class="chip ' + tt[1] + '">' + esc(tt[0]) + "</span>";
+    if (r.trang_thai === "cho_duyet" && NHAN_CAP[r.approval_level]) {
+      chip += ' <span class="chip c-ceo">' + esc(NHAN_CAP[r.approval_level]) + "</span>";
+    }
+    if (r.muc_do === "cao") chip += ' <span class="chip c-no">Ưu tiên cao</span>';
+
+    var meta = [];
+    if (cho_duyet) meta.push("<b>" + esc(r.ho_ten) + "</b>");
+    if (r.phong_ban) meta.push(esc(r.phong_ban));
+    var l = (META.loai.find(function (x) { return x.ma === r.loai; }) || {}).ten;
+    if (l) meta.push(esc(l));
+    if (r.han_mong_muon) meta.push("Hạn " + ngay(r.han_mong_muon));
+    if (r.ngan_sach_du_kien) meta.push("Ngân sách " + tien(r.ngan_sach_du_kien));
+    if (r.lien_phong_ban) meta.push("Liên phòng ban");
+    meta.push("Gửi " + gio(r.created_at));
+
+    var h = "";
+    h += '<div class="the" data-id="' + r.id + '">';
+    h += '<div class="the-dau"><div class="the-tieu-de">' + esc(r.tieu_de) + "</div><div>" + chip + "</div></div>";
+    h += '<div class="the-meta">' + meta.map(function (m) { return "<span>" + m + "</span>"; }).join("") + "</div>";
+    h += '<div class="the-than">' + esc(r.noi_dung) + "</div>";
+    h += '<div class="kqkv"><b>Kết quả kỳ vọng</b>' + esc(r.ket_qua_ky_vong) + "</div>";
+
+    if (r.tep_dinh_kem && r.tep_dinh_kem.length) {
+      h += '<div class="tep">' + r.tep_dinh_kem.map(function (u, i) {
+        return '<a href="' + esc(u) + '" target="_blank" rel="noopener">' +
+               '<i class="bi bi-paperclip"></i> Tệp ' + (i + 1) + "</a>";
+      }).join("") + "</div>";
+    }
+
+    if (r.approval_history && r.approval_history.length) {
+      h += '<div class="lich-su">';
+      r.approval_history.forEach(function (e) {
+        var ai = e.ho_ten || e.username || "Hệ thống";
+        var hd = NHAN_HANH_DONG[e.action] || e.action;
+        h += "<div>" + esc(ai) + " " + esc(hd) + " · " + gio(e.at) +
+             (e.comment ? ' <span class="cmt">— ' + esc(e.comment) + "</span>" : "") + "</div>";
+      });
+      h += "</div>";
+    }
+
+    var nut = [];
+    if (cho_duyet) {
+      nut.push('<button class="btn btn-primary btn-sm" data-duyet="' + r.id + '">' +
+               '<i class="bi bi-check2"></i> Xem xét</button>');
+    } else if (r.trang_thai === "cho_duyet") {
+      nut.push('<button class="btn btn-ghost btn-sm" data-rut="' + r.id + '">Rút lại</button>');
+      nut.push('<label class="btn btn-ghost btn-sm" style="cursor:pointer">' +
+               '<i class="bi bi-paperclip"></i> Đính kèm' +
+               '<input type="file" data-tep="' + r.id + '" hidden></label>');
+    }
+    if (r.directive_id) {
+      nut.push('<a class="btn btn-ghost btn-sm" href="/giao-viec">' +
+               '<i class="bi bi-list-check"></i> Đã tạo việc #' + r.directive_id + "</a>");
+    }
+    if (nut.length) h += '<div class="the-cuoi">' + nut.join("") + "</div>";
+    h += "</div>";
+    return h;
+  }
+
+  function veTrong(el, chu) {
+    el.innerHTML = '<div class="trong"><i class="bi bi-inbox"></i>' + esc(chu) + "</div>";
+  }
+
+  async function taiCuaToi() {
+    var el = document.getElementById("ds-cua-toi");
+    try {
+      var ds = await goi("");
+      document.getElementById("dem-toi").textContent = ds.length;
+      if (!ds.length) return veTrong(el, "Chưa có đề xuất nào. Bấm “Gửi đề xuất” để bắt đầu.");
+      el.innerHTML = ds.map(function (r) { return theHtml(r, false); }).join("");
+    } catch (e) { veTrong(el, "Không tải được: " + e.message); }
+  }
+
+  async function taiChoDuyet() {
+    var el = document.getElementById("ds-cho-duyet");
+    try {
+      var ds = await goi("/queue/me");
+      document.getElementById("dem-duyet").textContent = ds.length;
+      if (!ds.length) return veTrong(el, "Không có đề xuất nào chờ bạn duyệt.");
+      el.innerHTML = ds.map(function (r) { return theHtml(r, true); }).join("");
+    } catch (e) { veTrong(el, "Không tải được: " + e.message); }
+  }
+
+  function doiTab(t) {
+    TAB = t;
+    document.querySelectorAll(".tab").forEach(function (b) {
+      b.classList.toggle("on", b.dataset.tab === t);
+    });
+    document.getElementById("ds-cua-toi").style.display = t === "cua-toi" ? "" : "none";
+    document.getElementById("ds-cho-duyet").style.display = t === "cho-duyet" ? "" : "none";
+    if (t === "cho-duyet") taiChoDuyet();
+  }
+
+  // ── Modal ─────────────────────────────────────────────────────────────
+  function mo(id) { document.getElementById(id).classList.add("hien"); }
+  function dong(id) { document.getElementById(id).classList.remove("hien"); }
+  document.querySelectorAll("[data-dong]").forEach(function (b) {
+    b.addEventListener("click", function () { b.closest(".nen-mo").classList.remove("hien"); });
+  });
+  document.querySelectorAll(".nen-mo").forEach(function (n) {
+    n.addEventListener("click", function (e) { if (e.target === n) n.classList.remove("hien"); });
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") document.querySelectorAll(".nen-mo.hien")
+      .forEach(function (n) { n.classList.remove("hien"); });
+  });
+
+  function capNhatBaoCeo() {
+    var can = (Number(document.getElementById("f-ngan-sach").value) || 0) > 0
+      || document.getElementById("f-lien-phong").checked
+      || document.getElementById("f-xin-ceo").checked;
+    document.getElementById("bao-ceo").classList.toggle("hien", can);
+  }
+  ["f-ngan-sach", "f-lien-phong", "f-xin-ceo"].forEach(function (id) {
+    document.getElementById(id).addEventListener("input", capNhatBaoCeo);
+    document.getElementById(id).addEventListener("change", capNhatBaoCeo);
+  });
+
+  document.getElementById("dx-nut-tao").addEventListener("click", function () {
+    ["f-tieu-de", "f-noi-dung", "f-kqkv", "f-ngan-sach", "f-han"].forEach(function (id) {
+      document.getElementById(id).value = "";
+    });
+    document.getElementById("f-lien-phong").checked = false;
+    document.getElementById("f-xin-ceo").checked = false;
+    capNhatBaoCeo();
+    mo("mo-tao");
+    document.getElementById("f-tieu-de").focus();
+  });
+
+  document.getElementById("dx-nut-gui").addEventListener("click", async function () {
+    var nut = this;
+    var ns = document.getElementById("f-ngan-sach").value;
+    var than = {
+      tieu_de: document.getElementById("f-tieu-de").value.trim(),
+      loai: document.getElementById("f-loai").value,
+      noi_dung: document.getElementById("f-noi-dung").value.trim(),
+      ket_qua_ky_vong: document.getElementById("f-kqkv").value.trim(),
+      muc_do: document.getElementById("f-muc-do").value,
+      han_mong_muon: document.getElementById("f-han").value || null,
+      ngan_sach_du_kien: ns === "" ? null : Number(ns),
+      lien_phong_ban: document.getElementById("f-lien-phong").checked,
+      xin_y_kien_ceo: document.getElementById("f-xin-ceo").checked
+    };
+    if (!than.tieu_de) return toast("Chưa nhập tiêu đề", "loi");
+    if (!than.noi_dung) return toast("Chưa nhập nội dung", "loi");
+    if (!than.ket_qua_ky_vong) return toast("Chưa nhập kết quả kỳ vọng", "loi");
+    nut.disabled = true;
+    try {
+      await goi("", { method: "POST", body: than });
+      dong("mo-tao");
+      toast("Đã gửi đề xuất", "ok");
+      taiCuaToi();
+    } catch (e) { toast(e.message, "loi"); }
+    nut.disabled = false;
+  });
+
+  // ── Hành động trên thẻ ────────────────────────────────────────────────
+  document.addEventListener("click", async function (e) {
+    var b;
+    if ((b = e.target.closest("[data-duyet]"))) {
+      var id = b.dataset.duyet;
+      var the = b.closest(".the");
+      DANG_DUYET = id;
+      document.getElementById("duyet-tieu-de").textContent =
+        the.querySelector(".the-tieu-de").textContent;
+      document.getElementById("f-nhan-xet").value = "";
+      document.getElementById("f-day-ceo").checked = false;
+      // Chỉ hiện "đẩy lên CEO" khi đang ở cấp quản lý — ở cấp CEO thì vô nghĩa
+      var oCapManager = !!the.querySelector(".chip.c-ceo");
+      document.getElementById("boc-day-ceo").style.display =
+        (oCapManager && the.textContent.indexOf("Chờ quản lý phòng") >= 0) ? "" : "none";
+      mo("mo-duyet");
+      return;
+    }
+    if ((b = e.target.closest("[data-rut]"))) {
+      if (!confirm("Rút lại đề xuất này?")) return;
+      try {
+        await goi("/" + b.dataset.rut, { method: "DELETE" });
+        toast("Đã rút lại", "ok");
+        taiCuaToi();
+      } catch (err) { toast(err.message, "loi"); }
+    }
+  });
+
+  document.addEventListener("change", async function (e) {
+    var inp = e.target.closest("[data-tep]");
+    if (!inp || !inp.files || !inp.files[0]) return;
+    var fd = new FormData();
+    fd.append("file", inp.files[0]);
+    try {
+      var r = await fetch(API + "/" + inp.dataset.tep + "/tep",
+                          { method: "POST", body: fd, credentials: "same-origin" });
+      if (!r.ok) {
+        var d = null; try { d = await r.json(); } catch (_) {}
+        throw new Error((d && d.detail) || ("Lỗi " + r.status));
+      }
+      toast("Đã đính kèm", "ok");
+      taiCuaToi();
+    } catch (err) { toast(err.message, "loi"); }
+    inp.value = "";
+  });
+
+  async function quyetDinh(tt) {
+    if (!DANG_DUYET) return;
+    var nx = document.getElementById("f-nhan-xet").value.trim();
+    if (tt === "tu_choi" && !nx) return toast("Từ chối thì phải ghi lý do", "loi");
+    try {
+      await goi("/" + DANG_DUYET + "/duyet", {
+        method: "PUT",
+        body: { trang_thai: tt, nhan_xet_duyet: nx,
+                day_len_ceo: document.getElementById("f-day-ceo").checked }
+      });
+      dong("mo-duyet");
+      toast(tt === "da_duyet" ? "Đã duyệt" : "Đã từ chối", "ok");
+      DANG_DUYET = null;
+      taiChoDuyet();
+    } catch (e) { toast(e.message, "loi"); }
+  }
+  document.getElementById("dx-nut-duyet").addEventListener("click", function () { quyetDinh("da_duyet"); });
+  document.getElementById("dx-nut-tu-choi").addEventListener("click", function () { quyetDinh("tu_choi"); });
+
+  document.querySelectorAll(".tab").forEach(function (b) {
+    b.addEventListener("click", function () { doiTab(b.dataset.tab); });
+  });
+
+  // ── Khởi động ─────────────────────────────────────────────────────────
+  (async function () {
+    try {
+      META = await goi("/meta");
+    } catch (e) { /* vẫn chạy được với dropdown rỗng */ }
+    var sLoai = document.getElementById("f-loai");
+    sLoai.innerHTML = (META.loai || []).map(function (o) {
+      return '<option value="' + esc(o.ma) + '">' + esc(o.ten) + "</option>";
+    }).join("");
+    var sMuc = document.getElementById("f-muc-do");
+    sMuc.innerHTML = (META.muc_do || []).map(function (o) {
+      return '<option value="' + esc(o.ma) + '"' + (o.ma === "trung" ? " selected" : "") + ">" +
+             esc(o.ten) + "</option>";
+    }).join("");
+    if (META.la_nguoi_duyet) {
+      document.getElementById("tab-duyet").style.display = "";
+      taiChoDuyet();
+    }
+    taiCuaToi();
+    // Vào thẳng tab duyệt khi mở từ thông báo dạng /de-xuat#duyet
+    if (location.hash === "#duyet" && META.la_nguoi_duyet) doiTab("cho-duyet");
+  })();
+})();
+</script>
+</body>
+</html>

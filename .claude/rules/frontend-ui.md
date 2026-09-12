@@ -32,9 +32,11 @@ quyết định (lệnh nhanh: `/layout-fix <trang>`).
 
 3. **Màu là ngôn ngữ.** Chỉ dùng `var(--token)` từ `theme.css` (xem
    `design-system.md`). Ngữ nghĩa cố định: lục = tốt/tăng · đỏ = xấu/lỗ/xoá ·
-   vàng = cần chú ý · xanh dương = thông tin · `--text-1` = số liệu thường.
-   **Doanh thu không tô đỏ.** Mỗi màn hình tối đa MỘT nút nhấn chính (pastel
-   brand-soft), còn lại outline/ghost.
+   vàng = cần chú ý · xám slate = thông tin (`--info`) · xanh = thương hiệu /
+   hành động (`--brand`, ADR-012) · `--text-1` = số liệu thường.
+   **Doanh thu không tô đỏ.** Mỗi màn hình tối đa MỘT nút nhấn chính — khối đặc
+   `var(--brand)` + chữ trắng `var(--text-on-brand)`, **không** pastel
+   `--brand-soft`; còn lại outline/ghost.
 
 4. **Mỗi màn hình một ý chính.** Trả lời trước khi code: "người dùng vào trang
    này để làm gì nhất?" → phần tử đó to nhất, mắt chạm đầu tiên. Dashboard chia

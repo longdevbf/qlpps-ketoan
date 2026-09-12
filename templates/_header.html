@@ -29,11 +29,37 @@
 {# Phải có ?v= giống base.html: 15 trang standalone lấy token màu qua ĐÂY chứ
    không qua base.html. Thiếu version thì sửa theme.css xong trình duyệt vẫn
    phục vụ bản cache và trang trông y như cũ. Tăng số này mỗi lần sửa màu. #}
-<link rel="stylesheet" href="/static/css/theme.css?v=cam10">
+<link rel="stylesheet" href="/static/css/theme.css?v=xanh1">
 <style>
 /* ─── Khung header ─────────────────────────────────────────────────────── */
 :root{--ab-h:56px}
 body{padding-top:var(--ab-h) !important}
+
+/* ─── NỀN TRANG — hạ một nấc để khối thẻ trắng tách bạch (25/08/2026) ────
+   Trước đây nền trang bằng ĐÚNG màu thẻ (--bg-card) hoặc chỉ nhạt hơn vài %
+   (--bg-page) → thẻ trắng chìm vào nền, ranh giới các khối chỉ còn một đường
+   viền 1px. Nay nền trang là --bg-app, thẻ giữ trắng.
+
+   VÌ SAO ĐẶT Ở ĐÂY chứ không sửa từng trang: các trang dùng chung khai
+   `body{background:…}` trong `shared/templates/…_core.html`, mà `shared/` là
+   tầng dùng chung nhiều app — KHÔNG được sửa. Partial này là file của riêng
+   app và được `include` bên trong `<body>` của mọi trang, nên nằm SAU trong
+   thứ tự tài liệu → thắng ở cùng độ đặc hiệu.
+
+   `body.ceo-app` phải liệt kê riêng: `lich_lam_viec_core.html` khai
+   `body.ceo-app{background:var(--bg-page)}` — độ đặc hiệu (0,1,1) cao hơn
+   `body` (0,0,1) nên nếu chỉ viết `body{…}` thì trang lịch sẽ KHÔNG đổi.
+
+   Dự phòng `var(--bg-app, var(--bg-page))`: nếu máy khách còn kẹt bản
+   theme.css cũ (chưa có --bg-app) thì nền lùi về --bg-page — nhạt hơn ý muốn
+   nhưng VẪN có nền. Không có lớp này, token rỗng làm cả thuộc tính background
+   hỏng và đổ về giá trị khởi tạo = TRẮNG, tức thẻ trắng trên nền trắng. */
+body,body.ceo-app{background:var(--bg-app, var(--bg-page))}
+/* BẢN IN: trả nền về trắng. Bắt buộc khai lại ở ĐÂY vì partial này nằm trong
+   `<body>`, tức SAU phần CSS ở `<head>` — luật `@media print` của các trang in
+   sẽ bị dòng trên đè mất nếu không nhắc lại. */
+@media print{body,body.ceo-app{background:var(--bg-card)}}
+
 .appbar{position:fixed;top:0;left:0;right:0;min-height:56px;z-index:190;
         background:var(--bg-card);border-bottom:1px solid var(--border);box-shadow:var(--shadow-sm);
         display:flex;align-items:center;padding:0 24px;gap:0;
@@ -68,7 +94,7 @@ body{padding-top:var(--ab-h) !important}
 /* Cầu nối trong suốt phủ khoảng hở giữa nút và menu — không có nó thì chuột
    đi từ nút xuống menu sẽ rơi vào vùng trống và menu tự đóng. */
 .ab-dd::after,.ab-user::after{content:'';position:absolute;left:0;right:0;top:100%;height:8px}
-.ab-mtitle{font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:.8px;padding:10px 15px 5px;text-transform:uppercase}
+.ab-mtitle{font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:.8px;padding:10px 15px 5px;text-transform:uppercase;background:var(--bg-page)}
 {# Mục BẤM ĐƯỢC dùng --text-1 đậm rõ; tiêu đề nhóm (.ab-mtitle) giữ --text-3
    nhỏ + IN HOA — hai mức chữ của hệ tự phân biệt "bấm được / không bấm được". #}
 .ab-item{display:flex;align-items:center;padding:9px 15px;font-size:14px;font-weight:500;
@@ -359,35 +385,8 @@ body.sb-min .ab-sb-g,body.sb-min .ab-sb-top{position:relative}
       </div>
       <input type="file" id="ab-ava-upload" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="abUploadAva(this)">
       <div class="ab-umenu">
-        <div class="ab-uhead">
-          <div class="ab-avatar" onclick="document.getElementById('ab-ava-upload').click()" title="Nhấn để đổi ảnh đại diện">
-            <img id="ab-ava-img2" src="" alt="">
-            <span id="ab-ava-init2">{{ (user.ho_ten[0]|upper) if (user and user.ho_ten) else 'U' }}</span>
-            <div class="ab-cam">Đổi ảnh</div>
-          </div>
-          <div>
-            <div class="ab-uhead-name">{{ user.ho_ten if user else '' }}</div>
-            <div class="ab-uhead-role">{{ (user.phong_ban|upper) if (user and user.phong_ban) else _role|upper }}</div>
-          </div>
-        </div>
-        <div class="ab-mtitle">Cá nhân</div>
-        <a href="/xin-nghi"      class="ab-item">Xin Nghỉ</a>
-        <a href="/giao-viec"     class="ab-item">Giao Việc</a>
-        <a href="/lich-lam-viec" class="ab-item">Lịch làm việc</a>
-        <a href="/cham-cong"     class="ab-item">Chấm Công</a>
-        {% if _mgr %}<a href="/phe-duyet" class="ab-item">Phê Duyệt</a>{% endif %}
-        <div class="ab-div"></div>
-        <div class="ab-mtitle">Duyệt chi &amp; Đào tạo</div>
-        <a href="/chi-tap-trung"    class="ab-item">💸 Chi Tập Trung</a>
-        <a href="/duyet-chi"        class="ab-item">Duyệt Chi</a>
-        <a href="/de-nghi-tt"       class="ab-item">Đề Nghị Thanh Toán</a>
-        <a href="/bao-cao/duyet-chi" class="ab-item">Báo Cáo Duyệt Chi</a>
-        <a href="/dao-tao"          class="ab-item">Đào Tạo</a>
-        <div class="ab-div"></div>
-        <a href="/ho-so-ca-nhan" class="ab-item">Hồ sơ đầy đủ (HCNS)</a>
-        <button type="button" class="ab-item" onclick="abOpenProfile()">Đổi mật khẩu</button>
-        <div class="ab-div"></div>
-        <a href="/logout" class="ab-item ab-logout">Đăng xuất</a>
+        {# Ruột menu dùng chung 8 app — sửa ở claude-kit/core/shared/templates/_menu_tai_khoan.html (11/09/2026). #}
+        {% include "_menu_tai_khoan.html" %}
       </div>
     </div>
   </div>
@@ -455,17 +454,7 @@ body.sb-min .ab-sb-g,body.sb-min .ab-sb-top{position:relative}
     {% if _mgr %}<a class="ab-sb-a ab-sb-child" href="/phe-duyet" title="Phê duyệt"><span class="ab-sb-tx">Phê duyệt</span><span class="ab-sb-bd" id="ab-sb-bd-pd" hidden>0</span></a>{% endif %}
     </div>
   </div>
-  <div class="ab-sb-g" data-g="canhan">
-    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Cá nhân"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="5.3" r="2.6"/><path d="M3 13.5c0-2.5 2.2-4.2 5-4.2s5 1.7 5 4.2"/></svg></span><span class="ab-sb-tx">Cá nhân</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
-    <div class="ab-sb-sub">
-    <a class="ab-sb-a ab-sb-child" href="/ho-so-ca-nhan" title="Hồ sơ cá nhân"><span class="ab-sb-tx">Hồ sơ cá nhân</span></a>
-    <a class="ab-sb-a ab-sb-child" href="/cham-cong" title="Chấm công"><span class="ab-sb-tx">Chấm công</span></a>
-    <a class="ab-sb-a ab-sb-child" href="/xin-nghi" title="Xin nghỉ"><span class="ab-sb-tx">Xin nghỉ</span></a>
-    <a class="ab-sb-a ab-sb-child" href="/giao-viec" title="Giao việc"><span class="ab-sb-tx">Giao việc</span></a>
-    <a class="ab-sb-a ab-sb-child" href="/lich-lam-viec" title="Lịch làm việc"><span class="ab-sb-tx">Lịch làm việc</span></a>
-    <a class="ab-sb-a ab-sb-child" href="/dao-tao" title="Đào tạo"><span class="ab-sb-tx">Đào tạo</span></a>
-    </div>
-  </div>
+    <a class="ab-sb-a ab-sb-top" href="/giao-viec" title="Giao việc"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="5.3" r="2.6"/><path d="M3 13.5c0-2.5 2.2-4.2 5-4.2s5 1.7 5 4.2"/></svg></span><span class="ab-sb-tx">Giao việc</span></a>
   <div class="ab-sb-g" data-g="danhmuc">
     <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Danh mục"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h8M6 8h8M6 12h8"/><circle cx="3" cy="4" r=".9"/><circle cx="3" cy="8" r=".9"/><circle cx="3" cy="12" r=".9"/></svg></span><span class="ab-sb-tx">Danh mục</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
     <div class="ab-sb-sub">

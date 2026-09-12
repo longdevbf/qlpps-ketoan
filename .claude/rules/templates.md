@@ -39,16 +39,20 @@ tuyệt đối không chép lại — hai bảng dưới đều là **hệ đã 
 --primary:#9E5D09; --primary-d:#7F4B07; --soft:#FBE7C6;
 ```
 
-Còn khối alias này thì đổi `theme.css` vô tác dụng — "cái bẫy lớn nhất khi nhân
-bản" nói ở mục 1 của `HE-MAU-ERP.md`.
+Còn khối alias này thì đổi `theme.css` vô tác dụng — cái bẫy lớn nhất khi nhân
+bản theme. Nguồn giá trị màu: `static/css/theme.css` (bản gốc ở `claude-kit`) và
+`QLPPS-UI-DOC/01-ADR.md` (ADR-012 — hệ xanh `#2563EB`, chốt 11/09/2026).
+`HE-MAU-ERP.md` là tài liệu cũ, đã lỗi thời — đừng tra màu ở đó.
 
 Thay bằng token, không khai alias mới:
 
 ```css
-/* ✓ ĐÚNG — hệ CAM trên slate lạnh, chốt 26/08/2026 */
+/* ✓ ĐÚNG — hệ XANH trên nền trắng ám xanh, chốt 11/09/2026 (ADR-012) */
 background: var(--bg-page);  border: 1px solid var(--border);
 color: var(--text-2);
-/* nhấn: NỀN khối đặc var(--brand) + chữ #fff · CHỮ cam var(--brand-ink) */
+/* nút chính: NỀN khối đặc var(--brand) + chữ trắng var(--text-on-brand) */
+/* chữ nhấn: var(--brand) · trên nền --brand-soft hoặc --bg-band: var(--brand-hover) */
+/* --brand-ink KHÔNG tồn tại trong theme.css — đừng gọi */
 ```
 
 Nên retheme một trang thường là sửa ~10 dòng alias đó thành `var(--token)`,
