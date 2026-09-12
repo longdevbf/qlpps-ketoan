@@ -194,6 +194,19 @@ def de_xuat_page(
     )
 
 
+
+@router.get("/van-ban-cong-ty", response_class=HTMLResponse, name="van_ban_cong_ty")
+def van_ban_cong_ty_page(
+    request: Request,
+    user: Annotated[JWTPayload, Depends(_require_user_redirect)],
+):
+    """Tài liệu / Văn bản công ty — màn dùng chung (shared/templates/tai_lieu_core.html),
+    thêm 12/09/2026. Đọc `hcns.documents` qua router dùng chung `/api/tai-lieu`."""
+    return templates.TemplateResponse(
+        "van_ban_cong_ty.html",
+        {"request": request, "user": user_ctx(user)},
+    )
+
 @router.get("/chi-tap-trung", response_class=HTMLResponse, name="chi_tap_trung")
 def chi_tap_trung_page(
     request: Request,
