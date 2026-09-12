@@ -191,6 +191,22 @@ def _approver_dept_scope(user: JWTPayload, db: Session) -> Optional[set[str]]:
     return {pb} if pb else set()
 
 
+def _duoc_dung_chung_tu(user: JWTPayload, rec: ExpenseRequest, db: Session) -> bool:
+    """Người gửi đơn, hoặc người duyệt CÓ đơn này trong phạm vi phòng ban của mình.
+
+    Siết 12/09/2026: trước đó ba chỗ (đính kèm / xoá / tải chứng từ) chỉ hỏi
+    `_is_any_approver`, nghĩa là mọi manager, leader hay kế toán của BẤT KỲ phòng nào
+    cũng sửa được chứng từ đơn người khác — xoá không kèm tên tệp còn xoá sạch cả list.
+    Nay dùng đúng phạm vi xem của `GET /api/duyet-chi` (:361-370).
+    """
+    if rec.username == user.username:
+        return True
+    if not _is_any_approver(user):
+        return False
+    pham_vi = _approver_dept_scope(user, db)
+    return pham_vi is None or (rec.phong_ban or "") in pham_vi
+
+
 # ── Schemas ───────────────────────────────────────────────────────────────────
 class ExpenseCreate(BaseModel):
     tieu_de: str
@@ -602,7 +618,7 @@ async def upload_chung_tu(
     rec = db.get(ExpenseRequest, rid)
     if not rec:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đề xuất")
-    if rec.username != user.username and not _is_any_approver(user):
+    if not _duoc_dung_chung_tu(user, rec, db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Không có quyền upload chứng từ")
 
     ext = _safe_ext(file.filename)
@@ -656,7 +672,7 @@ def delete_chung_tu(
     rec = db.get(ExpenseRequest, rid)
     if not rec:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đề xuất")
-    if rec.username != user.username and not _is_any_approver(user):
+    if not _duoc_dung_chung_tu(user, rec, db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Không có quyền")
 
     def _unlink_url(u: str) -> None:

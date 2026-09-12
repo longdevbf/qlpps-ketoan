@@ -622,7 +622,16 @@ async def upload_tep(
     rec = db.get(DeXuat, rid)
     if not rec:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đề xuất")
-    if rec.username != user.username and not _is_any_approver(user):
+    # Siết 12/09/2026: xem thì approver nào cũng xem được (đúng luật cũ của `GET /{id}`),
+    # nhưng GHI vào đề xuất người khác thì chỉ super hoặc quản lý ĐÚNG phòng của đề xuất.
+    _pb_nguoi_goi = _user_phong_ban(user.username)
+    _duoc_ghi = (
+        rec.username == user.username
+        or (user.role or "").lower() in _SUPER_ROLES
+        or ((user.role or "").lower() in _MANAGER_ROLES
+            and bool(_pb_nguoi_goi) and (rec.phong_ban or "") == _pb_nguoi_goi)
+    )
+    if not _duoc_ghi:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Không có quyền đính kèm tệp")
 
     ext = _safe_ext(file.filename)

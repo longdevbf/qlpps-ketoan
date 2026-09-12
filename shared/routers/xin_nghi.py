@@ -548,7 +548,10 @@ def xem_tep(
     f = (d / ma).resolve()
     if f.parent != d or not f.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Tệp không tồn tại")
-    return FileResponse(str(f), filename=ma.split("__", 1)[1], content_disposition_type="inline")
+    # nosniff: đơn nghỉ nhận .pdf/.jpg/.png, không có nó thì tệp lạ được trình duyệt tự
+    # đoán kiểu và có thể chạy như trang web trên chính tên miền app (giao_viec.py đã có).
+    return FileResponse(str(f), filename=ma.split("__", 1)[1], content_disposition_type="inline",
+                        headers={"X-Content-Type-Options": "nosniff"})
 
 
 @router.delete("/{rid}/tep", response_model=LeaveOut)
