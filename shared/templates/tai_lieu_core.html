@@ -97,16 +97,20 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
      font:inherit;text-align:left;cursor:pointer}
 .tl .tl-dm:hover{border-color:var(--brand-border);background:var(--bg-page)}
 .tl .tl-dm.is-chon{border-color:var(--brand);background:var(--brand-soft)}
-.tl .tl-dm svg.tl-ic{width:26px;height:26px}
+/* Ảnh mẫu vẽ thư mục TÔ ĐẶC, không phải nét viền — nét viền nhìn ra nhạt màu. */
+.tl .tl-dm svg.tl-ic{width:26px;height:26px;fill:currentColor;stroke:none}
 .tl .tl-dm b{font-size:var(--fs-h);font-weight:700;color:var(--text-1);font-variant-numeric:tabular-nums}
 .tl .tl-dm span{font-size:var(--fs-meta);color:var(--text-2);overflow-wrap:anywhere}
-.tl .tl-dm--0 svg{color:var(--tile-blue)} .tl .tl-dm--1 svg{color:var(--tile-violet)}
+.tl .tl-dm--0 svg{color:var(--tile-blue)}   .tl .tl-dm--1 svg{color:var(--tile-green)}
 .tl .tl-dm--2 svg{color:var(--tile-orange)} .tl .tl-dm--3 svg{color:var(--tile-red)}
-.tl .tl-dm--4 svg{color:var(--tile-green)} .tl .tl-dm--5 svg{color:var(--tile-slate)}
-.tl .tl-dm--6 svg{color:var(--text-3)}
+.tl .tl-dm--4 svg{color:var(--tile-violet)} .tl .tl-dm--5 svg{color:var(--tile-slate)}
+.tl .tl-dm--6 svg{color:var(--tile-brand)}
 
 /* ── Thân: bảng + cột phải ───────────────────────────────────────────────── */
 .tl .tl-than{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-8);align-items:start;margin-top:var(--sp-8)}
+/* Cột trái xếp dọc: bảng rồi "mới cập nhật" — để nó ngang hàng "Bộ lọc nhanh"
+   bên phải như ảnh mẫu, thay vì nằm vắt hết bề ngang phía dưới. */
+.tl .tl-trai{display:grid;gap:var(--sp-8);min-width:0}
 @media(min-width:1280px){.tl .tl-than{grid-template-columns:minmax(0,1fr) 320px}}
 @media(min-width:1600px){.tl .tl-than{grid-template-columns:minmax(0,1fr) 360px}}
 .tl .tl-bang{container-type:inline-size}
@@ -211,6 +215,23 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
 .tl .tl-ct{display:grid;grid-template-columns:150px minmax(0,1fr);gap:var(--sp-5) var(--sp-6)}
 .tl .tl-ct dt{font-size:var(--fs-meta);color:var(--text-3)}
 .tl .tl-ct dd{min-width:0;color:var(--text-1);overflow-wrap:anywhere;white-space:pre-wrap}
+.tl .tl-form{display:grid;gap:var(--sp-7)}
+.tl .tl-hang{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-7)}
+@media(min-width:560px){.tl .tl-hang{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tl .tl-o label{display:block;margin-bottom:var(--sp-3);font-size:var(--fs-meta);font-weight:600;color:var(--text-2)}
+.tl .tl-o .tl-batbuoc{color:var(--danger)}
+.tl .tl-tha{display:flex;flex-direction:column;align-items:center;gap:var(--sp-3);padding:var(--sp-9);
+     border:1px dashed var(--border);border-radius:var(--r-md);background:var(--bg-page);
+     text-align:center;color:var(--text-2);cursor:pointer}
+.tl .tl-tha.is-keo{border-color:var(--brand);background:var(--brand-soft)}
+.tl .tl-tha svg.tl-ic{width:22px;height:22px;color:var(--brand)}
+.tl .tl-tha small{font-size:var(--fs-meta);color:var(--text-3)}
+.tl .tl-tien-do{height:6px;border-radius:999px;background:var(--bg-page);overflow:hidden}
+.tl .tl-tien-do i{display:block;height:100%;width:0;background:var(--brand);transition:width .2s}
+.tl .modal-than textarea{width:100%;min-height:76px;padding:var(--sp-5);resize:vertical}
+.tl .modal-than input[type=date],.tl .modal-than textarea{border:1px solid var(--border);border-radius:var(--r-sm);
+     background:var(--bg-card);color:var(--text-1);font:inherit}
+.tl .modal-than input[type=date]{width:100%;min-height:38px;padding:0 var(--sp-5)}
 .tl .modal-than select,.tl .modal-than input[type=text]{width:100%;min-height:38px;padding:0 var(--sp-5);
      border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card);color:var(--text-1);font:inherit}
 
@@ -266,6 +287,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
   </section>
 
   <div class="tl-than">
+   <div class="tl-trai">
     <!-- Bảng -->
     <section class="card tl-bang" aria-labelledby="tl-ds-ten">
       <div class="card-header"><h2 id="tl-ds-ten">Danh sách tài liệu</h2><span class="tl-pg-chu" id="tl-loc-hien"></span></div>
@@ -299,6 +321,12 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
       </div>
     </section>
 
+    <section class="card" aria-labelledby="tl-moi-ten">
+      <div class="card-header"><h2 id="tl-moi-ten">Tài liệu mới cập nhật</h2></div>
+      <div class="tl-moi" id="tl-moi"></div>
+    </section>
+   </div>
+
     <!-- Cột phải -->
     <aside class="tl-phai">
       <section class="card" aria-labelledby="tl-nb-ten">
@@ -326,11 +354,6 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
       </section>
     </aside>
   </div>
-
-  <section class="card" style="margin-top:var(--sp-8)" aria-labelledby="tl-moi-ten">
-    <div class="card-header"><h2 id="tl-moi-ten">Tài liệu mới cập nhật</h2></div>
-    <div class="tl-moi" id="tl-moi"></div>
-  </section>
 </div>
 
 <div class="modal" id="tl-modal" hidden role="dialog" aria-modal="true" aria-labelledby="tl-m-ten">
@@ -345,6 +368,70 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
   </div>
 </div>
 
+<div class="modal" id="tl-modal-len" hidden role="dialog" aria-modal="true" aria-labelledby="tl-len-ten">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div><h2 id="tl-len-ten">Tải lên tài liệu</h2></div>
+      <button type="button" class="tl-nut-icon" onclick="tlDongTaiLen()" aria-label="Đóng">
+        <svg class="tl-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m18 6-12 12M6 6l12 12"/></svg></button>
+    </div>
+    <form class="modal-than" id="tl-len-form" onsubmit="return tlGuiTaiLen(event)">
+      <div class="tl-form">
+        <div class="tl-o">
+          <label for="tl-f-ten">Tên tài liệu <span class="tl-batbuoc">*</span></label>
+          <input type="text" id="tl-f-ten" maxlength="255" required placeholder="VD: Quy chế lương thưởng 2026">
+        </div>
+        <div class="tl-hang">
+          <div class="tl-o">
+            <label for="tl-f-dm">Danh mục <span class="tl-batbuoc">*</span></label>
+            <select id="tl-f-dm" required></select>
+          </div>
+          <div class="tl-o">
+            <label for="tl-f-sh">Số hiệu</label>
+            <input type="text" id="tl-f-sh" maxlength="64" placeholder="VD: QD-01/2026">
+          </div>
+        </div>
+        <div class="tl-hang">
+          <div class="tl-o">
+            <label for="tl-f-ngay">Ngày ban hành</label>
+            <input type="date" id="tl-f-ngay">
+          </div>
+          <div class="tl-o">
+            <label for="tl-f-cq">Người / cơ quan ban hành</label>
+            <input type="text" id="tl-f-cq" maxlength="128" placeholder="VD: Hội đồng thành viên">
+          </div>
+        </div>
+        <div class="tl-o">
+          <label for="tl-f-pb">Áp dụng phòng ban</label>
+          <input type="text" id="tl-f-pb" list="tl-f-pb-ds" placeholder="Để trống = toàn công ty. Nhiều phòng thì ngăn bằng dấu phẩy.">
+          <datalist id="tl-f-pb-ds"></datalist>
+        </div>
+        <div class="tl-o">
+          <label for="tl-f-mt">Nội dung tóm tắt</label>
+          <textarea id="tl-f-mt" maxlength="2000" placeholder="Tài liệu này nói về điều gì"></textarea>
+        </div>
+        <div class="tl-o">
+          <label>Tệp đính kèm <span class="tl-batbuoc">*</span></label>
+          <div class="tl-tha" id="tl-tha" tabindex="0" role="button"
+               onclick="document.getElementById('tl-f-tep').click()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('tl-f-tep').click()}">
+            <svg class="tl-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg>
+            <span id="tl-tha-chu">Kéo thả tệp vào đây hoặc <b>chọn tệp</b></span>
+            <small id="tl-tha-phu">Hỗ trợ PDF, Word, Excel, PowerPoint, ảnh (tối đa 100MB)</small>
+          </div>
+          <input type="file" id="tl-f-tep" hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp"
+                 onchange="tlChonTep(this.files[0])">
+          <div class="tl-tien-do" id="tl-tien-do" hidden><i id="tl-tien-do-i"></i></div>
+        </div>
+      </div>
+    </form>
+    <div class="modal-chan">
+      <button type="button" class="btn-ghost" onclick="tlDongTaiLen()">Huỷ</button>
+      <button type="submit" class="btn-primary" form="tl-len-form" id="tl-len-gui">Tải lên</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-wrap" id="tl-toast"></div>
 </div>
 
@@ -352,11 +439,22 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
 const TL_ME = {{ (user.username if user else '')|tojson }};
 const TL_ROLE = {{ _tl_role|tojson }};
 const TL_APP = {{ ((request.app.state.app_name if request else '') or '')|tojson }};
-/* Tải lên là API của HCNS (`POST /api/documents`); 7 app kia chỉ đọc schema hcns. */
-const TL_TAI_LEN_DUOC = TL_APP === 'hcns' && ['admin', 'ceo', 'assistant_ceo', 'manager', 'hr_manager'].indexOf(TL_ROLE) >= 0;
+/* Trước 12/09/2026 nút này chỉ bật ở HCNS vì `hcns.documents` là schema app khác.
+   Nay tải lên ghi vào bảng mới `shared.tai_lieu_tep` nên cả 8 app đều dùng được;
+   quyền do máy chủ quyết định (`co_tai_len` trong phản hồi danh sách). */
 const TL_SUA_DUOC = ['admin', 'ceo', 'assistant_ceo', 'manager', 'hr_manager', 'leader'].indexOf(TL_ROLE) >= 0;
 
-const _tl = { trang: 1, tim: '', dm: '', ds: [], chon: new Set(), danhMuc: [], phongBan: [] };
+const _tl = { trang: 1, tim: '', dm: '', ds: [], chon: new Set(), danhMuc: [], phongBan: [],
+              taiLenDuoc: false, tep: null, dangGui: false };
+const TL_XOA_ROLES = ['admin', 'ceo', 'assistant_ceo', 'hr_manager'];
+/* Xoá chỉ áp cho tài liệu của bảng mới (id âm); văn bản gốc của HCNS không đụng tới. */
+function _tlXoaDuoc(r) {
+  return r.nguon === 'tai_len' && (r.nguoi_tao === TL_ME || TL_XOA_ROLES.indexOf(TL_ROLE) >= 0);
+}
+function _tlCo(n) {
+  const x = Number(n) || 0;
+  return x >= 1048576 ? (x / 1048576).toFixed(1) + ' MB' : x >= 1024 ? Math.round(x / 1024) + ' KB' : x + ' B';
+}
 const _TL_SVG_DM = [
   '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
@@ -404,7 +502,8 @@ async function tlTai(trang) {
   try { d = await _tlApi('/api/tai-lieu?' + p.toString()); }
   catch (e) { than.innerHTML = `<tr class="empty-row"><td colspan="8">Không tải được: ${_tlE(e.message)}</td></tr>`; return; }
   _tl.ds = d.items || []; _tl.danhMuc = d.danh_muc || [];
-  document.getElementById('tl-nut-tai-len').hidden = !(TL_TAI_LEN_DUOC && d.co_tai_len);
+  _tl.taiLenDuoc = !!d.co_tai_len;
+  document.getElementById('tl-nut-tai-len').hidden = !_tl.taiLenDuoc;
   tlVeDanhMuc(); tlVeThongKe(d.thong_ke || {}); tlVeChips();
   tlVeBang(d.total || 0, co);
   tlVePhongBan();
@@ -430,6 +529,9 @@ function tlVeBang(tong, co) {
           <button type="button" class="tl-nut-icon" title="Tải xuống" aria-label="Tải xuống"
                   onclick="event.stopPropagation();tlTaiVe(${r.id})">
             <svg class="tl-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/></svg></button>
+          ${_tlXoaDuoc(r) ? `<button type="button" class="tl-nut-icon" title="Xoá tài liệu" aria-label="Xoá tài liệu"
+                  onclick="event.stopPropagation();tlXoa(${r.id})">
+            <svg class="tl-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg></button>` : ''}
           <button type="button" class="tl-nut-icon" title="Xem chi tiết" aria-label="Xem chi tiết"
                   onclick="event.stopPropagation();tlXem(${r.id})">
             <svg class="tl-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
@@ -537,7 +639,8 @@ async function tlXem(id) {
     ['Ngày ban hành', _tlNgay(r.ngay_ban_hanh)], ['Người ban hành', r.co_quan_ban_hanh],
     ['Người tải lên', r.nguoi_tao],
     ['Áp dụng phòng ban', (r.ap_dung_phong_ban || []).join(', ') || 'Toàn công ty'],
-    ['Lượt xem', r.luot_xem], ['Lượt tải', r.luot_tai], ['Nội dung', r.mo_ta],
+    ['Lượt xem', r.luot_xem], ['Lượt tải', r.luot_tai],
+    ['Cỡ tệp', r.kich_thuoc ? _tlCo(r.kich_thuoc) : ''], ['Nội dung', r.mo_ta],
   ].filter(([, v]) => v !== null && v !== undefined && v !== '');
   document.getElementById('tl-m-ten').textContent = r.ten;
   document.getElementById('tl-m-than').innerHTML =
@@ -549,6 +652,7 @@ async function tlXem(id) {
               placeholder="Người / cơ quan ban hành" value="${_tlE(r.co_quan_ban_hanh || '')}">
      </div>` : '');
   document.getElementById('tl-m-chan').innerHTML = `
+    ${_tlXoaDuoc(r) ? `<button type="button" class="btn-ghost" onclick="tlXoa(${r.id})">Xoá tài liệu</button>` : ''}
     ${TL_SUA_DUOC ? `<button type="button" class="btn-ghost" onclick="tlDoiNoiBat(${r.id}, ${!r.noi_bat})">${r.noi_bat ? 'Bỏ nổi bật' : 'Đánh dấu nổi bật'}</button>
     <button type="button" class="btn-soft" onclick="tlLuuMeta(${r.id})">Lưu thông tin</button>` : ''}
     <button type="button" class="btn-primary" onclick="tlTaiVe(${r.id})">Tải xuống</button>`;
@@ -569,13 +673,98 @@ async function tlDoiNoiBat(id, bat) {
     _tlToast(bat ? 'Đã đánh dấu nổi bật' : 'Đã bỏ nổi bật', 'ok'); tlDongModal(); tlTai(); tlTaiPhu();
   } catch (e) { _tlToast('Không đổi được: ' + e.message, 'error'); }
 }
+/* ── Tải lên ──────────────────────────────────────────────────────────────── */
 function tlMoTaiLen() {
-  /* Tải lên vẫn dùng màn quản trị của HCNS: form ở đó có đủ số hiệu, ngày ban hành,
-     phòng ban áp dụng và nó ghi thẳng vào `hcns.documents`. */
-  window.location.href = '/#documents';
+  const sel = document.getElementById('tl-f-dm');
+  sel.innerHTML = _tl.danhMuc.map(d => `<option value="${_tlE(d.ten)}">${_tlE(d.ten)}</option>`).join('');
+  document.getElementById('tl-f-pb-ds').innerHTML =
+    [...new Set(_tl.ds.flatMap(r => r.ap_dung_phong_ban || []))].sort((a, b) => a.localeCompare(b, 'vi'))
+      .map(x => `<option value="${_tlE(x)}"></option>`).join('');
+  document.getElementById('tl-modal-len').hidden = false;
+  document.getElementById('tl-f-ten').focus();
+}
+function tlDongTaiLen() {
+  if (_tl.dangGui) return;
+  document.getElementById('tl-modal-len').hidden = true;
+  document.getElementById('tl-len-form').reset();
+  tlChonTep(null);
+}
+function tlChonTep(f) {
+  _tl.tep = f || null;
+  document.getElementById('tl-tha-chu').innerHTML = f
+    ? `<b>${_tlE(f.name)}</b>` : 'Kéo thả tệp vào đây hoặc <b>chọn tệp</b>';
+  document.getElementById('tl-tha-phu').textContent = f
+    ? _tlCo(f.size) : 'Hỗ trợ PDF, Word, Excel, PowerPoint, ảnh (tối đa 100MB)';
+}
+(function () {
+  const o = document.getElementById('tl-tha');
+  ['dragenter', 'dragover'].forEach(e => o.addEventListener(e, ev => {
+    ev.preventDefault(); o.classList.add('is-keo');
+  }));
+  ['dragleave', 'drop'].forEach(e => o.addEventListener(e, ev => {
+    ev.preventDefault(); o.classList.remove('is-keo');
+  }));
+  o.addEventListener('drop', ev => {
+    const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (f) { document.getElementById('tl-f-tep').value = ''; tlChonTep(f); }
+  });
+})();
+function tlGuiTaiLen(ev) {
+  ev.preventDefault();
+  if (_tl.dangGui) return false;
+  if (!_tl.tep) { _tlToast('Chưa chọn tệp', 'error'); return false; }
+  const fd = new FormData();
+  fd.append('ten', document.getElementById('tl-f-ten').value.trim());
+  fd.append('danh_muc', document.getElementById('tl-f-dm').value);
+  fd.append('so_hieu', document.getElementById('tl-f-sh').value.trim());
+  fd.append('ngay_ban_hanh', document.getElementById('tl-f-ngay').value);
+  fd.append('co_quan_ban_hanh', document.getElementById('tl-f-cq').value.trim());
+  const pb = document.getElementById('tl-f-pb').value.split(',').map(x => x.trim()).filter(Boolean);
+  fd.append('ap_dung_phong_ban', JSON.stringify(pb));
+  fd.append('mo_ta', document.getElementById('tl-f-mt').value.trim());
+  fd.append('tep', _tl.tep, _tl.tep.name);
+
+  /* Dùng XHR thay fetch chỉ vì fetch không báo tiến độ tải lên — tệp 100MB mà thanh
+     đứng im thì người dùng tưởng treo rồi bấm lại lần nữa. */
+  const thanh = document.getElementById('tl-tien-do'), i = document.getElementById('tl-tien-do-i');
+  const nut = document.getElementById('tl-len-gui');
+  thanh.hidden = false; i.style.width = '0'; nut.disabled = true; _tl.dangGui = true;
+  const x = new XMLHttpRequest();
+  x.open('POST', '/api/tai-lieu');
+  x.withCredentials = true;
+  const csrf = (document.cookie.match(/(?:^|; )csrf_token=([^;]*)/) || [])[1];
+  if (csrf) x.setRequestHeader('X-CSRF-Token', decodeURIComponent(csrf));
+  x.upload.onprogress = e => { if (e.lengthComputable) i.style.width = (e.loaded / e.total * 100) + '%'; };
+  x.onload = () => {
+    _tl.dangGui = false; nut.disabled = false; thanh.hidden = true;
+    if (x.status >= 200 && x.status < 300) {
+      _tlToast('Đã tải tài liệu lên', 'ok');
+      document.getElementById('tl-modal-len').hidden = true;
+      document.getElementById('tl-len-form').reset(); tlChonTep(null);
+      tlTai(1); tlTaiPhu();
+    } else {
+      let m = `HTTP ${x.status}`;
+      try { const d = JSON.parse(x.responseText); m = d.error || d.detail || m; } catch (e) { }
+      _tlToast('Không tải lên được: ' + m, 'error');
+    }
+  };
+  x.onerror = () => {
+    _tl.dangGui = false; nut.disabled = false; thanh.hidden = true;
+    _tlToast('Không tải lên được: mất kết nối', 'error');
+  };
+  x.send(fd);
+  return false;
+}
+async function tlXoa(id) {
+  if (!confirm('Xoá tài liệu này? Tệp đính kèm sẽ bị xoá khỏi máy chủ.')) return;
+  try {
+    await _tlApi('/api/tai-lieu/' + id, { method: 'DELETE' });
+    _tlToast('Đã xoá', 'ok'); tlDongModal(); tlTai(); tlTaiPhu();
+  } catch (e) { _tlToast('Không xoá được: ' + e.message, 'error'); }
 }
 document.getElementById('tl-modal').addEventListener('click', e => { if (e.target.id === 'tl-modal') tlDongModal(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') tlDongModal(); });
+document.getElementById('tl-modal-len').addEventListener('click', e => { if (e.target.id === 'tl-modal-len') tlDongTaiLen(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { tlDongModal(); tlDongTaiLen(); } });
 
 (async function () { await tlTai(1); tlTaiPhu(); })();
 </script>

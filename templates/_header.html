@@ -111,7 +111,7 @@ body,body.ceo-app{background:var(--bg-app, var(--bg-page))}
 .ab-right{margin-left:auto;padding-left:16px;border-left:1px solid var(--border);
           display:flex;align-items:center;gap:4px;flex-shrink:0}
 .ab-bell{margin-right:8px;color:var(--brand);display:flex;align-items:center}
-.ab-user{position:relative}
+.ab-user{position:relative;--u-w:260px}   /* bề rộng DÙNG CHUNG cho nút và menu */
 .ab-userbtn{display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 12px;border-radius:9px;
             border:1px solid transparent;transition:background .15s;user-select:none}
 .ab-userbtn:hover{background:var(--bg-page);border-color:var(--border)}
@@ -128,6 +128,14 @@ body,body.ceo-app{background:var(--bg-app, var(--bg-page))}
           border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none;z-index:20;
           box-shadow:var(--shadow-lg)}
 .ab-user.open .ab-umenu{display:block}
+/* Nút tài khoản dùng CHUNG bề rộng với menu thả xuống (12/09/2026). Trước đó nút co theo
+   nội dung nên hẹp hơn menu, thả xuống nhìn lệch. Bề rộng cố định thì tên dài phải cắt
+   bằng "…", và mũi tên phải đẩy về sát mép phải cho thẳng hàng với menu. */
+.ab-userbtn{width:var(--u-w);box-sizing:border-box}
+.ab-umenu{width:var(--u-w)}
+.ab-uinfo{min-width:0;flex:1 1 auto}
+.ab-uname,.ab-urole{overflow:hidden;text-overflow:ellipsis}
+.ab-chev{margin-left:auto;padding-left:8px}
 .ab-uhead{background:var(--bg-page);border-bottom:1px solid var(--bg-page);padding:16px;display:flex;align-items:center;gap:12px}
 .ab-uhead .ab-avatar{width:42px;height:42px;font-size:17px;cursor:pointer;position:relative}
 .ab-uhead-name{font-size:15px;font-weight:700;color:var(--brand)}
@@ -324,7 +332,7 @@ body.sb-min .ab-sb-g,body.sb-min .ab-sb-top{position:relative}
   .ab-logo-sub{display:none}
   .ab-right{padding-left:8px}
   .ab-uinfo,.ab-chev{display:none}
-  .ab-userbtn{padding:4px 6px}
+  .ab-userbtn{padding:4px 6px;width:auto}
   .ab-umenu{width:240px}
 }
 </style>

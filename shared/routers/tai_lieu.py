@@ -7,24 +7,32 @@ trong màn Đào tạo. Router này cho cả 8 app cùng một cửa, kèm nhữ
 bảng gốc không có: danh mục chuẩn, cơ quan ban hành, cờ nổi bật, lượt xem, lượt tải.
 
 Ranh giới đã giữ:
-  · `hcns.documents` CHỈ ĐỌC (schema của app khác) — thêm/sửa/xoá văn bản vẫn phải qua
-    `POST /api/documents` của HCNS. Màn ẩn nút "Tải lên" ở 7 app còn lại.
+  · `hcns.documents` CHỈ ĐỌC (schema của app khác) — không thêm/sửa/xoá dòng nào ở đó.
+    Tải lên từ màn chung ghi sang bảng MỚI `shared.tai_lieu_tep` (người dùng chốt
+    12/09/2026: cho cả 8 app tải lên được). Danh sách gộp hai nguồn; dòng của bảng mới
+    ra ngoài với id ÂM để không đụng id của `hcns.documents`.
   · Phần bổ sung ghi vào `shared.tai_lieu_meta` / `shared.tai_lieu_luot` (bảng mới).
   · Lọc theo `ap_dung_phong_ban` áp cho CẢ đường tải tệp — trước đây tệp văn bản ai có
     app hcns cũng tải được, kể cả văn bản chỉ áp dụng cho phòng khác (uploads.py:366).
 """
-from datetime import datetime
+import json
+import uuid
+from datetime import date, datetime
+from pathlib import Path
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import (
+    APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status,
+)
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
 from shared.auth import JWTPayload, current_user
+from shared.config import settings
 from shared.db import get_db
-from shared.models.tai_lieu import TaiLieuLuot, TaiLieuMeta
+from shared.models.tai_lieu import TaiLieuLuot, TaiLieuMeta, TaiLieuTep
 from shared.templates import _lookup_user_info
 
 router = APIRouter()
@@ -46,6 +54,11 @@ DANH_MUC = [
     "Biểu mẫu",
     "Tài liệu khác",
 ]
+
+
+_DUOI_OK = {"pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "png", "jpg", "jpeg", "webp"}
+_TOI_DA = 100 * 1024 * 1024   # 100MB — văn bản, không phải video như màn Đào tạo
+_KHOI = 1024 * 1024
 
 
 def _bo_dau(s: str) -> str:
@@ -97,8 +110,8 @@ def _loc_phong_ban(rows: list[dict], user: JWTPayload) -> list[dict]:
     return ra
 
 
-def _doc_tat_ca(db: Session) -> list[dict]:
-    """Toàn bộ văn bản (bảng chỉ vài trăm dòng nên đọc hết rồi lọc trong bộ nhớ là đủ).
+def _doc_hcns(db: Session) -> list[dict]:
+    """Văn bản gốc ở `hcns.documents` — CHỈ ĐỌC.
 
     Fail-soft: app chạy trên DB không có schema hcns → trả rỗng, màn hiện "chưa có".
     """
@@ -106,12 +119,52 @@ def _doc_tat_ca(db: Session) -> list[dict]:
         rows = db.execute(sql_text("""
             SELECT id, loai, tieu_de, noi_dung, file_url, so_hieu, ngay_ban_hanh,
                    ap_dung_phong_ban, created_by, created_at
-            FROM hcns.documents ORDER BY ngay_ban_hanh DESC NULLS LAST, created_at DESC
+            FROM hcns.documents
         """)).mappings().all()
-        return [dict(r) for r in rows]
     except Exception:
         db.rollback()
         return []
+    ra = []
+    for r in rows:
+        d = dict(r)
+        d["nguon"] = "hcns"
+        ra.append(d)
+    return ra
+
+
+def _doc_tai_len(db: Session) -> list[dict]:
+    """Tài liệu tải lên từ màn chung. Ra ngoài với id ÂM để không đụng id của hcns."""
+    try:
+        rows = db.execute(sql_text("""
+            SELECT id, ten, so_hieu, danh_muc, ngay_ban_hanh, co_quan_ban_hanh,
+                   ap_dung_phong_ban, mo_ta, ten_tep, duong_dan_tep, kich_thuoc,
+                   created_by, created_at
+            FROM shared.tai_lieu_tep
+        """)).mappings().all()
+    except Exception:
+        db.rollback()
+        return []
+    return [{
+        "id": -r["id"], "loai": r["danh_muc"], "tieu_de": r["ten"], "noi_dung": r["mo_ta"],
+        "file_url": r["ten_tep"] or "", "so_hieu": r["so_hieu"],
+        "ngay_ban_hanh": r["ngay_ban_hanh"], "ap_dung_phong_ban": r["ap_dung_phong_ban"] or [],
+        "created_by": r["created_by"], "created_at": r["created_at"], "nguon": "tai_len",
+        "_danh_muc": r["danh_muc"], "_co_quan": r["co_quan_ban_hanh"] or "",
+        "_duong_dan": r["duong_dan_tep"], "_kich_thuoc": int(r["kich_thuoc"] or 0),
+    } for r in rows]
+
+
+def _khoa_xep(r: dict):
+    """Ngày ban hành mới trước; thiếu ngày thì rơi xuống cuối, trong nhóm thì mới tạo trước."""
+    ngay = r.get("ngay_ban_hanh")
+    return (0 if ngay else 1, -(ngay.toordinal() if ngay else 0), -r["created_at"].timestamp())
+
+
+def _doc_tat_ca(db: Session) -> list[dict]:
+    """Hai nguồn gộp lại (vài trăm dòng nên đọc hết rồi lọc trong bộ nhớ là đủ)."""
+    ds = _doc_hcns(db) + _doc_tai_len(db)
+    ds.sort(key=_khoa_xep)
+    return ds
 
 
 def _dinh_dang(file_url: Optional[str]) -> str:
@@ -144,13 +197,17 @@ def _gop(db: Session, rows: list[dict]) -> list[dict]:
             "ten": r["tieu_de"],
             "so_hieu": r["so_hieu"] or "",
             "loai": r["loai"],
-            "danh_muc": (m.get("danh_muc") if m else None) or _suy_danh_muc(r["loai"]),
+            "danh_muc": ((m.get("danh_muc") if m else None) or r.get("_danh_muc")
+                         or _suy_danh_muc(r["loai"])),
             "ngay_ban_hanh": r["ngay_ban_hanh"],
-            "co_quan_ban_hanh": (m.get("co_quan_ban_hanh") if m else None) or "",
+            "co_quan_ban_hanh": ((m.get("co_quan_ban_hanh") if m else None)
+                                 or r.get("_co_quan") or ""),
             "nguoi_tao": r["created_by"] or "",
             "ap_dung_phong_ban": r["ap_dung_phong_ban"] or [],
             "file_url": r["file_url"] or "",
             "dinh_dang": _dinh_dang(r["file_url"]),
+            "nguon": r.get("nguon", "hcns"),
+            "kich_thuoc": r.get("_kich_thuoc", 0),
             "mo_ta": r["noi_dung"] or "",
             "noi_bat": bool(m.get("noi_bat")) if m else False,
             "luot_xem": d.get("xem", 0),
@@ -214,7 +271,7 @@ def danh_sach(
         loc.sort(key=lambda r: r["luot_xem"], reverse=True)
     elif sap_xep == "ten":
         loc.sort(key=lambda r: _bo_dau(r["ten"]))
-    # moi_nhat = giữ nguyên thứ tự SQL (ngày ban hành mới trước)
+    # moi_nhat = giữ nguyên thứ tự của _khoa_xep (ngày ban hành mới trước)
 
     tong = len(loc)
     dau = (trang - 1) * so_dong
@@ -298,17 +355,27 @@ def tai_ve(
     khác. Ở đây lọc trước rồi mới trả tệp, và ghi lại lượt tải.
     """
     r = _thay_duoc(db, user, doc_id)
+    ten_goi = r.get("so_hieu") or r.get("tieu_de") or "van-ban"
+    if r.get("nguon") == "tai_len":
+        # Tài liệu tải lên từ màn chung: đường dẫn tuyệt đối lưu sẵn trong bảng.
+        duong = r.get("_duong_dan") or ""
+        tep = Path(duong) if duong else None
+        if tep is None or not tep.is_file():
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Tệp không còn trên máy chủ")
+        _ghi_luot(db, doc_id, user.username, "tai")
+        return FileResponse(str(tep), filename=f"{ten_goi}{tep.suffix}",
+                            headers={"X-Content-Type-Options": "nosniff"})
     duong = (r.get("file_url") or "").split("?")[0]
     phan = [x for x in duong.split("/") if x]
     if len(phan) < 2:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Văn bản chưa có tệp đính kèm")
     scope, ten_tep = phan[-2], phan[-1]
     from shared.utils.uploads import resolve_path
-    p = resolve_path("hcns", scope, ten_tep)
-    if p is None:
+    tep = resolve_path("hcns", scope, ten_tep)
+    if tep is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Tệp không còn trên máy chủ")
     _ghi_luot(db, doc_id, user.username, "tai")
-    return FileResponse(str(p), filename=f"{(r.get('so_hieu') or r.get('tieu_de') or 'van-ban')}{p.suffix}",
+    return FileResponse(str(tep), filename=f"{ten_goi}{tep.suffix}",
                         headers={"X-Content-Type-Options": "nosniff"})
 
 
@@ -359,3 +426,143 @@ def sua_meta(
     except Exception:
         db.rollback()
     return _gop(db, [_thay_duoc(db, user, doc_id)])[0]
+
+
+# ── Tải lên / xoá (bảng mới, KHÔNG đụng hcns.documents) ───────────────────────
+def _thu_muc(tep_id: int) -> Path:
+    goc = Path(getattr(settings, "upload_dir", "/var/lib/qlpps/uploads")).expanduser().resolve()
+    d = goc / "tai_lieu" / str(tep_id)
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+async def _ghi_tep(f: UploadFile, tep_id: int) -> tuple[str, int, str]:
+    """Ghi từng khối 1MB xuống đĩa. Trả (đường dẫn, số byte, tên gốc). Quá cỡ → 413."""
+    ten_goc = (f.filename or "tai-lieu").strip()[:255]
+    duoi = ten_goc.rsplit(".", 1)[-1].lower() if "." in ten_goc else ""
+    if duoi not in _DUOI_OK:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            f"Định dạng .{duoi or '?'} không hỗ trợ. Nhận: {', '.join(sorted(_DUOI_OK))}")
+    dich = _thu_muc(tep_id) / f"{uuid.uuid4().hex}.{duoi}"
+    n = 0
+    try:
+        with open(dich, "wb") as ra:
+            while True:
+                khoi = await f.read(_KHOI)
+                if not khoi:
+                    break
+                n += len(khoi)
+                if n > _TOI_DA:
+                    raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                                        f"Tệp quá lớn — tối đa {_TOI_DA // (1024 * 1024)}MB")
+                ra.write(khoi)
+    except Exception:
+        dich.unlink(missing_ok=True)
+        raise
+    if n == 0:
+        dich.unlink(missing_ok=True)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tệp rỗng")
+    return str(dich), n, ten_goc
+
+
+def _doc_ngay(v: Optional[str]) -> Optional[date]:
+    if not (v or "").strip():
+        return None
+    try:
+        return date.fromisoformat(v.strip()[:10])
+    except ValueError:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            "Ngày ban hành phải theo dạng YYYY-MM-DD")
+
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+async def tai_len(
+    request: Request,
+    user: Annotated[JWTPayload, _AUTH],
+    db: Annotated[Session, Depends(get_db)],
+    ten: Annotated[str, Form()],
+    danh_muc: Annotated[str, Form()],
+    tep: Annotated[UploadFile, File()],
+    so_hieu: Annotated[str, Form()] = "",
+    ngay_ban_hanh: Annotated[str, Form()] = "",
+    co_quan_ban_hanh: Annotated[str, Form()] = "",
+    ap_dung_phong_ban: Annotated[str, Form()] = "",
+    mo_ta: Annotated[str, Form()] = "",
+):
+    """Thêm tài liệu vào `shared.tai_lieu_tep`. Cả 8 app dùng được endpoint này."""
+    if (user.role or "").lower() not in _SUA_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Chỉ quản lý trở lên tải tài liệu lên được")
+    if not ten.strip():
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Thiếu tên tài liệu")
+    if danh_muc not in DANH_MUC:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Danh mục không hợp lệ: {danh_muc}")
+    # Ô phòng ban gửi lên dạng JSON mảng; gõ tay một tên cũng nhận.
+    pb: list[str] = []
+    if ap_dung_phong_ban.strip():
+        try:
+            x = json.loads(ap_dung_phong_ban)
+            pb = [str(i).strip() for i in x if str(i).strip()] if isinstance(x, list) else []
+        except ValueError:
+            pb = [t.strip() for t in ap_dung_phong_ban.split(",") if t.strip()]
+
+    rec = TaiLieuTep(
+        ten=ten.strip()[:255], so_hieu=(so_hieu.strip() or None), danh_muc=danh_muc,
+        ngay_ban_hanh=_doc_ngay(ngay_ban_hanh),
+        co_quan_ban_hanh=(co_quan_ban_hanh.strip()[:128] or None),
+        ap_dung_phong_ban=pb, mo_ta=(mo_ta.strip() or None),
+        app=((request.app.state.app_name if request else "") or None),
+        created_by=user.username,
+    )
+    db.add(rec)
+    db.flush()          # cần id để đặt tên thư mục trước khi ghi tệp
+    try:
+        duong, co, ten_goc = await _ghi_tep(tep, rec.id)
+    except Exception:
+        db.rollback()
+        raise
+    rec.duong_dan_tep, rec.kich_thuoc, rec.ten_tep = duong, co, ten_goc
+    db.commit()
+    try:
+        from shared.audit import log_action
+        log_action(db, app="shared", action="tai_lieu_tai_len", user=user, request=request,
+                   resource=f"tai_lieu_tep:{rec.id}", payload={"ten": rec.ten, "danh_muc": danh_muc})
+    except Exception:
+        db.rollback()
+    return _gop(db, [r for r in _doc_tai_len(db) if r["id"] == -rec.id])[0]
+
+
+@router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
+def xoa(
+    doc_id: int,
+    request: Request,
+    user: Annotated[JWTPayload, _AUTH],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Chỉ xoá được tài liệu của bảng mới (id âm). Văn bản gốc của HCNS: 404, không đụng tới."""
+    if doc_id >= 0:
+        raise HTTPException(status.HTTP_404_NOT_FOUND,
+                            "Văn bản gốc phải xoá ở màn quản trị của HCNS")
+    rec = db.get(TaiLieuTep, -doc_id)
+    if rec is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy tài liệu")
+    vai = (user.role or "").lower()
+    if rec.created_by != user.username and vai not in {"admin", "ceo", "assistant_ceo", "hr_manager"}:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Chỉ người tải lên hoặc quản trị xoá được")
+    duong = rec.duong_dan_tep
+    db.execute(sql_text("DELETE FROM shared.tai_lieu_luot WHERE doc_id = :d"), {"d": doc_id})
+    db.execute(sql_text("DELETE FROM shared.tai_lieu_meta WHERE doc_id = :d"), {"d": doc_id})
+    db.delete(rec)
+    db.commit()
+    if duong:
+        try:
+            Path(duong).unlink(missing_ok=True)
+            Path(duong).parent.rmdir()
+        except OSError:
+            pass
+    try:
+        from shared.audit import log_action
+        log_action(db, app="shared", action="tai_lieu_xoa", user=user, request=request,
+                   resource=f"tai_lieu_tep:{-doc_id}", payload={})
+    except Exception:
+        db.rollback()
+    return None

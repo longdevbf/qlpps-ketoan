@@ -32,11 +32,17 @@
 <style>
 /* Đặc hiệu (0,2,0) thắng `.ab-item` riêng của từng header — cả 8 header đang tô mục
    menu mỗi nơi một kiểu (13px/700 ở saleadmin, 14px/500 ở HCNS…). */
-/* Khung: header tự đặt 260px (240px dưới 768px) — "Tài liệu / Văn bản" + nhãn "Sắp có"
-   cần ~250px nên nới theo nội dung; 15 mục cao ~560px nên màn thấp thì cuộn trong menu. */
-.ab-user .ab-umenu{width:max-content;min-width:260px;max-width:calc(100vw - 16px);
+/* Khung: bề rộng lấy từ `--u-w` mà `_header.html` đặt cho CẢ nút tài khoản (12/09/2026,
+   người dùng: "ô account ngang bằng với dropdown"). Trước đây chỗ này chốt cứng 260px
+   còn nút thì co theo nội dung nên thả xuống là lệch. Vẫn giữ max-content để nhãn dài
+   (VD "Tài liệu / Văn bản" + nhãn "Sắp có") không bị xuống dòng; 15 mục cao ~560px nên
+   màn thấp thì cuộn trong menu. */
+.ab-user .ab-umenu{width:max-content;min-width:var(--u-w,260px);max-width:calc(100vw - 16px);
      max-height:calc(100vh - 76px);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}
-.ab-umenu .tk-ds{padding:var(--sp-3) 0}
+/* Cột dọc: <button> có `width:auto` nghĩa là CO THEO CHỮ, khác <a> giãn hết hàng — nên
+   'Đổi ảnh đại diện' và 'Đổi mật khẩu' từng có nền hover ngắn hơn các mục còn lại.
+   Đặt .tk-ds thành flex cột thì mọi mục tự kéo bằng nhau (align-items mặc định stretch). */
+.ab-umenu .tk-ds{display:flex;flex-direction:column;padding:var(--sp-3) 0}
 .ab-umenu .tk-muc{display:flex;align-items:center;gap:var(--sp-6);width:auto;margin:0 var(--sp-3);padding:var(--sp-4) var(--sp-6);
      border:0;border-radius:var(--r);background:none;font:inherit;font-size:var(--fs-body-lg);font-weight:500;line-height:1.3;
      color:var(--text-1);text-align:left;text-decoration:none;text-shadow:none;white-space:nowrap;cursor:pointer;
