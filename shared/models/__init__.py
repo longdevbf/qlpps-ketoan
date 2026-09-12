@@ -19,6 +19,7 @@ from .mobile_device import MobileDevice
 from .leave_request import LeaveRequest
 from .expense_request import ExpenseRequest
 from .de_xuat import DeXuat
+from .de_xuat_chi_tiet import DeXuatChiTiet
 from .calendar_event import CalendarEvent, EventParticipant, EventAttachment
 from .morning_brief import MorningBrief
 from .ai_chat_message import AIChatMessage
@@ -42,7 +43,7 @@ __all__ = [
     "ProductOpportunity", "OpportunityNote", "OpportunityScorecard",
     "Product", "ProductAddon", "ProductAttribute",
     "Notification", "PushSubscription", "MobileDevice",
-    "LeaveRequest", "ExpenseRequest", "DeXuat",
+    "LeaveRequest", "ExpenseRequest", "DeXuat", "DeXuatChiTiet",
     "CalendarEvent", "EventParticipant", "EventAttachment",
     "MorningBrief", "AIChatMessage",
     "MaiTarget", "MaiPreference", "MaiPolicy", "MaiProposal", "MaiNotifiedItem",
