@@ -1,0 +1,665 @@
+{# SINH TỰ ĐỘNG — ĐỪNG sửa file này trong repo.
+   Sửa `claude-kit/core/shared/templates/dao_tao_core.html` rồi chạy:
+       cd d:\PapaSanIT\claude-kit && python sync.py
+   File này giống hệt nhau ở cả 8 repo. Muốn một app khác đi thì đặt
+   bản riêng trong templates/ của app đó (Jinja đọc templates/ trước). -#}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="stylesheet" href="/static/css/theme.css?v=xanh1">
+<title>Đào tạo — QLPPS</title>
+<link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
+<link rel="shortcut icon" href="/static/papasan.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   ĐÀO TẠO — thư viện nội dung, màn dùng chung cho cả 8 app (12/09/2026).
+
+   Theo ảnh mẫu người dùng gửi: hàng tab + nút "Tạo nội dung đào tạo" · hàng công cụ
+   (tìm · phòng ban · chủ đề · loại nội dung · sắp xếp) · lưới thẻ nội dung có ảnh đại
+   diện, nhãn loại, thời lượng, thẻ tag, người chia sẻ, lượt xem, lượt thích, nút đánh
+   dấu · khối "Chủ đề phổ biến" · khối "Người chia sẻ nổi bật" · modal tạo nội dung.
+
+   KHÁC ẢNH MẪU — có chủ ý:
+     · Ảnh có 5 tab "Tất cả · Công ty · Phòng ban · Chủ đề · Loại nội dung", nhưng hai
+       cái sau trùng đúng hai ô chọn ngay bên dưới. Ở đây tab là PHẠM VI thật (Tất cả ·
+       Công ty · Phòng ban · Đã đánh dấu), còn chủ đề và loại nội dung lọc bằng ô chọn.
+     · Thời lượng video chỉ hiện khi người đăng nhập số phút — hệ chưa đọc được thời
+       lượng từ tệp, thà để trống còn hơn in số bịa.
+     · Màn "buổi đào tạo" cũ (tên buổi, ngày, giảng viên) KHÔNG bị bỏ — nó nằm ở
+       `/buoi-dao-tao`, có đường dẫn ngay trên đầu màn này.
+
+   Màu/khoảng cách/cỡ chữ chỉ lấy token `theme.css` (ADR-012). MỌI selector nằm dưới
+   `.dt` — màn này chạy trong 8 khung app, có app nạp Bootstrap / components.css riêng.
+   ═══════════════════════════════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:100vh;color:var(--text-1);
+     -webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+.dt{color:var(--text-2);font-size:var(--fs-body);line-height:var(--lh-body)}
+.dt [hidden]{display:none !important}
+.dt .dt-wrap{max-width:none;margin:0;padding:var(--sp-8) var(--sp-8) 40px}
+@media(min-width:768px){.dt .dt-wrap{padding:var(--sp-8) var(--sp-9) 40px}}
+@media(min-width:1600px){.dt .dt-wrap{padding:var(--sp-9) var(--sp-10) 48px}}
+.dt .dt-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
+     clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.dt svg.dt-ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.dt .btn-primary,.dt .btn-ghost,.dt .btn-soft{display:inline-flex;align-items:center;justify-content:center;
+     gap:var(--sp-3);min-height:40px;padding:0 var(--sp-9);border-radius:var(--r);font:inherit;
+     font-size:var(--fs-body);font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
+.dt .btn-primary{background:var(--brand);color:var(--text-on-brand);border:1px solid var(--brand)}
+.dt .btn-primary:hover{background:var(--brand-hover);border-color:var(--brand-hover)}
+.dt .btn-ghost{background:var(--bg-band);color:var(--text-1);border:1px solid var(--bg-band)}
+.dt .btn-soft{background:var(--brand-soft);color:var(--brand-hover);border:1px solid var(--brand-border)}
+.dt .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+.dt .btn-link{display:inline-flex;align-items:center;gap:var(--sp-2);border:0;background:none;padding:0;font:inherit;
+     font-size:var(--fs-meta);font-weight:600;color:var(--brand-hover);cursor:pointer}
+.dt .btn-link:hover{text-decoration:underline}
+.dt .dt-nut-icon{display:inline-grid;place-items:center;flex:none;width:32px;height:32px;border:0;border-radius:var(--r);
+     background:transparent;color:var(--text-2);cursor:pointer}
+.dt .dt-nut-icon:hover{background:var(--bg-page);color:var(--brand-hover)}
+.dt .dt-nut-icon.is-bat{color:var(--brand)}
+.dt .btn-primary:focus-visible,.dt .btn-ghost:focus-visible,.dt .btn-soft:focus-visible,.dt .btn-link:focus-visible,
+.dt .dt-tab:focus-visible,.dt .dt-nut-icon:focus-visible,.dt .dt-chip:focus-visible,.dt .dt-the:focus-visible,
+.dt input:focus-visible,.dt select:focus-visible,.dt textarea:focus-visible{outline:0;box-shadow:var(--focus-ring)}
+
+/* ── Hàng tab ────────────────────────────────────────────────────────────── */
+.dt .dt-thanh{display:flex;align-items:center;gap:var(--sp-5);flex-wrap:wrap;margin-bottom:var(--sp-7)}
+.dt .dt-tabs{display:flex;gap:var(--sp-2);padding:var(--sp-3);border:1px solid var(--border);border-radius:var(--r-lg);
+     background:var(--bg-card);box-shadow:var(--shadow-sm);overflow-x:auto;scrollbar-width:none}
+.dt .dt-tabs::-webkit-scrollbar{display:none}
+.dt .dt-tab{padding:var(--sp-4) var(--sp-8);border:0;border-radius:var(--r);background:transparent;font:inherit;
+     font-size:var(--fs-body);font-weight:600;color:var(--text-2);cursor:pointer;white-space:nowrap}
+.dt .dt-tab:hover{background:var(--bg-page);color:var(--brand-hover)}
+.dt .dt-tab.is-chon{background:var(--brand);color:var(--text-on-brand)}
+.dt .dt-day{flex:1}
+
+/* ── Hàng công cụ ────────────────────────────────────────────────────────── */
+.dt .dt-cong-cu{display:flex;align-items:center;gap:var(--sp-5);flex-wrap:wrap;margin-bottom:var(--sp-8)}
+.dt .dt-tim{position:relative;flex:1 1 260px;min-width:200px;max-width:420px}
+.dt .dt-tim input{width:100%;height:40px;padding:0 var(--sp-6) 0 38px;border:1px solid var(--border);
+     border-radius:var(--r);background:var(--bg-card);color:var(--text-1);font:inherit;font-size:var(--fs-body);outline:none}
+.dt .dt-tim input:focus{border-color:var(--brand);box-shadow:var(--focus-ring)}
+.dt .dt-tim svg.dt-ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text-3);pointer-events:none}
+.dt .dt-cong-cu select{height:40px;padding:0 var(--sp-6);border:1px solid var(--border);border-radius:var(--r);
+     background:var(--bg-card);color:var(--text-1);font:inherit;font-size:var(--fs-body);cursor:pointer}
+
+/* ── Lưới thẻ ────────────────────────────────────────────────────────────── */
+.dt .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);
+     box-shadow:var(--shadow-sm);overflow:hidden;min-width:0}
+.dt .card-header{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-6);
+     padding:var(--sp-8) var(--sp-9) 0}
+.dt .card-header h2{font-size:var(--fs-h);font-weight:700;color:var(--text-1)}
+.dt .dt-luoi{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:var(--sp-7);
+     padding:var(--sp-7) var(--sp-9) var(--sp-9)}
+.dt .nd{display:flex;flex-direction:column;min-width:0;border:1px solid var(--border);border-radius:var(--r-md);
+     background:var(--bg-card);overflow:hidden}
+.dt .nd:hover{border-color:var(--brand-border)}
+.dt .nd-anh{position:relative;display:grid;place-items:center;height:132px;background:var(--bg-band);cursor:pointer}
+.dt .nd-anh img{width:100%;height:100%;object-fit:cover}
+.dt .nd-anh .nd-bieu{display:grid;place-items:center;width:44px;height:44px;border-radius:var(--r-full);
+     background:var(--bg-card);color:var(--brand);box-shadow:var(--shadow-sm)}
+.dt .nd-anh .nd-bieu svg.dt-ic{width:22px;height:22px}
+.dt .nd-nhan{position:absolute;top:var(--sp-4);left:var(--sp-4);padding:var(--sp-2) var(--sp-5);border-radius:var(--r-sm);
+     background:var(--brand);color:var(--text-on-brand);font-size:var(--fs-eyebrow);font-weight:700}
+.dt .nd-nhan--tai_lieu{background:var(--tile-slate)} .dt .nd-nhan--link{background:var(--tile-green)}
+.dt .nd-gio{position:absolute;right:var(--sp-4);bottom:var(--sp-4);padding:var(--sp-2) var(--sp-4);border-radius:var(--r-sm);
+     background:rgba(15,23,42,.72);color:#fff;font-size:var(--fs-eyebrow);font-weight:600;font-variant-numeric:tabular-nums}
+.dt .nd-than{display:flex;flex-direction:column;gap:var(--sp-4);padding:var(--sp-6) var(--sp-7);flex:1}
+.dt .nd-ten{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
+     font-weight:600;color:var(--text-1);cursor:pointer}
+.dt .nd-ten:hover{color:var(--brand-hover)}
+.dt .nd-the{display:flex;flex-wrap:wrap;gap:var(--sp-3)}
+.dt .the-chip{padding:var(--sp-1) var(--sp-4);border-radius:var(--r-sm);background:var(--bg-band);
+     color:var(--text-2);font-size:var(--fs-eyebrow);font-weight:600}
+.dt .nd-nguoi{display:flex;align-items:center;gap:var(--sp-4);min-width:0;font-size:var(--fs-meta);color:var(--text-2)}
+.dt .nv-ava{display:inline-grid;place-items:center;flex:none;width:24px;height:24px;border-radius:var(--r-full);
+     background:var(--brand-soft);color:var(--brand-hover);font-size:var(--fs-eyebrow);font-weight:700}
+.dt .nd-ngay{font-size:var(--fs-meta);color:var(--text-3)}
+.dt .nd-chan{display:flex;align-items:center;gap:var(--sp-5);padding:var(--sp-5) var(--sp-7);
+     border-top:1px solid var(--border-soft);font-size:var(--fs-meta);color:var(--text-3)}
+.dt .nd-chan .dt-day{flex:1}
+.dt .nd-so{display:inline-flex;align-items:center;gap:var(--sp-2);font-variant-numeric:tabular-nums}
+.dt .nd-so svg.dt-ic{width:14px;height:14px}
+.dt .nd-so.is-thich{color:var(--danger-fg)}
+
+/* ── Khối phụ ────────────────────────────────────────────────────────────── */
+.dt .dt-chips{display:flex;flex-wrap:wrap;gap:var(--sp-4);padding:var(--sp-7) var(--sp-9) var(--sp-9)}
+.dt .dt-chip{padding:var(--sp-4) var(--sp-7);border:1px solid var(--border);border-radius:var(--r-full);
+     background:var(--bg-card);font:inherit;font-size:var(--fs-meta);font-weight:600;color:var(--text-2);cursor:pointer}
+.dt .dt-chip:hover{border-color:var(--brand-border);color:var(--brand-hover)}
+.dt .dt-chip.is-chon{background:var(--brand-soft);border-color:var(--brand-border);color:var(--brand-hover)}
+.dt .dt-nguoi-ds{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:var(--sp-7);
+     padding:var(--sp-7) var(--sp-9) var(--sp-9)}
+.dt .dt-nguoi{display:flex;flex-direction:column;align-items:center;gap:var(--sp-3);text-align:center;min-width:0}
+.dt .dt-nguoi .nv-ava{width:52px;height:52px;font-size:var(--fs-body)}
+.dt .dt-nguoi b{font-weight:600;color:var(--text-1);overflow-wrap:anywhere}
+.dt .dt-nguoi small{font-size:var(--fs-meta);color:var(--text-3)}
+.dt .dt-trong{padding:48px var(--sp-9);text-align:center;color:var(--text-3)}
+
+/* ── Modal ───────────────────────────────────────────────────────────────── */
+.dt .modal{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:var(--sp-8);background:rgba(15,23,42,.45)}
+.dt .modal-box{width:min(720px,100%);max-height:calc(100vh - 64px);display:flex;flex-direction:column;
+     background:var(--bg-card);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);overflow:hidden}
+.dt .modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-6);
+     padding:var(--sp-8) var(--sp-9);border-bottom:1px solid var(--border-soft)}
+.dt .modal-header h2{font-size:var(--fs-title);font-weight:700;color:var(--text-1)}
+.dt .modal-header p{margin-top:var(--sp-2);font-size:var(--fs-meta);color:var(--text-3)}
+.dt .modal-than{flex:1;overflow-y:auto;padding:var(--sp-8) var(--sp-9)}
+.dt .modal-chan{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-5);
+     padding:var(--sp-7) var(--sp-9);border-top:1px solid var(--border-soft)}
+.dt .truong{margin-bottom:var(--sp-7);min-width:0}
+.dt .truong > label{display:block;margin-bottom:var(--sp-3);font-size:var(--fs-meta);font-weight:600;color:var(--text-2)}
+.dt .truong .bat-buoc{color:var(--danger-fg)}
+.dt .truong input[type=text],.dt .truong input[type=url],.dt .truong input[type=number],
+.dt .truong select,.dt .truong textarea{width:100%;min-width:0;min-height:40px;padding:var(--sp-4) var(--sp-6);
+     border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card);color:var(--text-1);
+     font:inherit;font-size:var(--fs-body);outline:none}
+.dt .truong textarea{min-height:88px;resize:vertical}
+.dt .truong input:focus,.dt .truong select:focus,.dt .truong textarea:focus{border-color:var(--brand);box-shadow:var(--focus-ring)}
+.dt .truong .dt-dem{display:block;margin-top:var(--sp-2);font-size:var(--fs-meta);color:var(--text-3);text-align:right}
+.dt .luoi-3{display:grid;grid-template-columns:minmax(0,1fr);gap:0 var(--sp-7)}
+@media(min-width:640px){.dt .luoi-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+                        .dt .luoi-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 var(--sp-7)}}
+.dt .dt-tha{display:grid;place-items:center;gap:var(--sp-3);padding:var(--sp-9);border:1px dashed var(--border);
+     border-radius:var(--r-md);background:var(--bg-page);text-align:center;color:var(--text-2);cursor:pointer}
+.dt .dt-tha:hover,.dt .dt-tha.is-keo{border-color:var(--brand);background:var(--brand-soft);color:var(--brand-hover)}
+.dt .dt-tha svg.dt-ic{width:24px;height:24px;color:var(--brand)}
+.dt .dt-tha small{font-size:var(--fs-meta);color:var(--text-3)}
+.dt .dt-tep{display:flex;align-items:center;gap:var(--sp-5);margin-top:var(--sp-5);padding:var(--sp-5) var(--sp-6);
+     border:1px solid var(--success-border, var(--border));border-radius:var(--r);background:var(--success-soft)}
+.dt .dt-tep b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-1);font-weight:500}
+.dt .dt-tep small{color:var(--text-2)}
+.dt .dt-the-nhap{display:flex;flex-wrap:wrap;gap:var(--sp-3);align-items:center;min-height:40px;padding:var(--sp-3) var(--sp-5);
+     border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card)}
+.dt .dt-the-nhap input{flex:1;min-width:120px;border:0;outline:0;font:inherit;font-size:var(--fs-body);background:transparent;color:var(--text-1)}
+.dt .dt-the{display:inline-flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-4);border:0;
+     border-radius:var(--r-sm);background:var(--brand-soft);color:var(--brand-hover);font:inherit;
+     font-size:var(--fs-meta);font-weight:600;cursor:pointer}
+.dt .dt-tick{display:flex;align-items:flex-start;gap:var(--sp-4);margin-top:var(--sp-5);color:var(--text-1)}
+.dt .dt-tick input{width:16px;height:16px;margin-top:3px;accent-color:var(--brand)}
+.dt .dt-tick small{display:block;font-size:var(--fs-meta);color:var(--text-3)}
+.dt .dt-tien-do{height:6px;border-radius:var(--r-full);background:var(--bg-band);overflow:hidden;margin-top:var(--sp-5)}
+.dt .dt-tien-do i{display:block;height:100%;width:0;background:var(--brand);transition:width .2s}
+
+.dt .toast-wrap{position:fixed;right:24px;bottom:24px;z-index:9999;display:flex;flex-direction:column;gap:var(--sp-4);pointer-events:none}
+.dt .toast{max-width:340px;padding:var(--sp-6) var(--sp-9);border-radius:var(--r);font-size:var(--fs-body);font-weight:600;
+     color:var(--text-on-brand);box-shadow:var(--shadow-lg);opacity:0;transform:translateY(12px);transition:all .25s}
+.dt .toast.show{opacity:1;transform:none}
+.dt .toast.error{background:var(--danger)} .dt .toast.info{background:var(--brand)} .dt .toast.ok{background:var(--success)}
+
+@media(max-width:767px){
+  .dt .dt-wrap{padding:var(--sp-7) var(--sp-7) 32px}
+  .dt .dt-luoi{padding:var(--sp-6) var(--sp-7) var(--sp-7)}
+  .dt .toast-wrap{left:8px;right:8px;bottom:12px}
+}
+@media(prefers-reduced-motion:reduce){.dt *{transition:none}}
+</style>
+</head>
+<body>
+{% include "_header.html" %}
+{% set ten_man = "Đào tạo" %}{% include "_khung_man.html" %}
+
+<div class="dt">
+<div class="dt-wrap">
+  <h1 class="dt-sr">Đào tạo</h1>
+
+  <div class="dt-thanh">
+    <div class="dt-tabs" role="tablist" aria-label="Phạm vi nội dung">
+      <button type="button" class="dt-tab is-chon" data-pv="" onclick="dtChonTab('')">Tất cả</button>
+      <button type="button" class="dt-tab" data-pv="cong_ty" onclick="dtChonTab('cong_ty')">Công ty</button>
+      <button type="button" class="dt-tab" data-pv="phong_ban" onclick="dtChonTab('phong_ban')">Phòng ban</button>
+      <button type="button" class="dt-tab" data-pv="danh_dau" onclick="dtChonTab('danh_dau')">Đã đánh dấu</button>
+    </div>
+    <span class="dt-day"></span>
+    {#- Chỉ hiện ở app thật sự có màn buổi đào tạo cũ: hcns và ceo chưa từng có màn đó,
+        trỏ sang là 404. Dò thẳng trong bảng route của app đang chạy. -#}
+    {%- set _dt_ns = namespace(co=false) -%}
+    {%- if request -%}{%- for _r in request.app.routes -%}
+      {%- if _r.path is defined and _r.path == '/buoi-dao-tao' -%}{%- set _dt_ns.co = true -%}{%- endif -%}
+    {%- endfor -%}{%- endif -%}
+    {%- if _dt_ns.co %}<a class="btn-link" href="/buoi-dao-tao">Buổi đào tạo (lịch, giảng viên) →</a>{% endif -%}
+    <button type="button" class="btn-primary" id="dt-nut-tao" hidden onclick="dtMoModal()">
+      <svg class="dt-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>Tạo nội dung đào tạo</button>
+  </div>
+
+  <div class="dt-cong-cu">
+    <div class="dt-tim">
+      <svg class="dt-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input type="search" id="dt-tim" placeholder="Tìm tiêu đề, từ khóa, người chia sẻ..." aria-label="Tìm nội dung" oninput="dtTimGo()">
+    </div>
+    <select id="dt-l-pb" aria-label="Phòng ban" onchange="dtTai(1)"><option value="">Tất cả phòng ban</option></select>
+    <select id="dt-l-cd" aria-label="Chủ đề" onchange="dtTai(1)"><option value="">Tất cả chủ đề</option></select>
+    <select id="dt-l-loai" aria-label="Loại nội dung" onchange="dtTai(1)"><option value="">Tất cả loại nội dung</option></select>
+    <select id="dt-l-sx" aria-label="Sắp xếp" onchange="dtTai(1)">
+      <option value="moi_nhat">Mới nhất</option>
+      <option value="xem_nhieu">Xem nhiều nhất</option>
+      <option value="thich_nhieu">Thích nhiều nhất</option>
+      <option value="ten">Theo tên A→Z</option>
+    </select>
+  </div>
+
+  <section class="card" aria-labelledby="dt-nd-ten">
+    <div class="card-header"><h2 id="dt-nd-ten">Nội dung đào tạo</h2><span class="nd-ngay" id="dt-tong">—</span></div>
+    <div class="dt-luoi" id="dt-luoi"><div class="dt-trong">Đang tải...</div></div>
+  </section>
+
+  <section class="card" style="margin-top:var(--sp-8)" aria-labelledby="dt-cd-ten">
+    <div class="card-header"><h2 id="dt-cd-ten">Chủ đề phổ biến</h2></div>
+    <div class="dt-chips" id="dt-chu-de"></div>
+  </section>
+
+  <section class="card" style="margin-top:var(--sp-8)" aria-labelledby="dt-ng-ten">
+    <div class="card-header"><h2 id="dt-ng-ten">Người chia sẻ nổi bật</h2></div>
+    <div class="dt-nguoi-ds" id="dt-nguoi"></div>
+  </section>
+</div>
+
+<!-- Modal tạo nội dung -->
+<div class="modal" id="dt-modal" hidden role="dialog" aria-modal="true" aria-labelledby="dt-m-ten">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div><h2 id="dt-m-ten">Tạo tài liệu đào tạo</h2><p>Chia sẻ kiến thức để cùng phát triển</p></div>
+      <button type="button" class="dt-nut-icon" onclick="dtDongModal()" aria-label="Đóng">
+        <svg class="dt-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m18 6-12 12M6 6l12 12"/></svg></button>
+    </div>
+    <form class="modal-than" id="dt-form" onsubmit="return dtGui(event)">
+      <div class="truong">
+        <label for="dt-f-ten">Tiêu đề <span class="bat-buoc">*</span></label>
+        <input type="text" id="dt-f-ten" maxlength="255" placeholder="VD: Quy trình bán hàng và chăm sóc khách hàng">
+      </div>
+      <div class="truong">
+        <label for="dt-f-mota">Mô tả ngắn</label>
+        <textarea id="dt-f-mota" maxlength="1000" oninput="dtDem()"
+                  placeholder="Nội dung này giúp người xem làm được gì"></textarea>
+        <span class="dt-dem" id="dt-f-dem">0/1000</span>
+      </div>
+      <div class="luoi-3">
+        <div class="truong">
+          <label for="dt-f-loai">Loại nội dung <span class="bat-buoc">*</span></label>
+          <select id="dt-f-loai" onchange="dtDoiLoai()"></select>
+        </div>
+        <div class="truong">
+          <label for="dt-f-cd">Chủ đề</label>
+          <select id="dt-f-cd"></select>
+        </div>
+        <div class="truong">
+          <label for="dt-f-pv">Phạm vi hiển thị <span class="bat-buoc">*</span></label>
+          <select id="dt-f-pv" onchange="dtDoiPhamVi()"></select>
+        </div>
+      </div>
+      <div class="truong" id="dt-o-pb" hidden>
+        <label for="dt-f-pb">Phòng ban được xem</label>
+        <select id="dt-f-pb"><option value="">— Phòng ban của tôi —</option></select>
+      </div>
+
+      <div class="truong" id="dt-o-link" hidden>
+        <label for="dt-f-link">Đường dẫn <span class="bat-buoc">*</span></label>
+        <input type="url" id="dt-f-link" placeholder="https://...">
+      </div>
+
+      <div class="truong" id="dt-o-tep">
+        <label>Tải lên file <span class="bat-buoc">*</span></label>
+        <div class="dt-tha" id="dt-tha" tabindex="0" role="button"
+             onclick="document.getElementById('dt-f-tep').click()"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('dt-f-tep').click()}">
+          <svg class="dt-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg>
+          <span>Kéo thả file vào đây hoặc <b>chọn file</b></span>
+          <small id="dt-tha-mo-ta">Hỗ trợ: MP4, MOV, PDF, DOC, DOCX, PPT (tối đa 2GB)</small>
+        </div>
+        <input type="file" id="dt-f-tep" hidden onchange="dtChonTep(this)">
+        <div id="dt-tep-hien"></div>
+      </div>
+
+      <div class="luoi-2">
+        <div class="truong">
+          <label>Ảnh đại diện (nếu có)</label>
+          <div class="dt-tha" style="padding:var(--sp-7)" tabindex="0" role="button"
+               onclick="document.getElementById('dt-f-anh').click()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('dt-f-anh').click()}">
+            <svg class="dt-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 18 5-4 4 3 3-2 4 3"/></svg>
+            <span id="dt-anh-ten">Tải ảnh lên</span>
+          </div>
+          <input type="file" id="dt-f-anh" hidden accept=".png,.jpg,.jpeg,.webp" onchange="dtChonAnh(this)">
+        </div>
+        <div class="truong">
+          <label for="dt-f-the">Thẻ (tag)</label>
+          <div class="dt-the-nhap" id="dt-the-nhap">
+            <input type="text" id="dt-f-the" placeholder="Nhập thẻ và nhấn Enter..." onkeydown="dtThePhim(event)">
+          </div>
+          <span class="dt-dem" id="dt-the-goi-y">Tối đa 12 thẻ</span>
+        </div>
+      </div>
+
+      <div class="luoi-2">
+        <div class="truong">
+          <label for="dt-f-nguoi">Người chia sẻ</label>
+          <select id="dt-f-nguoi"><option value="">— Tôi —</option></select>
+        </div>
+        <div class="truong" id="dt-o-thoi-luong" hidden>
+          <label for="dt-f-phut">Thời lượng video (phút)</label>
+          <input type="number" id="dt-f-phut" min="0" step="1" placeholder="VD: 52">
+        </div>
+      </div>
+
+      <label class="dt-tick">
+        <input type="checkbox" id="dt-f-bao">
+        <span><b>Gửi thông báo tới nhân viên</b>
+          <small>Nhân viên trong phạm vi hiển thị sẽ nhận được thông báo về tài liệu này (tối đa 200 người).</small></span>
+      </label>
+      <div class="dt-tien-do" id="dt-tien-do" hidden><i id="dt-tien-do-i"></i></div>
+    </form>
+    <div class="modal-chan">
+      <button type="button" class="btn-ghost" onclick="dtDongModal()">Huỷ</button>
+      <button type="button" class="btn-primary" id="dt-nut-gui" onclick="dtGui(event)">Tạo tài liệu</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="dt-toast"></div>
+</div>
+
+<script>
+const DT_ME = {{ (user.username if user else '')|tojson }};
+const _dt = { pv: '', tim: '', trang: 1, the: [], tep: null, anh: null, meta: null, dangGui: false };
+
+function _dtE(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function _dtNgay(v) { if (!v) return ''; const s = String(v).slice(0, 10).split('-'); return s.length === 3 ? `${s[2]}/${s[1]}/${s[0]}` : String(v); }
+function _dtCo(b) { const n = Number(b) || 0; return n >= 1048576 ? (n / 1048576).toFixed(0) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+function _dtGio(giay) { const s = Number(giay) || 0; if (!s) return ''; const p = Math.floor(s / 60), g = s % 60; return `${p}:${String(g).padStart(2, '0')}`; }
+function _dtChuDau(t) {
+  const tu = String(t || '').replace(/\(.*?\)/g, ' ').split(/\s+/).filter(x => /[^\W\d_]/u.test(x));
+  return (tu.slice(-2).map(x => x[0]).join('') || '?').toUpperCase();
+}
+function _dtToast(chu, kieu) {
+  const w = document.getElementById('dt-toast'), el = document.createElement('div');
+  el.className = 'toast ' + (kieu || 'info'); el.textContent = chu; w.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3800);
+}
+async function _dtApi(url, opts) {
+  const o = Object.assign({ credentials: 'same-origin' }, opts || {});
+  if (o.body && !(o.body instanceof FormData)) o.headers = Object.assign({ 'Content-Type': 'application/json' }, o.headers || {});
+  const r = await fetch(url, o);
+  const chu = await r.text();
+  let d = null; try { d = chu ? JSON.parse(chu) : null; } catch (e) { d = null; }
+  if (!r.ok) { const e = new Error((d && (d.error || d.detail)) || `HTTP ${r.status}`); e.status = r.status; throw e; }
+  return d;
+}
+const _DT_SVG = {
+  video: '<path d="m10 8 6 4-6 4z"/><rect x="3" y="5" width="18" height="14" rx="2"/>',
+  tai_lieu: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>',
+};
+
+/* ── Nạp ─────────────────────────────────────────────────────────────────── */
+function dtChonTab(pv) {
+  _dt.pv = pv;
+  document.querySelectorAll('.dt-tab').forEach(b => b.classList.toggle('is-chon', b.dataset.pv === pv));
+  dtTai(1);
+}
+let _dtTimer = null;
+function dtTimGo() { _dt.tim = document.getElementById('dt-tim').value; clearTimeout(_dtTimer); _dtTimer = setTimeout(() => dtTai(1), 300); }
+
+async function dtTai(trang) {
+  if (trang) _dt.trang = trang;
+  const luoi = document.getElementById('dt-luoi');
+  const p = new URLSearchParams({ trang: String(_dt.trang), so_dong: '12',
+                                  sap_xep: document.getElementById('dt-l-sx').value });
+  if (_dt.pv === 'danh_dau') p.set('danh_dau', 'true');
+  else if (_dt.pv) p.set('pham_vi', _dt.pv);
+  const pb = document.getElementById('dt-l-pb').value, cd = document.getElementById('dt-l-cd').value;
+  const loai = document.getElementById('dt-l-loai').value;
+  if (pb) p.set('phong_ban', pb);
+  if (cd) p.set('chu_de', cd);
+  if (loai) p.set('loai_nd', loai);
+  if (_dt.tim.trim()) p.set('q', _dt.tim.trim());
+  luoi.innerHTML = '<div class="dt-trong">Đang tải...</div>';
+  let d;
+  try { d = await _dtApi('/api/thu-vien?' + p.toString()); }
+  catch (e) { luoi.innerHTML = `<div class="dt-trong">Không tải được: ${_dtE(e.message)}</div>`; return; }
+  document.getElementById('dt-nut-tao').hidden = !d.duoc_tao;
+  document.getElementById('dt-tong').textContent = d.total ? `${d.total} nội dung` : '';
+  dtVeLuoi(d.items || []);
+  dtVeChuDe(d.chu_de_pho_bien || []);
+  dtVeNguoi(d.nguoi_chia_se || []);
+  dtVeOChon(d.chu_de_pho_bien || [], d.items || []);
+}
+function dtVeLuoi(ds) {
+  const luoi = document.getElementById('dt-luoi');
+  if (!ds.length) {
+    luoi.innerHTML = `<div class="dt-trong">Chưa có nội dung nào${_dt.pv === 'danh_dau' ? ' được đánh dấu' : ''}.
+      ${document.getElementById('dt-nut-tao').hidden ? '' : ' Bấm "Tạo nội dung đào tạo" để thêm.'}</div>`;
+    return;
+  }
+  luoi.innerHTML = ds.map(r => `<article class="nd">
+    <div class="nd-anh" onclick="dtMo(${r.id})">
+      ${r.url_anh ? `<img src="${_dtE(r.url_anh)}" alt="">` :
+        `<span class="nd-bieu"><svg class="dt-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${_DT_SVG[r.loai_nd] || _DT_SVG.tai_lieu}</svg></span>`}
+      <span class="nd-nhan nd-nhan--${_dtE(r.loai_nd)}">${_dtE(r.loai_nhan)}</span>
+      ${r.thoi_luong ? `<span class="nd-gio">${_dtGio(r.thoi_luong)}</span>` : (r.kich_thuoc ? `<span class="nd-gio">${_dtCo(r.kich_thuoc)}</span>` : '')}
+    </div>
+    <div class="nd-than">
+      <span class="nd-ten" onclick="dtMo(${r.id})">${_dtE(r.tieu_de)}</span>
+      <span class="nd-the">${(r.the || []).slice(0, 3).map(t => `<span class="the-chip">${_dtE(t)}</span>`).join('')}
+        ${r.chu_de ? `<span class="the-chip">${_dtE(r.chu_de)}</span>` : ''}</span>
+      <span class="nd-nguoi"><span class="nv-ava">${_dtE(_dtChuDau(r.nguoi_chia_se_ten))}</span>${_dtE(r.nguoi_chia_se_ten || '—')}</span>
+      <span class="nd-ngay">${_dtNgay(r.created_at)}${r.pham_vi === 'phong_ban' ? ' · ' + _dtE(r.phong_ban) : ' · Toàn công ty'}</span>
+    </div>
+    <div class="nd-chan">
+      <span class="nd-so"><svg class="dt-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>${r.luot_xem}</span>
+      <button type="button" class="nd-so ${r.da_thich ? 'is-thich' : ''}" style="border:0;background:none;cursor:pointer;font:inherit"
+              onclick="dtThich(${r.id})" aria-label="Thích">
+        <svg class="dt-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false" ${r.da_thich ? 'fill="currentColor"' : ''}><path d="M12 20s-7-4.4-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 4.6-7 9-7 9z"/></svg>${r.luot_thich}</button>
+      <span class="dt-day"></span>
+      <button type="button" class="dt-nut-icon ${r.da_danh_dau ? 'is-bat' : ''}" onclick="dtDanhDau(${r.id})"
+              title="Đánh dấu" aria-label="Đánh dấu">
+        <svg class="dt-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false" ${r.da_danh_dau ? 'fill="currentColor"' : ''}><path d="M6 3h12v18l-6-4.5L6 21z"/></svg></button>
+      <button type="button" class="dt-nut-icon" onclick="dtMo(${r.id})" title="Mở" aria-label="Mở">
+        <svg class="dt-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg></button>
+    </div></article>`).join('');
+}
+function dtVeChuDe(ds) {
+  const cd = document.getElementById('dt-l-cd').value;
+  document.getElementById('dt-chu-de').innerHTML = ds.length
+    ? ds.map(t => `<button type="button" class="dt-chip${cd === t.ten ? ' is-chon' : ''}"
+        onclick="dtLocChuDe('${_dtE(t.ten).replace(/'/g, "\\'")}')">${_dtE(t.ten)} (${t.so})</button>`).join('')
+    : '<span class="nd-ngay">Chưa có chủ đề nào — chủ đề hiện ra khi nội dung được gắn.</span>';
+}
+function dtVeNguoi(ds) {
+  document.getElementById('dt-nguoi').innerHTML = ds.length
+    ? ds.map(n => `<div class="dt-nguoi"><span class="nv-ava">${_dtE(_dtChuDau(n.ten || n.username))}</span>
+        <b>${_dtE(n.ten || n.username)}</b><small>${_dtE(n.chuc_vu || '')}</small>
+        <small>${n.so} nội dung</small></div>`).join('')
+    : '<span class="nd-ngay">Chưa có ai chia sẻ nội dung.</span>';
+}
+function dtVeOChon(chuDe, items) {
+  const s1 = document.getElementById('dt-l-cd'), cu1 = s1.value;
+  const dsCd = [...new Set(chuDe.map(t => t.ten).concat((_dt.meta && _dt.meta.chu_de) || []))];
+  s1.innerHTML = '<option value="">Tất cả chủ đề</option>' + dsCd.map(t => `<option value="${_dtE(t)}">${_dtE(t)}</option>`).join('');
+  s1.value = cu1;
+  const s2 = document.getElementById('dt-l-loai'), cu2 = s2.value;
+  s2.innerHTML = '<option value="">Tất cả loại nội dung</option>' +
+    ((_dt.meta && _dt.meta.loai_nd) || []).map(l => `<option value="${_dtE(l.ma)}">${_dtE(l.ten)}</option>`).join('');
+  s2.value = cu2;
+  const s3 = document.getElementById('dt-l-pb'), cu3 = s3.value;
+  const dsPb = [...new Set(items.map(r => r.phong_ban).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
+  if (dsPb.length) {
+    s3.innerHTML = '<option value="">Tất cả phòng ban</option>' + dsPb.map(p => `<option value="${_dtE(p)}">${_dtE(p)}</option>`).join('');
+    s3.value = cu3;
+  }
+}
+function dtLocChuDe(t) {
+  const s = document.getElementById('dt-l-cd');
+  s.value = (s.value === t) ? '' : t;
+  dtTai(1);
+}
+
+/* ── Tương tác ───────────────────────────────────────────────────────────── */
+async function dtMo(id) {
+  try {
+    const r = await _dtApi('/api/thu-vien/' + id);
+    await _dtApi(`/api/thu-vien/${id}/xem`, { method: 'POST' });
+    if (r.loai_nd === 'link' && r.link_url) window.open(r.link_url, '_blank', 'noopener');
+    else if (r.url_tep) window.open(r.url_tep, '_blank', 'noopener');
+    else _dtToast('Nội dung này không có tệp đính kèm', 'info');
+    dtTai();
+  } catch (e) { _dtToast('Không mở được: ' + e.message, 'error'); }
+}
+async function dtThich(id) {
+  try { await _dtApi(`/api/thu-vien/${id}/thich`, { method: 'POST' }); dtTai(); }
+  catch (e) { _dtToast('Không gửi được: ' + e.message, 'error'); }
+}
+async function dtDanhDau(id) {
+  try {
+    const d = await _dtApi(`/api/thu-vien/${id}/danh-dau`, { method: 'POST' });
+    _dtToast(d.bat ? 'Đã đánh dấu' : 'Đã bỏ đánh dấu', 'ok'); dtTai();
+  } catch (e) { _dtToast('Không gửi được: ' + e.message, 'error'); }
+}
+
+/* ── Modal tạo ───────────────────────────────────────────────────────────── */
+function dtMoModal() { document.getElementById('dt-modal').hidden = false; }
+function dtDongModal() { document.getElementById('dt-modal').hidden = true; }
+function dtDem() { document.getElementById('dt-f-dem').textContent = `${document.getElementById('dt-f-mota').value.length}/1000`; }
+function dtDoiLoai() {
+  const l = document.getElementById('dt-f-loai').value;
+  document.getElementById('dt-o-link').hidden = l !== 'link';
+  document.getElementById('dt-o-tep').hidden = l === 'link';
+  document.getElementById('dt-o-thoi-luong').hidden = l !== 'video';
+}
+function dtDoiPhamVi() { document.getElementById('dt-o-pb').hidden = document.getElementById('dt-f-pv').value !== 'phong_ban'; }
+function dtChonTep(inp) {
+  const f = inp.files[0]; if (!f) return;
+  const toiDa = ((_dt.meta && _dt.meta.toi_da_mb) || 2048) * 1024 * 1024;
+  if (f.size > toiDa) { _dtToast(`Tệp quá lớn — tối đa ${(_dt.meta.toi_da_mb / 1024).toFixed(0)}GB`, 'error'); inp.value = ''; return; }
+  _dt.tep = f;
+  document.getElementById('dt-tep-hien').innerHTML = `<div class="dt-tep">
+    <svg class="dt-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m20 6-11 11-5-5"/></svg>
+    <b>${_dtE(f.name)}</b><small>${_dtCo(f.size)}</small>
+    <button type="button" class="dt-nut-icon" onclick="dtBoTep()" aria-label="Bỏ tệp">
+      <svg class="dt-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div>`;
+}
+function dtBoTep() { _dt.tep = null; document.getElementById('dt-tep-hien').innerHTML = ''; document.getElementById('dt-f-tep').value = ''; }
+function dtChonAnh(inp) {
+  const f = inp.files[0]; if (!f) return;
+  _dt.anh = f; document.getElementById('dt-anh-ten').textContent = f.name;
+}
+function dtThePhim(e) {
+  if (e.key !== 'Enter' && e.key !== ',') return;
+  e.preventDefault();
+  const inp = e.target, v = inp.value.trim().replace(/,$/, '');
+  if (v && _dt.the.length < 12 && _dt.the.indexOf(v) < 0) { _dt.the.push(v); dtVeThe(); }
+  inp.value = '';
+}
+function dtVeThe() {
+  const hop = document.getElementById('dt-the-nhap'), inp = document.getElementById('dt-f-the');
+  [...hop.querySelectorAll('.dt-the')].forEach(x => x.remove());
+  _dt.the.forEach((t, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'dt-the'; b.innerHTML = `${_dtE(t)} <span aria-hidden="true">×</span>`;
+    b.setAttribute('aria-label', 'Bỏ thẻ ' + t);
+    b.onclick = () => { _dt.the.splice(i, 1); dtVeThe(); };
+    hop.insertBefore(b, inp);
+  });
+}
+(function () {
+  const z = document.getElementById('dt-tha');
+  ['dragenter', 'dragover'].forEach(k => z.addEventListener(k, e => { e.preventDefault(); z.classList.add('is-keo'); }));
+  ['dragleave', 'drop'].forEach(k => z.addEventListener(k, e => { e.preventDefault(); z.classList.remove('is-keo'); }));
+  z.addEventListener('drop', e => {
+    const f = (e.dataTransfer.files || [])[0];
+    if (f) { const inp = document.getElementById('dt-f-tep'); const dt = new DataTransfer(); dt.items.add(f); inp.files = dt.files; dtChonTep(inp); }
+  });
+})();
+
+async function dtGui(ev) {
+  if (ev) ev.preventDefault();
+  if (_dt.dangGui) return false;
+  const loai = document.getElementById('dt-f-loai').value;
+  const ten = document.getElementById('dt-f-ten').value.trim();
+  if (!ten) { _dtToast('Nhập tiêu đề', 'error'); return false; }
+  if (loai === 'link' && !document.getElementById('dt-f-link').value.trim()) { _dtToast('Nhập đường dẫn', 'error'); return false; }
+  if (loai !== 'link' && !_dt.tep) { _dtToast('Chọn tệp để tải lên', 'error'); return false; }
+
+  const fd = new FormData();
+  fd.append('tieu_de', ten);
+  fd.append('mo_ta', document.getElementById('dt-f-mota').value.trim());
+  fd.append('loai_nd', loai);
+  fd.append('chu_de', document.getElementById('dt-f-cd').value);
+  fd.append('pham_vi', document.getElementById('dt-f-pv').value);
+  fd.append('phong_ban', document.getElementById('dt-f-pb').value || '');
+  fd.append('link_url', document.getElementById('dt-f-link').value.trim());
+  fd.append('the', _dt.the.join(','));
+  fd.append('nguoi_chia_se', document.getElementById('dt-f-nguoi').value || '');
+  fd.append('thoi_luong', String((Number(document.getElementById('dt-f-phut').value) || 0) * 60));
+  fd.append('gui_thong_bao', document.getElementById('dt-f-bao').checked ? 'true' : 'false');
+  if (_dt.tep) fd.append('tep', _dt.tep);
+  if (_dt.anh) fd.append('anh', _dt.anh);
+
+  const nut = document.getElementById('dt-nut-gui');
+  _dt.dangGui = true; nut.disabled = true; nut.textContent = 'Đang tải lên...';
+  const thanh = document.getElementById('dt-tien-do'), thanhI = document.getElementById('dt-tien-do-i');
+  thanh.hidden = false; thanhI.style.width = '0';
+  try {
+    // XHR thay vì fetch để có tiến độ tải lên — tệp video 2GB mà không thấy gì chạy thì
+    // người dùng tưởng treo và bấm lại, tạo hai bản.
+    await new Promise((ok, loi) => {
+      const x = new XMLHttpRequest();
+      x.open('POST', '/api/thu-vien');
+      x.withCredentials = true;
+      x.upload.onprogress = e => { if (e.lengthComputable) thanhI.style.width = (e.loaded / e.total * 100).toFixed(0) + '%'; };
+      x.onload = () => (x.status >= 200 && x.status < 300) ? ok(null)
+        : loi(new Error((() => { try { return JSON.parse(x.responseText).error; } catch (e) { return 'HTTP ' + x.status; } })()));
+      x.onerror = () => loi(new Error('Mất kết nối khi tải lên'));
+      x.send(fd);
+    });
+    _dtToast('Đã tạo nội dung đào tạo', 'ok');
+    dtDongModal(); dtXoaForm(); dtTai(1);
+  } catch (e) {
+    _dtToast('Không tạo được: ' + (e.message || ''), 'error');
+  } finally {
+    _dt.dangGui = false; nut.disabled = false; nut.textContent = 'Tạo tài liệu'; thanh.hidden = true;
+  }
+  return false;
+}
+function dtXoaForm() {
+  ['dt-f-ten', 'dt-f-mota', 'dt-f-link', 'dt-f-phut'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('dt-f-bao').checked = false;
+  _dt.the = []; _dt.tep = null; _dt.anh = null;
+  dtVeThe(); dtBoTep(); dtDem();
+  document.getElementById('dt-anh-ten').textContent = 'Tải ảnh lên';
+}
+document.getElementById('dt-modal').addEventListener('click', e => { if (e.target.id === 'dt-modal') dtDongModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') dtDongModal(); });
+
+/* ── Khởi động ───────────────────────────────────────────────────────────── */
+(async function () {
+  try {
+    _dt.meta = await _dtApi('/api/thu-vien/meta');
+    document.getElementById('dt-f-loai').innerHTML = (_dt.meta.loai_nd || []).map(l => `<option value="${_dtE(l.ma)}">${_dtE(l.ten)}</option>`).join('');
+    document.getElementById('dt-f-cd').innerHTML = '<option value="">— Chọn chủ đề —</option>' +
+      (_dt.meta.chu_de || []).map(t => `<option value="${_dtE(t)}">${_dtE(t)}</option>`).join('');
+    document.getElementById('dt-f-pv').innerHTML = (_dt.meta.pham_vi || []).map(p => `<option value="${_dtE(p.ma)}">${_dtE(p.ten)}</option>`).join('');
+    document.getElementById('dt-tha-mo-ta').textContent =
+      `Hỗ trợ: ${(_dt.meta.duoi_ho_tro || []).slice(0, 8).join(', ').toUpperCase()} (tối đa ${(_dt.meta.toi_da_mb / 1024).toFixed(0)}GB)`;
+    dtDoiLoai(); dtDoiPhamVi();
+  } catch (e) { /* fail-soft: vẫn xem được thư viện, chỉ không tạo được */ }
+  // Danh sách người để chọn "Người chia sẻ" — dùng lại API của màn Đề xuất, fail-soft.
+  try {
+    const ds = await _dtApi('/api/de-xuat/nhan-vien');
+    document.getElementById('dt-f-nguoi').innerHTML = '<option value="">— Tôi —</option>' +
+      (ds || []).map(n => `<option value="${_dtE(n.username)}">${_dtE(n.ho_ten || n.username)}</option>`).join('');
+    const pb = [...new Set((ds || []).map(n => n.phong_ban).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
+    document.getElementById('dt-f-pb').innerHTML = '<option value="">— Phòng ban của tôi —</option>' +
+      pb.map(p => `<option value="${_dtE(p)}">${_dtE(p)}</option>`).join('');
+  } catch (e) { /* fail-soft */ }
+  dtTai(1);
+})();
+</script>
+</body>
+</html>

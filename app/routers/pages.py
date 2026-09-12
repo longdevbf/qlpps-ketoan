@@ -149,6 +149,17 @@ def dao_tao_page(
     )
 
 
+
+@router.get("/buoi-dao-tao", response_class=HTMLResponse, name="buoi_dao_tao")
+def buoi_dao_tao_page(
+    request: Request,
+    user: Annotated[JWTPayload, Depends(_require_user_redirect)],
+):
+    return templates.TemplateResponse(
+        "buoi_dao_tao.html",
+        {"request": request, "user": user_ctx(user)},
+    )
+
 @router.get("/xin-nghi", response_class=HTMLResponse, name="xin_nghi")
 def xin_nghi_page(
     request: Request,
