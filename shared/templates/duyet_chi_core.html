@@ -488,7 +488,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
           <svg class="dc-ic dc-mui" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
         </button>
         <div class="dc-noi" id="dc-noi-loc" role="dialog" aria-label="Bộ lọc" hidden>
-          {% if user and user.get('vai_tro','') in ['ceo','admin','assistant_ceo','manager','leader','ke_toan','ketoan'] %}
+          {% if user and user.get('vai_tro','') in ['ceo','admin','assistant_ceo','manager','leader','ke_toan','ketoan','kt'] %}
           <label class="dc-noi-truong">Phạm vi
             <select id="dc-pham-vi" onchange="dcLoc()">
               <option value="">Tất cả đề xuất</option>
@@ -647,7 +647,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
 </div>
 
 <script>
-const IS_APPROVER = {{ 'true' if user and user.get('vai_tro','') in ['ceo','admin','assistant_ceo','manager','leader','ke_toan','ketoan'] else 'false' }};
+const IS_APPROVER = {{ 'true' if user and user.get('vai_tro','') in ['ceo','admin','assistant_ceo','manager','leader','ke_toan','ketoan','kt'] else 'false' }};
 const MY_USERNAME = '{{ user.username if user else "" }}';
 const MY_ROLE = '{{ user.vai_tro if user else "" }}';
 
@@ -1086,7 +1086,7 @@ function dcMoHop(mode) {
   document.getElementById('rv-han-tt').value = String(d.han_thanh_toan || '').slice(0, 10);
   document.getElementById('rv-nhan-xet-nhan').innerHTML = duyet
     ? 'Nhận xét <span class="dc-tuy">(tùy chọn)</span>'
-    : 'Lý do từ chối <span class="dc-tuy">(nên ghi để người đề xuất biết sửa gì)</span>';
+    : 'Lý do từ chối <span class="dc-tuy">(bắt buộc — gửi tới người đề xuất để biết sửa gì)</span>';
   const tx = document.getElementById('rv-nhan-xet');
   tx.value = '';
   tx.placeholder = duyet ? 'Nhập nhận xét...' : 'Nhập lý do từ chối...';
@@ -1323,6 +1323,13 @@ async function doReview(trang_thai) {
   const id = _dc.chon;
   if (!id) return;
   const nhan_xet = (document.getElementById('rv-nhan-xet')?.value || '').trim();
+  // Từ chối bắt buộc có lý do — luật chuyển từ màn Phê duyệt sang khi bỏ Duyệt chi khỏi đó (14/09/2026).
+  // Chặn ở đây, TRƯỚC khi khoá nút, để người duyệt nhập lý do rồi bấm lại được ngay.
+  if (trang_thai === 'tu_choi' && !nhan_xet) {
+    showToast('Nhập lý do trước khi từ chối', 'error');
+    document.getElementById('rv-nhan-xet')?.focus();
+    return;
+  }
   // Từ chối thì KHÔNG gửi hạn thanh toán — ô đó ẩn, gửi lên là đổi hạn của đơn bị từ chối.
   const han_thanh_toan = trang_thai === 'da_duyet' ? (document.getElementById('rv-han-tt')?.value || null) : null;
   const ok = document.getElementById('dc-hop-ok');

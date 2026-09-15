@@ -831,11 +831,12 @@ body.sb-min .ab-sb-g,body.sb-min .ab-sb-top{position:relative}
       .then(function(d){ if (d) dat('chi', d.pending_for_me || 0); })
       .catch(function(){});
 
-    /* 3) Phê duyệt — tổng mọi việc chờ duyệt, gộp 6 hàng đợi giống trang
-       /phe-duyet (số "Tất cả"). Mỗi call fail-soft: endpoint hỏng/thiếu → 0. */
+    /* 3) Phê duyệt — tổng mọi việc chờ duyệt, gộp 5 hàng đợi giống trang
+       /phe-duyet (số "Tất cả"). Mỗi call fail-soft: endpoint hỏng/thiếu → 0.
+       KHÔNG cộng /api/duyet-chi/queue/me: từ 14/09/2026 phiếu chi chỉ duyệt ở màn
+       Duyệt chi (đếm riêng ở mục 2), trang Phê duyệt không còn nguồn đó. */
     var _pdUrls = [
       '/api/xin-nghi?trang_thai=cho_duyet',
-      '/api/duyet-chi/queue/me',
       '/api/lenh-di-do/cho-duyet',
       '/api/cong-trinh/admin?status_filter=cho_duyet',
       '/api/de-nghi-tt?trang_thai=cho_duyet',

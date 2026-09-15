@@ -13,8 +13,12 @@
    · Mục app CHƯA có trang → hiện mờ + nhãn "Sắp có", không bấm được — thay vì dẫn
      tới trang 404. Tự dò bằng danh sách route của chính app (`request.app.routes`),
      không phải khai tay.
-   · Khác ảnh mẫu, có chủ ý: dưới 11 mục giữ Đề xuất · Đổi ảnh đại diện · Đổi mật
-     khẩu — ba việc này không có đường vào nào khác (đếm trong 7 header 11/09/2026).
+   · Khác ảnh mẫu, có chủ ý: dưới 11 mục giữ Đề xuất — không có đường vào nào khác
+     (đếm trong 7 header 11/09/2026). Chỉ hiện khi app có route `/de-xuat`.
+   · "Đổi ảnh đại diện" và "Đổi mật khẩu" đã BỎ 14/09/2026 (người dùng: "đã có trong
+     trang hồ sơ rồi"). Trang Hồ sơ nhân sự `/ho-so-ca-nhan` — cả 8 app đều có — làm
+     được cả hai: nút máy ảnh trên ảnh đại diện (POST /api/profile/avatar) và mục Đổi
+     mật khẩu (PUT /api/profile, action change_password).
      Mục riêng từng app (Zalo OA, Chi tập trung…) đã có ở thanh bên nên không đưa vào.
    · Header có thể khai TRƯỚC khi include:
        tk_lien_ket = {'phe_duyet': '/#phe-duyet'}   đường dẫn riêng (vd HCNS là SPA)
@@ -25,9 +29,7 @@
                                                     huy hiệu. baogia: chấm đỏ trên avatar đếm
                                                     đúng Duyệt đơn + Duyệt đăng ký nghỉ, bỏ hai
                                                     mục đó thì chấm đỏ không còn chỗ giải thích
-       tk_doi_anh  = "<js>"                         lệnh mở ô chọn ảnh / modal đổi mật khẩu cho
-       tk_doi_mk   = "<js>"                         header không theo mẫu 7 app (baogia)
-   · Mặc định cần sẵn trong header: `#ab-ava-upload` (ô chọn ảnh), `abOpenProfile()`.
+   · `tk_doi_anh` / `tk_doi_mk` (header baogia còn khai) KHÔNG còn tác dụng từ 14/09/2026.
    ═══════════════════════════════════════════════════════════════════════════ #}
 <style>
 /* Đặc hiệu (0,2,0) thắng `.ab-item` riêng của từng header — cả 8 header đang tô mục
@@ -35,12 +37,12 @@
 /* Khung: bề rộng lấy từ `--u-w` mà `_header.html` đặt cho CẢ nút tài khoản (12/09/2026,
    người dùng: "ô account ngang bằng với dropdown"). Trước đây chỗ này chốt cứng 260px
    còn nút thì co theo nội dung nên thả xuống là lệch. Vẫn giữ max-content để nhãn dài
-   (VD "Tài liệu / Văn bản" + nhãn "Sắp có") không bị xuống dòng; 15 mục cao ~560px nên
-   màn thấp thì cuộn trong menu. */
+   (VD "Tài liệu / Văn bản" + nhãn "Sắp có") không bị xuống dòng; menu dài (thêm tk_them)
+   thì màn thấp cuộn trong menu. */
 .ab-user .ab-umenu{width:max-content;min-width:var(--u-w,260px);max-width:calc(100vw - 16px);
      max-height:calc(100vh - 76px);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain}
-/* Cột dọc: <button> có `width:auto` nghĩa là CO THEO CHỮ, khác <a> giãn hết hàng — nên
-   'Đổi ảnh đại diện' và 'Đổi mật khẩu' từng có nền hover ngắn hơn các mục còn lại.
+/* Cột dọc: <button> có `width:auto` nghĩa là CO THEO CHỮ, khác <a> giãn hết hàng — hai nút
+   'Đổi ảnh đại diện' / 'Đổi mật khẩu' (đã bỏ 14/09/2026) từng có nền hover ngắn hơn mục khác.
    Đặt .tk-ds thành flex cột thì mọi mục tự kéo bằng nhau (align-items mặc định stretch). */
 .ab-umenu .tk-ds{display:flex;flex-direction:column;padding:var(--sp-3) 0}
 .ab-umenu .tk-muc{display:flex;align-items:center;gap:var(--sp-6);width:auto;margin:0 var(--sp-3);padding:var(--sp-4) var(--sp-6);
@@ -76,8 +78,6 @@
   'sach':    '<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>',
   'thumuc':  '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   'dexuat':  '<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V16h8v-1.3A7 7 0 0 0 12 2Z"/>',
-  'anh':     '<path d="M3 8a2 2 0 0 1 2-2h2l2-3h6l2 3h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/>',
-  'khoa':    '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   'ra':      '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>'
 }[ten] | safe }}</svg>
 {%- endmacro -%}
@@ -87,8 +87,6 @@
 {%- set _tk_an = tk_an if tk_an is defined else [] -%}
 {%- set _tk_mgr = tk_duyet if tk_duyet is defined else (user and user._is_mgr) -%}
 {%- set _tk_them = tk_them if tk_them is defined else [] -%}
-{%- set _tk_doi_anh = tk_doi_anh if tk_doi_anh is defined else "document.getElementById('ab-ava-upload').click()" -%}
-{%- set _tk_doi_mk = tk_doi_mk if tk_doi_mk is defined else "abOpenProfile()" -%}
 {#- (khoá, nhãn, đường dẫn mặc định, icon) — đúng thứ tự ảnh mẫu -#}
 {%- set _tk_muc = [
   ('cham_cong',     'Chấm công',          '/cham-cong',        'dongho'),
@@ -123,14 +121,12 @@
   {%- endif %}
 {%- endfor %}
 </nav>
+{%- if '/de-xuat' in _tk_routes %}
 <div class="ab-div"></div>
 <div class="tk-ds">
-  {%- if '/de-xuat' in _tk_routes %}
   <a href="/de-xuat" class="ab-item tk-muc{% if _tk_path == '/de-xuat' %} is-dang-o{% endif %}">{{ _tk_ic('dexuat') }}<span>Đề xuất</span></a>
-  {%- endif %}
-  <button type="button" class="ab-item tk-muc" onclick="{{ _tk_doi_anh }}">{{ _tk_ic('anh') }}<span>Đổi ảnh đại diện</span></button>
-  <button type="button" class="ab-item tk-muc" onclick="{{ _tk_doi_mk }}">{{ _tk_ic('khoa') }}<span>Đổi mật khẩu</span></button>
 </div>
+{%- endif %}
 <div class="ab-div"></div>
 <div class="tk-ds">
   <a href="/logout" class="ab-item tk-muc ab-logout">{{ _tk_ic('ra') }}<span>Đăng xuất</span></a>

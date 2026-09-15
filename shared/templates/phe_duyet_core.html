@@ -26,14 +26,18 @@
    và hai nút Từ chối / Phê duyệt.
 
    KHÁC ẢNH MẪU — có chủ ý, vì chỉ hiện dữ liệu CÓ THẬT:
-     · Tab = 4 nguồn đã có API "chờ tôi duyệt": Xin nghỉ · Đi công tác (lệnh đi đo +
-       công trình) · Đề xuất · Duyệt chi. Ảnh có thêm "Đơn PO" và "Đơn hàng" —
+     · Tab = 3 nguồn đã có API "chờ tôi duyệt": Xin nghỉ · Đi công tác (lệnh đi đo +
+       công trình) · Đề xuất. Ảnh có thêm "Đơn PO" và "Đơn hàng" —
        hai loại này CHƯA có endpoint chờ-duyệt nên chưa hiện (người dùng chốt
        12/09/2026: làm loại đã có API trước).
+     · KHÔNG có Duyệt chi — bỏ 14/09/2026 (người dùng chốt). Phần duyệt giống hệt màn
+       /duyet-chi (cùng /api/duyet-chi/queue/me + PUT /duyet) nhưng ở đây thiếu hạn thanh
+       toán, thêm/xoá chứng từ, và đơn cũ còn chờ bị lọc mất (màn này mặc định tháng này);
+       app CEO đã bỏ từ 13/06/2026. Phiếu chi chỉ duyệt ở màn Duyệt chi — đừng thêm lại.
      · Riêng app CEO có thêm tab "Nguồn khác" lấy từ `/api/inbox` (đơn PO, báo giá,
        đề nghị thanh toán…) — CEO vốn có màn gom 8 nguồn, không được để mất.
      · Không có tab "Sản phẩm" trong ngăn chi tiết: không nguồn nào trả dòng hàng.
-     · "Giá trị / Thời gian" = tiền với Duyệt chi + Đề xuất, số ngày với Xin nghỉ,
+     · "Giá trị / Thời gian" = tiền với Đề xuất và nguồn riêng, số ngày với Xin nghỉ,
        khoảng giờ với lệnh đi đo — đúng thứ mỗi loại thật sự có.
      · Không có ô chọn nhiều dòng: không API nào duyệt hàng loạt.
 
@@ -462,7 +466,8 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
     </div>
     <ul>
       <li>Màn này gom các yêu cầu <b>đang chờ chính bạn duyệt</b>; đơn của phòng khác hoặc cấp khác không hiện ở đây.</li>
-      <li>Duyệt chi và Đề xuất đi theo nhiều cấp — duyệt xong ở cấp của bạn, đơn tự chuyển cho cấp kế tiếp.</li>
+      <li>Đề xuất đi theo nhiều cấp — duyệt xong ở cấp của bạn, đơn tự chuyển cho cấp kế tiếp.</li>
+      <li>Phiếu chi duyệt ở màn <a class="btn-link" href="/duyet-chi">Duyệt chi</a> — có hạn thanh toán, chứng từ và cả đơn cũ còn chờ.</li>
       <li>Từ chối bắt buộc ghi lý do; lý do được gửi tới người tạo đơn và lưu vào lịch sử.</li>
       <li>Số liệu lấy trực tiếp từ từng nguồn khi mở màn — bấm tải lại trình duyệt để cập nhật.</li>
     </ul>
@@ -491,7 +496,6 @@ const _PD_LOAI = {
   ldd:   { nhan: 'Đi công tác',  lop: 'pd-loai--di',   tile: 'ico-tile',          tab: 'di' },
   ct:    { nhan: 'Đi công tác',  lop: 'pd-loai--di',   tile: 'ico-tile',          tab: 'di' },
   dx:    { nhan: 'Đề xuất',      lop: 'pd-loai--dx',   tile: 'ico-tile--warning', tab: 'dx' },
-  chi:   { nhan: 'Duyệt chi',    lop: 'pd-loai--chi',  tile: 'ico-tile--success', tab: 'chi' },
   khac:  { nhan: 'Nguồn khác',   lop: 'pd-loai--khac', tile: 'ico-tile--neutral', tab: 'khac' },
   // Nguồn riêng theo app — chỉ nạp ở đúng app sở hữu (xem pdTai).
   don_hang:  { nhan: 'Đơn hàng',       lop: 'pd-loai--dh',  tile: 'ico-tile--tim',     tab: 'don_hang' },
@@ -502,11 +506,11 @@ const _PD_LOAI = {
   ktd:       { nhan: 'KT duyệt đơn',   lop: 'pd-loai--dh',  tile: 'ico-tile--tim',     tab: 'ktd' },
   coc:       { nhan: 'Cọc bổ sung',    lop: 'pd-loai--dh',  tile: 'ico-tile--tim',     tab: 'coc' },
 };
-/* 5 tab đầu là CHUNG cho mọi app, luôn hiện. Các tab sau chỉ mọc ở app có nguồn đó
+/* 4 tab đầu là CHUNG cho mọi app, luôn hiện. Các tab sau chỉ mọc ở app có nguồn đó
    (Báo giá: đơn hàng + đổi ngày giao · Mua hàng: đơn PO · Kế toán: 4 khối · CEO: nguồn khác). */
-const _PD_TAB_CHUNG = ['all', 'nghi', 'di', 'dx', 'chi'];
+const _PD_TAB_CHUNG = ['all', 'nghi', 'di', 'dx'];
 const _PD_TAB = [
-  ['all', 'Tất cả'], ['nghi', 'Xin nghỉ'], ['di', 'Đi công tác'], ['dx', 'Đề xuất'], ['chi', 'Duyệt chi'],
+  ['all', 'Tất cả'], ['nghi', 'Xin nghỉ'], ['di', 'Đi công tác'], ['dx', 'Đề xuất'],
   ['don_hang', 'Đơn hàng'], ['ngay_giao', 'Đổi ngày giao'], ['po', 'Đơn PO'],
   ['dntt', 'Đề nghị TT'], ['ncc', 'Trả NCC'], ['ktd', 'KT duyệt đơn'], ['coc', 'Cọc bổ sung'],
   ['khac', 'Nguồn khác'],
@@ -529,16 +533,12 @@ const _PD_TT = {
 const _PD_CHO = ['cho_duyet', 'pending', 'cho_manager', 'cho_ceo', 'kt_pending', 'Chờ xác nhận'];
 function _pdDangCho(tt) { return _PD_CHO.indexOf(tt) >= 0; }
 /* Nhãn chép NGUYÊN VĂN từ router để hai nơi không nói khác nhau:
-   xin_nghi.py:_LOAI_NGHI_LABELS · duyet_chi.py:_LOAI_CHI_LABELS · de_xuat.py:_LOAI_LABELS.
+   xin_nghi.py:_LOAI_NGHI_LABELS · de_xuat.py:_LOAI_LABELS.
    Đoán nhãn là hiện chữ thô kiểu "nghi_khong_luong" trên bảng (thấy ở ảnh thật 12/09/2026). */
 const _PD_NGHI = {
   nghi_khong_luong: 'Nghỉ Không Lương', nghi_phep: 'Nghỉ Phép Năm', doi_ca: 'Nghỉ Đổi Ca',
   xin_thoi_viec: 'Xin Thôi Việc', nghi_bu: 'Nghỉ Bù', nghi_om: 'Nghỉ Ốm',
   viec_rieng: 'Việc Riêng', nghi_le: 'Nghỉ Lễ / Tết',
-};
-const _PD_CHI = {
-  di_chuyen: 'Di Chuyển / Xăng xe', van_phong: 'Văn Phòng Phẩm', tiep_thi: 'Tiếp Thị / Quảng cáo',
-  dao_tao: 'Đào Tạo', khach_hang: 'Tiếp Khách', khac: 'Chi Phí Khác',
 };
 const _PD_DX = {
   cai_tien: 'Cải tiến cách làm', viec_moi: 'Việc mới / Sáng kiến', van_de: 'Vấn đề cần xử lý', khac: 'Khác',
@@ -607,22 +607,6 @@ function _pdHangNghi(x) {
       ['Số ngày', _pdSoNgay(x.so_ngay)], ['Lý do', x.ly_do], ['Ghi chú', x.ghi_chu],
     ],
     ls: x.ngay_duyet ? [{ chu: (_PD_TT[x.trang_thai] || [, x.trang_thai])[1], boi: x.ho_ten_nguoi_duyet || x.nguoi_duyet, luc: x.ngay_duyet, ghi: x.nhan_xet_duyet }] : [],
-    raw: x,
-  };
-}
-function _pdHangChi(x) {
-  return {
-    khoa: 'chi:' + x.id, nguon: 'chi', id: x.id, ma: 'CHI-' + x.id, tieu_de: x.tieu_de || 'Đề nghị chi',
-    phu: _PD_CHI[x.loai_chi] || x.loai_chi || '', nguoi: x.ho_ten || x.username, nguoi_id: x.username,
-    phong_ban: x.phong_ban || '', gia_tri: _pdTien(x.so_tien), so: Number(x.so_tien) || 0,
-    ngay_tao: x.created_at || x.ngay_de_xuat, han: x.han_thanh_toan || '', trang_thai: x.trang_thai,
-    tep: (x.chung_tu_urls || []).map(u => ({ ten: String(u).split('/').pop(), url: u })),
-    ct: [
-      ['Loại chi', _PD_CHI[x.loai_chi] || x.loai_chi], ['Số tiền', _pdTien(x.so_tien)],
-      ['Ngày đề xuất', _pdNgay(x.ngay_de_xuat)], ['Hạn thanh toán', _pdNgay(x.han_thanh_toan)],
-      ['Cấp đang duyệt', x.approval_level], ['Mục đích', x.muc_dich], ['Ghi chú', x.ghi_chu],
-    ],
-    ls: (x.approval_history || []).map(h => ({ chu: (h.action || h.trang_thai || h.level), boi: h.ho_ten || h.username, luc: h.at || h.time || h.created_at, ghi: h.nhan_xet || h.comment })),
     raw: x,
   };
 }
@@ -814,12 +798,11 @@ async function pdTai() {
   }
   _pd.loi = [];
   const rieng = (app, ten, url) => (PD_APP === app ? _pdLay(ten, url) : null);
-  const [nghiCho, nghiXong1, nghiXong2, chi, dx, ldd, ct, khac,
+  const [nghiCho, nghiXong1, nghiXong2, dx, ldd, ct, khac,
          donHang, ngayGiao, po, dntt, ncc, ktd, coc] = await Promise.all([
     _pdLay('Xin nghỉ', '/api/xin-nghi?trang_thai=cho_duyet'),
     _pdLay('Xin nghỉ', '/api/xin-nghi?trang_thai=da_duyet'),
     _pdLay('Xin nghỉ', '/api/xin-nghi?trang_thai=tu_choi'),
-    _pdLay('Duyệt chi', '/api/duyet-chi/queue/me'),
     _pdLay('Đề xuất', '/api/de-xuat/queue/me'),
     _pdLay('Lệnh đi đo', '/api/lenh-di-do/cho-duyet'),
     _pdLay('Công trình', '/api/cong-trinh/admin?status_filter=cho_duyet'),
@@ -836,7 +819,7 @@ async function pdTai() {
   ]);
   const hang = []
     .concat((nghiCho || []).map(_pdHangNghi), (nghiXong1 || []).map(_pdHangNghi), (nghiXong2 || []).map(_pdHangNghi))
-    .concat((chi || []).map(_pdHangChi), (dx || []).map(_pdHangDx))
+    .concat((dx || []).map(_pdHangDx))
     .concat((ldd || []).map(_pdHangLdd), (ct || []).map(_pdHangCt))
     .concat((khac || []).map(_pdHangInbox))
     .concat((donHang || []).map(_pdHangDonHang), (ngayGiao || []).map(_pdHangNgayGiao))
@@ -1047,7 +1030,6 @@ async function pdQuyet(quyet) {
   _pd.dangGui = true; nut1.disabled = nut2.disabled = true;
   try {
     if (h.nguon === 'nghi') await _pdApi(`/api/xin-nghi/${h.id}/duyet`, { method: 'PUT', body: JSON.stringify({ trang_thai: quyet, nhan_xet_duyet: ykien }) });
-    else if (h.nguon === 'chi') await _pdApi(`/api/duyet-chi/${h.id}/duyet`, { method: 'PUT', body: JSON.stringify({ trang_thai: quyet, nhan_xet_duyet: ykien }) });
     else if (h.nguon === 'dx') await _pdApi(`/api/de-xuat/${h.id}/duyet`, { method: 'PUT', body: JSON.stringify({ trang_thai: quyet, nhan_xet_duyet: ykien }) });
     else if (h.nguon === 'ldd') await _pdApi(`/api/lenh-di-do/${h.id}/duyet`, { method: 'PATCH', body: JSON.stringify({ status: quyet, note_duyet: ykien }) });
     else if (h.nguon === 'ct') await _pdApi(`/api/cong-trinh/${h.id}/duyet`, { method: 'PATCH', body: JSON.stringify({ status: quyet, note_duyet: ykien }) });
