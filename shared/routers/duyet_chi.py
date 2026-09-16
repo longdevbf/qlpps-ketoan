@@ -890,9 +890,17 @@ class ChiBody(BaseModel):
 
 
 def _can_chi(user: JWTPayload, db: Session) -> bool:
-    """Được bấm Chi: CEO/admin HOẶC người có app 'ketoan' (đội kế toán)."""
+    """Được bấm Chi: CEO/admin, HOẶC người duyệt cấp Kế toán (manager/leader/kt CÓ app 'ketoan').
+
+    Vá 16/09/2026: trước chỉ cần có app 'ketoan' là chi được — nhân viên thường được cấp app
+    Kế toán để xem cũng bấm chi được tiền (lỗ tái hiện 12/09). Nay đúng cổng cấp Kế toán của
+    `_can_approve_at` (role + app). Kiểm prod 14/09: người có app ketoan chỉ là ceo/manager/admin,
+    120 ngày qua người tạo phiếu chi = manager 199, ceo 1 → không chặn nhầm ai.
+    """
     role = (user.role or "").lower()
-    return role in _CEO_ROLES or "ketoan" in _user_apps(db, user.username)
+    if role in _CEO_ROLES:
+        return True
+    return role in {"manager", "leader", "kt"} and "ketoan" in _user_apps(db, user.username)
 
 
 @router.post("/{rid}/chi", response_model=ExpenseOut)

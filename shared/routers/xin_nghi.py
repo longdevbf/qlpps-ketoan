@@ -65,6 +65,23 @@ def _approver_app_scope(user: JWTPayload) -> Optional[set[str]]:
     return {(a or "").lower() for a in (user.apps or []) if a}
 
 
+_TRANG_THAI_NHAN = {"da_duyet": "đã duyệt", "duyet": "đã duyệt", "tu_choi": "đã từ chối", "huy": "đã huỷ"}
+
+
+def _kiem_pham_vi_duyet(db: Session, user: JWTPayload, rec: "LeaveRequest", viec: str) -> None:
+    """403 nếu manager/leader đụng đơn NGOÀI phòng mình quản lý. Một hàm cho cả duyệt lẫn huỷ,
+    để hai nhánh không bao giờ lệch luật nhau (16/09/2026)."""
+    depts = _approver_depts(db, user)
+    if depts is None:
+        return
+    rp = (rec.phong_ban or "").strip().lower()
+    if not any(rp.startswith(d) for d in depts):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"Bạn không có quyền {viec} đơn của phòng '{rec.phong_ban}' — khác phòng bạn quản lý.",
+        )
+
+
 def _approver_depts(db: Session, user: JWTPayload) -> Optional[list[str]]:
     """Danh sách PHÒNG BAN (lowercase) mà manager/leader được xem/duyệt đơn nghỉ.
 
@@ -340,8 +357,12 @@ def cancel_leave_request(
     rec = db.get(LeaveRequest, rid)
     if not rec:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đơn")
-    if rec.username != user.username and not _is_approver(user):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Không có quyền hủy đơn này")
+    if rec.username != user.username:
+        if not _is_approver(user):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Không có quyền hủy đơn này")
+        # Người duyệt chỉ huỷ được đơn TRONG PHẠM VI PHÒNG mình duyệt — cùng luật với nhánh duyệt.
+        # Vá 16/09/2026 (lỗ B đã tái hiện 12/09: QL Marketing xoá cứng đơn phòng Kinh Doanh).
+        _kiem_pham_vi_duyet(db, user, rec, "hủy")
     if rec.trang_thai != "cho_duyet":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Chỉ có thể hủy đơn đang chờ duyệt")
     db.delete(rec)
@@ -367,6 +388,14 @@ def duyet_leave_request(
     rec = db.get(LeaveRequest, rid)
     if not rec:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đơn")
+    # Đơn đã duyệt / từ chối / huỷ thì KHÔNG lật lại được (vá 16/09/2026 — lỗ C tái hiện 12/09:
+    # duyệt lần 2 lật "đã duyệt" thành "từ chối" mà lịch + chấm công đã sinh theo lần 1).
+    # 409 như duyet_chi.py và de_xuat.py. Muốn đổi kết quả: người duyệt liên hệ Nhân sự sửa tay.
+    if rec.trang_thai != "cho_duyet":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Đơn đã được xử lý ({_TRANG_THAI_NHAN.get(rec.trang_thai, rec.trang_thai)}) — không duyệt lại được.",
+        )
     # KHÔNG tự duyệt đơn của CHÍNH MÌNH (anh Quang 2026-08-05): manager/leader duyệt
     # đơn của chính họ = xung đột lợi ích → chặn, để Mai hoặc cấp trên duyệt. Super-role
     # (admin/ceo/assistant_ceo) vẫn được (không có cấp trên). VD: NV26006 nv26006 (manager
@@ -378,14 +407,7 @@ def duyet_leave_request(
             "Không được tự duyệt đơn nghỉ của chính mình — để Mai hoặc cấp trên duyệt.",
         )
     # Manager/leader chỉ duyệt được đơn của PHÒNG BAN mình (chính + phụ). Admin/CEO bypass.
-    depts = _approver_depts(db, user)
-    if depts is not None:
-        rp = (rec.phong_ban or "").strip().lower()
-        if not any(rp.startswith(d) for d in depts):
-            raise HTTPException(
-                status.HTTP_403_FORBIDDEN,
-                f"Bạn không có quyền duyệt đơn của phòng '{rec.phong_ban}' — khác phòng bạn quản lý.",
-            )
+    _kiem_pham_vi_duyet(db, user, rec, "duyệt")
 
     ho_ten_duyet, _, _, _, _ = _lookup_user_info(user.username)
     rec.trang_thai = body.trang_thai
