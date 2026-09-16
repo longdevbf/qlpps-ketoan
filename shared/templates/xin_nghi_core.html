@@ -27,7 +27,8 @@
    H1 trong thân, trải hết bề ngang, nền ảnh mẫu, thẻ viền + bóng nhẹ (CẤM --shadow-card).
 
    KHÁC ẢNH MẪU — chỉ dữ liệu có thật:
-     · 4 loại nghỉ chính thức của `_LOAI_NGHI_LABELS` — không có "Nghỉ chính sách".
+     · 4 loại nghỉ chính thức của `_LOAI_NGHI_LABELS` + ô "Nghỉ chính sách" (16/09/2026,
+       Phương án A): gửi lên bằng mã `viec_rieng` sẵn có, trường hợp ghi ở đầu ghi chú — xem `_XN_CS`.
      · Tài liệu đính kèm + vòng phép năm "còn lại / tổng" dùng API thêm 11/09/2026
        (`/api/xin-nghi/{id}/tep`, `/api/xin-nghi/phep-nam` — số phép tính bằng chính hàm
        Quota phép năm của HCNS). Máy chủ chưa có router mới (404: production chưa đẩy
@@ -141,7 +142,10 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
 /* Ô chọn loại nghỉ — icon nền đặc nét trắng (ADR-009), hình tròn như ảnh mẫu. Ô đang
    chọn: viền --brand + nền --brand-soft. */
 .xn .xn-loai{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-6);margin-bottom:var(--sp-9)}
-@media(min-width:768px){.xn .xn-loai{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(min-width:768px){.xn .xn-loai{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(min-width:1100px){.xn .xn-loai{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.xn .xn-khoi--quy-dinh .btn-soft{margin-top:var(--sp-6)}
+.xn .radio-opt:disabled+.radio-label{opacity:.5;cursor:not-allowed}
 .xn .xn-loai-o{display:flex;flex-direction:column;align-items:center;gap:var(--sp-3);min-width:0;
      padding:var(--sp-8) var(--sp-4) var(--sp-7);border:1px solid var(--border);border-radius:var(--r-lg);
      background:var(--bg-card);font:inherit;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
@@ -503,15 +507,23 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
                 <option value="nghi_khong_luong">Nghỉ không lương</option>
                 <option value="doi_ca">Nghỉ đổi ca</option>
                 <option value="xin_thoi_viec">Xin thôi việc</option>
+                <option value="viec_rieng">Nghỉ chính sách</option>
               </select>
             </div>
+          </div>
+          <div class="form-field" id="xn-cs-o" hidden>
+            <label for="xn-cs-truong-hop">Trường hợp <span class="xn-sao">*</span></label>
+            <select id="xn-cs-truong-hop" onchange="xnChonTruongHop(this.value)">
+              <option value="">— Chọn trường hợp —</option>
+            </select>
+            <p class="xn-goi-y" id="xn-cs-goi-y">Chọn trường hợp để tự điền số ngày theo quy định.</p>
           </div>
         </div>
 
         <div class="xn-2cot">
           <div class="form-field">
             <label for="ngay_bat_dau">Ngày bắt đầu <span class="xn-sao">*</span></label>
-            <input type="date" id="ngay_bat_dau" onchange="xnTinhSoNgay()">
+            <input type="date" id="ngay_bat_dau" onchange="xnTinhSoNgay('bat_dau')">
           </div>
           <div class="form-field">
             <label for="ngay_ket_thuc">Ngày kết thúc <span class="xn-sao">*</span></label>
@@ -606,6 +618,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
           <div><dt>Thai sản</dt><dd>Theo quy định BHXH</dd></div>
         </dl>
         <p class="xn-nguon">Theo Bộ luật Lao động 2019 (Điều 115) và Luật Bảo hiểm xã hội. Quy định riêng của công ty hỏi phòng Nhân sự.</p>
+        <button type="button" class="btn-soft" onclick="xnNopChinhSach()">Nộp đơn nghỉ chính sách</button>
       </section>
 
       <section class="xn-khoi xn-khoi--luu-y" aria-labelledby="xn-luu-y-tieu-de">
@@ -643,6 +656,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
           <option value="nghi_khong_luong">Nghỉ không lương</option>
           <option value="doi_ca">Nghỉ đổi ca</option>
           <option value="xin_thoi_viec">Xin thôi việc</option>
+          <option value="viec_rieng">Nghỉ chính sách</option>
         </select>
         <select id="xn-f-tt" aria-label="Trạng thái" onchange="xnLoc()">
           <option value="">Tất cả trạng thái</option>
@@ -798,13 +812,15 @@ const _XN_IC = {
   pdf:    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
   anh:    '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
   dong:   '<path d="M18 6 6 18M6 6l12 12"/>',
-  xoa:    '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'
+  xoa:    '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
+  chinh_sach: '<circle cx="12" cy="9" r="5"/><path d="m8.5 13.5-2 7 5.5-3 5.5 3-2-7"/>'
 };
 function _xnSvg(ten){ return '<svg class="xn-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + (_XN_IC[ten] || '') + '</svg>'; }
 
-/* 4 loại chính thức (anh Quang 2026-06-06, `_LOAI_NGHI_LABELS`) + 4 loại cũ chỉ để đọc
-   đơn cũ. Tông ô icon theo nghĩa (ADR-011): phép = xanh · không lương = xám · đổi ca =
-   tím (ngoại lệ đã duyệt, chỉ nền ô icon) · thôi việc = đỏ. */
+/* 4 loại chính thức (anh Quang 2026-06-06, `_LOAI_NGHI_LABELS`) + Nghỉ chính sách (dùng mã
+   `viec_rieng`, xem `_XN_CS`) + 3 loại cũ chỉ để đọc đơn cũ. Tông ô icon theo nghĩa
+   (ADR-011): phép = xanh · không lương = xám · đổi ca = tím (ngoại lệ đã duyệt, chỉ nền ô
+   icon) · thôi việc = đỏ · chính sách = vàng (cùng tông khối quy định bên phải). */
 const _XN_LOAI = {
   nghi_phep:        { nhan:'Nghỉ phép năm',    ngan:'Nghỉ phép',        phu:'Nghỉ phép năm',     ic:'phep',  tone:'' },
   nghi_khong_luong: { nhan:'Nghỉ không lương', ngan:'Nghỉ không lương', phu:'Không hưởng lương', ic:'khong', tone:'neutral' },
@@ -812,21 +828,55 @@ const _XN_LOAI = {
   xin_thoi_viec:    { nhan:'Xin thôi việc',    ngan:'Xin thôi việc',    phu:'Chấm dứt HĐLĐ',     ic:'thoi',  tone:'danger' },
   nghi_bu:    { nhan:'Nghỉ bù (cũ)',      ic:'lich', tone:'neutral' },
   nghi_om:    { nhan:'Nghỉ ốm (cũ)',      ic:'lich', tone:'neutral' },
-  viec_rieng: { nhan:'Việc riêng (cũ)',   ic:'lich', tone:'neutral' },
+  viec_rieng:       { nhan:'Nghỉ chính sách',  ngan:'Nghỉ chính sách', phu:'Kết hôn · tang · sinh con', ic:'chinh_sach', tone:'warning' },
   nghi_le:    { nhan:'Nghỉ lễ/Tết (cũ)',  ic:'lich', tone:'neutral' }
 };
-function loaiLabel(v) { return (_XN_LOAI[v] && _XN_LOAI[v].nhan) || v; }
+/* NGHỈ CHÍNH SÁCH — Phương án A (16/09/2026). Máy chủ (kể cả bản đang chạy ở chat_internal trên
+   production) từ chối mọi mã ngoài `_LOAI_NGHI_LABELS`, nên đơn gửi lên bằng mã `viec_rieng`
+   sẵn có. Trường hợp cụ thể ghi ở ĐẦU ghi chú theo mẫu cố định
+       "Nghỉ chính sách: <tên> (<số ngày>, <chế độ>) [cs:<mã>]"
+   — phần "[cs:<mã>]" để màn này và Phê duyệt đọc lại được, và để sau này chuyển sang mã riêng
+   (Phương án B) không mất dữ liệu; phần chữ trước đó để màn cũ chưa biết đọc mã vẫn hiểu.
+   Số ngày theo bảng "Quy định nghỉ theo chính sách" (BLLĐ 2019 Đ115, Luật BHXH) — máy chủ
+   KHÔNG kiểm, chỉ chặn ở đây; `ngay: null` = không tự điền (Thai sản theo hồ sơ BHXH). */
+const _XN_CS = {
+  ket_hon:        { ten:'Kết hôn',                                     ngan:'Kết hôn',       ngay:3,    che_do:'hưởng nguyên lương' },
+  con_ket_hon:    { ten:'Con kết hôn',                                 ngan:'Con kết hôn',   ngay:1,    che_do:'hưởng nguyên lương' },
+  tang_than_nhan: { ten:'Tang bố mẹ (cả bên vợ/chồng), vợ/chồng, con', ngan:'Tang thân nhân', ngay:3,   che_do:'hưởng nguyên lương' },
+  tang_ho_hang:   { ten:'Tang ông bà nội/ngoại, anh chị em ruột',      ngan:'Tang họ hàng',  ngay:1,    che_do:'không lương' },
+  vo_sinh_con:    { ten:'Vợ sinh con',                                 ngan:'Vợ sinh con',   ngay:5,    che_do:'chế độ BHXH' },
+  thai_san:       { ten:'Thai sản',                                    ngan:'Thai sản',      ngay:null, che_do:'theo quy định BHXH' },
+};
+const _XN_CS_RE = /\[cs:([a-z_]+)\]/;
+function _xnCsCua(d) {
+  if (!d || d.loai_nghi !== 'viec_rieng') return null;
+  const m = _XN_CS_RE.exec(d.ghi_chu || '');
+  return (m && _XN_CS[m[1]]) ? Object.assign({ ma: m[1] }, _XN_CS[m[1]]) : null;
+}
+function _xnCsDauGhiChu(ma) {
+  const c = _XN_CS[ma];
+  return `Nghỉ chính sách: ${c.ten} (${c.ngay ? String(c.ngay).padStart(2, '0') + ' ngày, ' : ''}${c.che_do}) [cs:${ma}]`;
+}
+/* Ghi chú người dùng gõ — bỏ dòng đánh dấu ở đầu. */
+function _xnGhiChuThuan(d) {
+  const g = d.ghi_chu || '';
+  return _xnCsCua(d) ? g.replace(/^Nghỉ chính sách:[^\n]*\[cs:[a-z_]+\]\s*/, '').trim() : g;
+}
+function loaiLabel(v, d) {
+  const cs = _xnCsCua(d);
+  return ((_XN_LOAI[v] && _XN_LOAI[v].nhan) || v) + (cs ? ' · ' + cs.ngan : '');
+}
 function _xnTile(l, lop) { return `<span class="ico-tile${lop ? ' ' + lop : ''}${l.tone ? ' ico-tile--' + l.tone : ''}" aria-hidden="true">${_xnSvg(l.ic)}</span>`; }
-function _xnLoaiCell(v) {
-  const l = _XN_LOAI[v] || { nhan: v, ic: 'lich', tone: 'neutral' };
-  return `<span class="xn-loai-cell">${_xnTile(l, 'xn-nho')}${escHtml(l.nhan || v)}</span>`;
+function _xnLoaiCell(v, d) {
+  const l = _XN_LOAI[v] || { nhan: v, ic: 'lich', tone: 'neutral' }, cs = _xnCsCua(d);
+  return `<span class="xn-loai-cell">${_xnTile(l, 'xn-nho')}${escHtml(l.nhan || v)}${cs ? ' · ' + escHtml(cs.ngan) : ''}</span>`;
 }
 
 // ── Form: ô loại nghỉ ↔ ô chọn, số ngày tự tính, bộ đếm lý do ────────────────
 function _xnVeOLoai() {
   const box = document.getElementById('xn-loai');
   if (!box) return;
-  box.innerHTML = ['nghi_phep','nghi_khong_luong','doi_ca','xin_thoi_viec'].map(k => {
+  box.innerHTML = ['nghi_phep','nghi_khong_luong','doi_ca','xin_thoi_viec','viec_rieng'].map(k => {
     const l = _XN_LOAI[k];
     return `<button type="button" class="xn-loai-o" data-loai="${k}" aria-pressed="false" onclick="xnChonLoai('${k}')">`
       + `${_xnTile(l, 'is-tron')}<b>${l.ngan}</b><small>${l.phu}</small></button>`;
@@ -846,10 +896,58 @@ function xnChonLoai(k) {
     ic.hidden = !l;
     if (l) { ic.className = 'ico-tile xn-nho' + (l.tone ? ' ico-tile--' + l.tone : ''); ic.innerHTML = _xnSvg(l.ic); }
   }
+  _xnCsHien(k === 'viec_rieng');
+}
+// ── Nghỉ chính sách: ô Trường hợp ──────────────────────────────────────────
+function _xnCsHien(hien) {
+  const o = document.getElementById('xn-cs-o'), sel = document.getElementById('xn-cs-truong-hop');
+  if (!o || !sel) return;
+  if (sel.options.length <= 1) {
+    Object.keys(_XN_CS).forEach(ma => {
+      const c = _XN_CS[ma], op = document.createElement('option');
+      op.value = ma;
+      op.textContent = c.ten + ' — ' + (c.ngay ? String(c.ngay).padStart(2, '0') + ' ngày, ' : '') + c.che_do;
+      sel.appendChild(op);
+    });
+  }
+  o.hidden = !hien;
+  if (!hien) { sel.value = ''; xnChonTruongHop(''); }
+}
+function _xnCsDangChon() {
+  if (document.getElementById('loai_nghi').value !== 'viec_rieng') return null;
+  return _XN_CS[document.getElementById('xn-cs-truong-hop').value] || null;
+}
+function xnChonTruongHop(ma) {
+  const c = _XN_CS[ma] || null, goiY = document.getElementById('xn-cs-goi-y');
+  const nuaNgay = [document.getElementById('buoi_sang'), document.getElementById('buoi_chieu')];
+  // Trường hợp có số ngày cố định → nghỉ trọn ngày, khoá hai ô nửa ngày.
+  const khoa = !!(c && c.ngay);
+  nuaNgay.forEach(r => { r.disabled = khoa; });
+  if (khoa) document.getElementById('buoi_ca_ngay').checked = true;
+  if (goiY) goiY.textContent = !c ? 'Chọn trường hợp để tự điền số ngày theo quy định.'
+    : c.ngay ? `Theo quy định: ${String(c.ngay).padStart(2, '0')} ngày, ${c.che_do}. Ngày kết thúc tự điền theo ngày bắt đầu.`
+    : `Số ngày ${c.che_do} — tự chọn ngày bắt đầu và kết thúc, kèm giấy tờ nếu có.`;
+  _xnCsApNgay();
+  xnTinhSoNgay();
+}
+/* Ngày kết thúc = ngày bắt đầu + (số ngày − 1), đếm ngày lịch — y như `_calc_so_ngay` của máy chủ. */
+function _xnCsApNgay() {
+  const c = _xnCsDangChon(), bd = document.getElementById('ngay_bat_dau').value;
+  if (!c || !c.ngay || !bd) return;
+  const d = new Date(bd + 'T00:00:00');
+  d.setDate(d.getDate() + c.ngay - 1);
+  const hai = x => String(x).padStart(2, '0');
+  document.getElementById('ngay_ket_thuc').value = `${d.getFullYear()}-${hai(d.getMonth() + 1)}-${hai(d.getDate())}`;
+}
+function xnNopChinhSach() {
+  xnChonLoai('viec_rieng');
+  const sel = document.getElementById('xn-cs-truong-hop');
+  if (sel) { sel.scrollIntoView({ block: 'center', behavior: 'smooth' }); setTimeout(() => sel.focus(), 350); }
 }
 /* Y hệt `_calc_so_ngay` ở shared/routers/xin_nghi.py: đếm cả hai đầu; chọn buổi
    sáng/chiều thì 0,5 bất kể khoảng ngày; ngày kết thúc trước ngày bắt đầu → 0. */
-function xnTinhSoNgay() {
+function xnTinhSoNgay(nguon) {
+  if (nguon === 'bat_dau') _xnCsApNgay();   // đổi ngày bắt đầu → nghỉ chính sách tự dời ngày kết thúc
   const bd = document.getElementById('ngay_bat_dau').value;
   const kt = document.getElementById('ngay_ket_thuc');
   const buoi = document.querySelector('input[name="buoi"]:checked')?.value || 'ca_ngay';
@@ -1021,7 +1119,7 @@ function xnVe() {
         <td class="xn-stt c-stt" data-label="#">${dau + i + 1}</td>
         ${nguoiGui}
         <td class="xn-nowrap c-ngay-tao" data-label="Ngày tạo">${fmtDate(d.created_at)}</td>
-        <td data-label="Loại nghỉ">${_xnLoaiCell(d.loai_nghi)}</td>
+        <td data-label="Loại nghỉ">${_xnLoaiCell(d.loai_nghi, d)}</td>
         <td class="xn-nowrap" data-label="Thời gian nghỉ">${_xnKhoang(d)}</td>
         <td class="xn-nowrap" data-label="Số ngày">${_xnSo(d.so_ngay)}</td>
         <td class="xn-ly-do" data-label="Lý do" title="${escHtml(d.ly_do)}">${escHtml(d.ly_do)}</td>
@@ -1262,6 +1360,17 @@ async function submitDon() {
   if (!ket_thuc) { showToast('Vui lòng chọn ngày kết thúc', 'error'); return; }
   if (ket_thuc < bat_dau) { showToast('Ngày kết thúc phải từ ngày bắt đầu trở đi', 'error'); return; }
   if (!ly_do) { showToast('Vui lòng nhập lý do', 'error'); return; }
+  let ghi_chu_gui = ghi_chu;
+  if (loai === 'viec_rieng') {
+    const ma = document.getElementById('xn-cs-truong-hop').value, c = _XN_CS[ma];
+    if (!c) { showToast('Vui lòng chọn trường hợp nghỉ chính sách', 'error'); document.getElementById('xn-cs-truong-hop').focus(); return; }
+    const n = parseFloat(String(document.getElementById('xn-so-ngay').value).replace(',', '.')) || 0;
+    if (c.ngay && n > c.ngay) {
+      showToast(`${c.ten}: tối đa ${String(c.ngay).padStart(2, '0')} ngày theo quy định. Muốn nghỉ thêm, tạo đơn nghỉ phép hoặc nghỉ không lương riêng.`, 'error');
+      return;
+    }
+    ghi_chu_gui = _xnCsDauGhiChu(ma) + (ghi_chu ? '\n' + ghi_chu : '');
+  }
 
   const btn = document.getElementById('btn-submit-don');
   const nhanCu = btn.innerHTML;
@@ -1272,7 +1381,7 @@ async function submitDon() {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       credentials:'include',
-      body: JSON.stringify({loai_nghi:loai, ngay_bat_dau:bat_dau, ngay_ket_thuc:ket_thuc, buoi, ly_do, ghi_chu})
+      body: JSON.stringify({loai_nghi:loai, ngay_bat_dau:bat_dau, ngay_ket_thuc:ket_thuc, buoi, ly_do, ghi_chu: ghi_chu_gui})
     });
     if (r.ok) {
       const don = await r.json().catch(() => null);
@@ -1321,7 +1430,7 @@ function openReview(d) {
   document.getElementById('rv-ava').textContent = initials(d.ho_ten);
   document.getElementById('rv-name').textContent = d.ho_ten;
   document.getElementById('rv-sub').textContent = (d.phong_ban||'') + (d.app_name ? ' · '+d.app_name : '');
-  document.getElementById('rv-loai').textContent = loaiLabel(d.loai_nghi);
+  document.getElementById('rv-loai').textContent = loaiLabel(d.loai_nghi, d);
   document.getElementById('rv-ngay').textContent = fmtDate(d.ngay_bat_dau) + ' → ' + fmtDate(d.ngay_ket_thuc);
   document.getElementById('rv-songay').textContent = _xnSo(d.so_ngay) + ' ngày';
   document.getElementById('rv-lydo').textContent = d.ly_do;
@@ -1381,7 +1490,8 @@ function openDetail(id) {
 
     <div class="section-label">Thông tin nghỉ</div>
     <dl class="xn-ct">
-      <dt>Loại nghỉ</dt><dd>${_xnLoaiCell(d.loai_nghi)}</dd>
+      <dt>Loại nghỉ</dt><dd>${_xnLoaiCell(d.loai_nghi, d)}</dd>
+      ${(cs => cs ? `<dt>Chế độ</dt><dd>${escHtml(cs.che_do)}${cs.ngay ? ' · tối đa ' + String(cs.ngay).padStart(2, '0') + ' ngày' : ''}</dd>` : '')(_xnCsCua(d))}
       <dt>Từ ngày</dt><dd>${fmtDate(d.ngay_bat_dau)}</dd>
       <dt>Đến ngày</dt><dd>${fmtDate(d.ngay_ket_thuc)}</dd>
       <dt>Số ngày</dt><dd><b>${_xnSo(d.so_ngay)}</b> ngày</dd>
@@ -1391,7 +1501,7 @@ function openDetail(id) {
     <div class="section-label">Lý do</div>
     <div class="xn-hop">${escHtml(d.ly_do || '—')}</div>
 
-    ${d.ghi_chu ? `<div class="section-label">Ghi chú</div><div class="xn-hop">${escHtml(d.ghi_chu)}</div>` : ''}
+    ${(g => g ? `<div class="section-label">Ghi chú</div><div class="xn-hop">${escHtml(g)}</div>` : '')(_xnGhiChuThuan(d))}
 
     ${(isApproved || isRejected) ? `
       <div class="section-label">Kết quả duyệt</div>
