@@ -269,6 +269,8 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
 .pd .pd-p-bang tfoot td{border-bottom:0;border-top:1px solid var(--border);font-weight:600}
 .pd .pd-p-bang tr.is-chon td,.pd .pd-p-bang th.is-chon,.pd .pd-p-bang td.is-chon{background:var(--brand-soft);color:var(--brand-hover)}
 .pd .pd-p-bang th small{display:block;font-weight:400;text-transform:none;letter-spacing:0;white-space:normal}
+.pd .pd-p-bang th.pd-ncc{text-align:right;white-space:normal;min-width:150px;max-width:190px}
+.pd .pd-p-bang td small{white-space:normal}
 .pd .pd-p-bang td.pd-mo{color:var(--text-3)}
 .pd .pd-ok{margin:var(--sp-6) 0 0;padding:var(--sp-4) var(--sp-6);border-left:3px solid var(--success);border-radius:var(--r);background:var(--success-soft);color:var(--success-fg);font-size:var(--fs-meta)}
 .pd .pd-ct dt{display:flex;align-items:center;gap:var(--sp-4);font-size:var(--fs-meta);color:var(--text-3)}
@@ -1139,12 +1141,16 @@ function _pdVeThemPo(resp) {
   const nccIds = Object.keys(totals).sort((a, b) => (Number(totals[a]) || 0) - (Number(totals[b]) || 0));
   const chon = po.selected_ncc_id || po.comparison_best_ncc || '';
   const T = v => _pdTien(Number(v) || 0);
-  // Giá 1 SP theo 1 cột: NCC thật, hoặc combo = Mộc + Sơn.
+  // Giá 1 SP theo 1 cột: NCC thật, hoặc combo = tổng các PHẦN (dữ liệu thật có combo 3 phần `parts`;
+  // bản cũ chỉ cộng Mộc + Sơn nên thiếu phần thứ 3). Không có `parts` thì lùi về ncc_moc_id + ncc_son_id.
+  const phanCua = c => (Array.isArray(c.parts) && c.parts.length) ? c.parts.map(x => ({ id: x.ncc_id, nhan: x.label || '' }))
+    : [{ id: c.ncc_moc_id, nhan: c.label_moc || 'Phần 1' }, { id: c.ncc_son_id, nhan: c.label_son || 'Phần 2' }];
   const gia = (it, nid, sl) => {
     const p = it.prices || {}, c = combo[nid];
     if (c) {
-      const m = Number((p[c.ncc_moc_id] || {}).don_gia) || 0, sn = Number((p[c.ncc_son_id] || {}).don_gia) || 0;
-      return { dg: m + sn, tt: (m + sn) * sl, moc: { id: c.ncc_moc_id, dg: m, nhan: c.label_moc || 'Phần 1' }, son: { id: c.ncc_son_id, dg: sn, nhan: c.label_son || 'Phần 2' } };
+      const phan = phanCua(c).map(x => ({ id: x.id, nhan: x.nhan, dg: Number((p[x.id] || {}).don_gia) || 0 }));
+      const dg = phan.reduce((t, x) => t + x.dg, 0);
+      return { dg, tt: dg * sl, phan };
     }
     const raw = p[nid];
     if (raw && typeof raw === 'object') { const dg = Number(raw.don_gia) || 0; return { dg, tt: Number(raw.thanh_tien) || dg * sl }; }
@@ -1174,14 +1180,18 @@ function _pdVeThemPo(resp) {
   ].join('');
   let bang = '<p class="pd-trong">Chưa có bảng so giá.</p>';
   if (items.length && nccIds.length) {
-    const th = nccIds.map(nid => { const c = combo[nid]; return `<th class="pd-so${nid === chon ? ' is-chon' : ''}">${_pdE(ten(nid))}${nid === chon ? ' ✓' : ''}${c ? `<small>${_pdE(c.label_moc || 'Phần 1')}: ${_pdE(ten(c.ncc_moc_id))} · ${_pdE(c.label_son || 'Phần 2')}: ${_pdE(ten(c.ncc_son_id))}</small>` : ''}</th>`; }).join('');
+    // Tiêu đề cột NCC: combo thì tên ngắn "Combo N NCC" + từng phần ở dòng nhỏ (tên combo đầy đủ trong ncc_names dài
+    // ~60 ký tự, để nguyên thì cột rộng 600px và số bị đẩy ra ngoài khung 380px).
+    const th = nccIds.map(nid => { const c = combo[nid]; const nhan = c ? `Combo ${phanCua(c).length} NCC` : ten(nid);
+      return `<th class="pd-ncc${nid === chon ? ' is-chon' : ''}">${_pdE(nhan)}${nid === chon ? ' ✓' : ''}${c ? `<small>${phanCua(c).map(x => `${_pdE(x.nhan)}: ${_pdE(ten(x.id))}`).join('<br>')}</small>` : ''}</th>`; }).join('');
     const hang = items.map(it => {
       const sl = Number(it.so_luong_calc != null ? it.so_luong_calc : it.so_luong_input) || 0;
       const phu = [it.kich_thuoc_raw, it.mau_go, it.mau_vai_da].filter(Boolean).join(' · ');
       const o = nccIds.map(nid => {
         const g = gia(it, nid, sl), on = nid === chon ? ' is-chon' : '';
         if (!(g.tt > 0 || g.dg > 0)) return `<td class="pd-so pd-mo${on}">—</td>`;
-        const nho = g.moc ? `<small>${_pdE(g.moc.nhan)} ${_pdE(ten(g.moc.id))}: ${g.moc.dg ? T(g.moc.dg) : '—'}<br>${_pdE(g.son.nhan)} ${_pdE(ten(g.son.id))}: ${g.son.dg ? T(g.son.dg) : '—'}${sl > 1 ? '<br>× ' + sl : ''}</small>`
+        // Combo: chỉ liệt kê phần CÓ giá (đơn thật: mỗi SP thường chỉ một phần báo giá, các phần kia "missing").
+        const nho = g.phan ? `<small>${g.phan.filter(x => x.dg).map(x => `${_pdE(x.nhan || ten(x.id))}: ${T(x.dg)}`).join('<br>')}${sl > 1 ? '<br>× ' + sl : ''}</small>`
           : (g.dg && sl > 1 ? `<small>${T(g.dg)} × ${sl}</small>` : '');
         return `<td class="pd-so${on}"><b>${g.tt ? T(g.tt) : ''}</b>${nho}</td>`;
       }).join('');
@@ -1189,7 +1199,7 @@ function _pdVeThemPo(resp) {
     }).join('');
     const tong = nccIds.map(nid => { const t = Number(totals[nid]) || 0, g = Number(giam[nid] != null ? giam[nid] : po.discount) || 0;
       return `<td class="pd-so${nid === chon ? ' is-chon' : ''}"><b>${T(t)}</b>${g ? `<small>giảm −${T(g)}<br>còn <b>${T(Math.max(0, t - g))}</b></small>` : ''}</td>`; }).join('');
-    bang = `<div class="pd-p-cuon"><table class="pd-p-bang" style="min-width:${(2 + nccIds.length) * 128}px"><thead><tr><th>Sản phẩm</th><th class="pd-so">SL</th>${th}</tr></thead>
+    bang = `<div class="pd-p-cuon"><table class="pd-p-bang"><thead><tr><th>Sản phẩm</th><th class="pd-so">SL</th>${th}</tr></thead>
       <tbody>${hang}</tbody><tfoot><tr><td colspan="2">Tổng</td>${tong}</tr></tfoot></table></div>`;
   }
   return `${dl ? `<dl class="pd-ct" style="margin-top:var(--sp-5)">${dl}</dl>` : ''}${bg}${ghi}
