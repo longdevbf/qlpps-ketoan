@@ -258,6 +258,19 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
 .pd .pd-panel-than{flex:1;overflow-y:auto;padding:var(--sp-8) var(--sp-9)}
 .pd .pd-nhom-nhan{margin-bottom:var(--sp-6);font-size:var(--fs-body);font-weight:700;color:var(--text-1)}
 .pd .pd-ct{display:grid;grid-template-columns:132px minmax(0,1fr);gap:var(--sp-5) var(--sp-6)}
+/* Bảng nhỏ trong ngăn chi tiết (sản phẩm / so sánh NCC của Đơn PO): ngăn chỉ 380–420px nên chữ meta,
+   số canh phải, dòng phụ (kích thước · màu · tiến độ) xuống dưới tên. Cuộn ngang khi vẫn không vừa. */
+.pd .pd-p-cuon{overflow-x:auto;margin:0 calc(-1 * var(--sp-2))}
+.pd .pd-p-bang{width:100%;border-collapse:collapse;font-size:var(--fs-meta);color:var(--text-1)}
+.pd .pd-p-bang th{padding:var(--sp-3) var(--sp-4);text-align:left;font-size:var(--fs-micro);font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3);border-bottom:1px solid var(--border);background:transparent;white-space:nowrap}
+.pd .pd-p-bang td{padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--border-soft);vertical-align:top}
+.pd .pd-p-bang td small{display:block;color:var(--text-3);font-size:var(--fs-micro);white-space:normal}
+.pd .pd-p-bang .pd-so{text-align:right;white-space:nowrap}
+.pd .pd-p-bang tfoot td{border-bottom:0;border-top:1px solid var(--border);font-weight:600}
+.pd .pd-p-bang tr.is-chon td,.pd .pd-p-bang th.is-chon,.pd .pd-p-bang td.is-chon{background:var(--brand-soft);color:var(--brand-hover)}
+.pd .pd-p-bang th small{display:block;font-weight:400;text-transform:none;letter-spacing:0;white-space:normal}
+.pd .pd-p-bang td.pd-mo{color:var(--text-3)}
+.pd .pd-ok{margin:var(--sp-6) 0 0;padding:var(--sp-4) var(--sp-6);border-left:3px solid var(--success);border-radius:var(--r);background:var(--success-soft);color:var(--success-fg);font-size:var(--fs-meta)}
 .pd .pd-ct dt{display:flex;align-items:center;gap:var(--sp-4);font-size:var(--fs-meta);color:var(--text-3)}
 .pd .pd-ct dt svg.pd-ic{width:15px;height:15px;color:var(--text-3)}
 .pd .pd-ct dd{min-width:0;color:var(--text-1);overflow-wrap:anywhere;white-space:pre-wrap}
@@ -470,6 +483,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
     </div>
     <ul>
       <li>Màn này gom các yêu cầu <b>đang chờ chính bạn duyệt</b>; đơn của phòng khác hoặc cấp khác không hiện ở đây.</li>
+      <li>Tab <b>Chờ duyệt</b> gom mọi yêu cầu đang chờ của tất cả các loại, không phụ thuộc khoảng ngày đang chọn.</li>
       <li>Đề xuất đi theo nhiều cấp — duyệt xong ở cấp của bạn, đơn tự chuyển cho cấp kế tiếp.</li>
       <li>Phiếu chi duyệt ở màn <a class="btn-link" href="/duyet-chi">Duyệt chi</a> — có hạn thanh toán, chứng từ và cả đơn cũ còn chờ.</li>
       <li>Từ chối bắt buộc ghi lý do; lý do được gửi tới người tạo đơn và lưu vào lịch sử.</li>
@@ -492,7 +506,7 @@ const PD_SUPER = ['admin', 'ceo', 'assistant_ceo'].indexOf(PD_ROLE) >= 0;
 const PD_DUYET = PD_SUPER || ['manager', 'leader', 'kt', 'hr_manager'].indexOf(PD_ROLE) >= 0;
 
 const _pd = {
-  hang: [], loi: [], tab: 'all', tim: '', tu: '', den: '', trang: 1, co: 10, chon: null, ct: 'tt', dangGui: false,
+  hang: [], loi: [], tab: 'cho', tim: '', tu: '', den: '', trang: 1, co: 10, chon: null, ct: 'tt', dangGui: false,
 };
 
 const _PD_LOAI = {
@@ -514,15 +528,19 @@ const _PD_LOAI = {
   truc:      { nhan: 'Đăng ký trực',   lop: 'pd-loai--di',  tile: 'ico-tile',          tab: 'truc' },
   dkn:       { nhan: 'Đăng ký nghỉ',   lop: 'pd-loai--nghi', tile: 'ico-tile--tim',    tab: 'dkn' },
 };
-/* 4 tab đầu là CHUNG cho mọi app, luôn hiện. Các tab sau chỉ mọc ở app có nguồn đó
+/* Tab "Chờ duyệt" ĐỨNG ĐẦU và là tab mặc định (người dùng chốt 17/09/2026): gom MỌI yêu cầu đang chờ
+   của mọi nguồn, KHÔNG lọc theo khoảng ngày — đơn chờ từ tháng trước không được biến mất. "Tất cả" xuống cuối.
+   5 tab chung (cho · nghi · di · dx · all) luôn hiện; tab riêng chỉ mọc ở app có nguồn đó
    (Báo giá: đơn hàng + đổi ngày giao · Mua hàng: đơn PO · Kế toán: 4 khối · CEO: nguồn khác). */
-const _PD_TAB_CHUNG = ['all', 'nghi', 'di', 'dx'];
+const _PD_TAB_CHUNG = ['cho', 'nghi', 'di', 'dx', 'all'];
 const _PD_TAB = [
-  ['all', 'Tất cả'], ['nghi', 'Xin nghỉ'], ['di', 'Đi công tác'], ['dx', 'Đề xuất'],
+  ['cho', 'Chờ duyệt'],
+  ['nghi', 'Xin nghỉ'], ['di', 'Đi công tác'], ['dx', 'Đề xuất'],
   ['don_hang', 'Đơn hàng'], ['ngay_giao', 'Đổi ngày giao'], ['po', 'Đơn PO'],
   ['dntt', 'Đề nghị TT'], ['ncc', 'Trả NCC'], ['ktd', 'KT duyệt đơn'], ['coc', 'Cọc bổ sung'],
   ['kho', 'Nhập kho'], ['truc', 'Đăng ký trực'], ['dkn', 'Đăng ký nghỉ'],
   ['khac', 'Nguồn khác'],
+  ['all', 'Tất cả'],
 ];
 const _PD_TT = {
   cho_duyet: ['warning', 'Chờ phê duyệt'], da_duyet: ['success', 'Đã phê duyệt'], tu_choi: ['danger', 'Từ chối'],
@@ -739,18 +757,35 @@ function _pdHangNgayGiao(x) {         // Báo giá · /api/ngay-giao/cho-duyet
     ls: [], raw: x,
   };
 }
-function _pdHangPo(x) {               // Mua hàng · /api/orders?status=Chờ xác nhận
+/* Đơn PO — giá SAU giảm của NCC đang chọn (hoặc NCC tốt nhất), tính như hộp duyệt của app Mua hàng
+   (index.html openApproveTabModal: remain = total − discounts[ncc] ?? discount). */
+function _pdPoNcc(x) {
+  const tong = x.ncc_totals || {}, ten = x.ncc_names || {}, giam = x.discounts || {};
+  const conLai = nid => Math.max(0, (Number(tong[nid]) || 0) - (Number(giam[nid] != null ? giam[nid] : x.discount) || 0));
+  const ds = Object.keys(tong).map(nid => ({ nid, ten: ten[nid] || nid, tong: Number(tong[nid]) || 0, giam: (Number(giam[nid] != null ? giam[nid] : x.discount) || 0), con: conLai(nid) }))
+    .sort((a, b) => a.con - b.con);
+  const chon = x.selected_ncc_id || x.comparison_best_ncc || (ds[0] && ds[0].nid) || '';
+  return { ds, chon, tenChon: ten[chon] || chon, conChon: chon && tong[chon] != null ? conLai(chon) : null };
+}
+function _pdHangPo(x) {               // Mua hàng · /api/orders?status=Chờ xác nhận (danh sách, chưa có sản phẩm)
+  const ncc = _pdPoNcc(x);
   return {
     khoa: 'po:' + x.id, nguon: 'po', id: x.id, ma: x.id,
     tieu_de: x.ten_don || ('Đơn mua ' + x.id), phu: x.ref_bao_gia ? 'Báo giá: ' + x.ref_bao_gia : '',
     nguoi: x.nv_mua_hang || '', nguoi_id: x.nv_mua_hang || '', phong_ban: 'Mua Hàng',
-    gia_tri: '—', ngay_tao: x.ngay_dat_xuong || '', han: x.tien_do_khach_can || '',
+    gia_tri: ncc.conChon != null ? _pdTien(ncc.conChon) : '—', so: ncc.conChon || 0,
+    ngay_tao: x.ngay_dat_xuong || '', han: x.tien_do_khach_can || '',
     trang_thai: x.status, tep: [],
     ct: [
       ['Mã đơn', x.id], ['Báo giá gốc', x.ref_bao_gia], ['NV mua hàng', x.nv_mua_hang],
-      ['Khách cần trước', _pdNgay(x.tien_do_khach_can)], ['NCC đã chọn', x.selected_ncc_id],
+      ['Ngày đặt xưởng', _pdNgay(x.ngay_dat_xuong)], ['Khách cần trước', _pdNgay(x.tien_do_khach_can)],
+      ['NCC đang chọn', ncc.tenChon ? ncc.tenChon + (ncc.conChon != null ? ' — ' + _pdTien(ncc.conChon) : '') : ''],
       ['Ghi chú mua hàng', x.mh_note],
     ],
+    // Sản phẩm + bảng so sánh NCC chỉ có ở GET /api/orders/{id} → tải khi mở ngăn chi tiết (xem _pdTaiThem).
+    tai_them: PD_APP === 'ceo'
+      ? { truc_tiep: true, url: '/api/inbox/detail/muahang_po/' + encodeURIComponent(x.id), ve: _pdVeThemPo }   // API cũ của CEO, có khối báo giá + tên NCC
+      : { app: 'muahang', url: '/api/orders/' + encodeURIComponent(x.id), ve: _pdVeThemPo },
     ls: [], raw: x,
     luu_y: 'Bấm Phê duyệt ở đây là duyệt theo nhà cung cấp tốt nhất trong bảng so sánh. Muốn chọn nhà cung cấp khác thì mở đơn ở app Mua hàng.',
   };
@@ -961,13 +996,16 @@ async function pdTai() {
 function _pdLoc() {
   const tt = document.getElementById('pd-l-tt').value, pb = document.getElementById('pd-l-pb').value;
   const tim = _pd.tim.trim().toLowerCase();
+  const cho = _pd.tab === 'cho';
   return _pd.hang.filter(h => {
-    if (_pd.tab !== 'all' && (_PD_LOAI[h.nguon] || {}).tab !== _pd.tab) return false;
+    if (cho) { if (!_pdDangCho(h.trang_thai)) return false; }
+    else if (_pd.tab !== 'all' && (_PD_LOAI[h.nguon] || {}).tab !== _pd.tab) return false;
     if (tt && !(h.trang_thai === tt || (tt === 'da_duyet' && h.trang_thai === 'duyet'))) return false;
     if (pb && (h.phong_ban || '') !== pb) return false;
     const ng = String(h.ngay_tao || '').slice(0, 10);
-    if (_pd.tu && ng && ng < _pd.tu) return false;
-    if (_pd.den && ng && ng > _pd.den) return false;
+    // Tab Chờ duyệt bỏ qua khoảng ngày — đơn chờ cũ vẫn phải thấy.
+    if (!cho && _pd.tu && ng && ng < _pd.tu) return false;
+    if (!cho && _pd.den && ng && ng > _pd.den) return false;
     if (tim) {
       const kho = [h.ma, h.tieu_de, h.phu, h.nguoi, h.phong_ban].join(' ').toLowerCase();
       if (kho.indexOf(tim) < 0) return false;
@@ -995,7 +1033,9 @@ function pdVeTabs() {
     // tưởng đơn Báo giá chưa được gom lên.
     .filter(([k]) => _PD_TAB_CHUNG.indexOf(k) >= 0 || co_nguon(k) || (PD_APP === 'ceo' && k === 'don_hang'))
     .map(([k, nhan]) => {
-      const n = k === 'all' ? trong_ky.length : trong_ky.filter(h => (_PD_LOAI[h.nguon] || {}).tab === k).length;
+      const n = k === 'all' ? trong_ky.length
+        : k === 'cho' ? _pd.hang.filter(h => _pdDangCho(h.trang_thai)).length   // mọi kỳ
+        : trong_ky.filter(h => (_PD_LOAI[h.nguon] || {}).tab === k).length;
       return `<button type="button" role="tab" class="tab-btn${_pd.tab === k ? ' active' : ''}" aria-selected="${_pd.tab === k}"
         onclick="pdChonTab('${k}')">${_pdE(nhan)} <span class="tab-badge">${n}</span></button>`;
     }).join('');
@@ -1083,6 +1123,91 @@ function _pdCapNhatKy() {
 }
 document.addEventListener('click', e => { if (!e.target.closest('.pd-bat')) { document.getElementById('pd-ky-noi').hidden = true; pdDongLoc(); } });
 
+/* ── Chi tiết tải thêm (Đơn PO): sản phẩm + so sánh NCC như hộp duyệt của app Mua hàng ──── */
+function _pdVeThemPo(resp) {
+  /* Dựng lại thẻ Đơn PO của màn Phê duyệt CEO cũ (claude-kit/_archive/qlpps-ceo/templates/phe_duyet.truoc-v2-20260912.html
+     `_renderPODetail`) — vốn "copy y nguyên tab Duyệt Đơn Hàng của Mua Hàng": khối báo giá, ghi chú NV MH, manager MH duyệt
+     so giá, và BẢNG SO GIÁ SP × từng NCC (kể cả combo Mộc + Sơn). Nhận cả hai dạng: CEO {po, items, suppliers, combos,
+     quote_info} hoặc /api/orders/{id} phẳng. Màu theo token, không hex. */
+  const d = resp && resp.po ? resp : { po: resp || {}, items: (resp || {}).items || [], suppliers: [], combos: (resp || {}).combos || [], quote_info: null };
+  const po = d.po || {}, items = d.items || [], q = d.quote_info;
+  const tenNcc = {}; (d.suppliers || []).forEach(x => { tenNcc[x.id] = x.name; });
+  Object.entries(po.ncc_names || {}).forEach(([k, v]) => { if (!tenNcc[k]) tenNcc[k] = v; });
+  const combo = {}; (d.combos || []).forEach(c => { if (c && c.id) combo[c.id] = c; });
+  const ten = nid => tenNcc[nid] || nid;
+  const totals = po.ncc_totals || {}, giam = po.discounts || {};
+  const nccIds = Object.keys(totals).sort((a, b) => (Number(totals[a]) || 0) - (Number(totals[b]) || 0));
+  const chon = po.selected_ncc_id || po.comparison_best_ncc || '';
+  const T = v => _pdTien(Number(v) || 0);
+  // Giá 1 SP theo 1 cột: NCC thật, hoặc combo = Mộc + Sơn.
+  const gia = (it, nid, sl) => {
+    const p = it.prices || {}, c = combo[nid];
+    if (c) {
+      const m = Number((p[c.ncc_moc_id] || {}).don_gia) || 0, sn = Number((p[c.ncc_son_id] || {}).don_gia) || 0;
+      return { dg: m + sn, tt: (m + sn) * sl, moc: { id: c.ncc_moc_id, dg: m, nhan: c.label_moc || 'Phần 1' }, son: { id: c.ncc_son_id, dg: sn, nhan: c.label_son || 'Phần 2' } };
+    }
+    const raw = p[nid];
+    if (raw && typeof raw === 'object') { const dg = Number(raw.don_gia) || 0; return { dg, tt: Number(raw.thanh_tien) || dg * sl }; }
+    const tt = Number(raw) || 0; return { dg: sl > 0 ? tt / sl : 0, tt };
+  };
+  const dl = [
+    ['Tên đơn', po.ten_don], ['Số sản phẩm', d.so_san_pham || items.length],
+    ['NCC đã chọn', chon ? ten(chon) + (po.selected_ncc_phone ? ' · ' + po.selected_ncc_phone : '') : ''],
+  ].filter(([, v]) => v !== null && v !== undefined && v !== '')
+    .map(([k, v]) => `<dt>${_pdE(k)}</dt><dd>${_pdE(v)}</dd>`).join('');
+  let bg = '';
+  if (q) {
+    const kd = q.duyet_boi ? (q.duyet_boi_name || q.duyet_boi) + (q.duyet_luc ? ' · ' + _pdNgay(q.duyet_luc) : '') : '';
+    bg = `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Báo giá gốc ${q.quote_number ? '· ' + _pdE(q.quote_number) : ''}</p><dl class="pd-ct">
+      ${q.ten_khach ? `<dt>Khách hàng</dt><dd>${_pdE(q.ten_khach)}${q.sdt_khach ? ' — ' + _pdE(q.sdt_khach) : ''}</dd>` : ''}
+      ${q.salesperson ? `<dt>NV bán</dt><dd>${_pdE(q.salesperson_name || q.salesperson)}</dd>` : ''}
+      ${q.tong_don != null ? `<dt>Tổng đơn bán</dt><dd><b>${T(q.tong_don)}</b></dd>` : ''}
+      ${kd ? `<dt>KD duyệt</dt><dd>${_pdE(kd)}</dd>` : ''}
+      ${q.phan_khuc_duyet ? `<dt>Phân khúc</dt><dd>${_pdE(q.phan_khuc_duyet)}</dd>` : ''}
+      ${q.ghi_chu_duyet ? `<dt>Ghi chú duyệt KD</dt><dd>${_pdE(q.ghi_chu_duyet)}</dd>` : ''}</dl>`;
+  } else if (po.ref_bao_gia && PD_APP === 'ceo') {
+    bg = `<p class="pd-canh" style="margin-top:var(--sp-8)">Không tìm thấy báo giá ${_pdE(po.ref_bao_gia)} đã duyệt bên Báo giá.</p>`;
+  }
+  const ghi = [
+    po.comparison_approved_by ? `<p class="pd-ok">Manager mua hàng đã duyệt so giá: <b>${_pdE(po.comparison_approved_by)}</b>${po.comparison_approval_note ? ' — ' + _pdE(po.comparison_approval_note) : ''}</p>` : '',
+    po.approved_by ? `<p class="pd-ok">Đã duyệt mua bởi <b>${_pdE(po.approved_by)}</b>${po.approved_at ? ' · ' + _pdNgay(po.approved_at) : ''}</p>` : '',
+  ].join('');
+  let bang = '<p class="pd-trong">Chưa có bảng so giá.</p>';
+  if (items.length && nccIds.length) {
+    const th = nccIds.map(nid => { const c = combo[nid]; return `<th class="pd-so${nid === chon ? ' is-chon' : ''}">${_pdE(ten(nid))}${nid === chon ? ' ✓' : ''}${c ? `<small>${_pdE(c.label_moc || 'Phần 1')}: ${_pdE(ten(c.ncc_moc_id))} · ${_pdE(c.label_son || 'Phần 2')}: ${_pdE(ten(c.ncc_son_id))}</small>` : ''}</th>`; }).join('');
+    const hang = items.map(it => {
+      const sl = Number(it.so_luong_calc != null ? it.so_luong_calc : it.so_luong_input) || 0;
+      const phu = [it.kich_thuoc_raw, it.mau_go, it.mau_vai_da].filter(Boolean).join(' · ');
+      const o = nccIds.map(nid => {
+        const g = gia(it, nid, sl), on = nid === chon ? ' is-chon' : '';
+        if (!(g.tt > 0 || g.dg > 0)) return `<td class="pd-so pd-mo${on}">—</td>`;
+        const nho = g.moc ? `<small>${_pdE(g.moc.nhan)} ${_pdE(ten(g.moc.id))}: ${g.moc.dg ? T(g.moc.dg) : '—'}<br>${_pdE(g.son.nhan)} ${_pdE(ten(g.son.id))}: ${g.son.dg ? T(g.son.dg) : '—'}${sl > 1 ? '<br>× ' + sl : ''}</small>`
+          : (g.dg && sl > 1 ? `<small>${T(g.dg)} × ${sl}</small>` : '');
+        return `<td class="pd-so${on}"><b>${g.tt ? T(g.tt) : ''}</b>${nho}</td>`;
+      }).join('');
+      return `<tr><td><b>${_pdE(it.ten_sp || it.ma_don || '—')}</b>${phu ? `<small>${_pdE(phu)}</small>` : ''}</td><td class="pd-so">${sl || ''}${it.dvt ? ` <small>${_pdE(it.dvt)}</small>` : ''}</td>${o}</tr>`;
+    }).join('');
+    const tong = nccIds.map(nid => { const t = Number(totals[nid]) || 0, g = Number(giam[nid] != null ? giam[nid] : po.discount) || 0;
+      return `<td class="pd-so${nid === chon ? ' is-chon' : ''}"><b>${T(t)}</b>${g ? `<small>giảm −${T(g)}<br>còn <b>${T(Math.max(0, t - g))}</b></small>` : ''}</td>`; }).join('');
+    bang = `<div class="pd-p-cuon"><table class="pd-p-bang" style="min-width:${(2 + nccIds.length) * 128}px"><thead><tr><th>Sản phẩm</th><th class="pd-so">SL</th>${th}</tr></thead>
+      <tbody>${hang}</tbody><tfoot><tr><td colspan="2">Tổng</td>${tong}</tr></tfoot></table></div>`;
+  }
+  return `${dl ? `<dl class="pd-ct" style="margin-top:var(--sp-5)">${dl}</dl>` : ''}${bg}${ghi}
+    <p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Bảng so giá NCC (${items.length} SP)</p>${bang}`;
+}
+/* Tải phần chi tiết chỉ có ở API chi tiết (h.tai_them), nhớ kết quả vào h.them; đang ở app CEO thì đi qua /api/tong-duyet. */
+async function _pdTaiThem(h) {
+  const o = document.getElementById('pd-p-them');
+  if (!o) return;
+  if (h.them === undefined) {
+    try { h.them = await _pdApi(h.tai_them.truc_tiep ? h.tai_them.url : _pdQua(h.tai_them.app, h.tai_them.url)); }
+    catch (e) { h.them = null; h.them_loi = e.message || 'lỗi'; }
+  }
+  if (_pd.chon !== h.khoa || _pd.ct !== 'tt') return;   // người dùng đã chuyển dòng/tab trong lúc tải
+  o.innerHTML = h.them ? h.tai_them.ve(h.them)
+    : `<p class="pd-canh" style="margin-top:var(--sp-8)">Không tải được chi tiết đơn: ${_pdE(h.them_loi || '')}. Mở ở app gốc để xem đủ.</p>`;
+}
+
 /* ── Ngăn chi tiết ───────────────────────────────────────────────────────── */
 function pdChon(khoa) {
   const h = _pd.hang.find(x => x.khoa === khoa);
@@ -1134,8 +1259,10 @@ function pdTabCT(k) {
       <dt>Ngày tạo</dt><dd>${_pdNgay(h.ngay_tao)}</dd>
       ${dong}</dl>
     ${tep ? `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Tệp đính kèm (${h.tep.length})</p>${tep}` : ''}
+    ${h.tai_them ? `<div id="pd-p-them"><p class="pd-trong">Đang tải sản phẩm và bảng so sánh…</p></div>` : ''}
     ${h.luu_y ? `<p class="pd-canh" style="margin:var(--sp-8) 0 0">${_pdE(h.luu_y)}</p>` : ''}
     ${h.lien_ket ? `<p style="margin-top:var(--sp-8)"><a class="btn-link" href="${_pdE(h.lien_ket)}" target="_blank" rel="noopener">Mở ở app gốc →</a></p>` : ''}`;
+  if (h.tai_them) _pdTaiThem(h);
 }
 
 /* ── Quyết định ──────────────────────────────────────────────────────────── */
