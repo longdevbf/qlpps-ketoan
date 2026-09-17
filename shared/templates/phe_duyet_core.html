@@ -272,6 +272,9 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
 .pd .pd-p-bang th.pd-ncc{text-align:right;white-space:normal;min-width:150px;max-width:190px}
 .pd .pd-p-bang td small{white-space:normal}
 .pd .pd-p-bang td.pd-mo{color:var(--text-3)}
+.pd .pd-ct dd .pd-nho{display:block;font-size:var(--fs-micro);color:var(--text-3)}
+.pd .pd-ct dd.pd-lai{color:var(--success-fg)}
+.pd .pd-ct dd.pd-lo{color:var(--danger-fg)}
 .pd .pd-ok{margin:var(--sp-6) 0 0;padding:var(--sp-4) var(--sp-6);border-left:3px solid var(--success);border-radius:var(--r);background:var(--success-soft);color:var(--success-fg);font-size:var(--fs-meta)}
 .pd .pd-ct dt{display:flex;align-items:center;gap:var(--sp-4);font-size:var(--fs-meta);color:var(--text-3)}
 .pd .pd-ct dt svg.pd-ic{width:15px;height:15px;color:var(--text-3)}
@@ -535,6 +538,15 @@ const _PD_LOAI = {
    5 tab chung (cho · nghi · di · dx · all) luôn hiện; tab riêng chỉ mọc ở app có nguồn đó
    (Báo giá: đơn hàng + đổi ngày giao · Mua hàng: đơn PO · Kế toán: 4 khối · CEO: nguồn khác). */
 const _PD_TAB_CHUNG = ['cho', 'nghi', 'di', 'dx', 'all'];
+/* Tab riêng GHIM theo app (người dùng chốt 17/09/2026: "ghim tab ở đó luôn, không có gì duyệt thì để trống") —
+   đúng danh sách nguồn mà pdTai() nạp cho app đó, không phụ thuộc lần nạp này có dòng hay không. Tab rỗng vẫn
+   hiện để người duyệt biết mình đã xem hết loại đó. */
+const _PD_TAB_APP = {
+  baogia:  ['don_hang', 'ngay_giao'],
+  muahang: ['po'],
+  ketoan:  ['dntt', 'ncc', 'ktd', 'coc'],
+  ceo:     ['don_hang', 'ngay_giao', 'po', 'dntt', 'ncc', 'ktd', 'coc', 'kho', 'truc', 'dkn', 'khac'],
+};
 const _PD_TAB = [
   ['cho', 'Chờ duyệt'],
   ['nghi', 'Xin nghỉ'], ['di', 'Đi công tác'], ['dx', 'Đề xuất'],
@@ -786,7 +798,8 @@ function _pdHangPo(x) {               // Mua hàng · /api/orders?status=Chờ x
     ],
     // Sản phẩm + bảng so sánh NCC chỉ có ở GET /api/orders/{id} → tải khi mở ngăn chi tiết (xem _pdTaiThem).
     tai_them: PD_APP === 'ceo'
-      ? { truc_tiep: true, url: '/api/inbox/detail/muahang_po/' + encodeURIComponent(x.id), ve: _pdVeThemPo }   // API cũ của CEO, có khối báo giá + tên NCC
+      ? { truc_tiep: true, url: '/api/inbox/detail/muahang_po/' + encodeURIComponent(x.id), ve: _pdVeThemPo,   // API cũ của CEO, có khối báo giá + tên NCC
+          phu: x.ref_bao_gia ? ['/api/lo-lai-don/' + encodeURIComponent(x.ref_bao_gia)] : [] }                  // + Lỗ Lãi Đơn (doanh số, giá vốn, lãi)
       : { app: 'muahang', url: '/api/orders/' + encodeURIComponent(x.id), ve: _pdVeThemPo },
     ls: [], raw: x,
     luu_y: 'Bấm Phê duyệt ở đây là duyệt theo nhà cung cấp tốt nhất trong bảng so sánh. Muốn chọn nhà cung cấp khác thì mở đơn ở app Mua hàng.',
@@ -1027,13 +1040,12 @@ function _pdTrongKy() {
 }
 function pdVeTabs() {
   const trong_ky = _pdTrongKy();
-  // 5 tab chung luôn hiện (kể cả khi rỗng, để người duyệt biết mình đã xem hết loại nào);
-  // tab riêng chỉ mọc khi app này thật sự có nguồn đó.
+  // Tab chung + tab ghim theo app (_PD_TAB_APP) luôn hiện, kể cả rỗng; ngoài ra tab nào lỡ có dữ liệu
+  // (nguồn lạ) vẫn mọc để không giấu dòng nào.
   const co_nguon = k => _pd.hang.some(h => (_PD_LOAI[h.nguon] || {}).tab === k);
+  const ghim = _PD_TAB_APP[PD_APP] || [];
   document.getElementById('pd-tabs').innerHTML = _PD_TAB
-    // App CEO: tab Đơn hàng luôn hiện — CEO cần biết là ĐÃ xem và không có đơn nào, thay vì
-    // tưởng đơn Báo giá chưa được gom lên.
-    .filter(([k]) => _PD_TAB_CHUNG.indexOf(k) >= 0 || co_nguon(k) || (PD_APP === 'ceo' && k === 'don_hang'))
+    .filter(([k]) => _PD_TAB_CHUNG.indexOf(k) >= 0 || ghim.indexOf(k) >= 0 || co_nguon(k))
     .map(([k, nhan]) => {
       const n = k === 'all' ? trong_ky.length
         : k === 'cho' ? _pd.hang.filter(h => _pdDangCho(h.trang_thai)).length   // mọi kỳ
@@ -1126,7 +1138,7 @@ function _pdCapNhatKy() {
 document.addEventListener('click', e => { if (!e.target.closest('.pd-bat')) { document.getElementById('pd-ky-noi').hidden = true; pdDongLoc(); } });
 
 /* ── Chi tiết tải thêm (Đơn PO): sản phẩm + so sánh NCC như hộp duyệt của app Mua hàng ──── */
-function _pdVeThemPo(resp) {
+function _pdVeThemPo(resp, phu) {
   /* Dựng lại thẻ Đơn PO của màn Phê duyệt CEO cũ (claude-kit/_archive/qlpps-ceo/templates/phe_duyet.truoc-v2-20260912.html
      `_renderPODetail`) — vốn "copy y nguyên tab Duyệt Đơn Hàng của Mua Hàng": khối báo giá, ghi chú NV MH, manager MH duyệt
      so giá, và BẢNG SO GIÁ SP × từng NCC (kể cả combo Mộc + Sơn). Nhận cả hai dạng: CEO {po, items, suppliers, combos,
@@ -1178,6 +1190,29 @@ function _pdVeThemPo(resp) {
     po.comparison_approved_by ? `<p class="pd-ok">Manager mua hàng đã duyệt so giá: <b>${_pdE(po.comparison_approved_by)}</b>${po.comparison_approval_note ? ' — ' + _pdE(po.comparison_approval_note) : ''}</p>` : '',
     po.approved_by ? `<p class="pd-ok">Đã duyệt mua bởi <b>${_pdE(po.approved_by)}</b>${po.approved_at ? ' · ' + _pdNgay(po.approved_at) : ''}</p>` : '',
   ].join('');
+  /* Doanh số & lãi — theo đúng công thức màn Lỗ Lãi Đơn của CEO (chốt 08/05/2026, /api/lo-lai-don/{mã BG}):
+     DT = doanh thu thực (Kế toán) hoặc tổng đơn báo giá; GV = tổng PO của báo giá, CHỈ NCC đã chọn, KHÔNG trừ giảm giá;
+     Lãi gộp = DT − GV − VC. PO đang chờ duyệt thường CHƯA chọn NCC nên API bỏ nó khỏi GV → ở đây cộng tạm giá
+     NCC đang chọn/tốt nhất của chính PO này và ghi rõ "tạm tính", kẻo lãi bị thổi phồng đúng lúc cần quyết. */
+  let ln = '';
+  const pl = (phu || [])[0];
+  if (pl && pl.summary) {
+    const S = pl.summary, poNay = (pl.purchase_orders || []).find(x => x.po_id === po.id);
+    const daTinh = !!(poNay && poNay.selected_ncc_id) && !['Hủy', 'Bị Từ Chối'].includes(poNay.status || '');
+    const gvNay = daTinh ? 0 : (Number(totals[chon]) || 0);
+    const gv = (Number(S.gia_von) || 0) + gvNay, dt = Number(S.doanh_thu) || 0, vc = Number(S.chi_phi_vc) || 0;
+    const lai = dt - gv - vc, bien = dt > 0 ? lai / dt * 100 : null;
+    const nhanDT = S.nguon_dt === 'thuc' ? 'doanh thu thực (Kế toán)' : 'tạm tính theo tổng đơn báo giá';
+    const nhanGV = (gvNay ? 'tạm tính: cộng PO này theo NCC đang chọn' : 'PO đã chọn NCC') + ((pl.purchase_orders || []).length > 1 ? ` · ${(pl.purchase_orders || []).length} PO của báo giá` : '');
+    ln = `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Doanh số & lãi</p><dl class="pd-ct">
+      <dt>Doanh số</dt><dd><b>${T(dt)}</b><small class="pd-nho">${_pdE(nhanDT)}</small></dd>
+      <dt>Giá vốn</dt><dd>${T(gv)}<small class="pd-nho">${_pdE(nhanGV)}</small></dd>
+      ${vc ? `<dt>Chi phí VC</dt><dd>${T(vc)}</dd>` : ''}
+      <dt>Lãi gộp</dt><dd class="${lai >= 0 ? 'pd-lai' : 'pd-lo'}"><b>${lai < 0 ? '−' : ''}${T(Math.abs(lai))}</b>${bien != null ? ` · ${bien.toFixed(1)}%` : ''}${!dt ? '<small class="pd-nho">chưa có doanh số</small>' : ''}</dd>
+    </dl><p style="margin-top:var(--sp-5)"><a class="btn-link" href="/lo-lai-don" target="_blank" rel="noopener">Mở màn Lỗ Lãi Đơn →</a></p>`;
+  } else if (PD_APP === 'ceo' && po.ref_bao_gia) {
+    ln = `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Doanh số & lãi</p><p class="pd-trong">Chưa tính được — không đọc được Lỗ Lãi Đơn của ${_pdE(po.ref_bao_gia)}.</p>`;
+  }
   let bang = '<p class="pd-trong">Chưa có bảng so giá.</p>';
   if (items.length && nccIds.length) {
     // Tiêu đề cột NCC: combo thì tên ngắn "Combo N NCC" + từng phần ở dòng nhỏ (tên combo đầy đủ trong ncc_names dài
@@ -1202,7 +1237,7 @@ function _pdVeThemPo(resp) {
     bang = `<div class="pd-p-cuon"><table class="pd-p-bang"><thead><tr><th>Sản phẩm</th><th class="pd-so">SL</th>${th}</tr></thead>
       <tbody>${hang}</tbody><tfoot><tr><td colspan="2">Tổng</td>${tong}</tr></tfoot></table></div>`;
   }
-  return `${dl ? `<dl class="pd-ct" style="margin-top:var(--sp-5)">${dl}</dl>` : ''}${bg}${ghi}
+  return `${dl ? `<dl class="pd-ct" style="margin-top:var(--sp-5)">${dl}</dl>` : ''}${bg}${ln}${ghi}
     <p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Bảng so giá NCC (${items.length} SP)</p>${bang}`;
 }
 /* Tải phần chi tiết chỉ có ở API chi tiết (h.tai_them), nhớ kết quả vào h.them; đang ở app CEO thì đi qua /api/tong-duyet. */
@@ -1212,9 +1247,11 @@ async function _pdTaiThem(h) {
   if (h.them === undefined) {
     try { h.them = await _pdApi(h.tai_them.truc_tiep ? h.tai_them.url : _pdQua(h.tai_them.app, h.tai_them.url)); }
     catch (e) { h.them = null; h.them_loi = e.message || 'lỗi'; }
+    // Nguồn phụ (vd Lỗ Lãi Đơn): thiếu thì bỏ qua, không làm hỏng phần chính.
+    h.them_phu = await Promise.all((h.tai_them.phu || []).map(u => _pdApi(u).catch(() => null)));
   }
   if (_pd.chon !== h.khoa || _pd.ct !== 'tt') return;   // người dùng đã chuyển dòng/tab trong lúc tải
-  o.innerHTML = h.them ? h.tai_them.ve(h.them)
+  o.innerHTML = h.them ? h.tai_them.ve(h.them, h.them_phu || [])
     : `<p class="pd-canh" style="margin-top:var(--sp-8)">Không tải được chi tiết đơn: ${_pdE(h.them_loi || '')}. Mở ở app gốc để xem đủ.</p>`;
 }
 
