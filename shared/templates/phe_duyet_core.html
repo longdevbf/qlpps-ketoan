@@ -580,7 +580,7 @@ const PD_SUPER = ['admin', 'ceo', 'assistant_ceo'].indexOf(PD_ROLE) >= 0;
 const PD_DUYET = PD_SUPER || ['manager', 'leader', 'kt', 'hr_manager'].indexOf(PD_ROLE) >= 0;
 
 const _pd = {
-  hang: [], loi: [], tab: 'cho', tim: '', tu: '', den: '', trang: 1, co: 10, chon: null, ct: 'tt', dangGui: false,
+  hang: [], loi: [], tab: 'cho', tim: '', tu: '', den: '', trang: 1, co: 10, chon: null, ct: 'tt', dangGui: false, ten: {},
 };
 
 const _PD_LOAI = {
@@ -654,6 +654,10 @@ function _pdDangCho(tt) { return _PD_CHO.indexOf(tt) >= 0; }
    "Đã phê duyệt" từng bỏ qua PO và đăng ký nghỉ Báo giá). */
 function _pdDaDuyet(tt) { return (_PD_TT[tt] || [])[0] === 'success'; }
 function _pdTuChoi(tt) { return (_PD_TT[tt] || [])[0] === 'danger'; }
+/* username → họ tên (người dùng 18/09/2026: "thông tin nhân viên trong CEO duyệt sửa thành tên thay vì mã").
+   API các app trả nguoi_tao / duyet_boi / nv_mua_hang… là username; app CEO nạp danh bạ /api/da-xu-ly/ten-nv
+   một lần (khoá đã lower) rồi thay ở mọi chỗ. Không có trong danh bạ (mai_ai, giá trị đã là tên) → giữ nguyên. */
+function _pdTen(u) { const k = String(u || '').trim().toLowerCase(); return (k && _pd.ten[k]) || u; }
 /* Trạng thái PO mà tab Đơn PO ở CEO quan tâm: chờ duyệt mua + mọi bước sau duyệt + từ chối.
    'Chờ xác nhận' / 'Đang lấy giá' là bước NV mua hàng chưa gửi duyệt — không phải việc của người duyệt. */
 const _PD_PO_BUOC = ['Chờ duyệt', 'Đã Duyệt Mua', 'Đặt hàng', 'Đang SX', 'Đã có hàng', 'Hoàn Thành', 'Bị Từ Chối'];
@@ -1158,7 +1162,7 @@ async function pdTai() {
          donHang, ngayGiao, po, dntt, ncc, ktd, coc,
          donHangDuyet, donHangTuChoi, kho, dknKd, dknMkt,
          dxXong1, dxXong2, lddXong1, lddXong2, ctXong1, ctXong2, dnttXong1, dnttXong2,
-         nccXong, ktdXong, cocXong, ngayGiaoXong, khoXong1, khoXong2] = await Promise.all([
+         nccXong, ktdXong, cocXong, ngayGiaoXong, khoXong1, khoXong2, tenNv] = await Promise.all([
     _pdLay('Xin nghỉ', '/api/xin-nghi?trang_thai=cho_duyet'),
     _pdLay('Xin nghỉ', '/api/xin-nghi?trang_thai=da_duyet'),
     _pdLay('Xin nghỉ', '/api/xin-nghi?trang_thai=tu_choi'),
@@ -1209,7 +1213,10 @@ async function pdTai() {
     rieng('ceo', 'Đổi ngày giao', '/api/da-xu-ly/ngay-giao'),
     quaCeo('muahang', 'Nhập kho', '/api/kho/de-xuat?trang_thai=da_duyet'),
     quaCeo('muahang', 'Nhập kho', '/api/kho/de-xuat?trang_thai=tu_choi'),
+    // Danh bạ username → tên (trả object, không qua _pdLay). Hỏng thì vẫn hiện username, không chặn màn.
+    LA_CEO ? _pdApi('/api/da-xu-ly/ten-nv').catch(() => ({})) : {},
   ]);
+  _pd.ten = tenNv && typeof tenNv === 'object' && !Array.isArray(tenNv) ? tenNv : {};
   const gan = (ds, fn, app) => (ds || []).map(x => Object.assign(fn(x), app ? { app } : {}));
   const hang = []
     .concat((nghiCho || []).map(_pdHangNghi), (nghiXong1 || []).map(_pdHangNghi), (nghiXong2 || []).map(_pdHangNghi))
@@ -1236,6 +1243,13 @@ async function pdTai() {
     // Nhập kho dưới ngưỡng do Trưởng phòng Mua hàng duyệt — CEO chỉ thấy cấp 'ceo'.
     .concat([].concat(kho || [], khoXong1 || [], khoXong2 || []).filter(x => x.cap_duyet === 'ceo').map(_pdHangKho))
     .concat((dknKd || []).map(x => _pdHangDkn(x, 'baogia')), (dknMkt || []).map(x => _pdHangDkn(x, 'marketing')));
+  // Thay username → tên ở cột Người gửi, mốc lịch sử và mọi giá trị trong ngăn chi tiết trùng khớp danh bạ
+  // (nguoi_id giữ username để lọc/khớp). Chỉ khớp NGUYÊN chuỗi nên lý do, mô tả không bị đổi.
+  hang.forEach(h => {
+    h.nguoi = _pdTen(h.nguoi);
+    (h.ls || []).forEach(m => { m.boi = _pdTen(m.boi); });
+    (h.ct || []).forEach(c => { if (typeof c[1] === 'string') c[1] = _pdTen(c[1]); });
+  });
   // Đang chờ lên TRÊN, đã xử lý xuống DƯỚI (người dùng 18/09/2026); trong mỗi nhóm mới nhất trước.
   const thu = h => (_pdDangCho(h.trang_thai) ? 0 : 1);
   hang.sort((a, b) => (thu(a) - thu(b)) || String(b.ngay_tao || '').localeCompare(String(a.ngay_tao || '')));
@@ -1422,13 +1436,13 @@ function _pdVeThemPo(resp, phu) {
   };
   const dl = [
     ['Tên đơn', po.ten_don], ['Số sản phẩm', d.so_san_pham || items.length],
-    ['Tên NV mua hàng', po.nv_mua_hang_name && po.nv_mua_hang_name !== po.nv_mua_hang ? po.nv_mua_hang_name : ''],   // hộp cũ: "NV: Đỗ Đức Lan"
+    ['Tên NV mua hàng', po.nv_mua_hang_name && po.nv_mua_hang_name !== _pdTen(po.nv_mua_hang) ? po.nv_mua_hang_name : ''],   // hộp cũ: "NV: Đỗ Đức Lan"
     ['SĐT NCC đã chọn', chon && po.selected_ncc_phone ? po.selected_ncc_phone : ''],   // tên NCC đã có ở 'NCC đang chọn' phía trên
   ].filter(([, v]) => v !== null && v !== undefined && v !== '')
     .map(([k, v]) => `<dt>${_pdE(k)}</dt><dd>${_pdE(v)}</dd>`).join('');
   let bg = '';
   if (q) {
-    const kd = q.duyet_boi ? (q.duyet_boi_name || q.duyet_boi) + (q.duyet_luc ? ' · ' + _pdNgay(q.duyet_luc) : '') : '';
+    const kd = q.duyet_boi ? (q.duyet_boi_name || _pdTen(q.duyet_boi)) + (q.duyet_luc ? ' · ' + _pdNgay(q.duyet_luc) : '') : '';
     bg = `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Báo giá gốc ${q.quote_number ? '· ' + _pdE(q.quote_number) : ''}</p><dl class="pd-ct">
       ${q.ten_khach ? `<dt>Khách hàng</dt><dd>${_pdE(q.ten_khach)}${q.sdt_khach ? ' — ' + _pdE(q.sdt_khach) : ''}</dd>` : ''}
       ${q.salesperson ? `<dt>NV bán</dt><dd>${_pdE(q.salesperson_name || q.salesperson)}</dd>` : ''}
@@ -1440,8 +1454,8 @@ function _pdVeThemPo(resp, phu) {
     bg = `<p class="pd-canh" style="margin-top:var(--sp-8)">Không tìm thấy báo giá ${_pdE(po.ref_bao_gia)} đã duyệt bên Báo giá.</p>`;
   }
   const ghi = [
-    po.comparison_approved_by ? `<p class="pd-ok">Manager mua hàng đã duyệt so giá: <b>${_pdE(po.comparison_approved_by)}</b>${po.comparison_approval_note ? ' — ' + _pdE(po.comparison_approval_note) : ''}</p>` : '',
-    po.approved_by ? `<p class="pd-ok">Đã duyệt mua bởi <b>${_pdE(po.approved_by)}</b>${po.approved_at ? ' · ' + _pdNgay(po.approved_at) : ''}</p>` : '',
+    po.comparison_approved_by ? `<p class="pd-ok">Manager mua hàng đã duyệt so giá: <b>${_pdE(_pdTen(po.comparison_approved_by))}</b>${po.comparison_approval_note ? ' — ' + _pdE(po.comparison_approval_note) : ''}</p>` : '',
+    po.approved_by ? `<p class="pd-ok">Đã duyệt mua bởi <b>${_pdE(_pdTen(po.approved_by))}</b>${po.approved_at ? ' · ' + _pdNgay(po.approved_at) : ''}</p>` : '',
   ].join('');
   /* Doanh số & lãi — theo đúng công thức màn Lỗ Lãi Đơn của CEO (chốt 08/05/2026, /api/lo-lai-don/{mã BG}):
      DT = doanh thu thực (Kế toán) hoặc tổng đơn báo giá; GV = tổng PO của báo giá, CHỈ NCC đã chọn, KHÔNG trừ giảm giá;
@@ -1589,8 +1603,8 @@ function _pdVeThemDonHang(resp) {
   const tepKhoi = tepDs.length ? `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">File đính kèm (${tepDs.length})</p>${_pdVeTep(H, tepDs)}` : '';
   const ghi = [
     q.notes ? `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Ghi chú đơn</p><p style="white-space:pre-wrap">${_pdE(q.notes)}</p>` : '',
-    q.duyet_boi ? `<p class="pd-ok">Manager đã duyệt: <b>${_pdE(q.duyet_boi)}</b>${q.duyet_luc ? ' · ' + _pdNgay(q.duyet_luc) : ''}${q.ghi_chu_duyet ? ' — ' + _pdE(q.ghi_chu_duyet) : ''}</p>` : '',
-    q.kt_duyet_boi ? `<p class="pd-ok">Kế toán đã xác nhận cọc: <b>${_pdE(q.kt_duyet_boi)}</b>${q.kt_duyet_luc ? ' · ' + _pdNgay(q.kt_duyet_luc) : ''}${q.kt_ghi_chu ? ' — ' + _pdE(q.kt_ghi_chu) : ''}</p>` : '',
+    q.duyet_boi ? `<p class="pd-ok">Manager đã duyệt: <b>${_pdE(_pdTen(q.duyet_boi))}</b>${q.duyet_luc ? ' · ' + _pdNgay(q.duyet_luc) : ''}${q.ghi_chu_duyet ? ' — ' + _pdE(q.ghi_chu_duyet) : ''}</p>` : '',
+    q.kt_duyet_boi ? `<p class="pd-ok">Kế toán đã xác nhận cọc: <b>${_pdE(_pdTen(q.kt_duyet_boi))}</b>${q.kt_duyet_luc ? ' · ' + _pdNgay(q.kt_duyet_luc) : ''}${q.kt_ghi_chu ? ' — ' + _pdE(q.kt_ghi_chu) : ''}</p>` : '',
   ].join('');
   return `${doiChieu}<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Sản phẩm (${items.length})</p>${bang}${tong}${anhKhoi}${ttpKhoi}${tepKhoi}${ghi}`;
 }
@@ -1619,7 +1633,7 @@ function _pdVeThemDntt(resp) {
   const phatSinh = ps.length ? `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Phát sinh trên đơn (${ps.length})</p><div class="pd-p-cuon"><table class="pd-p-bang"><thead><tr><th>Loại</th><th>Mô tả</th><th class="pd-so">Số tiền</th></tr></thead>
     <tbody>${ps.map(p => `<tr><td>${_pdE(p.loai || p.loai_loi || '—')}${p.phong_ban_loi ? `<small>PB lỗi: ${_pdE(p.phong_ban_loi)}</small>` : ''}${p.ngay ? `<small>${_pdNgay(p.ngay)}</small>` : ''}</td><td>${_pdE(p.mo_ta || '')}</td><td class="pd-so"><b>${T(p.so_tien)}</b></td></tr>`).join('')}</tbody>
     <tfoot><tr><td colspan="2">Tổng phát sinh</td><td class="pd-so">${T(ps.reduce((t, p) => t + (Number(p.so_tien) || 0), 0))}</td></tr></tfoot></table></div>` : '';
-  const kt = r.kt_duyet_boi ? `<p class="pd-ok">Kế toán đã duyệt: <b>${_pdE(r.kt_duyet_boi_ten || r.kt_duyet_boi)}</b>${r.kt_duyet_luc ? ' · ' + _pdNgay(r.kt_duyet_luc) : ''}${r.kt_ghi_chu ? ' — ' + _pdE(r.kt_ghi_chu) : ''}</p>`
+  const kt = r.kt_duyet_boi ? `<p class="pd-ok">Kế toán đã duyệt: <b>${_pdE(r.kt_duyet_boi_ten || _pdTen(r.kt_duyet_boi))}</b>${r.kt_duyet_luc ? ' · ' + _pdNgay(r.kt_duyet_luc) : ''}${r.kt_ghi_chu ? ' — ' + _pdE(r.kt_ghi_chu) : ''}</p>`
     : r.trang_thai === 'cho_duyet' ? '<p class="pd-canh" style="margin:var(--sp-6) 0 0">Chờ Kế toán duyệt trước, sau đó CEO mới duyệt.</p>' : '';
   const chi = r.da_chi ? `<p class="pd-ok">Đã chi${r.tai_khoan_chi ? ' từ ' + _pdE(r.tai_khoan_chi) : ''}${r.ngay_chi ? ' · ' + _pdNgay(r.ngay_chi) : ''}</p>` : '';
   return vc + chungTu + phatSinh + kt + chi;
