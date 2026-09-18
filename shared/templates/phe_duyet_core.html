@@ -36,14 +36,24 @@
        app CEO đã bỏ từ 13/06/2026. Phiếu chi chỉ duyệt ở màn Duyệt chi — đừng thêm lại.
      · Riêng app CEO GOM hàng chờ của mọi app (16/09/2026): đơn hàng, KT duyệt đơn, cọc bổ
        sung, đổi ngày giao, PO duyệt mua, nhập kho cấp CEO, trả NCC + đề nghị TT bước CEO,
-       lệnh đi đo, công trình, đăng ký trực/nghỉ KD + Marketing. Đọc VÀ duyệt đều đi qua
+       lệnh đi đo, công trình, đăng ký nghỉ KD + Marketing. Đọc VÀ duyệt đều đi qua
        `/api/tong-duyet/<app>` (qlpps-ceo/app/routers/tong_duyet.py) để app gốc tự chạy
        nghiệp vụ — ĐỪNG quay lại `/api/inbox/override` (UPDATE thẳng, bỏ qua bước kế toán).
-       Tab "Nguồn khác" chỉ còn phiếu shared.approvals.
+       Tab "Nguồn khác" chỉ còn phiếu shared.approvals. Đăng ký trực bỏ khỏi CEO 18/09/2026
+       (người dùng chốt: cấp Leader/Manager phòng tự duyệt).
+     · App CEO nạp CẢ đơn ĐÃ DUYỆT / TỪ CHỐI của mọi tab (người dùng 18/09/2026: "đơn PO đã
+       duyệt rồi thì hiện đã duyệt và vẫn ở trong tab đó chứ không phải biến mất"). Nguồn nào app
+       gốc không có API liệt kê đơn đã xử lý (cọc bổ sung, đổi ngày giao, KT duyệt đơn, trả NCC)
+       thì CEO tự đọc DB qua `/api/da-xu-ly/<nguồn>` (qlpps-ceo/app/routers/da_xu_ly.py).
+       Bảng xếp đơn ĐANG CHỜ lên trên, đã xử lý xuống dưới (pdTai).
      · Không có tab "Sản phẩm" trong ngăn chi tiết: không nguồn nào trả dòng hàng.
      · "Giá trị / Thời gian" = tiền với Đề xuất và nguồn riêng, số ngày với Xin nghỉ,
        khoảng giờ với lệnh đi đo — đúng thứ mỗi loại thật sự có.
      · Không có ô chọn nhiều dòng: không API nào duyệt hàng loạt.
+     · HỘP RỘNG giữa màn (modal) cho 4 loại có bảng/ảnh/nhiều khối: Đơn PO, Đơn hàng (báo giá), Đề nghị TT,
+       Nhập kho — người dùng 17/09/2026 muốn thấy đủ như hộp duyệt cũ của CEO nhưng rộng hơn (hộp cũ 520px).
+       Vẫn là ngăn #pd-panel, chỉ được DỜI vào lớp phủ #pd-modal khi hàng có `hop_rong` (_pdMoHop) — không
+       bản sao. 11 loại còn lại là dữ liệu phẳng (rà 17/09: màn gốc cũng duyệt trong hộp 480px) → ngăn bên phải.
 
    Màu/khoảng cách/cỡ chữ chỉ lấy token `theme.css` (ADR-012). MỌI selector nằm dưới
    `.pd` — màn này chạy trong 8 khung app, có app nạp Bootstrap / components.css riêng.
@@ -112,12 +122,13 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
 .pd .btn-reject:focus-visible,.pd .pd-nut-icon:focus-visible,.pd .btn-link:focus-visible,.pd .tab-btn:focus-visible,
 .pd .pd-pg button:focus-visible,.pd .pd-o:focus-visible,.pd .pd-tab-ct:focus-visible{outline:0;box-shadow:var(--focus-ring)}
 
-/* ── Hàng tab + công cụ ──────────────────────────────────────────────────── */
-.pd .pd-thanh{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-5) var(--sp-8);flex-wrap:wrap;
-     margin-bottom:var(--sp-7)}
-.pd .tabs-bar{display:flex;gap:var(--sp-9);flex:0 1 auto;min-width:0;max-width:100%;overflow-x:auto;scrollbar-width:none}
-.pd .tabs-bar::-webkit-scrollbar{display:none}
-.pd .tab-btn{display:inline-flex;align-items:center;gap:var(--sp-2);padding:var(--sp-5) 0 var(--sp-4);border:0;
+/* ── Hàng công cụ (trên) + hàng tab (dưới) ─────────────────────────────────
+   Cụm khoảng ngày / tìm / bộ lọc ở TRÊN, căn phải; hàng tab ở DƯỚI và XUỐNG DÒNG khi nhiều tab. App CEO gom 16 tab:
+   để chung một hàng thì cụm công cụ bị đẩy rớt xuống (ảnh production 17/09/2026, người dùng: "nhiều tab quá nó bị
+   nhảy, chỉnh cho các tab xuống dưới các bộ lọc"). Điện thoại: tab cuộn ngang, không xuống dòng (16 tab = 5–6 dòng). */
+.pd .pd-thanh{display:flex;flex-direction:column;align-items:stretch;gap:var(--sp-5);margin-bottom:var(--sp-7)}
+.pd .tabs-bar{display:flex;flex-wrap:wrap;gap:0 var(--sp-9);min-width:0;border-bottom:1px solid var(--border-soft)}
+.pd .tab-btn{display:inline-flex;align-items:center;gap:var(--sp-2);margin-bottom:-1px;padding:var(--sp-5) 0 var(--sp-4);border:0;
      border-bottom:2px solid transparent;background:none;font:inherit;font-size:var(--fs-body);font-weight:500;
      color:var(--text-2);cursor:pointer;white-space:nowrap}
 .pd .tab-btn:hover{color:var(--brand-hover)}
@@ -125,7 +136,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
 .pd .tab-badge{font-variant-numeric:tabular-nums}
 .pd .tab-badge::before{content:"("}
 .pd .tab-badge::after{content:")"}
-.pd .pd-cong-cu{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-5);flex:1 1 auto;min-width:0}
+.pd .pd-cong-cu{order:-1;display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-5);flex-wrap:wrap;min-width:0}
 .pd .pd-o{display:inline-flex;align-items:center;gap:var(--sp-4);height:40px;padding:0 var(--sp-6);border:1px solid var(--border);
      border-radius:var(--r);background:var(--bg-card);color:var(--text-1);font:inherit;font-size:var(--fs-body);
      white-space:nowrap;cursor:pointer}
@@ -304,6 +315,60 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
 .pd .pd-trong{display:grid;place-items:center;gap:var(--sp-5);padding:56px var(--sp-9);text-align:center;color:var(--text-3)}
 .pd .pd-trong svg.pd-ic{width:28px;height:28px;color:var(--text-3)}
 
+/* ── Hộp rộng (modal) cho hàng có `hop_rong` — hiện là Đơn PO ──────────────────
+   Cùng ngăn #pd-panel, dời vào lớp phủ rồi trả về khi đóng (_pdMoHop/_pdDongHop). Rộng
+   min(1040px, màn − 32px) để bảng so giá 4–5 cột NCC không phải cuộn ngang; đầu/chân ngăn
+   đứng yên, thân cuộn. Lớp phủ và z-index giống các màn dùng chung khác (de_xuat, giao_viec). */
+.pd .pd-modal{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:var(--sp-8);
+     background:rgba(15,23,42,.45)}
+.pd .pd-modal .pd-panel{position:static;width:min(1040px,100%);max-height:calc(100vh - 32px);box-shadow:var(--shadow-lg)}
+.pd .pd-modal .pd-panel-than{padding:var(--sp-8) var(--sp-10)}
+.pd .pd-modal .pd-ct{grid-template-columns:160px minmax(0,1fr)}
+.pd .pd-modal .pd-p-bang{font-size:var(--fs-body)}
+.pd .pd-modal .pd-p-bang th.pd-ncc{min-width:160px;max-width:none}
+@media(min-width:768px){
+  /* Thông tin chung xếp 2 cặp nhãn–giá trị một hàng cho đỡ trống; giá trị dài (ghi chú) chiếm cả hàng. */
+  .pd .pd-modal .pd-ct-chung{grid-template-columns:150px minmax(0,1fr) 150px minmax(0,1fr)}
+  .pd .pd-modal .pd-ct-chung dt.pd-dai{grid-column:1}
+  .pd .pd-modal .pd-ct-chung dd.pd-dai{grid-column:2 / -1}
+}
+@media(max-width:767px){
+  .pd .pd-modal{padding:0}
+  .pd .pd-modal .pd-panel{width:100%;max-height:100vh;max-height:100dvh;border:0;border-radius:0}
+  .pd .pd-modal .pd-panel-than{padding:var(--sp-7)}
+}
+.pd .pd-panel-gia{display:block;margin-top:var(--sp-3);font-size:var(--fs-title);font-weight:700;color:var(--danger-fg);
+     white-space:nowrap;font-variant-numeric:tabular-nums}
+/* Dải tỷ lệ nhanh dưới bảng so giá — như dải vàng của hộp cũ */
+.pd .pd-ty-le{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-4) var(--sp-8);margin-top:var(--sp-7);
+     padding:var(--sp-5) var(--sp-7);border:1px solid var(--warning-border, var(--border));border-radius:var(--r);
+     background:var(--warning-soft);font-size:var(--fs-meta);color:var(--text-1)}
+.pd .pd-ty-le b{font-weight:700}
+.pd .pd-ty-le small{margin-left:var(--sp-3);font-size:var(--fs-micro);color:var(--text-3)}
+.pd .pd-ty-le .pd-nho{flex-basis:100%;margin:0}
+.pd .pd-ty-le .pd-lai{color:var(--success-fg)}
+.pd .pd-ty-le .pd-canh-so{color:var(--warning-fg)}
+.pd .pd-ty-le .pd-lo{color:var(--danger-fg)}
+
+/* Tệp đính kèm là ảnh (ảnh xác minh đổi ngày giao, chứng từ hoá đơn/UNC, ảnh SP) → thumbnail, bấm mở ảnh gốc */
+.pd .pd-tep-anh{display:flex;flex-wrap:wrap;gap:var(--sp-4);margin:var(--sp-4) 0}
+.pd .pd-tep-anh a{display:block;width:96px;height:96px;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;background:var(--bg-page)}
+.pd .pd-tep-anh img{width:100%;height:100%;object-fit:cover;display:block}
+.pd .pd-modal .pd-tep-anh a{width:132px;height:132px}
+/* Bảng sản phẩm (báo giá, nhập kho) trong hộp rộng */
+.pd .pd-p-bang img.pd-sp-anh{width:44px;height:44px;object-fit:cover;border:1px solid var(--border);border-radius:var(--r-sm);display:block;background:var(--bg-page)}
+.pd .pd-p-bang td.pd-thap{color:var(--danger-fg);font-weight:600}
+.pd .pd-p-bang tr.pd-nhom td{background:var(--info-soft);color:var(--brand-hover);font-weight:700}
+.pd .pd-p-bang tr.pd-nhom-tong td{background:var(--bg-band);font-weight:600}
+/* Khối tổng tiền báo giá — cùng các dòng với ngăn Duyệt đơn của app Báo giá */
+.pd .pd-tong{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--sp-3) var(--sp-8);max-width:440px;margin:var(--sp-6) 0 0 auto;font-size:var(--fs-meta)}
+.pd .pd-tong dt{color:var(--text-2)}
+.pd .pd-tong dd{text-align:right;color:var(--text-1);font-variant-numeric:tabular-nums}
+.pd .pd-tong dt.pd-manh,.pd .pd-tong dd.pd-manh{font-size:var(--fs-body);font-weight:700;color:var(--text-1);border-top:1px solid var(--border);padding-top:var(--sp-3)}
+/* Dải đỏ (bán thấp hơn giá quy định, thiếu chứng từ, không đủ phép) — cùng dạng .pd-ok */
+.pd .pd-xau{margin:var(--sp-6) 0 0;padding:var(--sp-4) var(--sp-6);border-left:3px solid var(--danger);border-radius:var(--r);background:var(--danger-soft);color:var(--danger-fg);font-size:var(--fs-meta)}
+.pd .pd-ok b,.pd .pd-xau b{font-weight:700}
+
 /* ── Lưu ý ───────────────────────────────────────────────────────────────── */
 .pd .pd-luu-y{margin-top:var(--sp-8);padding:var(--sp-8) var(--sp-9);border:1px solid var(--border);
      border-radius:var(--r-lg);background:linear-gradient(180deg, var(--bg-card) 0%, var(--brand-soft) 100%)}
@@ -333,7 +398,9 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
   .pd .pd-wrap{padding:var(--sp-7) var(--sp-7) 32px}
   .pd .pd-dau{justify-content:flex-start}
   .pd .pd-khau-hieu{text-align:left;font-size:var(--fs-body)}
-  .pd .pd-cong-cu{flex-wrap:wrap;justify-content:flex-start}
+  .pd .pd-cong-cu{justify-content:flex-start}
+  .pd .tabs-bar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .pd .tabs-bar::-webkit-scrollbar{display:none}
   .pd .tbl-wrap{padding:var(--sp-5) var(--sp-6) 0}
   .pd .pd-ct{grid-template-columns:108px minmax(0,1fr)}
   .pd .toast-wrap{left:8px;right:8px;bottom:12px}
@@ -459,7 +526,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
     <aside class="card pd-panel" id="pd-panel" hidden aria-label="Chi tiết yêu cầu">
       <div class="pd-panel-dau">
         <span class="ico-tile" id="pd-p-bieu"><svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
-        <div class="pd-panel-ten"><h2 id="pd-p-ten">—</h2><small id="pd-p-phu"></small></div>
+        <div class="pd-panel-ten"><h2 id="pd-p-ten">—</h2><small id="pd-p-phu"></small><b class="pd-panel-gia" id="pd-p-gia" hidden></b></div>
         <span id="pd-p-tt"></span>
         <button type="button" class="pd-nut-icon" onclick="pdDongPanel()" aria-label="Đóng chi tiết">
           <svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m18 6-12 12M6 6l12 12"/></svg></button>
@@ -496,6 +563,8 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
     </ul>
   </section>
 </div>
+<div class="pd-modal" id="pd-modal" hidden role="dialog" aria-modal="true" aria-label="Chi tiết yêu cầu"
+     onpointerdown="this._xuong = event.target" onclick="if (event.target === this && this._xuong === this) pdDongPanel()"></div>
 <div class="toast-wrap" id="pd-toast"></div>
 </div>
 
@@ -528,9 +597,8 @@ const _PD_LOAI = {
   ncc:       { nhan: 'Trả NCC',        lop: 'pd-loai--chi', tile: 'ico-tile--success', tab: 'ncc' },
   ktd:       { nhan: 'KT duyệt đơn',   lop: 'pd-loai--dh',  tile: 'ico-tile--tim',     tab: 'ktd' },
   coc:       { nhan: 'Cọc bổ sung',    lop: 'pd-loai--dh',  tile: 'ico-tile--tim',     tab: 'coc' },
-  // Chỉ app CEO gom 3 loại dưới đây (qua /api/tong-duyet — xem _pdQua).
+  // Chỉ app CEO gom 2 loại dưới đây (qua /api/tong-duyet — xem _pdQua).
   kho:       { nhan: 'Nhập kho',       lop: 'pd-loai--po',  tile: 'ico-tile',          tab: 'kho' },
-  truc:      { nhan: 'Đăng ký trực',   lop: 'pd-loai--di',  tile: 'ico-tile',          tab: 'truc' },
   dkn:       { nhan: 'Đăng ký nghỉ',   lop: 'pd-loai--nghi', tile: 'ico-tile--tim',    tab: 'dkn' },
 };
 /* Tab "Chờ duyệt" ĐỨNG ĐẦU và là tab mặc định (người dùng chốt 17/09/2026): gom MỌI yêu cầu đang chờ
@@ -545,14 +613,14 @@ const _PD_TAB_APP = {
   baogia:  ['don_hang', 'ngay_giao'],
   muahang: ['po'],
   ketoan:  ['dntt', 'ncc', 'ktd', 'coc'],
-  ceo:     ['don_hang', 'ngay_giao', 'po', 'dntt', 'ncc', 'ktd', 'coc', 'kho', 'truc', 'dkn', 'khac'],
+  ceo:     ['don_hang', 'ngay_giao', 'po', 'dntt', 'ncc', 'ktd', 'coc', 'kho', 'dkn', 'khac'],
 };
 const _PD_TAB = [
   ['cho', 'Chờ duyệt'],
   ['nghi', 'Xin nghỉ'], ['di', 'Đi công tác'], ['dx', 'Đề xuất'],
   ['don_hang', 'Đơn hàng'], ['ngay_giao', 'Đổi ngày giao'], ['po', 'Đơn PO'],
   ['dntt', 'Đề nghị TT'], ['ncc', 'Trả NCC'], ['ktd', 'KT duyệt đơn'], ['coc', 'Cọc bổ sung'],
-  ['kho', 'Nhập kho'], ['truc', 'Đăng ký trực'], ['dkn', 'Đăng ký nghỉ'],
+  ['kho', 'Nhập kho'], ['dkn', 'Đăng ký nghỉ'],
   ['khac', 'Nguồn khác'],
   ['all', 'Tất cả'],
 ];
@@ -571,11 +639,24 @@ const _PD_TT = {
   // App CEO: PO ở bước duyệt mua là 'Chờ duyệt' (muahang orders.py:3-5); đề nghị TT và
   // trả NCC đã qua kế toán là 'kt_duyet', đang chờ CEO duyệt cuối.
   'Chờ duyệt': ['warning', 'Chờ duyệt mua'], kt_duyet: ['warning', 'Chờ CEO duyệt'],
+  // PO đã duyệt mua đi tiếp các bước đặt hàng/sản xuất (muahang orders.py status_order) — vẫn là
+  // "đã duyệt" với người duyệt, nên giữ nhóm success; từ chối mua là 'Bị Từ Chối' (orders.py reject).
+  'Bị Từ Chối': ['danger', 'Từ chối mua'], 'Đặt hàng': ['success', 'Đã duyệt · Đặt hàng'],
+  'Đang SX': ['success', 'Đã duyệt · Đang SX'], 'Đã có hàng': ['success', 'Đã duyệt · Đã có hàng'],
+  'Hoàn Thành': ['success', 'Đã duyệt · Hoàn thành'],
 };
 /* Mọi cách viết "đang chờ tôi xử lý" của các nguồn — dùng cho thẻ số, nút duyệt và
    việc tự mở yêu cầu đầu tiên. Thiếu một giá trị ở đây là nút Phê duyệt biến mất. */
 const _PD_CHO = ['cho_duyet', 'pending', 'cho_manager', 'cho_ceo', 'kt_pending', 'Chờ xác nhận', 'Chờ duyệt', 'kt_duyet'];
 function _pdDangCho(tt) { return _PD_CHO.indexOf(tt) >= 0; }
+/* "Đã duyệt" / "Từ chối" đọc theo NHÓM MÀU của _PD_TT (success / danger) thay vì liệt kê lại từng chuỗi —
+   mỗi nguồn một cách viết (da_duyet, approved, duyet, 'Đã Duyệt Mua'…), liệt kê tay là sót (thẻ số
+   "Đã phê duyệt" từng bỏ qua PO và đăng ký nghỉ Báo giá). */
+function _pdDaDuyet(tt) { return (_PD_TT[tt] || [])[0] === 'success'; }
+function _pdTuChoi(tt) { return (_PD_TT[tt] || [])[0] === 'danger'; }
+/* Trạng thái PO mà tab Đơn PO ở CEO quan tâm: chờ duyệt mua + mọi bước sau duyệt + từ chối.
+   'Chờ xác nhận' / 'Đang lấy giá' là bước NV mua hàng chưa gửi duyệt — không phải việc của người duyệt. */
+const _PD_PO_BUOC = ['Chờ duyệt', 'Đã Duyệt Mua', 'Đặt hàng', 'Đang SX', 'Đã có hàng', 'Hoàn Thành', 'Bị Từ Chối'];
 /* Nhãn chép NGUYÊN VĂN từ router để hai nơi không nói khác nhau:
    xin_nghi.py:_LOAI_NGHI_LABELS · de_xuat.py:_LOAI_LABELS.
    Đoán nhãn là hiện chữ thô kiểu "nghi_khong_luong" trên bảng (thấy ở ảnh thật 12/09/2026). */
@@ -590,12 +671,37 @@ const _PD_CS = { ket_hon: 'Kết hôn', con_ket_hon: 'Con kết hôn', tang_than
 /* Đơn nghỉ chính sách: đọc mã trường hợp "[cs:<mã>]" ở ghi chú (xin_nghi_core ghi), trả [nhãn, ghi chú thuần]. */
 function _pdCs(x) {
   const m = x.loai_nghi === 'viec_rieng' && /\[cs:([a-z_]+)\]/.exec(x.ghi_chu || '');
-  if (!m || !_PD_CS[m[1]]) return [null, x.ghi_chu];
-  return [_PD_CS[m[1]], (x.ghi_chu || '').replace(/^Nghỉ chính sách:[^\n]*\[cs:[a-z_]+\]\s*/, '').trim()];
+  if (!m || !_PD_CS[m[1]]) return [null, x.ghi_chu, null];
+  return [_PD_CS[m[1]], (x.ghi_chu || '').replace(/^Nghỉ chính sách:[^\n]*\[cs:[a-z_]+\]\s*/, '').trim(), m[1]];
 }
-const _PD_DX = {
+const _PD_DX = {   // shared/routers/de_xuat.py _LOAI_LABELS — 5 loại mới (12/09/2026) + 4 loại cũ
+  len_chinh_thuc: 'Lên chính thức', tuyen_dung: 'Tuyển dụng', tang_luong: 'Tăng lương', mua_thiet_bi: 'Mua thiết bị',
+  thay_doi_quy_trinh: 'Thay đổi quy trình',
   cai_tien: 'Cải tiến cách làm', viec_moi: 'Việc mới / Sáng kiến', van_de: 'Vấn đề cần xử lý', khac: 'Khác',
 };
+/* Chế độ của từng trường hợp nghỉ chính sách — bảng _XN_CS của xin_nghi_core.html (ngày tối đa · chế độ) */
+const _PD_CS_CHE_DO = {
+  ket_hon: 'Hưởng nguyên lương · tối đa 3 ngày', con_ket_hon: 'Hưởng nguyên lương · tối đa 1 ngày',
+  tang_than_nhan: 'Hưởng nguyên lương · tối đa 3 ngày', tang_ho_hang: 'Không lương · tối đa 1 ngày',
+  vo_sinh_con: 'Chế độ BHXH · tối đa 5 ngày', thai_san: 'Theo quy định BHXH',
+};
+const _PD_HINH_THUC = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản' };
+const _PD_LOAI_DI = { do_nha: 'Đo nhà', cong_trinh: 'Kiểm tra công trình', gap_ncc: 'Gặp NCC', quay_chup: 'Quay chụp', hop_tac: 'Họp / Đối tác', khac: 'Khác' };   // hcns index.html loadDuyetLenhDi
+/* Nhãn khoá trong payload phiếu shared.approvals (hộp cũ CEO PAYLOAD_KEY_LABELS) — tiền ở các khoá _PD_PAYLOAD_TIEN */
+const _PD_PAYLOAD_NHAN = {
+  ten: 'Tên', phone: 'Số điện thoại', sdt: 'Số điện thoại', short_code: 'Mã viết tắt', n_catalog: 'Số sản phẩm',
+  ncc_id: 'ID NCC', po_id: 'Mã PO', quote_id: 'ID báo giá', quote_number: 'Số báo giá', customer_name: 'Khách hàng', khach: 'Khách hàng',
+  customer_id: 'ID KH', salesperson: 'NV kinh doanh', nv_mua_hang: 'NV mua hàng', tong_tien: 'Tổng tiền', so_tien: 'Số tiền',
+  amount: 'Giá trị', ten_ct: 'Tên chương trình', percent: 'Mức giảm (%)', muc_uu_dai: 'Mức ưu đãi', tu_ngay: 'Từ ngày',
+  den_ngay: 'Đến ngày', ho_ten: 'Họ tên', employee_id: 'Mã NV', old: 'Lương cũ', new: 'Lương mới', increase_pct: 'Tăng (%)',
+  ref_bao_gia: 'Báo giá tham chiếu', ngay: 'Ngày', dia_diem: 'Địa điểm', ma_don: 'Mã đơn', don_vi_vc: 'Đơn vị vận chuyển',
+  ngay_giao: 'Ngày giao', ngay_cu: 'Ngày giao cũ', ngay_moi: 'Ngày giao mới', ly_do: 'Lý do', loai_chi: 'Loại chi',
+  loai_nghi: 'Loại nghỉ', phong_ban: 'Phòng ban', app_name: 'App nguồn', tien_trinh_mh: 'Tiến trình sản xuất',
+};
+const _PD_PAYLOAD_TIEN = ['tong_tien', 'so_tien', 'old', 'new', 'amount'];
+/* Nhãn loại phiếu shared.approvals — cùng chữ với inbox.py _KIND_LABELS (bỏ emoji); kind mới không có trong đó thì hiện mã */
+const _PD_KIND_NHAN = { 'muahang.ncc_new': 'Thêm NCC mới', 'muahang.po_high_value': 'PO mua hàng giá trị lớn', 'baogia.quote_high_value': 'Báo giá giá trị lớn',
+  'marketing.km_deep_discount': 'KM giảm sâu', 'hcns.salary_increase': 'Tăng lương NV', 'baogia.doi_ngay_giao': 'Đổi ngày giao (cấp CEO)' };
 const _PD_MUC_DO = { thap: 'Thấp', trung: 'Trung bình', cao: 'Cao' };
 
 function _pdE(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -635,6 +741,38 @@ async function _pdApi(url, opts) {
 /* Đường gọi API của app `app`. Ở chính app đó: gọi thẳng như cũ. Ở app CEO: đi vòng qua
    /api/tong-duyet/<app> (qlpps-ceo/app/routers/tong_duyet.py) — máy chủ CEO gọi đúng API
    gốc bằng phiên của người dùng, nên nghiệp vụ duyệt vẫn do app gốc chạy. */
+/* Link mở ở app gốc (như "Xem trong app" của hộp cũ: https://muahang.qlpps.com/?po_id=…). Đang ở app đó thì
+   link tương đối; đang ở tên miền *.qlpps.com thì đổi tên miền con; còn lại (dev) trỏ thẳng tên miền thật. */
+function _pdLinkApp(app, duong) {
+  if (PD_APP === app) return duong;
+  const h = location.hostname, m = h.match(/^[^.]+\.(qlpps\.com)$/i);
+  return `${m ? location.protocol : 'https:'}//${app}.${m ? m[1] : 'qlpps.com'}${duong}`;
+}
+/* Tệp/ảnh của app khác: đường /api/uploads/… chỉ tên miền app đó phục vụ (CEO không có route này, Kế toán chỉ tìm
+   thư mục của mình) → đổi sang tên miền app giữ tệp (h.tep_app, mặc định h.app). Cookie .qlpps.com dùng chung. */
+function _pdTepUrl(h, u) {
+  u = String(u || '');
+  const app = h && (h.tep_app || h.app);
+  return app && u.startsWith('/api/uploads/') ? _pdLinkApp(app, u) : u;
+}
+function _pdLaAnh(u) { return /\.(jpe?g|png|webp|gif|heic|bmp)(\?|$)/i.test(String(u || '')); }
+/* Danh sách tệp: ảnh → thumbnail bấm mở ảnh gốc; tệp khác → thẻ tên + nút Mở. `phu` = dòng nhỏ (loại chứng từ, người tải). */
+function _pdVeTep(h, ds) {
+  ds = (ds || []).filter(t => t && t.url);
+  const anh = ds.filter(t => _pdLaAnh(t.url)), khac = ds.filter(t => !_pdLaAnh(t.url));
+  const veAnh = anh.length ? `<div class="pd-tep-anh">${anh.map(t => { const u = _pdE(_pdTepUrl(h, t.url));
+    return `<a href="${u}" target="_blank" rel="noopener" title="${_pdE([t.ten, t.phu].filter(Boolean).join(' · '))}"><img src="${u}" alt="${_pdE(t.ten || '')}" loading="lazy"></a>`; }).join('')}</div>` : '';
+  const veKhac = khac.map(t => `<div class="pd-tep">
+      <span class="pd-tep-bieu"><svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+      <span class="pd-tep-ten"><b>${_pdE(t.ten || String(t.url).split('/').pop())}</b>${(t.phu || t.co) ? `<small>${_pdE([t.phu, t.co ? Math.max(1, Math.round(t.co / 1024)) + ' KB' : ''].filter(Boolean).join(' · '))}</small>` : ''}</span>
+      <a class="btn-link" href="${_pdE(_pdTepUrl(h, t.url))}" target="_blank" rel="noopener">Mở</a></div>`).join('');
+  return veAnh + veKhac;
+}
+/* Link Google Maps từ toạ độ (lệnh đi đo, công trình) hoặc địa chỉ — như cột Vị trí ở màn HCNS. */
+function _pdMaps(lat, lng, dia_chi) {
+  if (lat && lng) return `https://www.google.com/maps?q=${encodeURIComponent(lat + ',' + lng)}`;
+  return dia_chi ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dia_chi)}` : '';
+}
 function _pdQua(app, url) {
   if (!app || app === PD_APP) return url;
   return PD_APP === 'ceo' ? '/api/tong-duyet/' + app + url : url;
@@ -654,7 +792,7 @@ async function _pdLay(ten, url) {
   }
 }
 function _pdHangNghi(x) {
-  const [cs, ghiChu] = _pdCs(x);
+  const [cs, ghiChu, csMa] = _pdCs(x);
   const loai = (_PD_NGHI[x.loai_nghi] || x.loai_nghi || 'Xin nghỉ') + (cs ? ' · ' + cs : '');
   return {
     khoa: 'nghi:' + x.id, nguon: 'nghi', id: x.id, ma: 'NGHI-' + x.id,
@@ -663,27 +801,34 @@ function _pdHangNghi(x) {
     gia_tri: _pdSoNgay(x.so_ngay), ngay_tao: x.created_at, han: '', trang_thai: x.trang_thai,
     tep: (x.tep_dinh_kem || []).map(t => ({ ten: t.ten, url: t.url, co: t.kich_thuoc })),
     ct: [
-      ['Loại nghỉ', loai],
+      ['Loại nghỉ', loai], ['Chế độ', csMa ? _PD_CS_CHE_DO[csMa] : ''],
       ['Từ ngày', _pdNgay(x.ngay_bat_dau)], ['Đến ngày', _pdNgay(x.ngay_ket_thuc)],
       ['Buổi', x.buoi === 'ca_ngay' ? 'Cả ngày' : (x.buoi === 'sang' ? 'Buổi sáng' : (x.buoi === 'chieu' ? 'Buổi chiều' : x.buoi))],
       ['Số ngày', _pdSoNgay(x.so_ngay)], ['Lý do', x.ly_do], ['Ghi chú', ghiChu],
     ],
     ls: x.ngay_duyet ? [{ chu: (_PD_TT[x.trang_thai] || [, x.trang_thai])[1], boi: x.ho_ten_nguoi_duyet || x.nguoi_duyet, luc: x.ngay_duyet, ghi: x.nhan_xet_duyet }] : [],
+    // Phép năm còn lại của NGƯỜI NỘP (hộp cũ _renderPhepBox): chỉ app CEO có API tính cho người khác
+    // (/api/inbox/detail/xin_nghi); /api/xin-nghi/phep-nam chỉ tính cho chính người gọi.
+    tai_them: PD_APP === 'ceo' ? { truc_tiep: true, url: '/api/inbox/detail/xin_nghi/' + encodeURIComponent(x.id), ve: _pdVeThemNghi } : undefined,
     raw: x,
   };
 }
 function _pdHangDx(x) {
+  const ct = x.chi_tiet || {};   // shared.de_xuat_chi_tiet (1-1): NV được đề xuất, ngày hiệu lực — màn gốc dxXem hiện
   return {
-    khoa: 'dx:' + x.id, nguon: 'dx', id: x.id, ma: 'DX-' + x.id, tieu_de: x.tieu_de || 'Đề xuất',
+    khoa: 'dx:' + x.id, nguon: 'dx', id: x.id, ma: ct.ma || ('DX-' + x.id), tieu_de: x.tieu_de || 'Đề xuất',
     phu: _PD_DX[x.loai] || x.loai || '', nguoi: x.ho_ten || x.username, nguoi_id: x.username,
     phong_ban: x.phong_ban || '', gia_tri: x.ngan_sach_du_kien ? _pdTien(x.ngan_sach_du_kien) : '—',
     so: Number(x.ngan_sach_du_kien) || 0, ngay_tao: x.created_at, han: x.han_mong_muon || '', trang_thai: x.trang_thai,
     tep: (x.tep_dinh_kem || []).map(u => ({ ten: String(u).split('/').pop(), url: u })),
     ct: [
       ['Loại', _PD_DX[x.loai] || x.loai], ['Mức độ', _PD_MUC_DO[x.muc_do] || x.muc_do],
+      ['Nhân viên được đề xuất', ct.nv_ho_ten ? ct.nv_ho_ten + (ct.nv_ma_nv ? ' (' + ct.nv_ma_nv + ')' : '') : ''],
+      ['Vị trí', ct.nv_chuc_vu], ['Phòng NV', ct.nv_phong_ban], ['Ngày vào làm', _pdNgay(ct.nv_ngay_vao)],
+      ['Kết thúc thử việc', _pdNgay(ct.ngay_ket_thuc_thu_viec)], ['Ngày hiệu lực', _pdNgay(ct.ngay_hieu_luc)],
       ['Hạn mong muốn', _pdNgay(x.han_mong_muon)], ['Ngân sách', x.ngan_sach_du_kien ? _pdTien(x.ngan_sach_du_kien) : '—'],
       ['Cấp đang duyệt', x.approval_level], ['Nội dung', x.noi_dung], ['Kết quả kỳ vọng', x.ket_qua_ky_vong],
-      ['Xin ý kiến CEO', x.xin_y_kien_ceo ? 'Có' : 'Không'],
+      ['Xin ý kiến CEO', x.xin_y_kien_ceo ? 'Có' : 'Không'], ['Nhận xét duyệt', x.nhan_xet_duyet],
     ],
     ls: (x.approval_history || []).map(h => ({ chu: (h.action || h.trang_thai || h.level), boi: h.ho_ten || h.username, luc: h.at || h.time || h.created_at, ghi: h.nhan_xet || h.comment })),
     raw: x,
@@ -691,20 +836,30 @@ function _pdHangDx(x) {
 }
 function _pdHangLdd(x) {
   const gio = [_pdGio(x.gio_vao), _pdGio(x.gio_ra)].filter(Boolean).join(' - ');
+  // tham_chieu là chuỗi JSON (khách / công trình / NCC / đơn hàng) — đọc như cột Tham chiếu ở màn HCNS
+  let tc = x.tham_chieu; try { if (typeof tc === 'string' && tc.trim().startsWith('{')) tc = JSON.parse(tc); } catch (e) { /* để nguyên chuỗi */ }
+  const thamChieu = tc && typeof tc === 'object'
+    ? [tc.ten_khach ? tc.ten_khach + (tc.sdt_khach ? ' — ' + tc.sdt_khach : '') : '', tc.ten_ct ? tc.ten_ct + (tc.ma_ct ? ' (' + tc.ma_ct + ')' : '') : '',
+       tc.ten_ncc, tc.ma_don ? 'ĐH: ' + tc.ma_don : '', tc.ghi_chu].filter(Boolean).join(' · ')
+    : (tc || '');
+  const maps = _pdMaps(x.lat_diem, x.lng_diem, x.dia_chi || x.dia_diem);
   return {
     khoa: 'ldd:' + x.id, nguon: 'ldd', id: x.id, ma: 'LDD-' + x.id, tieu_de: 'Đi đo: ' + (x.dia_diem || ''),
     phu: x.muc_dich || x.dia_chi || '', nguoi: x.ho_ten || x.ma_nv, nguoi_id: x.ma_nv, phong_ban: x.phong_ban || '',
     gia_tri: gio || '1 ngày', ngay_tao: x.created_at || x.ngay, han: '', trang_thai: x.status, tep: [],
     ct: [
-      ['Ngày đi', _pdNgay(x.ngay)], ['Địa điểm', x.dia_diem], ['Địa chỉ', x.dia_chi],
-      ['Mục đích', x.muc_dich], ['Giờ vào - ra', gio || '—'], ['Loại đi', x.loai_di], ['Ghi chú', x.ghi_chu],
+      ['Ngày đi', _pdNgay(x.ngay)], ['Loại đi', _PD_LOAI_DI[x.loai_di] || x.loai_di], ['Địa điểm', x.dia_diem], ['Địa chỉ', x.dia_chi],
+      ['Tham chiếu', thamChieu], ['Mục đích', x.muc_dich], ['Giờ vào - ra', gio || '—'], ['Ghi chú', x.ghi_chu],
     ],
-    ls: [], raw: x,
+    links: maps ? [{ nhan: 'Xem vị trí trên bản đồ', url: maps }] : [],
+    ls: x.approved_by ? [{ chu: (_PD_TT[x.status] || [, x.status])[1], boi: x.approved_by_name || x.approved_by, luc: x.approved_at, ghi: x.note_duyet }] : [],
+    raw: x,
   };
 }
 function _pdHangCt(x) {
   const d1 = new Date(x.ngay_bat_dau), d2 = new Date(x.ngay_ket_thuc);
   const ngay = isFinite(d1) && isFinite(d2) ? Math.round((d2 - d1) / 86400000) + 1 : null;
+  const maps = _pdMaps(x.lat_diem, x.lng_diem, x.dia_diem);
   return {
     khoa: 'ct:' + x.id, nguon: 'ct', id: x.id, ma: 'CT-' + x.id, tieu_de: 'Công trình: ' + (x.dia_diem || ''),
     phu: x.ly_do || '', nguoi: x.ho_ten || x.ma_nv, nguoi_id: x.ma_nv, phong_ban: x.phong_ban || '',
@@ -713,20 +868,34 @@ function _pdHangCt(x) {
       ['Từ ngày', _pdNgay(x.ngay_bat_dau)], ['Đến ngày', _pdNgay(x.ngay_ket_thuc)],
       ['Địa điểm', x.dia_diem], ['Lý do', x.ly_do], ['Ghi chú duyệt', x.note_duyet],
     ],
-    ls: [], raw: x,
+    links: maps ? [{ nhan: 'Xem vị trí trên bản đồ', url: maps }] : [],
+    // API HCNS không trả tên/phòng NV; ở CEO lấy qua /api/inbox/detail/cong_trinh (JOIN hcns.employees, hộp cũ dùng)
+    tai_them: PD_APP === 'ceo' ? { truc_tiep: true, url: '/api/inbox/detail/cong_trinh/' + encodeURIComponent(x.id), ve: _pdVeThemNv } : undefined,
+    ls: x.approved_by ? [{ chu: (_PD_TT[x.status] || [, x.status])[1], boi: x.approved_by, luc: x.approved_at, ghi: x.note_duyet }] : [],
+    raw: x,
   };
 }
 function _pdHangInbox(x) {
+  // Nội dung phiếu nằm trong extra.payload (NCC mới, PO lớn, KM giảm sâu, tăng lương, đổi ngày giao cấp CEO) —
+  // hộp cũ vẽ mọi khoá thành cặp nhãn/giá trị (_renderSharedApprovalDetail); không vẽ thì CEO không biết duyệt gì.
+  const ex = x.extra || {}, pl = ex.payload && typeof ex.payload === 'object' ? ex.payload : {};
+  const giaTri = (k, v) => v === null || v === undefined || v === '' ? ''
+    : (typeof v === 'number' && _PD_PAYLOAD_TIEN.indexOf(k) >= 0) ? _pdTien(v)
+    : (k === 'ngay' || k === 'ngay_giao' || k === 'ngay_cu' || k === 'ngay_moi' || k === 'tu_ngay' || k === 'den_ngay') ? (_pdNgay(v) || String(v))
+    : Array.isArray(v) ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+  const dongPl = Object.keys(pl).filter(k => k !== 'anh_urls' && !/_id$/.test(k) && k !== 'log_id').map(k => [_PD_PAYLOAD_NHAN[k] || k, giaTri(k, pl[k])]);
   return {
     khoa: 'khac:' + x.source + ':' + x.ref_id, nguon: 'khac', id: x.ref_id, nguon_phu: x.source,
     ma: String(x.source || '').toUpperCase() + '-' + x.ref_id, tieu_de: x.title || x.label || 'Yêu cầu',
     phu: x.subtitle || x.label || '', nguoi: x.requested_by_name || x.requested_by_username || '',
-    nguoi_id: x.requested_by_username || '', phong_ban: (x.extra && x.extra.phong_ban) || '',
+    nguoi_id: x.requested_by_username || '', phong_ban: ex.phong_ban || pl.phong_ban || '',
     gia_tri: x.amount ? _pdTien(x.amount) : '—', so: Number(x.amount) || 0, ngay_tao: x.created_at, han: '',
-    trang_thai: x.status, tep: [],
+    trang_thai: x.status, tep: (pl.anh_urls || []).map(u => ({ ten: String(u).split('/').pop(), url: u })), tep_app: ex.app || '',
     ct: [
-      ['Nguồn', x.label || x.source], ['Đang chờ', x.assigned_to_label || x.current_step],
+      ['Loại phiếu', _PD_KIND_NHAN[ex.kind] || x.label || ex.kind || x.source], ['App nguồn', ex.app],
+      ['Đang chờ', x.assigned_to_label || x.current_step],
       ['Giá trị', x.amount ? _pdTien(x.amount) : '—'], ['Tuổi đơn', x.age_hours != null ? Math.round(x.age_hours) + ' giờ' : ''],
+      ...dongPl,
       ['Ghi chú', x.subtitle],
     ],
     ls: [], raw: x, lien_ket: x.app_link || '',
@@ -744,15 +913,27 @@ function _pdHangDonHang(x) {          // Báo giá · /api/duyet-don-page?tab=ch
     nguoi: x.salesperson_name || x.salesperson || '', nguoi_id: x.salesperson || '',
     phong_ban: x.nhom || '', gia_tri: _pdTien(x.tong_cong), so: Number(x.tong_cong) || 0,
     ngay_tao: x.created_at, han: x.ngay_giao_du_kien || '', trang_thai: x.duyet_status,
-    tep: (x.images || []).map(u => ({ ten: String(u).split('/').pop(), url: u })),
+    // Ảnh SP, ảnh đơn, file đính kèm vẽ trong hộp rộng (_pdVeThemDonHang) — để tep rỗng kẻo hiện hai lần.
+    tep: [], tep_app: 'baogia',
     ct: [
       ['Khách hàng', x.customer_name], ['Điện thoại', x.customer_phone], ['Địa chỉ', x.customer_address],
       ['Nhân viên bán', x.salesperson_name || x.salesperson], ['Phân khúc', x.phan_khuc_duyet],
       ['Tổng đơn', _pdTien(x.tong_cong)],
-      ['Cọc', x.coc_so_tien ? _pdTien(x.coc_so_tien) + (x.coc_hinh_thuc ? ' · ' + x.coc_hinh_thuc : '') : '—'],
-      ['Ngày giao dự kiến', _pdNgay(x.ngay_giao_du_kien)], ['Ghi chú duyệt', x.ghi_chu_duyet],
+      ['Cọc', x.coc_so_tien ? _pdTien(x.coc_so_tien) + (x.coc_hinh_thuc ? ' · ' + (_PD_HINH_THUC[x.coc_hinh_thuc] || x.coc_hinh_thuc) : '') : '—'],
+      ['Ngày giao dự kiến', _pdNgay(x.ngay_giao_du_kien)],
+      ['Đang chờ', _pdDangCho(x.duyet_status) ? (PD_APP === 'ceo' ? 'Manager Báo giá — CEO có thể duyệt thay' : 'Manager Báo giá duyệt') : ''],
+      ['Ghi chú duyệt', x.ghi_chu_duyet],
     ],
-    ls: [], raw: x,
+    ls: [
+      x.kt_duyet_boi ? { chu: 'Kế toán xác nhận cọc', boi: x.kt_duyet_boi, luc: x.kt_duyet_luc, ghi: x.kt_ghi_chu } : null,
+      x.duyet_boi ? { chu: 'Manager duyệt', boi: x.duyet_boi, luc: x.duyet_luc, ghi: x.ghi_chu_duyet } : null,
+    ].filter(Boolean),
+    // Hộp rộng: đối chiếu giá quy định, bảng SP có ảnh, tổng CK/VAT/cọc, ảnh đơn, thông tin phụ, file — đúng ngăn
+    // Duyệt đơn của app Báo giá (duyet_don.html renderLocalDetail, GET /api/quote/{id}/detail; CEO đi qua /api/tong-duyet).
+    hop_rong: true,
+    tai_them: { app: 'baogia', url: '/api/quote/' + encodeURIComponent(x.id) + '/detail', ve: _pdVeThemDonHang },
+    lien_ket: _pdLinkApp('baogia', '/quote/' + encodeURIComponent(x.id) + '/edit'),
+    raw: x,
   };
 }
 function _pdHangNgayGiao(x) {         // Báo giá · /api/ngay-giao/cho-duyet
@@ -762,13 +943,15 @@ function _pdHangNgayGiao(x) {         // Báo giá · /api/ngay-giao/cho-duyet
     phu: _pdNgay(x.ngay_cu) + ' → ' + _pdNgay(x.ngay_moi),
     nguoi: x.doi_boi_ten || x.doi_boi || '', nguoi_id: x.doi_boi || '', phong_ban: '',
     gia_tri: _pdNgay(x.ngay_moi), ngay_tao: x.doi_luc, han: x.ngay_moi || '', trang_thai: x.trang_thai,
-    tep: (x.anh_urls || []).map(u => ({ ten: String(u).split('/').pop(), url: u })),
+    tep: (x.anh_urls || []).map(u => ({ ten: String(u).split('/').pop(), url: u })), tep_app: 'baogia',   // ảnh xác minh khách đồng ý
+    lien_ket: x.quote_id ? _pdLinkApp('baogia', '/quote/' + encodeURIComponent(x.quote_id) + '/edit') : '',
     ct: [
       ['Báo giá', x.quote_number], ['Khách hàng', x.customer_name], ['Người bán', x.salesperson],
       ['Ngày cũ', _pdNgay(x.ngay_cu)], ['Ngày mới', _pdNgay(x.ngay_moi)], ['Lý do', x.ly_do],
       ['Tiến trình sản xuất', x.tien_trinh_mh],
     ],
-    ls: [], raw: x,
+    ls: x.duyet_luc ? [{ chu: (_PD_TT[x.trang_thai] || [, x.trang_thai])[1], boi: x.duyet_boi_ten || x.duyet_boi, luc: x.duyet_luc, ghi: x.ghi_chu_duyet }] : [],
+    raw: x,
   };
 }
 /* Đơn PO — giá SAU giảm của NCC đang chọn (hoặc NCC tốt nhất), tính như hộp duyệt của app Mua hàng
@@ -783,75 +966,109 @@ function _pdPoNcc(x) {
 }
 function _pdHangPo(x) {               // Mua hàng · /api/orders?status=Chờ xác nhận (danh sách, chưa có sản phẩm)
   const ncc = _pdPoNcc(x);
+  // Từ chối mua không ghi approved_by — lý do nằm ở dòng cuối approval_history (orders.py reject, action: 'rejected').
+  const tuChoi = x.status === 'Bị Từ Chối' ? (x.approval_history || []).filter(h => h && h.action === 'rejected').pop() : null;
   return {
     khoa: 'po:' + x.id, nguon: 'po', id: x.id, ma: x.id,
     tieu_de: x.ten_don || ('Đơn mua ' + x.id), phu: x.ref_bao_gia ? 'Báo giá: ' + x.ref_bao_gia : '',
     nguoi: x.nv_mua_hang || '', nguoi_id: x.nv_mua_hang || '', phong_ban: 'Mua Hàng',
     gia_tri: ncc.conChon != null ? _pdTien(ncc.conChon) : '—', so: ncc.conChon || 0,
-    ngay_tao: x.ngay_dat_xuong || '', han: x.tien_do_khach_can || '',
+    ngay_tao: x.created_at || '', han: x.tien_do_khach_can || '',   // ngày tạo thật; ngày đặt xưởng là dòng riêng ở ct
     trang_thai: x.status, tep: [],
     ct: [
-      ['Mã đơn', x.id], ['Báo giá gốc', x.ref_bao_gia], ['NV mua hàng', x.nv_mua_hang],
+      ['Báo giá gốc', x.ref_bao_gia], ['NV mua hàng', x.nv_mua_hang],   // 'Mã đơn' đã là Mã yêu cầu ở trên
       ['Ngày đặt xưởng', _pdNgay(x.ngay_dat_xuong)], ['Khách cần trước', _pdNgay(x.tien_do_khach_can)],
       ['NCC đang chọn', ncc.tenChon ? ncc.tenChon + (ncc.conChon != null ? ' — ' + _pdTien(ncc.conChon) : '') : ''],
+      // Như hộp cũ của CEO: PO 'Chờ duyệt' là chờ Manager Mua Hàng duyệt mua; CEO bấm duyệt ở đây là duyệt thay.
+      ['Đang chờ', x.status === 'Chờ duyệt' || x.status === 'cho_duyet' ? (PD_APP === 'ceo' ? 'Manager Mua Hàng — CEO có thể duyệt thay' : 'Manager Mua Hàng duyệt mua')
+        : (x.status === 'Chờ xác nhận' ? 'NV mua hàng nhận đơn, lấy giá rồi gửi duyệt' : '')],
       ['Ghi chú mua hàng', x.mh_note],
     ],
+    hop_rong: true,                                   // mở hộp rộng giữa màn (người dùng 17/09/2026), không phải ngăn bên phải
+    lien_ket: _pdLinkApp('muahang', '/?order=' + encodeURIComponent(x.id)),   // index.html Mua hàng chỉ đọc ?order= (không phải ?po_id)
     // Sản phẩm + bảng so sánh NCC chỉ có ở GET /api/orders/{id} → tải khi mở ngăn chi tiết (xem _pdTaiThem).
     tai_them: PD_APP === 'ceo'
       ? { truc_tiep: true, url: '/api/inbox/detail/muahang_po/' + encodeURIComponent(x.id), ve: _pdVeThemPo,   // API cũ của CEO, có khối báo giá + tên NCC
           phu: x.ref_bao_gia ? ['/api/lo-lai-don/' + encodeURIComponent(x.ref_bao_gia)] : [] }                  // + Lỗ Lãi Đơn (doanh số, giá vốn, lãi)
       : { app: 'muahang', url: '/api/orders/' + encodeURIComponent(x.id), ve: _pdVeThemPo },
-    ls: [], raw: x,
-    luu_y: 'Bấm Phê duyệt ở đây là duyệt theo nhà cung cấp tốt nhất trong bảng so sánh. Muốn chọn nhà cung cấp khác thì mở đơn ở app Mua hàng.',
+    ls: [
+      // PO 'Chờ duyệt' vẫn có thể còn approved_by của lần duyệt trước (DB dev 18/09: 1 đơn) — chỉ kể khi đã qua bước duyệt.
+      x.approved_by && x.status !== 'Chờ duyệt' ? { chu: 'Đã duyệt mua', boi: x.approved_by, luc: x.approved_at, ghi: x.comparison_approval_note } : null,
+      tuChoi ? { chu: 'Từ chối mua', boi: tuChoi.approved_by, luc: tuChoi.approved_at, ghi: tuChoi.rejection_reason } : null,
+    ].filter(Boolean),
+    raw: x,
+    luu_y: _pdDangCho(x.status) ? 'Bấm Phê duyệt ở đây là duyệt theo nhà cung cấp tốt nhất trong bảng so sánh. Muốn chọn nhà cung cấp khác thì mở đơn ở app Mua hàng.' : '',
   };
 }
-function _pdHangNcc(x) {              // Kế toán · /api/ncc-de-xuat?trang_thai=cho_duyet
+function _pdHangNcc(x) {              // Kế toán · /api/ncc-de-xuat?trang_thai=cho_duyet · CEO · /api/duyet-chi-ncc/pending
   return {
-    khoa: 'ncc:' + x.id, nguon: 'ncc', id: x.id, ma: 'NCC-' + x.id,
+    khoa: 'ncc:' + x.id, nguon: 'ncc', id: x.id, ma: String(x.id),   // id thật đã là CN-YYYY-NNNN
     tieu_de: 'Trả nhà cung cấp: ' + (x.ncc_name || ''), phu: x.mo_ta || '',
-    nguoi: x.nguoi_tao || '', nguoi_id: x.nguoi_tao || '', phong_ban: 'Mua Hàng',
-    gia_tri: _pdTien(x.so_tien), so: Number(x.so_tien) || 0, ngay_tao: x.ngay, han: '',
-    trang_thai: x.trang_thai, tep: [],
+    nguoi: x.nguoi_tao_ten || x.nguoi_tao || '', nguoi_id: x.nguoi_tao || '', phong_ban: 'Mua Hàng',
+    gia_tri: _pdTien(x.so_tien), so: Number(x.so_tien) || 0, ngay_tao: x.ngay || x.created_at, han: '',
+    trang_thai: x.trang_thai, tep: [], tep_app: 'muahang',
     ct: [
       ['Nhà cung cấp', x.ncc_name], ['Số tiền', _pdTien(x.so_tien)], ['Tháng', x.thang],
-      ['Đơn liên quan', x.ref_order_id], ['Mô tả', x.mo_ta], ['Người tạo', x.nguoi_tao],
+      ['Đơn liên quan', x.ref_order_id], ['Mô tả', x.mo_ta], ['Người tạo', x.nguoi_tao_ten || x.nguoi_tao],
+      ['NV mua hàng', x.nv_mua_hang_ten || x.nv_mua_hang],
+      ['Đang chờ', x.kt_duyet_boi ? 'CEO duyệt cuối (Kế toán đã duyệt)' : 'Kế toán duyệt, sau đó CEO'],
     ],
-    ls: [], raw: x,
+    // Chứng từ (ảnh QR/UNC, PDF) + mốc duyệt chỉ có ở API chi tiết của Kế toán; tệp nằm ở app Mua hàng.
+    tai_them: { app: 'ketoan', url: '/api/ncc-de-xuat/' + encodeURIComponent(x.id) + '/detail', ve: _pdVeThemNcc },
+    ls: [
+      x.kt_duyet_boi ? { chu: 'Kế toán đã duyệt', boi: x.kt_duyet_ten || x.kt_duyet_boi_ten || x.kt_duyet_boi, luc: x.kt_duyet_luc, ghi: x.kt_ghi_chu } : null,
+      x.nguoi_duyet ? { chu: x.trang_thai === 'tu_choi' ? 'CEO từ chối' : 'CEO đã duyệt', boi: x.nguoi_duyet_ten || x.nguoi_duyet, luc: x.ngay_duyet, ghi: x.ghi_chu_duyet } : null,
+    ].filter(Boolean),
+    raw: x,
   };
 }
 function _pdHangKtd(x) {              // Kế toán · /api/kt-duyet/list
+  const chenh = Number(x.gia_chenh) || 0;
   return {
     khoa: 'ktd:' + x.id, nguon: 'ktd', id: x.id, ma: x.quote_number || ('KTD-' + x.id),
     tieu_de: 'Kế toán duyệt đơn ' + (x.quote_number || ''), phu: 'KH: ' + (x.customer_name || ''),
     nguoi: x.salesperson || '', nguoi_id: x.salesperson || '', phong_ban: '',
-    gia_tri: _pdTien(x.tong_don), so: Number(x.tong_don) || 0, ngay_tao: x.coc_ngay || '', han: '',
+    gia_tri: _pdTien(x.tong_don), so: Number(x.tong_don) || 0, ngay_tao: x.created_at || x.coc_ngay || '', han: '',
     trang_thai: x.duyet_status, tep: [],
     ct: [
       ['Báo giá', x.quote_number], ['Khách hàng', x.customer_name], ['Điện thoại', x.customer_phone],
       ['Người bán', x.salesperson], ['Tổng đơn', _pdTien(x.tong_don)],
-      ['Tiền cọc', x.coc_so_tien ? _pdTien(x.coc_so_tien) : '—'], ['Hình thức cọc', x.coc_hinh_thuc],
-      ['Ngày cọc', _pdNgay(x.coc_ngay)], ['Ghi chú kế toán', x.kt_ghi_chu],
+      // Chênh giá bán so với giá quy định — cột màn gốc kt_duyet.html (fmtChenh)
+      ['Chênh giá', x.gia_chenh != null ? (chenh ? (chenh > 0 ? '+' : '−') + _pdTien(Math.abs(chenh)) + (x.gia_chenh_n ? ` (${x.gia_chenh_n} SP bán khác giá quy định)` : '') : 'Đúng giá quy định') : ''],
+      ['Tiền cọc', x.coc_so_tien ? _pdTien(x.coc_so_tien) : '—'], ['Hình thức cọc', _PD_HINH_THUC[x.coc_hinh_thuc] || x.coc_hinh_thuc],
+      ['TK nhận cọc', x.coc_ngan_hang || (x.coc_hinh_thuc === 'chuyen_khoan' ? 'Chưa rõ tài khoản' : '')],
+      ['Ngày cọc', _pdNgay(x.coc_ngay)], ['Ghi chú cọc', x.coc_ghi_chu], ['Ghi chú kế toán', x.kt_ghi_chu],
     ],
-    ls: [], raw: x,
+    ls: [
+      x.duyet_boi ? { chu: 'Manager duyệt đơn', boi: x.duyet_boi, luc: x.duyet_luc } : null,
+      x.kt_duyet_boi ? { chu: 'Kế toán xác nhận', boi: x.kt_duyet_boi, luc: x.kt_duyet_luc, ghi: x.kt_ghi_chu } : null,
+    ].filter(Boolean),
+    lien_ket: _pdLinkApp('baogia', '/quote/' + encodeURIComponent(x.id) + '/edit'),
+    raw: x,
   };
 }
 function _pdHangCoc(x) {              // Kế toán · /api/coc-bo-sung/pending
+  const tyLe = x.tong_don && x.so_tien ? Math.round(Number(x.so_tien) / Number(x.tong_don) * 100) : null;
   return {
     khoa: 'coc:' + x.id, nguon: 'coc', id: x.id, ma: 'COC-' + x.id,
     tieu_de: 'Cọc bổ sung lần ' + (x.lan || 1) + (x.quote_number ? ' — ' + x.quote_number : ''),
     phu: x.ghi_chu || '', nguoi: x.nguoi_tao || '', nguoi_id: x.nguoi_tao || '', phong_ban: '',
-    gia_tri: _pdTien(x.so_tien), so: Number(x.so_tien) || 0, ngay_tao: x.ngay, han: '',
+    gia_tri: _pdTien(x.so_tien), so: Number(x.so_tien) || 0, ngay_tao: x.created_at || x.ngay, han: '',
     trang_thai: x.trang_thai, tep: [],
     ct: [
-      ['Báo giá', x.quote_number], ['Lần cọc', x.lan], ['Số tiền', _pdTien(x.so_tien)],
-      ['Ngân hàng', x.ngan_hang], ['Hình thức', x.hinh_thuc], ['Ngày', _pdNgay(x.ngay)],
+      ['Báo giá', x.quote_number], ['Khách hàng', x.customer_name], ['NV bán', x.salesperson],
+      ['Tổng đơn', _pdTien(x.tong_don)], ['Lần cọc', x.lan],
+      ['Số tiền', _pdTien(x.so_tien) + (tyLe != null ? ` (${tyLe}% tổng đơn)` : '')],
+      ['Hình thức', _PD_HINH_THUC[x.hinh_thuc] || x.hinh_thuc], ['Ngân hàng', x.ngan_hang], ['Ngày cọc', _pdNgay(x.ngay)],
       ['Ghi chú', x.ghi_chu],
     ],
-    ls: [], raw: x,
+    ls: x.kt_duyet_boi ? [{ chu: 'Kế toán đã duyệt', boi: x.kt_duyet_boi, luc: x.kt_duyet_luc }] : [],
+    lien_ket: x.quote_id ? _pdLinkApp('baogia', '/quote/' + encodeURIComponent(x.quote_id) + '/edit') : '',
+    raw: x,
   };
 }
 
-function _pdHangDntt(x) {             // Kế toán · /api/de-nghi-tt?trang_thai=cho_duyet
+function _pdHangDntt(x) {             // Kế toán · /api/de-nghi-tt?trang_thai=cho_duyet · CEO · saleadmin /api/denghitt?trang_thai=kt_duyet
   return {
     khoa: 'dntt:' + x.id, nguon: 'dntt', id: x.id, ma: x.id || ('DNTT-' + x.id),
     tieu_de: 'Đề nghị thanh toán ' + (x.ma_don || x.id || ''),
@@ -859,20 +1076,33 @@ function _pdHangDntt(x) {             // Kế toán · /api/de-nghi-tt?trang_tha
     nguoi: x.nguoi_tao_ten || x.nguoi_tao || '', nguoi_id: x.nguoi_tao || '', phong_ban: 'Sale Admin',
     gia_tri: _pdTien(x.so_tien), so: Number(x.so_tien) || 0,
     ngay_tao: x.created_at || x.ngay_de_nghi, han: x.ngay_giao || '', trang_thai: x.trang_thai,
-    tep: x.chung_tu_url ? [{ ten: String(x.chung_tu_url).split('/').pop(), url: x.chung_tu_url }] : [],
+    // Chứng từ (nhiều tệp, bảng denghitt_attachments) vẽ trong hộp rộng — cột chung_tu_url cũ chỉ là 1 link.
+    tep: [], tep_app: 'saleadmin',
     ct: [
       ['Mã đơn', x.ma_don], ['Đơn vị vận chuyển', x.don_vi_vc], ['Số tiền', _pdTien(x.so_tien)],
       ['Ngày đề nghị', _pdNgay(x.ngay_de_nghi)], ['Ngày giao', _pdNgay(x.ngay_giao)],
+      ['Đang chờ', x.trang_thai === 'kt_duyet' ? 'CEO duyệt cuối (Kế toán đã duyệt)' : (x.trang_thai === 'cho_duyet' ? 'Kế toán duyệt, sau đó CEO' : '')],
       ['Lý do', x.ly_do], ['Ghi chú', x.ghi_chu], ['Ghi chú kế toán', x.kt_ghi_chu],
     ],
-    ls: [], raw: x,
+    // Hộp rộng như hộp cũ của CEO (_renderDeNghiTTDetail): đơn vận chuyển · chứng từ (ảnh) · phát sinh · KT đã duyệt.
+    // CEO: /api/inbox/detail/denghitt (JOIN vanchuyen + phatsinh); Kế toán: /api/de-nghi-tt/{id}/detail (chỉ có chứng từ).
+    hop_rong: true,
+    tai_them: PD_APP === 'ceo'
+      ? { truc_tiep: true, url: '/api/inbox/detail/denghitt/' + encodeURIComponent(x.id), ve: _pdVeThemDntt }
+      : { url: '/api/de-nghi-tt/' + encodeURIComponent(x.id) + '/detail', ve: _pdVeThemDntt },
+    ls: [
+      x.kt_duyet_boi ? { chu: 'Kế toán đã duyệt', boi: x.kt_duyet_boi_ten || x.kt_duyet_boi, luc: x.kt_duyet_luc, ghi: x.kt_ghi_chu } : null,
+      // CEO từ chối ghi lý do đè lên trường ly_do của đề nghị (saleadmin denghitt.py reject) — không có cột riêng.
+      x.nguoi_duyet ? { chu: x.trang_thai === 'tu_choi' ? 'CEO từ chối' : 'CEO đã duyệt', boi: x.nguoi_duyet_ten || x.nguoi_duyet, luc: x.ngay_duyet, ghi: x.trang_thai === 'tu_choi' ? x.ly_do : '' } : null,
+    ].filter(Boolean),
+    lien_ket: _pdLinkApp('saleadmin', '/?denghi_id=' + encodeURIComponent(x.id)),
+    raw: x,
   };
 }
 
 /* ── Chỉ app CEO: nguồn của app khác, đọc qua /api/tong-duyet ─────────────────
-   Trường lấy từ API thật gọi ngày 16/09/2026. Dữ liệu 2 app cùng tên bảng (trực, nghỉ) có
+   Trường lấy từ API thật gọi ngày 16/09/2026. Dữ liệu 2 app cùng tên bảng (đăng ký nghỉ) có
    id trùng nhau nên khoá phải kèm tên app. */
-const _PD_TRUC = { chu_nhat: 'Trực Chủ Nhật', ot_ca_gay: 'OT Ca Gãy', ot_toi: 'OT Tối' };   // baogia templates/truc.html
 function _pdHangKho(x) {              // Mua hàng · /api/kho/de-xuat?trang_thai=cho_duyet (cap_duyet='ceo')
   return {
     khoa: 'kho:' + x.id, nguon: 'kho', app: 'muahang', id: x.id, ma: x.ma_dx || ('KDX-' + x.id),
@@ -882,40 +1112,30 @@ function _pdHangKho(x) {              // Mua hàng · /api/kho/de-xuat?trang_tha
     trang_thai: x.trang_thai, tep: [],
     ct: [
       ['Mã đề xuất', x.ma_dx], ['Nhà cung cấp', x.ncc_name], ['Tổng tiền', _pdTien(x.tong_tien)],
-      ['Số mặt hàng', (x.items || []).length || ''], ['Lý do', x.ly_do],
+      ['Số mặt hàng', (x.items || []).length || ''],
+      ['Cấp duyệt', x.cap_duyet === 'ceo' ? 'CEO (vượt ngưỡng TP Mua hàng)' : 'TP Mua hàng'], ['Lý do', x.ly_do],
     ],
-    ls: [], raw: x,
+    // Bảng hàng (mã, tên, SL, đơn giá, thành tiền) đã nằm sẵn trong danh sách → hộp rộng vẽ từ raw, không gọi thêm API.
+    hop_rong: true, tai_them: { san: true, ve: _pdVeThemKho },
+    ls: x.duyet_boi ? [{ chu: (_PD_TT[x.trang_thai] || [, x.trang_thai])[1], boi: x.duyet_boi, luc: x.duyet_luc, ghi: x.duyet_note }] : [],
+    raw: x,
   };
 }
-function _pdHangTruc(x, app) {        // Báo giá · /api/truc  ·  Marketing · /api/dang-ky-truc
-  const ten = app === 'baogia' ? x.ho_ten : (x.nhan_vien_ten || x.nhan_vien);
-  const gio = [_pdGio(x.gio_bat_dau), _pdGio(x.gio_ket_thuc)].filter(Boolean).join(' - ');
-  return {
-    khoa: 'truc:' + app + ':' + x.id, nguon: 'truc', app, id: x.id, ma: 'TRUC-' + x.id,
-    tieu_de: (_PD_TRUC[x.loai] || x.loai || 'Trực') + ' — ' + _pdNgay(x.ngay), phu: x.ghi_chu || '',
-    nguoi: ten || '', nguoi_id: app === 'baogia' ? (x.ho_ten || '') : (x.nhan_vien || ''),
-    phong_ban: app === 'baogia' ? 'Kinh Doanh' : (x.phong_ban || 'Marketing'),
-    gia_tri: gio || x.ca_truc || '—', ngay_tao: x.created_at, han: '', trang_thai: x.trang_thai, tep: [],
-    ct: [
-      ['Loại', _PD_TRUC[x.loai] || x.loai], ['Ngày trực', _pdNgay(x.ngay)], ['Ca', x.ca_truc],
-      ['Giờ', gio], ['Ghi chú', x.ghi_chu], ['Đánh giá', x.danh_gia],
-    ],
-    ls: [], raw: x,
-    luu_y: app === 'marketing' && x.loai === 'ot_toi'
-      ? 'OT tối phải có đánh giá (đạt / đạt một nửa / không đạt) trước khi duyệt — đánh giá ở app Marketing.' : '',
-  };
-}
-function _pdHangDkn(x, app) {         // Báo giá · /api/dang-ky-nghi?status=pending  ·  Marketing · ?trang_thai=cho_duyet
+function _pdHangDkn(x, app) {         // Báo giá · /api/dang-ky-nghi (mọi trạng thái)  ·  Marketing · /api/dang-ky-nghi (mọi trạng thái)
   const ten = app === 'baogia' ? (x.ho_ten || x.username) : x.nhan_vien;
+  const tt = app === 'baogia' ? x.status : x.trang_thai;
+  // Hai app ghi mốc duyệt khác cột: Báo giá duyet_boi/duyet_luc/ghi_chu_duyet · Marketing nguoi_duyet/duyet_at/nhan_xet_ql.
+  const boi = app === 'baogia' ? x.duyet_boi : x.nguoi_duyet;
   return {
     khoa: 'dkn:' + app + ':' + x.id, nguon: 'dkn', app, id: x.id, ma: 'DKN-' + x.id,
     tieu_de: 'Đăng ký nghỉ ' + _pdNgay(x.ngay), phu: x.ly_do || '',
     nguoi: ten || '', nguoi_id: app === 'baogia' ? (x.username || '') : (x.nhan_vien || ''),
     phong_ban: app === 'baogia' ? (x.phong_ban || 'Kinh Doanh') : (x.phong_ban_ma || 'Marketing'),
     gia_tri: _pdNgay(x.ngay), ngay_tao: x.created_at, han: x.ngay || '',
-    trang_thai: app === 'baogia' ? x.status : x.trang_thai, tep: [],
+    trang_thai: tt, tep: [],
     ct: [['Ngày nghỉ', _pdNgay(x.ngay)], ['Lý do', x.ly_do]],
-    ls: [], raw: x,
+    ls: boi ? [{ chu: (_PD_TT[tt] || [, tt])[1], boi, luc: app === 'baogia' ? x.duyet_luc : x.duyet_at, ghi: app === 'baogia' ? x.ghi_chu_duyet : x.nhan_xet_ql }] : [],
+    raw: x,
   };
 }
 
@@ -936,7 +1156,9 @@ async function pdTai() {
   const APP_DI = LA_CEO ? 'hcns' : '';
   const [nghiCho, nghiXong1, nghiXong2, dx, ldd, ct, khac,
          donHang, ngayGiao, po, dntt, ncc, ktd, coc,
-         donHangDuyet, donHangTuChoi, kho, trucKd, trucMkt, dknKd, dknMkt] = await Promise.all([
+         donHangDuyet, donHangTuChoi, kho, dknKd, dknMkt,
+         dxXong1, dxXong2, lddXong1, lddXong2, ctXong1, ctXong2, dnttXong1, dnttXong2,
+         nccXong, ktdXong, cocXong, ngayGiaoXong, khoXong1, khoXong2] = await Promise.all([
     _pdLay('Xin nghỉ', '/api/xin-nghi?trang_thai=cho_duyet'),
     _pdLay('Xin nghỉ', '/api/xin-nghi?trang_thai=da_duyet'),
     _pdLay('Xin nghỉ', '/api/xin-nghi?trang_thai=tu_choi'),
@@ -951,8 +1173,10 @@ async function pdTai() {
     // Trạng thái PO là chữ CÓ DẤU lưu thẳng trong DB (đo 12/09: 'Chờ xác nhận' 17 đơn);
     // lọc bằng 'cho_duyet' trả rỗng nên đừng đổi chuỗi này. App CEO xem bước DUYỆT MUA
     // ('Chờ duyệt'), còn 'Chờ xác nhận' là bước nhân viên mua hàng nhận đơn.
+    // CEO: /api/orders chỉ lọc được MỘT status mà đơn đã duyệt đi tiếp 5 bước (DB dev 18/09: 202/226 đơn) —
+    // lấy 500 đơn mới nhất mọi bước rồi giữ _PD_PO_BUOC ở dưới, thay vì 7 lần gọi.
     rieng('muahang', 'Đơn PO', '/api/orders?status=' + encodeURIComponent('Chờ xác nhận'))
-      || quaCeo('muahang', 'Đơn PO', '/api/orders?limit=500&status=' + encodeURIComponent('Chờ duyệt')),
+      || quaCeo('muahang', 'Đơn PO', '/api/orders?limit=500'),
     // Kế toán duyệt bước 1 ('cho_duyet'); CEO duyệt bước cuối sau kế toán ('kt_duyet').
     rieng('ketoan', 'Đề nghị thanh toán', '/api/de-nghi-tt?trang_thai=cho_duyet')
       || quaCeo('saleadmin', 'Đề nghị thanh toán', '/api/denghitt?trang_thai=kt_duyet'),
@@ -966,16 +1190,33 @@ async function pdTai() {
     quaCeo('baogia', 'Đơn hàng', '/api/duyet-don-page?tab=da_duyet&page_size=200'),
     quaCeo('baogia', 'Đơn hàng', '/api/duyet-don-page?tab=tu_choi&page_size=200'),
     quaCeo('muahang', 'Nhập kho', '/api/kho/de-xuat?trang_thai=cho_duyet'),
-    quaCeo('baogia', 'Trực Kinh doanh', '/api/truc?trang_thai=cho_duyet'),
-    quaCeo('marketing', 'Trực Marketing', '/api/dang-ky-truc?trang_thai=cho_duyet'),
-    quaCeo('baogia', 'Đăng ký nghỉ Kinh doanh', '/api/dang-ky-nghi?status=pending'),
-    quaCeo('marketing', 'Đăng ký nghỉ Marketing', '/api/dang-ky-nghi?trang_thai=cho_duyet'),
+    // Đăng ký nghỉ: không truyền trạng thái là cả hai app trả mọi trạng thái (baogia limit 200, marketing 500 mặc định).
+    quaCeo('baogia', 'Đăng ký nghỉ Kinh doanh', '/api/dang-ky-nghi'),
+    quaCeo('marketing', 'Đăng ký nghỉ Marketing', '/api/dang-ky-nghi'),
+    // ── Chỉ app CEO: đơn ĐÃ XỬ LÝ của từng tab (người dùng 18/09/2026) — app gốc có API lọc trạng thái thì hỏi
+    //    thẳng; không có (trả NCC, KT duyệt đơn, cọc bổ sung, đổi ngày giao) thì /api/da-xu-ly của CEO đọc DB.
+    rieng('ceo', 'Đề xuất', '/api/de-xuat?trang_thai=da_duyet&pham_vi=tat_ca&limit=200'),
+    rieng('ceo', 'Đề xuất', '/api/de-xuat?trang_thai=tu_choi&pham_vi=tat_ca&limit=200'),
+    quaCeo('hcns', 'Lệnh đi đo', '/api/lenh-di-do/admin?status_filter=da_duyet'),   // /admin chỉ theo THÁNG hiện tại (hcns _parse_thang)
+    quaCeo('hcns', 'Lệnh đi đo', '/api/lenh-di-do/admin?status_filter=tu_choi'),
+    quaCeo('hcns', 'Công trình', '/api/cong-trinh/admin?status_filter=da_duyet'),
+    quaCeo('hcns', 'Công trình', '/api/cong-trinh/admin?status_filter=tu_choi'),
+    quaCeo('saleadmin', 'Đề nghị thanh toán', '/api/denghitt?trang_thai=duyet&limit=200'),
+    quaCeo('saleadmin', 'Đề nghị thanh toán', '/api/denghitt?trang_thai=tu_choi&limit=200'),
+    rieng('ceo', 'Đề xuất trả NCC', '/api/da-xu-ly/ncc'),
+    rieng('ceo', 'KT duyệt đơn', '/api/da-xu-ly/ktd'),
+    rieng('ceo', 'Cọc bổ sung', '/api/da-xu-ly/coc'),
+    rieng('ceo', 'Đổi ngày giao', '/api/da-xu-ly/ngay-giao'),
+    quaCeo('muahang', 'Nhập kho', '/api/kho/de-xuat?trang_thai=da_duyet'),
+    quaCeo('muahang', 'Nhập kho', '/api/kho/de-xuat?trang_thai=tu_choi'),
   ]);
   const gan = (ds, fn, app) => (ds || []).map(x => Object.assign(fn(x), app ? { app } : {}));
   const hang = []
     .concat((nghiCho || []).map(_pdHangNghi), (nghiXong1 || []).map(_pdHangNghi), (nghiXong2 || []).map(_pdHangNghi))
-    .concat((dx || []).map(_pdHangDx))
-    .concat(gan(ldd, _pdHangLdd, APP_DI), gan(ct, _pdHangCt, APP_DI))
+    .concat((dx || []).map(_pdHangDx), (dxXong1 || []).map(_pdHangDx), (dxXong2 || []).map(_pdHangDx))
+    .concat(gan(ldd, _pdHangLdd, APP_DI), gan(ct, _pdHangCt, APP_DI),
+            gan(lddXong1, _pdHangLdd, 'hcns'), gan(lddXong2, _pdHangLdd, 'hcns'),
+            gan(ctXong1, _pdHangCt, 'hcns'), gan(ctXong2, _pdHangCt, 'hcns'))
     // App CEO: nguồn cũ của /api/inbox nay đã có tab riêng ở trên — chỉ giữ phiếu shared.approvals
     // (vd CEO duyệt đổi ngày giao cấp 2) để không hiện một đơn hai lần.
     .concat((khac || []).filter(x => !LA_CEO || x.source === 'shared_approval').map(_pdHangInbox))
@@ -983,17 +1224,21 @@ async function pdTai() {
     .concat(gan((donHang || []).filter(x => !LA_CEO || ['kt_pending', 'kt_rejected'].indexOf(x.duyet_status) < 0), _pdHangDonHang, LA_CEO ? 'baogia' : ''),
             gan(donHangDuyet, _pdHangDonHang, 'baogia'), gan(donHangTuChoi, _pdHangDonHang, 'baogia'),
             gan(ngayGiao, _pdHangNgayGiao, LA_CEO ? 'baogia' : ''))
-    .concat(gan(po, _pdHangPo, LA_CEO ? 'muahang' : ''))
+    .concat(gan((po || []).filter(x => !LA_CEO || _PD_PO_BUOC.indexOf(x.status) >= 0), _pdHangPo, LA_CEO ? 'muahang' : ''))
     // /api/duyet-chi-ncc/pending (app CEO) không trả `trang_thai` — mọi dòng của nó đều là
     // 'kt_duyet'; thiếu thì ô trạng thái hiện "—" và nút Phê duyệt không mọc.
-    .concat(gan(dntt, _pdHangDntt, LA_CEO ? 'saleadmin' : ''),
-            (ncc || []).map(x => _pdHangNcc(Object.assign({ trang_thai: 'kt_duyet' }, x))))
-    .concat(gan(ktd, _pdHangKtd, LA_CEO ? 'ketoan' : ''), gan(coc, _pdHangCoc, LA_CEO ? 'ketoan' : ''))
+    .concat(gan(dntt, _pdHangDntt, LA_CEO ? 'saleadmin' : ''), gan(dnttXong1, _pdHangDntt, 'saleadmin'), gan(dnttXong2, _pdHangDntt, 'saleadmin'),
+            (ncc || []).map(x => _pdHangNcc(Object.assign({ trang_thai: 'kt_duyet' }, x))), (nccXong || []).map(_pdHangNcc))
+    .concat(gan(ktd, _pdHangKtd, LA_CEO ? 'ketoan' : ''), gan(coc, _pdHangCoc, LA_CEO ? 'ketoan' : ''),
+            // Đơn KT đã duyệt cũng đang nằm ở tab Đơn hàng (approved) — đánh dấu bản sao để "Tất cả" và thẻ số không đếm hai lần.
+            (ktdXong || []).map(x => Object.assign(_pdHangKtd(x), { ban_sao: true })), (cocXong || []).map(_pdHangCoc))
+    .concat(gan(ngayGiaoXong, _pdHangNgayGiao, 'baogia'))
     // Nhập kho dưới ngưỡng do Trưởng phòng Mua hàng duyệt — CEO chỉ thấy cấp 'ceo'.
-    .concat((kho || []).filter(x => x.cap_duyet === 'ceo').map(_pdHangKho))
-    .concat((trucKd || []).map(x => _pdHangTruc(x, 'baogia')), (trucMkt || []).map(x => _pdHangTruc(x, 'marketing')))
+    .concat([].concat(kho || [], khoXong1 || [], khoXong2 || []).filter(x => x.cap_duyet === 'ceo').map(_pdHangKho))
     .concat((dknKd || []).map(x => _pdHangDkn(x, 'baogia')), (dknMkt || []).map(x => _pdHangDkn(x, 'marketing')));
-  hang.sort((a, b) => String(b.ngay_tao || '').localeCompare(String(a.ngay_tao || '')));
+  // Đang chờ lên TRÊN, đã xử lý xuống DƯỚI (người dùng 18/09/2026); trong mỗi nhóm mới nhất trước.
+  const thu = h => (_pdDangCho(h.trang_thai) ? 0 : 1);
+  hang.sort((a, b) => (thu(a) - thu(b)) || String(b.ngay_tao || '').localeCompare(String(a.ngay_tao || '')));
   _pd.hang = hang;
   const canh = document.getElementById('pd-canh');
   if (_pd.loi.length) {
@@ -1001,9 +1246,10 @@ async function pdTai() {
     canh.hidden = false;
   } else { canh.hidden = true; }
   pdVeTabs(); pdVeKpi(); pdVePhongBan(); pdVe(1);
-  // Mở sẵn yêu cầu ĐANG CHỜ đầu tiên như ảnh mẫu — ngăn chi tiết trống trông như hỏng.
+  // Mở sẵn yêu cầu ĐANG CHỜ đầu tiên như ảnh mẫu — ngăn chi tiết trống trông như hỏng. CHỈ với hàng mở ở ngăn
+  // bên: hàng sẽ mở thành hộp (PO, điện thoại…) mà tự bật thì vừa vào trang đã bị phủ màn (soát 17/09/2026).
   if (!_pd.chon) {
-    const dau = _pdLoc().find(h => _pdDangCho(h.trang_thai));
+    const dau = _pdLoc().find(h => _pdDangCho(h.trang_thai) && !_pdDungHop(h));
     if (dau) pdChon(dau.khoa);
   }
 }
@@ -1014,8 +1260,12 @@ function _pdLoc() {
   const cho = _pd.tab === 'cho';
   return _pd.hang.filter(h => {
     if (cho) { if (!_pdDangCho(h.trang_thai)) return false; }
-    else if (_pd.tab !== 'all' && (_PD_LOAI[h.nguon] || {}).tab !== _pd.tab) return false;
-    if (tt && !(h.trang_thai === tt || (tt === 'da_duyet' && h.trang_thai === 'duyet'))) return false;
+    else if (_pd.tab === 'all') { if (h.ban_sao) return false; }
+    else if ((_PD_LOAI[h.nguon] || {}).tab !== _pd.tab) return false;
+    // Ô lọc trạng thái so theo NHÓM (chờ / đã duyệt / từ chối) — mỗi nguồn viết trạng thái một kiểu.
+    if (tt === 'cho_duyet' && !_pdDangCho(h.trang_thai)) return false;
+    if (tt === 'da_duyet' && !_pdDaDuyet(h.trang_thai)) return false;
+    if (tt === 'tu_choi' && !_pdTuChoi(h.trang_thai)) return false;
     if (pb && (h.phong_ban || '') !== pb) return false;
     const ng = String(h.ngay_tao || '').slice(0, 10);
     // Tab Chờ duyệt bỏ qua khoảng ngày — đơn chờ cũ vẫn phải thấy.
@@ -1038,6 +1288,8 @@ function _pdTrongKy() {
     return true;
   });
 }
+// Bản sao (đơn KT đã duyệt = đơn hàng đã duyệt) chỉ tính ở tab riêng của nó, không tính vào tổng.
+function _pdTrongKyKhongBanSao() { return _pdTrongKy().filter(h => !h.ban_sao); }
 function pdVeTabs() {
   const trong_ky = _pdTrongKy();
   // Tab chung + tab ghim theo app (_PD_TAB_APP) luôn hiện, kể cả rỗng; ngoài ra tab nào lỡ có dữ liệu
@@ -1047,7 +1299,7 @@ function pdVeTabs() {
   document.getElementById('pd-tabs').innerHTML = _PD_TAB
     .filter(([k]) => _PD_TAB_CHUNG.indexOf(k) >= 0 || ghim.indexOf(k) >= 0 || co_nguon(k))
     .map(([k, nhan]) => {
-      const n = k === 'all' ? trong_ky.length
+      const n = k === 'all' ? trong_ky.filter(h => !h.ban_sao).length
         : k === 'cho' ? _pd.hang.filter(h => _pdDangCho(h.trang_thai)).length   // mọi kỳ
         : trong_ky.filter(h => (_PD_LOAI[h.nguon] || {}).tab === k).length;
       return `<button type="button" role="tab" class="tab-btn${_pd.tab === k ? ' active' : ''}" aria-selected="${_pd.tab === k}"
@@ -1057,11 +1309,11 @@ function pdVeTabs() {
 function pdVeKpi() {
   // Thẻ số đếm theo KHOẢNG NGÀY đang chọn (không theo tab/tìm kiếm) — cùng kỳ với bảng,
   // nếu không thì "Tổng yêu cầu" luôn to hơn số dòng thấy được và trông như lỗi.
-  const h = _pdTrongKy();
+  const h = _pdTrongKyKhongBanSao();
   document.getElementById('pd-k-tong').textContent = h.length;
   document.getElementById('pd-k-cho').textContent = h.filter(x => _pdDangCho(x.trang_thai)).length;
-  document.getElementById('pd-k-duyet').textContent = h.filter(x => x.trang_thai === 'da_duyet' || x.trang_thai === 'approved' || x.trang_thai === 'duyet').length;
-  document.getElementById('pd-k-tu-choi').textContent = h.filter(x => x.trang_thai === 'tu_choi' || x.trang_thai === 'rejected').length;
+  document.getElementById('pd-k-duyet').textContent = h.filter(x => _pdDaDuyet(x.trang_thai)).length;
+  document.getElementById('pd-k-tu-choi').textContent = h.filter(x => _pdTuChoi(x.trang_thai)).length;
 }
 function pdVePhongBan() {
   const ds = [...new Set(_pd.hang.map(h => h.phong_ban).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
@@ -1170,7 +1422,8 @@ function _pdVeThemPo(resp, phu) {
   };
   const dl = [
     ['Tên đơn', po.ten_don], ['Số sản phẩm', d.so_san_pham || items.length],
-    ['NCC đã chọn', chon ? ten(chon) + (po.selected_ncc_phone ? ' · ' + po.selected_ncc_phone : '') : ''],
+    ['Tên NV mua hàng', po.nv_mua_hang_name && po.nv_mua_hang_name !== po.nv_mua_hang ? po.nv_mua_hang_name : ''],   // hộp cũ: "NV: Đỗ Đức Lan"
+    ['SĐT NCC đã chọn', chon && po.selected_ncc_phone ? po.selected_ncc_phone : ''],   // tên NCC đã có ở 'NCC đang chọn' phía trên
   ].filter(([, v]) => v !== null && v !== undefined && v !== '')
     .map(([k, v]) => `<dt>${_pdE(k)}</dt><dd>${_pdE(v)}</dd>`).join('');
   let bg = '';
@@ -1200,15 +1453,23 @@ function _pdVeThemPo(resp, phu) {
     const S = pl.summary, poNay = (pl.purchase_orders || []).find(x => x.po_id === po.id);
     const daTinh = !!(poNay && poNay.selected_ncc_id) && !['Hủy', 'Bị Từ Chối'].includes(poNay.status || '');
     const gvNay = daTinh ? 0 : (Number(totals[chon]) || 0);
-    const gv = (Number(S.gia_von) || 0) + gvNay, dt = Number(S.doanh_thu) || 0, vc = Number(S.chi_phi_vc) || 0;
+    const gv = (Number(S.gia_von) || 0) + gvNay, vc = Number(S.chi_phi_vc) || 0;
+    /* API trả doanh_thu = tiền Kế toán ĐÃ GHI (thường mới là cọc 50%) → trừ giá vốn ra "lãi âm" trong khi đơn
+       chưa thu đủ (người dùng 18/09/2026: "rất dễ hiểu nhầm"). Lãi gộp tính theo TỔNG ĐƠN; tiền đã thu / còn
+       phải thu là dòng riêng có số cụ thể (dòng "lãi theo tiền đã thu" bỏ theo yêu cầu người dùng cùng ngày). */
+    const tongDon = Number((pl.header || {}).tong_don) || 0;
+    const daThu = S.nguon_dt === 'thuc' ? (Number(S.doanh_thu) || 0) : 0;
+    const dt = tongDon || daThu, conThu = Math.max(0, tongDon - daThu);
     const lai = dt - gv - vc, bien = dt > 0 ? lai / dt * 100 : null;
-    const nhanDT = S.nguon_dt === 'thuc' ? 'doanh thu thực (Kế toán)' : 'tạm tính theo tổng đơn báo giá';
+    const pctThu = tongDon > 0 ? Math.round(daThu / tongDon * 100) : null;
     const nhanGV = (gvNay ? 'tạm tính: cộng PO này theo NCC đang chọn' : 'PO đã chọn NCC') + ((pl.purchase_orders || []).length > 1 ? ` · ${(pl.purchase_orders || []).length} PO của báo giá` : '');
+    const veAm = v => `${v < 0 ? '−' : ''}${T(Math.abs(v))}`;
     ln = `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Doanh số & lãi</p><dl class="pd-ct">
-      <dt>Doanh số</dt><dd><b>${T(dt)}</b><small class="pd-nho">${_pdE(nhanDT)}</small></dd>
+      <dt>Doanh số</dt><dd><b>${T(dt)}</b><small class="pd-nho">${tongDon ? '= tổng đơn báo giá (chưa trừ gì)' : 'chưa có tổng đơn — lấy theo tiền đã thu'}</small></dd>
+      <dt>Đã thu</dt><dd>${daThu ? `<b>${T(daThu)}</b>${pctThu != null ? ` · ${pctThu}%` : ''}` : '0 đ'}<small class="pd-nho">${daThu ? 'Kế toán đã ghi nhận' : 'Kế toán chưa ghi nhận khoản nào'}${conThu ? ` · còn phải thu <b>${T(conThu)}</b>` : (daThu ? ' · đã thu đủ' : '')}</small></dd>
       <dt>Giá vốn</dt><dd>${T(gv)}<small class="pd-nho">${_pdE(nhanGV)}</small></dd>
       ${vc ? `<dt>Chi phí VC</dt><dd>${T(vc)}</dd>` : ''}
-      <dt>Lãi gộp</dt><dd class="${lai >= 0 ? 'pd-lai' : 'pd-lo'}"><b>${lai < 0 ? '−' : ''}${T(Math.abs(lai))}</b>${bien != null ? ` · ${bien.toFixed(1)}%` : ''}${!dt ? '<small class="pd-nho">chưa có doanh số</small>' : ''}</dd>
+      <dt>Lãi gộp</dt><dd class="${lai >= 0 ? 'pd-lai' : 'pd-lo'}"><b>${veAm(lai)}</b>${bien != null ? ` · ${bien.toFixed(1)}%` : ''}<small class="pd-nho">theo tổng đơn ${T(dt)} − giá vốn ${T(gv)}${vc ? ' − VC ' + T(vc) : ''}</small></dd>
     </dl><p style="margin-top:var(--sp-5)"><a class="btn-link" href="/lo-lai-don" target="_blank" rel="noopener">Mở màn Lỗ Lãi Đơn →</a></p>`;
   } else if (PD_APP === 'ceo' && po.ref_bao_gia) {
     ln = `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Doanh số & lãi</p><p class="pd-trong">Chưa tính được — không đọc được Lỗ Lãi Đơn của ${_pdE(po.ref_bao_gia)}.</p>`;
@@ -1237,38 +1498,257 @@ function _pdVeThemPo(resp, phu) {
     bang = `<div class="pd-p-cuon"><table class="pd-p-bang"><thead><tr><th>Sản phẩm</th><th class="pd-so">SL</th>${th}</tr></thead>
       <tbody>${hang}</tbody><tfoot><tr><td colspan="2">Tổng</td>${tong}</tr></tfoot></table></div>`;
   }
+  /* Dải tỷ lệ nhanh như dải vàng của hộp cũ (anh Quang 09/07/2026): Giá nhập = tổng NCC đang chọn − CK (chưa chọn
+     → cột thấp nhất), Giá bán = tổng đơn báo giá, lãi gộp % = 1 − nhập/bán. KHÁC khối "Doanh số & lãi" ở trên
+     (P&L chính thức: doanh thu Kế toán, mọi PO của báo giá, trừ vận chuyển) — giữ cả hai vì người dùng muốn thấy
+     đủ như hộp cũ (17/09/2026); ghi rõ cách tính ngay dưới để không đọc nhầm hai con số. */
+  let tyLe = '';
+  const giaBan = q && q.tong_don != null ? Number(q.tong_don) || 0 : 0;
+  if (giaBan > 0 && nccIds.length) {
+    const nid = (chon && totals[chon] != null) ? chon : nccIds.find(k => Number(totals[k]) > 0);
+    const gn = Number(totals[nid]) || 0, ck = Number(giam[nid] != null ? giam[nid] : po.discount) || 0, net = Math.max(0, gn - ck);
+    if (net > 0) {
+      const pct = net / giaBan * 100, lop = pct >= 80 ? 'pd-lo' : pct >= 65 ? 'pd-canh-so' : 'pd-lai';
+      tyLe = `<div class="pd-ty-le"><span>Giá nhập: <b>${T(net)}</b>${ck ? `<small>đã trừ CK ${T(ck)}</small>` : ''}</span>
+        <span>Giá bán: <b class="pd-lai">${T(giaBan)}</b></span><span class="${lop}"><b>Giá nhập/Giá bán: ${pct.toFixed(1)}%</b></span>
+        <span class="${lop}"><b>Lãi gộp: ${(100 - pct).toFixed(1)}%</b></span>
+        <small class="pd-nho">Tính nhanh theo NCC ${_pdE(ten(nid))} và tổng đơn báo giá; khối Doanh số & lãi ở trên là P&L chính thức (gộp mọi PO của báo giá, trừ vận chuyển, kèm tiền đã thu).</small></div>`;
+    }
+  }
   return `${dl ? `<dl class="pd-ct" style="margin-top:var(--sp-5)">${dl}</dl>` : ''}${bg}${ln}${ghi}
-    <p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Bảng so giá NCC (${items.length} SP)</p>${bang}`;
+    <p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Bảng so giá NCC (${items.length} SP)</p>${bang}${tyLe}`;
 }
-/* Tải phần chi tiết chỉ có ở API chi tiết (h.tai_them), nhớ kết quả vào h.them; đang ở app CEO thì đi qua /api/tong-duyet. */
+/* ── Đơn hàng (báo giá chờ duyệt): dựng lại ngăn chi tiết của màn Duyệt đơn app Báo giá (duyet_don.html
+   renderLocalDetail) từ GET /api/quote/{id}/detail — đối chiếu giá bán vs giá quy định (don_gia_he_thong), bảng SP
+   có ảnh gom theo nhóm, tổng CK/VAT/phụ phí/cọc, ảnh đơn, thông tin phụ gửi Mua hàng, file đính kèm. */
+function _pdVeThemDonHang(resp) {
+  if (!resp || !resp.quote) return '<p class="pd-trong">Không có chi tiết đơn.</p>';
+  const q = resp.quote, items = resp.items || [], anhDon = resp.images || [], tep = resp.attachments || [], ttp = resp.thong_tin_phu;
+  const T = v => _pdTien(Number(v) || 0), H = { app: 'baogia' }, U = u => _pdTepUrl(H, u);
+  // 1. Đối chiếu giá (như _chenhSummaryBanner): thấp hơn quy định = đỏ, đúng/cao hơn = xanh, đơn cũ không có dữ liệu = xám
+  let coQD = false, nThap = 0, thieu = 0;
+  items.forEach(it => { const qd = Number(it.don_gia_he_thong) || 0; if (qd <= 0) return; coQD = true;
+    const ban = Number(it.don_gia_tinh) || 0, sl = Math.max(1, Number(it.so_luong) || 1); if (ban < qd) { nThap++; thieu += (qd - ban) * sl; } });
+  const doiChieu = !coQD ? '<p class="pd-canh" style="margin:var(--sp-6) 0 0">Chưa có dữ liệu giá quy định để đối chiếu (đơn tạo trước khi bật tính năng).</p>'
+    : nThap === 0 ? '<p class="pd-ok">NV bán ĐÚNG hoặc CAO hơn giá quy định trên tất cả sản phẩm.</p>'
+    : `<p class="pd-xau">NV bán THẤP hơn giá quy định: <b>${nThap} sản phẩm</b>, tổng thiếu <b>${T(thieu)}</b>.</p>`;
+  // 2. Bảng sản phẩm (giá bán = thành tiền / SL, như màn gốc), gom theo nhom_groups nếu đơn có
+  const dong = (it, stt) => {
+    const sl = Math.max(1, Number(it.so_luong) || 1), tt = Number(it.thanh_tien) || 0, gia = Math.round(tt / sl), qd = Number(it.don_gia_he_thong) || 0;
+    const thap = qd > 0 && (Number(it.don_gia_tinh) || 0) < qd;
+    const mau = [it.mau_sac, it.mau_vai, it.mau_da, it.vat_lieu, it.loai_son].filter(Boolean).join(' · ');
+    const anh = it.image_path ? `<a href="${_pdE(U(it.image_path))}" target="_blank" rel="noopener"><img class="pd-sp-anh" src="${_pdE(U(it.image_path))}" alt="" loading="lazy"></a>` : '';
+    return `<tr><td class="pd-so">${stt}</td><td>${anh}</td><td><b>${_pdE(it.product_name || it.product_type || '—')}</b>${it.ma_don ? `<small>${_pdE(it.ma_don)}</small>` : ''}${it.ghi_chu ? `<small>${_pdE(it.ghi_chu)}</small>` : ''}</td>
+      <td>${_pdE(it.kich_thuoc_text || '—')}</td><td>${_pdE(mau || '—')}</td><td class="pd-so">${sl}${it.dvt ? ` <small>${_pdE(it.dvt)}</small>` : ''}</td>
+      <td class="pd-so">${qd ? T(qd) : '—'}</td><td class="pd-so${thap ? ' pd-thap' : ''}">${T(gia)}</td><td class="pd-so"><b>${T(tt)}</b></td></tr>`;
+  };
+  const nhom = Array.isArray(q.nhom_groups) ? q.nhom_groups.slice().sort((a, b) => (a.stt || 0) - (b.stt || 0)) : [];
+  let than = '';
+  if (!nhom.length) than = items.map((it, i) => dong(it, it.stt || i + 1)).join('');
+  else {
+    const khoa = new Set(nhom.map(g => g.key));
+    nhom.forEach(g => { const ds = items.filter(it => (it.nhom_key || null) === g.key); if (!ds.length) return;
+      than += `<tr class="pd-nhom"><td colspan="9">Nhóm: ${_pdE(g.ten || 'Nhóm')}</td></tr>${ds.map((it, j) => dong(it, j + 1)).join('')}
+        <tr class="pd-nhom-tong"><td colspan="8" class="pd-so">Tổng nhóm</td><td class="pd-so">${T(ds.reduce((t, it) => t + (Number(it.thanh_tien) || 0), 0))}</td></tr>`; });
+    const le = items.filter(it => !khoa.has(it.nhom_key || null));
+    if (le.length) than += `<tr class="pd-nhom"><td colspan="9">Khác (chưa phân nhóm)</td></tr>${le.map((it, j) => dong(it, j + 1)).join('')}`;
+  }
+  const bang = items.length
+    ? `<div class="pd-p-cuon"><table class="pd-p-bang" style="min-width:820px"><thead><tr><th class="pd-so">#</th><th></th><th>Sản phẩm</th><th>Kích thước</th><th>Màu · chất liệu</th><th class="pd-so">SL</th><th class="pd-so">Giá quy định</th><th class="pd-so">Giá bán</th><th class="pd-so">Thành tiền</th></tr></thead><tbody>${than}</tbody></table></div>`
+    : '<p class="pd-trong">Đơn chưa có sản phẩm.</p>';
+  // 3. Tổng tiền — cùng công thức màn gốc (sauPct, ckAmount, phụ phí đã gồm VAT, khấu trừ doanh số)
+  const tongSP = Number(q.tong) || 0, sauPct = tongSP * (1 - (Number(q.discount_percent) || 0) / 100);
+  const ckTien = Math.min(Number(q.discount_amount) || 0, Math.max(0, sauPct));
+  const phuPhi = (Number(q.phi_van_chuyen) || 0) + (Number(q.phi_thiet_ke) || 0);
+  const khauTru = Math.max(0, (Number(q.chi_phi_thiet_ke) || 0) - (Number(q.phi_thiet_ke) || 0));
+  const hang = [
+    ['Tổng sản phẩm', T(tongSP)],
+    Number(q.discount_percent) > 0 ? [`Chiết khấu (${q.discount_percent}%)`, '−' + T(tongSP - sauPct)] : null,
+    ckTien > 0 ? ['Giảm giá', '−' + T(ckTien)] : null,
+    Number(q.vat_percent) > 0 ? [`VAT (${q.vat_percent}%)`, T(q.vat_amount)] : null,
+    ['Tổng cộng', T(q.tong_cong), 1],
+    Number(q.phi_van_chuyen) > 0 ? ['Phí vận chuyển', '+' + T(q.phi_van_chuyen)] : null,
+    Number(q.phi_thiet_ke) > 0 ? ['Tiền thiết kế', '+' + T(q.phi_thiet_ke)] : null,
+    phuPhi > 0 ? ['Khách phải trả', T(q.phai_tra), 1] : null,
+    khauTru > 0 ? ['Khấu trừ doanh số (chi phí thiết kế chưa thu)', '−' + T(khauTru)] : null,
+    Number(q.deposit) > 0 ? ['Tiền cọc', '−' + T(q.deposit)] : null,
+    ['Còn lại', T(q.con_lai), 1],
+  ].filter(Boolean);
+  const tong = `<dl class="pd-tong">${hang.map(([k, v, m]) => `<dt${m ? ' class="pd-manh"' : ''}>${_pdE(k)}</dt><dd${m ? ' class="pd-manh"' : ''}>${_pdE(v)}</dd>`).join('')}</dl>`;
+  // 4. Ảnh đơn · thông tin phụ · file đính kèm · ghi chú · mốc duyệt
+  const anhDs = anhDon.map(a => ({ ten: a.filename, url: a.url }));
+  const anhKhoi = anhDs.length ? `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Ảnh đơn hàng (${anhDs.length})</p>${_pdVeTep(H, anhDs)}` : '';
+  let ttpKhoi = '';
+  if (ttp && (ttp.chat_lieu || ttp.kich_thuoc || ttp.mau_sac_dem || ttp.mau_sac_go || ttp.ghi_chu || (ttp.images || []).length)) {
+    const xn = ttp.da_xac_nhan_day_du ? '<p class="pd-ok">Đã xác nhận đầy đủ hai bên (Báo giá ↔ Mua hàng).</p>'
+      : ttp.bao_thieu_boi ? `<p class="pd-xau">Mua hàng báo thiếu: ${_pdE(ttp.bao_thieu_ly_do || '')} — ${_pdE(ttp.bao_thieu_boi)}</p>` : '';
+    ttpKhoi = `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Thông tin phụ gửi Mua hàng</p><dl class="pd-ct">${[['Chất liệu', ttp.chat_lieu], ['Kích thước', ttp.kich_thuoc], ['Màu đệm', ttp.mau_sac_dem], ['Màu gỗ', ttp.mau_sac_go], ['Ghi chú', ttp.ghi_chu]]
+      .filter(([, v]) => v).map(([k, v]) => `<dt>${_pdE(k)}</dt><dd>${_pdE(v)}</dd>`).join('')}</dl>${_pdVeTep(H, (ttp.images || []).map(a => ({ ten: a.filename, url: a.url })))}${xn}`;
+  }
+  const tepDs = tep.map(a => ({ ten: a.filename, url: a.url, co: a.size, phu: [a.uploaded_by, String(a.uploaded_at || '').slice(0, 16).replace('T', ' ')].filter(Boolean).join(' · ') }));
+  const tepKhoi = tepDs.length ? `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">File đính kèm (${tepDs.length})</p>${_pdVeTep(H, tepDs)}` : '';
+  const ghi = [
+    q.notes ? `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Ghi chú đơn</p><p style="white-space:pre-wrap">${_pdE(q.notes)}</p>` : '',
+    q.duyet_boi ? `<p class="pd-ok">Manager đã duyệt: <b>${_pdE(q.duyet_boi)}</b>${q.duyet_luc ? ' · ' + _pdNgay(q.duyet_luc) : ''}${q.ghi_chu_duyet ? ' — ' + _pdE(q.ghi_chu_duyet) : ''}</p>` : '',
+    q.kt_duyet_boi ? `<p class="pd-ok">Kế toán đã xác nhận cọc: <b>${_pdE(q.kt_duyet_boi)}</b>${q.kt_duyet_luc ? ' · ' + _pdNgay(q.kt_duyet_luc) : ''}${q.kt_ghi_chu ? ' — ' + _pdE(q.kt_ghi_chu) : ''}</p>` : '',
+  ].join('');
+  return `${doiChieu}<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Sản phẩm (${items.length})</p>${bang}${tong}${anhKhoi}${ttpKhoi}${tepKhoi}${ghi}`;
+}
+
+/* ── Đề nghị thanh toán: 4 khối như hộp cũ của CEO (_renderDeNghiTTDetail) — đơn vận chuyển · chứng từ · phát sinh · KT đã duyệt.
+   CEO: /api/inbox/detail/denghitt/{id} → {request, attachments, phatsinh}; Kế toán: /api/de-nghi-tt/{id}/detail → phẳng + attachments. */
+function _pdVeThemDntt(resp) {
+  const r = (resp && resp.request) || resp || {}, atts = (resp && resp.attachments) || [], ps = (resp && resp.phatsinh) || [];
+  const T = v => _pdTien(Number(v) || 0), H = { app: 'saleadmin' };
+  let vc = '';
+  if (r.ma_vh || r.ten_kh) {
+    const tien = [['Tiền thu hộ', r.tien_thu_ho], ['ĐVVC đã thu', r.dvvc_da_thu], ['Chi phí VC', r.chi_phi_vc], ['Đã trả ĐVVC', r.da_tra_dvvc]].filter(([, v]) => v !== null && v !== undefined && v !== '');
+    vc = `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Đơn vận chuyển ${_pdE(r.ma_vh || '')}</p><dl class="pd-ct">
+      ${r.ten_kh ? `<dt>Khách hàng</dt><dd>${_pdE(r.ten_kh)}${r.sdt_kh ? ' — ' + _pdE(r.sdt_kh) : ''}</dd>` : ''}
+      ${r.dia_chi ? `<dt>Địa chỉ</dt><dd>${_pdE(r.dia_chi)}</dd>` : ''}
+      ${r.ngay_lay_hang ? `<dt>Ngày lấy hàng</dt><dd>${_pdNgay(r.ngay_lay_hang)}</dd>` : ''}
+      ${r.vh_ngay_giao ? `<dt>Ngày giao</dt><dd>${_pdNgay(r.vh_ngay_giao)}</dd>` : ''}
+      ${tien.map(([k, v]) => `<dt>${k}</dt><dd>${T(v)}</dd>`).join('')}
+      ${r.vh_ghi_chu ? `<dt>Ghi chú VC</dt><dd>${_pdE(r.vh_ghi_chu)}</dd>` : ''}</dl>`;
+  }
+  const LOAI = { invoice: 'Hoá đơn', unc: 'UNC', photo: 'Ảnh', other: 'Khác' };
+  const tepDs = atts.map(a => ({ ten: a.filename, url: a.url, co: a.size, phu: [LOAI[a.loai] || a.loai, a.ghi_chu, a.uploaded_by].filter(Boolean).join(' · ') }));
+  const chungTu = `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Chứng từ đính kèm (${tepDs.length})</p>` + (tepDs.length ? _pdVeTep(H, tepDs)
+    : r.chung_tu_url ? _pdVeTep(H, [{ ten: String(r.chung_tu_url).split('/').pop(), url: r.chung_tu_url }])
+    : '<p class="pd-xau">Đề nghị này CHƯA có chứng từ đính kèm.</p>');
+  const phatSinh = ps.length ? `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Phát sinh trên đơn (${ps.length})</p><div class="pd-p-cuon"><table class="pd-p-bang"><thead><tr><th>Loại</th><th>Mô tả</th><th class="pd-so">Số tiền</th></tr></thead>
+    <tbody>${ps.map(p => `<tr><td>${_pdE(p.loai || p.loai_loi || '—')}${p.phong_ban_loi ? `<small>PB lỗi: ${_pdE(p.phong_ban_loi)}</small>` : ''}${p.ngay ? `<small>${_pdNgay(p.ngay)}</small>` : ''}</td><td>${_pdE(p.mo_ta || '')}</td><td class="pd-so"><b>${T(p.so_tien)}</b></td></tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="2">Tổng phát sinh</td><td class="pd-so">${T(ps.reduce((t, p) => t + (Number(p.so_tien) || 0), 0))}</td></tr></tfoot></table></div>` : '';
+  const kt = r.kt_duyet_boi ? `<p class="pd-ok">Kế toán đã duyệt: <b>${_pdE(r.kt_duyet_boi_ten || r.kt_duyet_boi)}</b>${r.kt_duyet_luc ? ' · ' + _pdNgay(r.kt_duyet_luc) : ''}${r.kt_ghi_chu ? ' — ' + _pdE(r.kt_ghi_chu) : ''}</p>`
+    : r.trang_thai === 'cho_duyet' ? '<p class="pd-canh" style="margin:var(--sp-6) 0 0">Chờ Kế toán duyệt trước, sau đó CEO mới duyệt.</p>' : '';
+  const chi = r.da_chi ? `<p class="pd-ok">Đã chi${r.tai_khoan_chi ? ' từ ' + _pdE(r.tai_khoan_chi) : ''}${r.ngay_chi ? ' · ' + _pdNgay(r.ngay_chi) : ''}</p>` : '';
+  return vc + chungTu + phatSinh + kt + chi;
+}
+
+/* ── Đề xuất nhập kho: bảng hàng từ chính dữ liệu danh sách (kho_dexuat._dx_dict đã kèm items) ── */
+function _pdVeThemKho(x) {
+  const ds = (x && x.items) || [], T = v => _pdTien(Number(v) || 0);
+  if (!ds.length) return '<p class="pd-trong">Đề xuất chưa có dòng hàng.</p>';
+  const tong = x.tong_tien != null ? Number(x.tong_tien) : ds.reduce((t, it) => t + (Number(it.thanh_tien) || 0), 0);
+  return `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Hàng đề xuất nhập (${ds.length})</p><div class="pd-p-cuon"><table class="pd-p-bang"><thead><tr><th class="pd-so">#</th><th>Mã SP</th><th>Tên hàng</th><th class="pd-so">SL</th><th class="pd-so">Đơn giá</th><th class="pd-so">Thành tiền</th></tr></thead>
+    <tbody>${ds.map((it, i) => `<tr><td class="pd-so">${i + 1}</td><td>${_pdE(it.ma_sp || '—')}</td><td><b>${_pdE(it.ten_sp || '—')}</b>${it.ghi_chu ? `<small>${_pdE(it.ghi_chu)}</small>` : ''}</td><td class="pd-so">${it.so_luong != null ? _pdE(it.so_luong) : ''}</td><td class="pd-so">${T(it.don_gia)}</td><td class="pd-so"><b>${T(it.thanh_tien)}</b></td></tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="5">Tổng</td><td class="pd-so">${T(tong)}</td></tr></tfoot></table></div>`;
+}
+
+/* ── Xin nghỉ (chỉ CEO): phép năm của người nộp — hộp cũ _renderPhepBox, dữ liệu /api/inbox/detail/xin_nghi .phep ── */
+function _pdVeThemNghi(resp) {
+  const p = resp && resp.phep;
+  if (!p) return '';
+  const nhan = '<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Phép năm của người nộp</p>';
+  if (!p.la_chinh_thuc) return nhan + '<p class="pd-canh" style="margin:0">Nhân viên chưa chính thức → chưa có phép năm. Nghỉ này không trừ phép.</p>';
+  if (!p.ap_dung) return nhan + `<p class="pd-canh" style="margin:0">Loại nghỉ này KHÔNG trừ phép năm (phép năm ${_pdE(p.nam)}: còn <b>${_pdE(p.con_lai)}</b> ngày).</p>`;
+  const con = Number(p.con_lai) || 0, don = Number(p.so_ngay_don) || 0, lam = v => Math.round(v * 10) / 10;
+  const dong1 = `Phép năm ${_pdE(p.nam)}: đã dùng ${_pdE(p.da_dung)} / cấp ${_pdE(p.tong_cap)} → còn <b>${con}</b> ngày.`;
+  return nhan + (p.du_phep
+    ? `<p class="pd-ok" style="margin:0">${dong1} Đủ phép — duyệt sẽ trừ <b>${don}</b> ngày (còn lại <b>${lam(con - don)}</b> ngày).</p>`
+    : `<p class="pd-xau" style="margin:0">${dong1} KHÔNG đủ phép — đơn xin ${don} ngày; nếu duyệt, <b>${lam(don - con)} ngày vượt</b> sẽ là nghỉ không lương.</p>`);
+}
+
+/* ── Công trình (chỉ CEO): tên / phòng / chức vụ NV từ /api/inbox/detail/cong_trinh (API HCNS không trả) ── */
+function _pdVeThemNv(resp) {
+  const r = (resp && resp.request) || {};
+  const dong = [['Nhân viên', r.ho_ten ? r.ho_ten + (r.ma_nv ? ' (' + r.ma_nv + ')' : '') : ''], ['Phòng ban', r.phong_ban], ['Chức vụ', r.chuc_vu]]
+    .filter(([, v]) => v).map(([k, v]) => `<dt>${_pdE(k)}</dt><dd>${_pdE(v)}</dd>`).join('');
+  return dong ? `<dl class="pd-ct" style="margin-top:var(--sp-5)">${dong}</dl>` : '';
+}
+
+/* ── Trả nhà cung cấp: chứng từ (ảnh QR/UNC, PDF ở app Mua hàng) từ /api/ncc-de-xuat/{id}/detail của Kế toán ── */
+function _pdVeThemNcc(resp) {
+  const r = resp || {}, atts = r.attachments || [], H = { app: 'muahang' };
+  const tepDs = atts.map(a => ({ ten: a.filename, url: a.url, co: a.size, phu: a.uploaded_by }));
+  const chungTu = `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Chứng từ đính kèm (${tepDs.length})</p>` + (tepDs.length ? _pdVeTep(H, tepDs) : '<p class="pd-xau">Đề xuất này CHƯA có chứng từ đính kèm.</p>');
+  const chi = r.da_chi ? `<p class="pd-ok">Đã chi${r.tai_khoan_chi ? ' từ ' + _pdE(r.tai_khoan_chi) : ''}${r.ngay_chi ? ' · ' + _pdNgay(r.ngay_chi) : ''}</p>` : '';
+  return chungTu + chi;
+}
+
+/* Tải phần chi tiết chỉ có ở API chi tiết (h.tai_them), nhớ kết quả vào h.them; đang ở app CEO thì đi qua /api/tong-duyet.
+   `san: true` = phần thêm vẽ từ chính h.raw, không gọi mạng. */
 async function _pdTaiThem(h) {
   const o = document.getElementById('pd-p-them');
   if (!o) return;
   if (h.them === undefined) {
-    try { h.them = await _pdApi(h.tai_them.truc_tiep ? h.tai_them.url : _pdQua(h.tai_them.app, h.tai_them.url)); }
-    catch (e) { h.them = null; h.them_loi = e.message || 'lỗi'; }
+    if (h.tai_them.san) h.them = h.raw;
+    else {
+      try { h.them = await _pdApi(h.tai_them.truc_tiep ? h.tai_them.url : _pdQua(h.tai_them.app, h.tai_them.url)); }
+      catch (e) { h.them = null; h.them_loi = e.message || 'lỗi'; }
+    }
     // Nguồn phụ (vd Lỗ Lãi Đơn): thiếu thì bỏ qua, không làm hỏng phần chính.
     h.them_phu = await Promise.all((h.tai_them.phu || []).map(u => _pdApi(u).catch(() => null)));
   }
   if (_pd.chon !== h.khoa || _pd.ct !== 'tt') return;   // người dùng đã chuyển dòng/tab trong lúc tải
   o.innerHTML = h.them ? h.tai_them.ve(h.them, h.them_phu || [])
-    : `<p class="pd-canh" style="margin-top:var(--sp-8)">Không tải được chi tiết đơn: ${_pdE(h.them_loi || '')}. Mở ở app gốc để xem đủ.</p>`;
+    : `<p class="pd-canh" style="margin-top:var(--sp-8)">Không tải được thêm chi tiết: ${_pdE(h.them_loi || '')}.${h.lien_ket ? ' Mở ở app gốc để xem đủ.' : ''}</p>`;
 }
+
+/* ── Hộp rộng: dời #pd-panel vào lớp phủ / trả về #pd-than ─────────────────────
+   Một ngăn duy nhất nên pdTabCT, _pdTaiThem, pdQuyet dùng nguyên id cũ. Khoá cuộn trang bằng style
+   trên body (không thêm selector ngoài .pd — màn chạy trong khung 8 app). Esc / bấm nền = đóng. */
+/* Hàng này mở thành hộp? Loại có hop_rong (PO, đơn hàng, ĐNTT, nhập kho), HOẶC màn hẹp hơn 1280px — khi đó ngăn
+   chi tiết xếp DƯỚI bảng, người dùng 17/09/2026: "trên điện thoại ấn xem chi tiết phải kéo sâu xuống mới duyệt được,
+   cần hiện modal" → hộp phủ kín màn, chân hộp (ý kiến + Từ chối / Phê duyệt) luôn thấy ngay. */
+function _pdDungHop(h) { return !!(h && h.hop_rong) || window.matchMedia('(max-width:1279px)').matches; }
+function _pdMoHop() {
+  const m = document.getElementById('pd-modal'), p = document.getElementById('pd-panel');
+  if (p.parentNode !== m) m.appendChild(p);
+  m.hidden = false; p.hidden = false;   // bỏ hidden TRƯỚC khi focus, kẻo tiêu điểm rơi ra header phía sau lớp phủ
+  document.body.style.overflow = 'hidden';
+  document.getElementById('pd-than').classList.remove('co-panel');
+  // Nút chat nổi (#_chat_fab, z-index 99998) đè lên nút Phê duyệt ở màn hẹp → ẩn trong lúc hộp mở
+  const fab = document.getElementById('_chat_fab');
+  if (fab && fab.style.display !== 'none') { fab.style.display = 'none'; fab.dataset.pdAn = '1'; }   // CSS #_chat_fab{display:flex} đè thuộc tính hidden
+  const dong = p.querySelector('.pd-panel-dau .pd-nut-icon');
+  if (dong) dong.focus();
+}
+function _pdDongHop() {
+  const m = document.getElementById('pd-modal'), p = document.getElementById('pd-panel');
+  if (p.parentNode !== m) return;
+  document.getElementById('pd-than').appendChild(p);
+  m.hidden = true;
+  document.body.style.overflow = '';
+  const fab = document.getElementById('_chat_fab');
+  if (fab && fab.dataset.pdAn) { fab.style.display = ''; delete fab.dataset.pdAn; }
+  const dongChon = document.querySelector('#pd-than-bang tr.is-chon');   // trả tiêu điểm về dòng vừa xem
+  if (dongChon) { dongChon.tabIndex = -1; dongChon.focus(); }
+}
+document.addEventListener('keydown', e => {
+  const m = document.getElementById('pd-modal');
+  if (!m || m.hidden || e.isComposing) return;                       // IME (Telex Windows, tiếng Trung/Nhật): Esc huỷ chuỗi đang gõ
+  if (window._zV2 && window._zV2.open) return;                        // chat đang mở phía trên → Esc là của chat
+  if (e.key === 'Escape') {
+    const o = document.getElementById('pd-p-ykien');
+    if (e.target === o && o.value.trim()) { o.blur(); return; }       // đang có lý do đã gõ: Esc chỉ rời ô, bấm lần nữa mới đóng
+    e.preventDefault(); pdDongPanel(); return;
+  }
+  if (e.key === 'Tab') {                                              // bẫy Tab trong hộp — không lọt ra trang phía sau
+    const ds = [...m.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(x => !x.disabled && x.offsetParent !== null);
+    if (!ds.length) return;
+    const dau = ds[0], cuoi = ds[ds.length - 1];
+    if (e.shiftKey && (document.activeElement === dau || !m.contains(document.activeElement))) { e.preventDefault(); cuoi.focus(); }
+    else if (!e.shiftKey && (document.activeElement === cuoi || !m.contains(document.activeElement))) { e.preventDefault(); dau.focus(); }
+  }
+});
 
 /* ── Ngăn chi tiết ───────────────────────────────────────────────────────── */
 function pdChon(khoa) {
   const h = _pd.hang.find(x => x.khoa === khoa);
   if (!h) return;
   _pd.chon = khoa; _pd.ct = 'tt';
-  document.getElementById('pd-than').classList.add('co-panel');
+  if (_pdDungHop(h)) _pdMoHop(); else { _pdDongHop(); document.getElementById('pd-than').classList.add('co-panel'); }
   document.getElementById('pd-panel').hidden = false;
   const L = _PD_LOAI[h.nguon] || _PD_LOAI.khac;
   document.getElementById('pd-p-bieu').className = 'ico-tile ' + (L.tile === 'ico-tile' ? '' : L.tile);
   // Mã đứng riêng làm tiêu đề: ghép "Nguồn khác #BAOGIA_QUOTE-11815" thì mã dài vỡ dòng
   // giữa chừng thành "BAOGIA_QUO / TE-11815" (thấy trên ảnh thật app CEO 12/09/2026).
   document.getElementById('pd-p-ten').textContent = '#' + h.ma;
-  document.getElementById('pd-p-phu').textContent = `${L.nhan} · ${h.nguoi} · tạo ${_pdNgay(h.ngay_tao)}`;
+  document.getElementById('pd-p-phu').textContent = [L.nhan, h.nguoi, h.ngay_tao ? 'tạo ' + _pdNgay(h.ngay_tao) : ''].filter(Boolean).join(' · ');
   document.getElementById('pd-p-tt').innerHTML = _pdPill(h.trang_thai);
+  const gia = document.getElementById('pd-p-gia');   // số tiền nổi bật như hộp cũ — chỉ hàng hộp rộng
+  gia.hidden = !(h.hop_rong && h.gia_tri && h.gia_tri !== '—'); gia.textContent = gia.hidden ? '' : h.gia_tri;
   document.getElementById('pd-p-ls-dem').textContent = h.ls && h.ls.length ? `(${h.ls.length})` : '';
   const cho = _pdDangCho(h.trang_thai);
   document.getElementById('pd-p-chan').hidden = !cho;
@@ -1277,6 +1757,7 @@ function pdChon(khoa) {
 }
 function pdDongPanel() {
   _pd.chon = null;
+  _pdDongHop();
   document.getElementById('pd-panel').hidden = true;
   document.getElementById('pd-than').classList.remove('co-panel');
   pdVe();
@@ -1294,21 +1775,20 @@ function pdTabCT(k) {
     return;
   }
   const dong = (h.ct || []).filter(([, v]) => v !== null && v !== undefined && v !== '')
-    .map(([nhan, v]) => `<dt>${_pdE(nhan)}</dt><dd>${_pdE(v)}</dd>`).join('');
-  const tep = (h.tep || []).map(t => `<div class="pd-tep">
-      <span class="pd-tep-bieu"><svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
-      <span class="pd-tep-ten"><b>${_pdE(t.ten)}</b>${t.co ? `<small>${Math.max(1, Math.round(t.co / 1024))} KB</small>` : ''}</span>
-      <a class="btn-link" href="${_pdE(t.url)}" target="_blank" rel="noopener">Mở</a></div>`).join('');
-  than.innerHTML = `<p class="pd-nhom-nhan">Thông tin chung</p><dl class="pd-ct">
+    .map(([nhan, v]) => { const dai = (String(v).length > 60 || /\n/.test(String(v))) ? ' class="pd-dai"' : '';   // hộp rộng: giá trị dài chiếm cả hàng
+      return `<dt${dai}>${_pdE(nhan)}</dt><dd${dai}>${_pdE(v)}</dd>`; }).join('');
+  const tep = _pdVeTep(h, h.tep || []);   // ảnh → thumbnail; tệp của app khác → đúng tên miền app đó
+  than.innerHTML = `<p class="pd-nhom-nhan">Thông tin chung</p><dl class="pd-ct pd-ct-chung">
       <dt>Mã yêu cầu</dt><dd>${_pdE(h.ma)}</dd>
       <dt>Người gửi</dt><dd>${_pdE(h.nguoi)}</dd>
       <dt>Phòng ban</dt><dd>${_pdE(h.phong_ban || '—')}</dd>
-      <dt>Ngày tạo</dt><dd>${_pdNgay(h.ngay_tao)}</dd>
+      <dt>Ngày tạo</dt><dd>${_pdNgay(h.ngay_tao) || '—'}</dd>
       ${dong}</dl>
     ${tep ? `<p class="pd-nhom-nhan" style="margin-top:var(--sp-9)">Tệp đính kèm (${h.tep.length})</p>${tep}` : ''}
-    ${h.tai_them ? `<div id="pd-p-them"><p class="pd-trong">Đang tải sản phẩm và bảng so sánh…</p></div>` : ''}
+    ${h.tai_them ? `<div id="pd-p-them">${h.tai_them.san ? '' : '<p class="pd-trong">Đang tải thêm chi tiết…</p>'}</div>` : ''}
     ${h.luu_y ? `<p class="pd-canh" style="margin:var(--sp-8) 0 0">${_pdE(h.luu_y)}</p>` : ''}
-    ${h.lien_ket ? `<p style="margin-top:var(--sp-8)"><a class="btn-link" href="${_pdE(h.lien_ket)}" target="_blank" rel="noopener">Mở ở app gốc →</a></p>` : ''}`;
+    ${(h.links || []).map(l => `<p style="margin-top:var(--sp-6)"><a class="btn-link" href="${_pdE(l.url)}" target="_blank" rel="noopener">${_pdE(l.nhan)} →</a></p>`).join('')}
+    ${h.lien_ket ? `<p style="margin-top:var(--sp-8)"><a class="btn-link" href="${_pdE(h.lien_ket)}" title="${_pdE(h.lien_ket)}" target="_blank" rel="noopener">Mở ở app gốc →</a></p>` : ''}`;
   if (h.tai_them) _pdTaiThem(h);
 }
 
@@ -1353,8 +1833,6 @@ async function pdQuyet(quyet) {
     else if (h.nguon === 'ktd') await gui(`/api/kt-duyet/${id}`, 'POST', { action: duyet ? 'approved' : 'rejected', kt_ghi_chu: ykien });
     else if (h.nguon === 'coc') await gui(`/api/coc-bo-sung/${id}/duyet`, 'POST', { action: duyet ? 'duyet' : 'tu_choi', ghi_chu: ykien });
     else if (h.nguon === 'kho') await gui(`/api/kho/de-xuat/${id}/${duyet ? 'duyet' : 'tu-choi'}`, 'POST', { note: ykien });
-    else if (h.nguon === 'truc' && h.app === 'baogia') await gui(`/api/truc/duyet/${id}`, 'PUT', { trang_thai: quyet, nhan_xet: ykien });
-    else if (h.nguon === 'truc') await gui(`/api/dang-ky-truc/${id}/review`, 'PUT', { trang_thai: quyet, nhan_xet_ql: ykien });
     else if (h.nguon === 'dkn' && h.app === 'baogia') await gui(`/api/dang-ky-nghi/${id}/duyet`, 'PATCH', { action: duyet ? 'approved' : 'rejected', ghi_chu_duyet: ykien });
     else if (h.nguon === 'dkn') await gui(`/api/dang-ky-nghi/${id}/approve`, 'POST', { trang_thai: quyet, nhan_xet_ql: ykien });
     else throw new Error('Loại yêu cầu này chưa hỗ trợ duyệt tại đây');
