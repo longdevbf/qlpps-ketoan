@@ -16,6 +16,7 @@ from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
 from shared.events import emit_event
+from shared.services.employees import ten_nv
 
 from ..models import (
     ChiPhiCoDinh, ChiPhiPhatSinh, CongNo, LoaiChiPhi,
@@ -116,12 +117,15 @@ def list_chi_phi(
         stmt = stmt.where(ChiPhiPhatSinh.nhom_chi_phi == nhom)
     stmt = stmt.limit(limit).offset(offset)
     rows = db.execute(stmt).scalars().all()
+    # `nguoi_chi` lưu lẫn mã/tên — tra tên một lượt, gắn transient `nguoi_chi_ten` cùng kiểu `nguon`.
+    ten = ten_nv(db, [r.nguoi_chi for r in rows]) if rows else {}
     for r in rows:
         # gán nhãn nguồn (transient attr) để ChiPhiOut trả về FE hiển thị badge
         try:
             r.nguon = _nguon_chi_phi(r)
         except Exception:
             r.nguon = None
+        r.nguoi_chi_ten = ten.get(r.nguoi_chi, r.nguoi_chi)
     return rows
 
 

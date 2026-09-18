@@ -3611,7 +3611,8 @@ async function loadBaoCao() {
   // Charts
   renderBarChart('chart-cp', r.cp_by_loai, r.tong_chi_phi);
   renderBarChart('chart-dt', r.dt_by_loai, r.tong_doanh_thu);
-  renderBarChart('chart-nv', r.dt_by_nv, r.tong_doanh_thu, 'var(--success-fg)');
+  // `dt_by_nv_ten` = cùng dữ liệu nhưng nhãn là tên NV (backend tra từ username); thiếu thì rơi về mã.
+  renderBarChart('chart-nv', r.dt_by_nv_ten || r.dt_by_nv, r.tong_doanh_thu, 'var(--success-fg)');
   renderBarChart('chart-ads', r.ads_by_kenh, r.tong_ads, 'var(--info)');
   // 2 biểu đồ phòng ban đã chuyển sang trang Bảng Lương (loadLuong render)
 }
@@ -3691,7 +3692,7 @@ async function loadDoanhThu(thang) {
     <td>${r.ngay}</td>
     <td>${badgeHTML(r.loai, 'blue')}</td>
     <td><strong style="color:var(--green)">${fmt(r.so_tien)}</strong></td>
-    <td>${r.nv_kinh_doanh||'—'}</td>
+    <td title="${esc(r.nv_kinh_doanh||'')}">${esc(r.nv_kinh_doanh_ten||r.nv_kinh_doanh||'—')}</td>
     <td>${r.ma_don ? `<code>${r.ma_don}</code>` : '—'}</td>
     <td><small>${r.ngan_hang||''}</small></td>
     <td>${badgeHTML(r.loai_thanh_toan, r.loai_thanh_toan==='Đặt cọc'?'orange':'green')}</td>
@@ -3858,7 +3859,7 @@ async function loadChiPhi(thang) {
     <td><strong style="color:var(--red)">${fmt(r.so_tien)}</strong></td>
     <td><small>${r.quy||''}</small></td>
     <td>${r.phong_ban||'—'}</td>
-    <td>${r.nguoi_chi||'—'}</td>
+    <td title="${esc(r.nguoi_chi||'')}">${esc(r.nguoi_chi_ten||r.nguoi_chi||'—')}</td>
     <td>${r.ma_don ? `<code>${r.ma_don}</code>` : '—'}</td>
     <td><small>${r.ngan_hang||''}</small></td>
     <td><small>${r.ghi_chu||''}</small></td>
@@ -3987,7 +3988,7 @@ async function loadCoDinh(thang) {
     <td><b>${r.ten_khoan || '—'}</b></td>
     <td><strong>${fmt(stMonth)}</strong>${stNote}</td>
     <td><small>${r.ghi_chu||''}</small></td>
-    <td><small>${r.created_by||''}</small></td>
+    <td><small title="${esc(r.created_by||'')}">${esc(r.created_by_ten||r.created_by||'')}</small></td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-outline btn-sm" onclick='editCD(${safeRow})' >Sửa</button>
       <button class="btn btn-danger btn-sm" onclick="deleteCD('${r.id}')" title="Xoá">Xoá</button>
@@ -4332,8 +4333,8 @@ async function viewCnDetail(maBg) {
         <div style="font-size:15px;font-weight:700;color:var(--brand)">${q.customer_name || '(chưa rõ KH)'} ${q.customer_phone ? `· ${q.customer_phone}` : ''}</div>
         <div style="font-size:13px;color:var(--text-2);margin-top:4px;display:flex;flex-wrap:wrap;gap:14px">
           <span>Ngày tạo: ${fmtDate(q.created_at)}</span>
-          ${q.duyet_luc ? `<span>KD duyệt: ${fmtDate(q.duyet_luc)}${q.duyet_boi ? ' bởi '+q.duyet_boi : ''}</span>` : ''}
-          ${q.salesperson ? `<span>‍NV bán: ${q.salesperson}</span>` : ''}
+          ${q.duyet_luc ? `<span>KD duyệt: ${fmtDate(q.duyet_luc)}${q.duyet_boi ? ' bởi <span title="'+esc(q.duyet_boi)+'">'+esc(q.duyet_boi_ten||q.duyet_boi)+'</span>' : ''}</span>` : ''}
+          ${q.salesperson ? `<span title="${esc(q.salesperson)}">‍NV bán: ${esc(q.salesperson_ten||q.salesperson)}</span>` : ''}
           ${q.ngay_giao_du_kien ? `<span>Giao dự kiến: ${fmtDate(q.ngay_giao_du_kien)}</span>` : ''}
         </div>
         <div style="font-size:13px;color:var(--text-2);margin-top:4px">${q.customer_address || '—'}</div>
@@ -5106,7 +5107,7 @@ async function loadDonHangBanGiao(){
         html += `<tr>
           <td><code><strong style="color:var(--blue)">${o.ma_bg || '—'}</strong></code></td>
           <td><strong>${o.customer_name || '—'}</strong>${o.customer_phone ? `<br><small>${o.customer_phone}</small>` : ''}</td>
-          <td>${o.salesperson || ''}</td>
+          <td title="${esc(o.salesperson||'')}">${esc(o.salesperson_ten||o.salesperson||'')}</td>
           <td style="text-align:right">${fmt(thu)}</td>
           <td style="text-align:right;color:var(--brand)">${saBG ? `<strong>${fmt(cod)}</strong>` : '<small style="color:var(--text2)">—</small>'}</td>
           <td><div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${isHoan ? '<span style="font-size:11px;color:#b45309;font-weight:700">⏸ Đang hoãn</span>' : ''}${doneCtl}${hoanBtn}</div></td>
@@ -5433,7 +5434,7 @@ function dhRenderTable(){
         : needKtApprove
           ? `<button class="btn btn-sm" style="background:var(--brand-soft);color:var(--brand-hover)" onclick="ketoanApproveVC('${row.ma_vh}')" title="Duyệt cuối — chốt đơn đã giao xong">Duyệt KT</button>`
           : ktApproved
-            ? `<small style="color:var(--green)" title="KT duyệt: ${row.ketoan_approved_by || ''} lúc ${row.ketoan_approved_at ? new Date(row.ketoan_approved_at).toLocaleString('vi-VN') : ''}">Đã xong</small>`
+            ? `<small style="color:var(--green)" title="KT duyệt: ${esc(row.ketoan_approved_by_ten||row.ketoan_approved_by||'')} lúc ${row.ketoan_approved_at ? new Date(row.ketoan_approved_at).toLocaleString('vi-VN') : ''}">Đã xong</small>`
             : '<small style="color:var(--text2)">—</small>';
 
       const escMaBG = (maBG || '').replace(/'/g,"\\'");
@@ -5465,7 +5466,7 @@ function dhRenderTable(){
       return `<tr>
         <td ${openDetail}>${cmtDot}<code><strong style="color:var(--blue);text-decoration:underline">${maBG || '—'}</strong></code></td>
         <td ${openDetail}><strong>${row.customer_name || '—'}</strong>${row.customer_phone ? `<br><small>${row.customer_phone}</small>` : ''}</td>
-        <td>${row.salesperson || ''}</td>
+        <td title="${esc(row.salesperson||'')}">${esc(row.salesperson_ten||row.salesperson||'')}</td>
         <td><small>${row[_dhField] ? String(row[_dhField]).slice(0,10) : ''}</small></td>
         <td style="text-align:right"><strong>${fmt(tongDon)}</strong></td>
         <td style="text-align:right;border-right:2px solid var(--border)">${giaCTCell}</td>
@@ -5699,9 +5700,9 @@ async function openOrderDetail(maBG) {
         <div><strong>Khách:</strong> ${esc(q.customer_name || '—')}<br>
              <small>${esc(q.customer_phone || '—')} | ${esc(q.customer_address || '—')}</small></div>
         <div style="text-align:right">
-          <div><strong>NV KD:</strong> ${esc(q.salesperson || '—')}</div>
+          <div><strong>NV KD:</strong> <span title="${esc(q.salesperson||'')}">${esc(q.salesperson_ten||q.salesperson||'—')}</span></div>
           <div><strong>Ngày tạo:</strong> ${q.created_at ? q.created_at.slice(0,10) : '—'}</div>
-          <div><strong>Duyệt:</strong> ${esc(q.duyet_status || '—')} ${q.duyet_boi ? `bởi <em>${esc(q.duyet_boi)}</em>` : ''}</div>
+          <div><strong>Duyệt:</strong> ${esc(q.duyet_status || '—')} ${q.duyet_boi ? `bởi <em title="${esc(q.duyet_boi)}">${esc(q.duyet_boi_ten||q.duyet_boi)}</em>` : ''}</div>
           <div><strong>Tiến trình MH:</strong> ${esc(q.tien_trinh_mh || '—')}</div>
         </div>
       </div>
@@ -7731,7 +7732,7 @@ async function _loadPPLHistory() {
         <td>${x.chu_so_huu || x.ghi_chu || '—'}</td>
         <td style="text-align:right;font-weight:600;color:var(--red)">${fmt(x.so_tien)}</td>
         <td><small>${x.ghi_chu || ''}</small></td>
-        <td><small>${x.created_by || ''}</small></td>
+        <td><small title="${esc(x.created_by||'')}">${esc(x.created_by_ten||x.created_by||'')}</small></td>
         <td><button class="btn btn-danger btn-sm" onclick="deletePPL('${x.id}')" title="Xoá (đảo bút toán)">Xoá</button></td>
       </tr>`;
     }).join('');
@@ -10891,7 +10892,7 @@ async function reloadLichSuQuy() {
           <td style="padding:6px 10px">${g.noi_dung || ''}</td>
           <td style="padding:6px 10px"><small>${g.source_type || ''}${g.source_id ? '#'+g.source_id : ''}</small></td>
           <td style="padding:6px 10px"><small>${g.ghi_chu || ''}</small></td>
-          <td style="padding:6px 10px;text-align:center"><small>${g.created_by || ''}</small> ${voidBtn}</td>
+          <td style="padding:6px 10px;text-align:center"><small title="${esc(g.created_by||'')}">${esc(g.created_by_ten||g.created_by||'')}</small> ${voidBtn}</td>
         </tr>
       `;
     }).join('');

@@ -45,4 +45,5 @@ class DoanhThuOut(DoanhThuBase):
     updated_at: datetime
     # Phân loại nguồn: nhãn luồng tự động (vd 'Đối chiếu giao hàng') hoặc None = KT tự nhập.
     nguon_hien: Optional[str] = None
+    nv_kinh_doanh_ten: Optional[str] = None  # tên NV tra từ `nv_kinh_doanh` (lưu lẫn mã/tên), router gắn khi list
     model_config = ConfigDict(from_attributes=True)

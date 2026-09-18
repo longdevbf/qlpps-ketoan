@@ -16,6 +16,7 @@ from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
 from shared.templates import _lookup_user_info
+from shared.services.employees import ten_nv
 
 from ._deps import require_ketoan_user
 
@@ -664,7 +665,14 @@ def orders_overview(
         ORDER BY q.created_at DESC
         LIMIT 200
     """
-    return {"filter": filter, "data": _safe_rows(db, sql, **sp_params)}
+    rows = _safe_rows(db, sql, **sp_params)
+    # `salesperson` lưu lẫn mã/tên, `ketoan_approved_by` lưu username — tra tên một lượt
+    # SAU khi có rows (không đổi câu SQL), trả THÊM `*_ten`; không khớp thì giữ nguyên.
+    ten = ten_nv(db, [x for r in rows for x in (r.get("salesperson"), r.get("ketoan_approved_by"))]) if rows else {}
+    for r in rows:
+        r["salesperson_ten"] = ten.get(r.get("salesperson"), r.get("salesperson"))
+        r["ketoan_approved_by_ten"] = ten.get(r.get("ketoan_approved_by"), r.get("ketoan_approved_by"))
+    return {"filter": filter, "data": rows}
 
 
 @router.get("/orders-optimization")
@@ -988,6 +996,10 @@ def order_detail(
     if not quote_rows:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Báo giá {ma_bg} không tồn tại")
     quote = quote_rows[0]
+    # `salesperson` lưu lẫn mã/tên, `duyet_boi` lưu username — thêm `*_ten` cho modal chi tiết.
+    _tq = ten_nv(db, [quote.get("salesperson"), quote.get("duyet_boi")])
+    quote["salesperson_ten"] = _tq.get(quote.get("salesperson"), quote.get("salesperson"))
+    quote["duyet_boi_ten"] = _tq.get(quote.get("duyet_boi"), quote.get("duyet_boi"))
 
     items = _safe_rows_silent(
         db,

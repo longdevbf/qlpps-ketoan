@@ -37,6 +37,7 @@ from sqlalchemy.orm import Session
 from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
+from shared.services.employees import ten_nv
 
 from ..models import DoanhThu, QuyDN, QuyDNGiaoDich
 from ..schemas.quy_dn_giao_dich import QuyDNGiaoDichCreate
@@ -550,6 +551,8 @@ def list_giao_dich_quy(
 
     stmt = stmt.order_by(QuyDNGiaoDich.ngay.desc(), QuyDNGiaoDich.id.desc()).limit(limit).offset(offset)
     items = db.execute(stmt).scalars().all()
+    # `created_by` lưu username — tra tên một lượt cho cả trang, gắn THÊM `created_by_ten`.
+    ten = ten_nv(db, [g.created_by for g in items]) if items else {}
 
     # Tổng thu / chi tổng quỹ (không filter theo from/to/loai — để header header summary)
     tong_thu = db.execute(
@@ -567,7 +570,7 @@ def list_giao_dich_quy(
         "so_du": float(quy.so_du or 0),
         "tong_thu": float(tong_thu),
         "tong_chi": float(tong_chi),
-        "items": [_serialize_gd(g) for g in items],
+        "items": [{**_serialize_gd(g), "created_by_ten": ten.get(g.created_by, g.created_by) or ""} for g in items],
         "can_admin": _can_admin(user),
     }
 

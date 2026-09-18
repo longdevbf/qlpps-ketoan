@@ -18,6 +18,7 @@ from shared.audit import log_action
 from shared.auth import JWTPayload, require_app
 from shared.db import get_db
 from shared.services.documents import list_for_phong_ban as _list_company_docs
+from shared.services.employees import ten_nv
 
 
 router = APIRouter()
@@ -75,6 +76,18 @@ def _serialize(s: DaoTaoSession) -> dict[str, Any]:
     }
 
 
+def _serialize_list(db: Session, rows: list) -> list[dict[str, Any]]:
+    # `created_by` lưu username — tra tên MỘT lượt cho cả danh sách rồi gắn THÊM
+    # `created_by_ten` cạnh trường cũ (UI vẫn so `created_by` với username để phân quyền).
+    ten = ten_nv(db, [r.created_by for r in rows]) if rows else {}
+    out = []
+    for r in rows:
+        d = _serialize(r)
+        d["created_by_ten"] = ten.get(r.created_by, r.created_by)
+        out.append(d)
+    return out
+
+
 @router.get("/sessions")
 def list_sessions(
     user: Annotated[JWTPayload, Depends(_REQ)],
@@ -92,7 +105,7 @@ def list_sessions(
             | (DaoTaoSession.created_by == user.username)
         )
     rows = q.order_by(DaoTaoSession.created_at.desc()).all()
-    return [_serialize(r) for r in rows]
+    return _serialize_list(db, rows)
 
 
 @router.get("/me")
@@ -125,7 +138,7 @@ def list_my_sessions(
         .order_by(DaoTaoSession.created_at.desc())
         .all()
     )
-    return [_serialize(r) for r in rows]
+    return _serialize_list(db, rows)
 
 
 @router.get("/van-ban-cong-ty")
@@ -198,7 +211,7 @@ def get_session(
     sess = db.get(DaoTaoSession, sid)
     if not sess:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Session không tồn tại")
-    return _serialize(sess)
+    return _serialize_list(db, [sess])[0]
 
 
 @router.api_route("/sessions/{sid}", methods=["PATCH", "PUT"])

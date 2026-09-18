@@ -188,6 +188,10 @@ def _gop(db: Session, rows: list[dict]) -> list[dict]:
         WHERE doc_id = ANY(:ids) GROUP BY doc_id, hanh_dong
     """), {"ids": ids}).mappings().all():
         dem.setdefault(r["doc_id"], {})[r["hanh_dong"]] = r["n"]
+    # `nguoi_tao` giữ username vì UI so `r.nguoi_tao === TL_ME` để cho phép xoá;
+    # thêm `nguoi_tao_ten` riêng để hiển thị (18/09/2026).
+    from shared.services.employees import ten_nv
+    ten = ten_nv(db, [r["created_by"] for r in rows])
     ra = []
     for r in rows:
         m = meta.get(r["id"]) or {}
@@ -203,6 +207,7 @@ def _gop(db: Session, rows: list[dict]) -> list[dict]:
             "co_quan_ban_hanh": ((m.get("co_quan_ban_hanh") if m else None)
                                  or r.get("_co_quan") or ""),
             "nguoi_tao": r["created_by"] or "",
+            "nguoi_tao_ten": ten.get(r["created_by"], r["created_by"]) or "",
             "ap_dung_phong_ban": r["ap_dung_phong_ban"] or [],
             "file_url": r["file_url"] or "",
             "dinh_dang": _dinh_dang(r["file_url"]),

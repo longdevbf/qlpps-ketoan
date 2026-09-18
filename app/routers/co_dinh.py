@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
+from shared.services.employees import ten_nv
 
 from ..models import (
     ChiPhiCoDinh, CongNo, LoaiChiPhi, TaiKhoanNH, TaiKhoanNHGiaoDich,
@@ -101,7 +102,13 @@ def list_co_dinh(
             )
         stmt = stmt.where(ChiPhiCoDinh.phuong_phap_phan_bo == phuong_phap)
     stmt = stmt.limit(limit).offset(offset)
-    return db.execute(stmt).scalars().all()
+    rows = db.execute(stmt).scalars().all()
+    # `created_by` lưu username — tra tên một lượt cho cả trang, gắn `created_by_ten`
+    # lên ORM object để `CoDinhOut` (from_attributes) đọc được; giữ nguyên `created_by`.
+    ten = ten_nv(db, [r.created_by for r in rows]) if rows else {}
+    for r in rows:
+        setattr(r, "created_by_ten", ten.get(r.created_by, r.created_by))
+    return rows
 
 
 @router.post("", response_model=CoDinhOut, status_code=status.HTTP_201_CREATED)

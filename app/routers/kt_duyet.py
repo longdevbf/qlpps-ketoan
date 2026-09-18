@@ -16,6 +16,7 @@ from shared.auth import JWTPayload, require_app
 from shared.audit import log_action
 from shared.db import get_db
 from shared.templates import _lookup_user_info
+from shared.services.employees import ten_nv
 from shared.events import emit_event
 
 router = APIRouter()
@@ -215,6 +216,10 @@ def list_kt_pending(
         return {"gia_ban_total": ban, "gia_he_thong_total": ht,
                 "gia_chenh": round(ban - ht, 2), "gia_chenh_n": n}
 
+    # `salesperson` lưu lẫn username/họ tên, `duyet_boi` lưu username — tra tên một lượt
+    # cho cả trang, trả THÊM `*_ten` cạnh trường cũ (UI vẫn dùng trường cũ làm khoá).
+    _ten = ten_nv(db, [x for q in rows for x in (q.salesperson, q.duyet_boi)]) if rows else {}
+
     return [
         {
             "id": q.id,
@@ -222,9 +227,11 @@ def list_kt_pending(
             "customer_name": q.customer_name or "",
             "customer_phone": q.customer_phone or "",
             "salesperson": q.salesperson or "",
+            "salesperson_ten": _ten.get(q.salesperson, q.salesperson) or "",
             "tong_don": float(q.tong_don) if q.tong_don else None,
             "duyet_status": q.duyet_status,
             "duyet_boi": q.duyet_boi or "",
+            "duyet_boi_ten": _ten.get(q.duyet_boi, q.duyet_boi) or "",
             "duyet_luc": q.duyet_luc.isoformat() if q.duyet_luc else "",
             # Cọc hiệu lực: ưu tiên coc_so_tien (KD ghi cọc chi tiết), fallback
             # `deposit` (Tiền cọc form) để KT KHÔNG bỏ sót đơn có cọc nhập ở ô

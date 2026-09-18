@@ -121,6 +121,7 @@ class CoDinhUpdate(BaseModel):
 class CoDinhOut(CoDinhBase):
     id: int
     created_by: Optional[str] = None
+    created_by_ten: Optional[str] = None  # tên NV tra từ username, router setattr trước khi trả
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)

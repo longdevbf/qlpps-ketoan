@@ -81,8 +81,13 @@ def _denghitt_to_dict(e, name_map: Optional[dict] = None) -> dict:
 
 
 def _build_name_map(db: Session, rows: list) -> dict:
-    """Batch query shared.users để map username → full_name cho cả nguoi_tao/kt_duyet_boi/nguoi_duyet."""
-    from shared.models import User  # lazy
+    """Batch map username → tên hiển thị cho các cột người trong danh sách.
+
+    18/09/2026: chuyển sang `shared.services.employees.ten_nv` — trước chỉ tra
+    `shared.users` nên `nv26004` (username thật là ceopps) và NV không có tài khoản
+    vẫn ra mã; `ten_nv` tra cả ma_nv, ưu tiên hồ sơ HCNS, fallback shared.users.
+    """
+    from shared.services.employees import ten_nv  # lazy
     usernames = {
         u for e in rows
         for u in (e.nguoi_tao, e.kt_duyet_boi, e.nguoi_duyet)
@@ -90,10 +95,7 @@ def _build_name_map(db: Session, rows: list) -> dict:
     }
     if not usernames:
         return {}
-    users = db.execute(
-        select(User.username, User.full_name).where(User.username.in_(usernames))
-    ).all()
-    return {u: n for u, n in users}
+    return ten_nv(db, usernames)
 
 
 def _get_or_404(db: Session, did: str):

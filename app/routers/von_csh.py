@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
+from shared.services.employees import ten_nv
 
 from ..models import QuyDN, SoQuy, TaiKhoanNH, TaiKhoanNHGiaoDich, VonCSH
 from ..schemas import (
@@ -153,7 +154,9 @@ def list_von_csh(
         stmt = stmt.where(VonCSH.loai_giao_dich == loai)
     stmt = stmt.limit(limit).offset(offset)
     items = db.execute(stmt).scalars().all()
-    return [_serialize(v) for v in items]
+    # `created_by` lưu username — tra tên một lượt, trả THÊM `created_by_ten` cạnh trường cũ.
+    ten = ten_nv(db, [v.created_by for v in items]) if items else {}
+    return [{**_serialize(v), "created_by_ten": ten.get(v.created_by, v.created_by)} for v in items]
 
 
 @router.get("/summary", response_model=VonCSHSummary)

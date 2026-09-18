@@ -11,6 +11,7 @@ from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
 from shared.events import emit_event
+from shared.services.employees import ten_nv
 
 from ..models import DoanhThu
 from ..schemas import DoanhThuCreate, DoanhThuUpdate, DoanhThuOut
@@ -116,8 +117,11 @@ def list_doanh_thu(
         stmt = stmt.where(DoanhThu.nv_kinh_doanh == nv_kinh_doanh)
     stmt = stmt.limit(limit).offset(offset)
     rows = db.execute(stmt).scalars().all()
+    # `nv_kinh_doanh` lưu lẫn mã/tên — tra tên một lượt, gắn transient `nv_kinh_doanh_ten` như `nguon_hien`.
+    ten = ten_nv(db, [o.nv_kinh_doanh for o in rows]) if rows else {}
     for o in rows:
         o.nguon_hien = _nguon_doanh_thu(o)  # phân loại luồng vs tự nhập
+        o.nv_kinh_doanh_ten = ten.get(o.nv_kinh_doanh, o.nv_kinh_doanh)
     return rows
 
 

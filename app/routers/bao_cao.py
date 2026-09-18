@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
+from shared.services.employees import ten_nv
 
 from ..models import BaoCaoSnapshot, ChiPhiPhatSinh, CongNo, DoanhThu
 from ..schemas import (
@@ -291,6 +292,10 @@ def bao_cao_dashboard(
         dt_by_nv = [(str(k), float(v or 0)) for k, v in rows]
     except Exception:
         pass
+    # Nhãn `dt_by_nv` là `quotes.salesperson` (lẫn mã nv26010 / họ tên) — biểu đồ cần tên,
+    # nên trả THÊM `dt_by_nv_ten` cùng cấu trúc [[nhãn, giá trị]]; giữ `dt_by_nv` cho consumer cũ.
+    _ten_nv = ten_nv(db, [k for k, _ in dt_by_nv]) if dt_by_nv else {}
+    dt_by_nv_ten = [(_ten_nv.get(k, k), v) for k, v in dt_by_nv]
 
     # ADS by kênh + Lương by phòng ban (đã có trong _build_tong_hop)
     ads_by_kenh = sorted(th.ads_by_kenh.items(), key=lambda x: -x[1])
@@ -322,6 +327,7 @@ def bao_cao_dashboard(
         "cp_by_loai": cp_by_loai,
         "dt_by_loai": dt_by_loai,
         "dt_by_nv": dt_by_nv,
+        "dt_by_nv_ten": dt_by_nv_ten,
         "ads_by_kenh": ads_by_kenh,
         "luong_by_pb": luong_by_pb,
         "nhansu_by_pb": nhansu_by_pb,

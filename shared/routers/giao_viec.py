@@ -470,6 +470,16 @@ def _notify_closed(db: Session, d: Directive, *, by: str, note: str = ""):
     )
 
 
+def _ten_cua(db: Session, username: str) -> str:
+    """Tên hiển thị của người thao tác để ghép vào câu thông báo (18/09/2026).
+
+    Trước đây message ghi thẳng `user.username` ("nv26025 đã hoàn thành") nên CEO
+    không biết ai. `created_by`/`by` vẫn giữ username — đó là khoá, không đổi.
+    """
+    from shared.services.employees import ten_nv  # lazy: cùng kiểu import notify ở dưới
+    return ten_nv(db, [username]).get(username, username)
+
+
 def _notify_status_change(db: Session, d: Directive, *, by: str, event: str, message: str, severity: str = "info"):
     """Notify from_user (CEO/manager) khi NV thay đổi trạng thái task."""
     try:
@@ -975,7 +985,7 @@ def delete_directive(
             db, target=to_user, source_app=app_name,
             event_type="directive:deleted",
             title=f"[Giao Việc #{id}] Đã bị xoá",
-            message=f"Task '{d.title}' bị xoá bởi {user.username}",
+            message=f"Task '{d.title}' bị xoá bởi {_ten_cua(db, user.username)}",
             ref_type="directive", ref_id=id, severity="warning",
             created_by=user.username,
         )
@@ -1045,7 +1055,7 @@ def ack_directive(
     try:
         _notify_status_change(
             db, d, by=user.username, event="acknowledged",
-            message=f"{user.username} đã xác nhận nhận việc",
+            message=f"{_ten_cua(db, user.username)} đã xác nhận nhận việc",
             severity="info",
         )
         db.commit()
@@ -1086,7 +1096,7 @@ def start_directive(
     try:
         _notify_status_change(
             db, d, by=user.username, event="started",
-            message=f"{user.username} đã bắt đầu thực hiện",
+            message=f"{_ten_cua(db, user.username)} đã bắt đầu thực hiện",
             severity="info",
         )
         db.commit()
@@ -1130,7 +1140,7 @@ def pause_directive(
     try:
         _notify_status_change(
             db, d, by=user.username, event="blocked",
-            message=f"{user.username} tạm dừng — lý do: {reason}",
+            message=f"{_ten_cua(db, user.username)} tạm dừng — lý do: {reason}",
             severity="warning",
         )
         db.commit()
@@ -1168,7 +1178,7 @@ def resume_directive(
     try:
         _notify_status_change(
             db, d, by=user.username, event="resumed",
-            message=f"{user.username} đã tiếp tục công việc",
+            message=f"{_ten_cua(db, user.username)} đã tiếp tục công việc",
             severity="info",
         )
         db.commit()
@@ -1207,7 +1217,7 @@ def complete_directive(
     d.completed_at = now
     d.closed_at = now
     d.last_activity_at = now
-    prefix = f"[{user.username} hoàn thành] "
+    prefix = f"[{_ten_cua(db, user.username)} hoàn thành] "
     d.response = _append_response(d.response, prefix, response_text)
     db.commit()
     db.refresh(d)
@@ -1236,7 +1246,7 @@ def complete_directive(
     try:
         _notify_status_change(
             db, d, by=user.username, event="completed",
-            message=f"{user.username} đã hoàn thành — kết quả: {response_text[:200]}",
+            message=f"{_ten_cua(db, user.username)} đã hoàn thành — kết quả: {response_text[:200]}",
             severity="success",
         )
         db.commit()
@@ -1275,7 +1285,7 @@ def reopen_directive(
     d.completed_at = None
     d.closed_at = None
     d.last_activity_at = now
-    prefix = f"[{user.username} reopen] "
+    prefix = f"[{_ten_cua(db, user.username)} reopen] "
     d.response = _append_response(d.response, prefix, reason)
     db.commit()
     db.refresh(d)
@@ -1292,7 +1302,7 @@ def reopen_directive(
             db, target=d.to_user, source_app=d.app or "ceo",
             event_type="directive:reopened",
             title=f"[Giao Việc #{d.id}] Task được mở lại",
-            message=f"{user.username} mở lại — lý do: {reason}",
+            message=f"{_ten_cua(db, user.username)} mở lại — lý do: {reason}",
             ref_type="directive", ref_id=d.id, url=f"/giao-viec#id={d.id}",
             severity="warning", created_by=user.username,
         )

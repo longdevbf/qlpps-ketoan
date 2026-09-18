@@ -363,12 +363,18 @@ def _notify_invited(db: Session, ev: CalendarEvent, target: str, by: str):
         start_str = ev.start_dt.strftime("%H:%M %d/%m/%Y") if ev.start_dt else ""
     except Exception:
         start_str = str(ev.start_dt) if ev.start_dt else ""
+    # Câu thông báo dùng TÊN người mời; `created_by=by` bên dưới vẫn là username (khoá).
+    try:
+        from shared.services.employees import ten_nv
+        by_ten = ten_nv(db, [by]).get(by, by)
+    except Exception:
+        by_ten = by
     try:
         notify(
             db, target=target, source_app="calendar",
             event_type="calendar:invited",
             title=f"[Lịch] {ev.title} — {start_str}",
-            message=f"{by} mời bạn tham gia lịch '{ev.title}'"
+            message=f"{by_ten} mời bạn tham gia lịch '{ev.title}'"
                     + (f" tại {ev.location}" if ev.location else ""),
             ref_type="calendar_event", ref_id=ev.id,
             url=f"/lich-lam-viec#event={ev.id}",

@@ -216,7 +216,14 @@ def upsert_event_from_directive(db: Session, directive: Any) -> Optional[int]:
         from_user = getattr(directive, "from_user", "") or ""
         priority = (getattr(directive, "priority", "med") or "med").lower()
         color = _PRIORITY_COLOR.get(priority, "#f59e0b")
-        desc = f"Người giao: {from_user} | Ưu tiên: {priority}\n{body}".strip()
+        # Mô tả sự kiện hiện cho NV đọc → ghi TÊN người giao; `from_user` (username)
+        # vẫn giữ ở directive làm khoá. Lazy import như `_CE()` để tránh vòng import.
+        try:
+            from shared.services.employees import ten_nv
+            from_user_ten = ten_nv(db, [from_user]).get(from_user, from_user)
+        except Exception:
+            from_user_ten = from_user
+        desc = f"Người giao: {from_user_ten} | Ưu tiên: {priority}\n{body}".strip()
 
         # Treat due_date as end-of-business-day 17:00 VN
         end_dt = _to_vn_dt(due_date, time(17, 0, 0))
