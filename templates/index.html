@@ -5102,7 +5102,7 @@ async function loadDonHangBanGiao(){
         const doneCtl =
           `<input type="number" id="${amtId}" value="${Math.round(defThu)}" min="0" step="1000" style="width:120px;padding:4px;text-align:right" title="Số tiền khách thực trả khi giao (mặc định = còn phải thu)">`
           + `${_bgTkSelect(selId)}`
-          + `<button class="btn btn-sm btn-success" onclick="markVCDoneKT('${o.ma_vh}','${maBG}','${amtId}','${selId}')" title="Ghi thu tiền + chuyển đơn sang Hoàn Thành">✓ Hoàn thành + Thu</button>`
+          + `<button class="btn btn-sm btn-success" onclick="markVCDoneKT('${o.ma_vh}','${maBG}','${amtId}','${selId}',${conThu || 0})" title="Ghi thu tiền + chuyển đơn sang Hoàn Thành">✓ Hoàn thành + Thu</button>`
           + (saBG ? `<span style="font-size:11px;color:var(--green)" title="Sale Admin đã bàn giao số ${fmt(cod)}">✅ SA đã báo</span>` : '');
         html += `<tr>
           <td><code><strong style="color:var(--blue)">${o.ma_bg || '—'}</strong></code></td>
@@ -5850,22 +5850,38 @@ async function markVCDone(maVH, maBG, cod, saBanGiao, tkSelId) {
 
 // KT chủ động: hoàn thành đơn + thu tiền theo SỐ KT NHẬP (tab Bàn giao trong ngày).
 // Không cần SA bàn giao trước. Backend cap ≤ còn lại (không vượt tổng đơn).
-async function markVCDoneKT(maVH, maBG, amtInputId, tkSelId) {
+//   conThu: số CÒN PHẢI THU của dòng (tổng − cọc − thanh toán) lúc vẽ bảng.
+async function markVCDoneKT(maVH, maBG, amtInputId, tkSelId, conThu) {
   const inp = amtInputId ? document.getElementById(amtInputId) : null;
   const soTien = Math.round(+(inp && inp.value) || 0);
-  if (soTien <= 0) { alert('Nhập số tiền thực thu (> 0) trước khi hoàn thành.'); return; }
+  // Đơn đã thu đủ (cọc/cọc bổ sung đã bằng tổng đơn) → cho hoàn thành với 0 đ.
+  // Còn dưới 1 đ cũng coi là đủ: tổng đơn có thể lẻ xu (vd 1.500.000,12).
+  // Đơn còn nợ vẫn bắt nhập > 0 để KT không hoàn thành đơn mà quên ghi tiền.
+  const daThuDu = (+conThu || 0) < 1;
+  if (soTien < 0) { alert('Số tiền thực thu không được âm.'); return; }
+  if (soTien === 0 && !daThuDu) {
+    alert(`Đơn còn phải thu ${fmt(conThu)} — nhập số tiền thực thu (> 0) trước khi hoàn thành.`);
+    return;
+  }
   const selEl = tkSelId ? document.getElementById(tkSelId) : null;
   const tk = ((selEl && selEl.value) ? selEl.value : 'Tiền Mặt').trim() || 'Tiền Mặt';
-  if (!confirm(`Hoàn thành đơn ${maBG || maVH} và thu ${fmt(soTien)} đ vào "${tk}"?`)) return;
+  const hoi = soTien === 0
+    ? `Đơn ${maBG || maVH} đã thu đủ — hoàn thành, KHÔNG ghi thêm tiền vào sổ quỹ?`
+    : `Hoàn thành đơn ${maBG || maVH} và thu ${fmt(soTien)} vào "${tk}"?`;
+  if (!confirm(hoi)) return;
   try {
     const p = new URLSearchParams();
-    p.set('so_tien_thuc_nhan', String(soTien));  // KT xác nhận số thực thu
+    p.set('so_tien_thuc_nhan', String(soTien));  // KT xác nhận số thực thu (0 = đã thu đủ)
     p.set('tai_khoan', tk);
-    p.set('note', `KT thu + hoàn thành — ${fmt(soTien)}đ`);
+    p.set('note', soTien === 0
+      ? 'KT hoàn thành — đơn đã thu đủ, không ghi thêm tiền'
+      : `KT thu + hoàn thành — ${fmt(soTien)}`);
     const url = `/api/external/vanchuyen/${encodeURIComponent(maVH)}/hoan-thanh?${p.toString()}`;
     const r = await fetch(url, {method: 'POST'}).then(r => r.json());
     if (r.ok) {
-      alert(`Đã hoàn thành ${maVH} + thu ${fmt(soTien)}đ.\nBáo giá ${r.ma_don || ''} đã sync.`);
+      alert(soTien === 0
+        ? `Đã hoàn thành ${maVH} (đơn đã thu đủ, không ghi thêm tiền).\nBáo giá ${r.ma_don || ''} đã sync.`
+        : `Đã hoàn thành ${maVH} + thu ${fmt(soTien)}.\nBáo giá ${r.ma_don || ''} đã sync.`);
       loadDonHangBanGiao();
     } else {
       alert(`Lỗi: ${r.detail || r.error || JSON.stringify(r)}`);
