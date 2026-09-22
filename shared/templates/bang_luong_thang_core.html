@@ -24,10 +24,13 @@
    nhân viên · 4 thẻ số (lương cơ bản · ngày công · tổng cộng · thực nhận) · chi tiết A.
    khoản cộng / B. khoản trừ / lương thực nhận + lương trả M5, M15 · lịch sử bảng
    lương · lưu ý. Trước đây phiếu lương cá nhân nằm trong tab của màn Hồ sơ cá nhân.
+   21/09/2026 thêm khối "Chấm công trong tháng" (lịch từng ngày: đi làm · đi muộn · quên chấm ra ·
+   không chấm công · nghỉ) — bản tab Hồ sơ cũ có lịch này, bản 12/09 làm rơi mất.
    Khung theo Chấm công v2 (`_khung_man.html`).
 
    Nguồn số: `GET /api/payroll/me?thang=` (tính trực tiếp từ chấm công, KHÔNG lưu) và
-   `GET /api/payroll/me/lich-su` (thêm 12/09/2026). M5/M15 tính ở MÁY CHỦ
+   `GET /api/payroll/me/lich-su` (thêm 12/09/2026) · lịch chấm công `GET /api/cham-cong/lich-thang`
+   (21/09/2026 — ngày đi muộn lấy từ ĐÚNG hàm bảng lương dùng để trừ hoa hồng). M5/M15 tính ở MÁY CHỦ
    (`luong_m5`, `luong_m15`) — màn này không tự tính lại công thức lương.
 
    KHÁC ẢNH MẪU — người duyệt chốt 12/09/2026 "ẩn trường chưa có chỗ lưu":
@@ -177,6 +180,50 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
 .bl .bl-trong{padding:40px var(--sp-9);text-align:center;color:var(--text-3)}
 .bl .bl-trong b{display:block;margin-bottom:var(--sp-3);font-size:var(--fs-title);color:var(--text-1)}
 
+/* ── Chấm công trong tháng (21/09/2026) ─────────────────────────────────────
+   Màu theo NGHĨA (frontend-ui luật 3): lục = đi làm · vàng = đi muộn / quên chấm ra đã được chỉnh ·
+   đỏ = quên chấm ra, không chấm công · xám slate = nghỉ phép, nghỉ lễ · xanh nhạt = hôm nay.
+   Nền ô là bản -soft, chữ nhãn là bản -fg (chữ trạng thái trên -soft phải dùng -fg, design-system).
+   Điện thoại: lưới 7 cột quá hẹp để đọc giờ → thành danh sách, bỏ ngày chưa tới và Chủ nhật trống. */
+.bl .bl-cc-tong{display:flex;flex-wrap:wrap;gap:var(--sp-3) var(--sp-4);margin-bottom:var(--sp-5)}
+.bl .bl-cc-chip{display:inline-flex;align-items:center;gap:var(--sp-3);min-height:30px;padding:0 var(--sp-5);
+     border:1px solid var(--border);border-radius:var(--r-full);background:var(--bg-card);font-size:var(--fs-meta);
+     color:var(--text-2);white-space:nowrap}
+.bl .bl-cc-chip::before{content:"";width:8px;height:8px;border-radius:var(--r-full);background:var(--cham, var(--text-3));flex:none}
+.bl .bl-cc-chip b{font-size:var(--fs-body);font-weight:700;color:var(--text-1);font-variant-numeric:tabular-nums}
+.bl .bl-cc-chip.is-tot{--cham:var(--success)}
+.bl .bl-cc-chip.is-muon{--cham:var(--warning)}
+.bl .bl-cc-chip.is-xau{--cham:var(--danger)}
+.bl .bl-cc-chip.is-nghi{--cham:var(--info)}
+.bl .bl-cc-ghi{margin-bottom:var(--sp-7);font-size:var(--fs-meta);color:var(--text-3)}
+.bl .bl-cc-ghi b{font-weight:600;color:var(--text-1)}
+.bl .bl-lich{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--sp-3)}
+.bl .bl-lich-thu{padding-bottom:var(--sp-2);text-align:center;font-size:var(--fs-meta);font-weight:600;color:var(--text-3)}
+.bl .bl-o{display:flex;flex-direction:column;gap:2px;min-width:0;min-height:80px;padding:var(--sp-4) var(--sp-5);
+     border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-card);color:var(--text-2);line-height:var(--lh-tight)}
+.bl .bl-o-so{display:flex;align-items:baseline;gap:var(--sp-3)}
+.bl .bl-o-so b{font-size:var(--fs-body-lg);font-weight:700;color:var(--text-1);font-variant-numeric:tabular-nums}
+.bl .bl-o-thu{display:none;font-size:var(--fs-meta);color:var(--text-3)}
+.bl .bl-o-nhan{font-size:var(--fs-meta);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bl .bl-o-gio{font-size:var(--fs-meta);color:var(--text-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bl .bl-o-phu{font-size:var(--fs-meta);color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bl .bl-o--di_lam,.bl .bl-o--cong_tac{background:var(--success-soft)}
+.bl .bl-o--di_lam .bl-o-nhan,.bl .bl-o--cong_tac .bl-o-nhan{color:var(--success-fg)}
+.bl .bl-o--di_muon,.bl .bl-o--quen_cham_ra_da_sua{background:var(--warning-soft)}
+.bl .bl-o--di_muon .bl-o-nhan,.bl .bl-o--quen_cham_ra_da_sua .bl-o-nhan{color:var(--warning-fg)}
+.bl .bl-o--quen_cham_ra,.bl .bl-o--khong_cham{background:var(--danger-soft)}
+.bl .bl-o--quen_cham_ra .bl-o-nhan,.bl .bl-o--khong_cham .bl-o-nhan{color:var(--danger-fg)}
+.bl .bl-o--nghi_phep,.bl .bl-o--nghi_le{background:var(--info-soft)}
+.bl .bl-o--nghi_phep .bl-o-nhan,.bl .bl-o--nghi_le .bl-o-nhan{color:var(--info-fg)}
+.bl .bl-o--chu_nhat,.bl .bl-o--chua_vao_lam,.bl .bl-o--da_nghi_viec{background:var(--bg-page)}
+.bl .bl-o--chu_nhat .bl-o-nhan,.bl .bl-o--chua_vao_lam .bl-o-nhan,.bl .bl-o--da_nghi_viec .bl-o-nhan{font-weight:500;color:var(--text-3)}
+.bl .bl-o--tuong_lai .bl-o-so b,.bl .bl-o--chu_nhat .bl-o-so b{font-weight:500;color:var(--text-3)}
+.bl .bl-o--dang_lam,.bl .bl-o--chua_cham{background:var(--brand-soft);border-color:var(--brand-border)}
+.bl .bl-o--dang_lam .bl-o-nhan,.bl .bl-o--chua_cham .bl-o-nhan,.bl .bl-o.is-hom-nay .bl-o-so b{color:var(--brand-hover)}
+.bl .bl-o-xuong{min-height:80px;border-radius:var(--r-md);background:var(--bg-page)}
+.bl .bl-cc-trong{padding:32px var(--sp-5);text-align:center;color:var(--text-3)}
+.bl .bl-cc-trong b{display:block;margin-bottom:var(--sp-3);font-size:var(--fs-title);color:var(--text-1)}
+
 /* ── Lịch sử bảng lương ─────────────────────────────────────────────────── */
 /* position:relative để thẻ .bl-sr (absolute) trong ô tiêu đề lấy khung cuộn làm mốc — thiếu nó, thẻ
    thoát ra ngoài, trang rộng thêm bằng bề ngang bảng và điện thoại thu nhỏ cả màn (đo 390px: 542px). */
@@ -236,6 +283,18 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
   .bl .bl-bang .c-stt{width:36px}
   .bl .bl-nhan b{font-size:var(--fs-h)}
   .bl .tbl-wrap{padding:0 var(--sp-7)}
+  .bl .bl-lich{grid-template-columns:minmax(0,1fr);gap:var(--sp-2)}
+  /* Đặt độ đặc hiệu cao hơn .bl .bl-o{display:grid} ngay dưới — cùng mức thì luật viết sau thắng, ô vẫn hiện. */
+  .bl .bl-lich .bl-lich-thu,.bl .bl-lich .bl-o-trong,.bl .bl-lich .bl-o--tuong_lai,.bl .bl-lich .bl-o--chu_nhat,
+  .bl .bl-lich .bl-o-xuong:nth-child(n+8){display:none}
+  .bl .bl-o{display:grid;grid-template-columns:76px minmax(0,1fr) auto;grid-template-areas:"so nhan gio" "so phu phu";
+       align-items:center;gap:0 var(--sp-5);min-height:48px;padding:var(--sp-4) var(--sp-5)}
+  .bl .bl-o-so{grid-area:so;flex-direction:column;align-items:flex-start;gap:0}
+  .bl .bl-o-thu{display:block}
+  .bl .bl-o-nhan{grid-area:nhan}
+  .bl .bl-o-gio{grid-area:gio;text-align:right}
+  .bl .bl-o-phu{grid-area:phu}
+  .bl .bl-o-xuong{min-height:48px}
   .bl .bl-thang select{font-size:16px}
   .bl .toast-wrap{left:8px;right:8px;bottom:12px}
 }
@@ -319,6 +378,21 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
     <div id="bl-ct"><div class="bl-trong">Đang tính bảng lương...</div></div>
   </section>
 
+  <!-- Chấm công trong tháng — ngày đi làm / đi muộn / quên chấm ra (21/09/2026) -->
+  <section class="card" id="bl-cc" aria-labelledby="bl-cc-tieu-de">
+    <div class="card-header">
+      <h2 id="bl-cc-tieu-de">Chấm công trong tháng</h2>
+      <div class="card-toolbar"><span class="bl-ghi-dau">
+        <svg class="bl-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <span id="bl-cc-moc">Theo chấm công tới hôm nay</span></span></div>
+    </div>
+    <div class="card-body">
+      <div class="bl-cc-tong" id="bl-cc-tong" aria-live="polite"></div>
+      <p class="bl-cc-ghi" id="bl-cc-ghi" hidden></p>
+      <div id="bl-cc-than"></div>
+    </div>
+  </section>
+
   <!-- Lịch sử -->
   <section class="card bl-lich-su" id="bl-lich-su" aria-labelledby="bl-ls-tieu-de">
     <div class="card-header"><h2 id="bl-ls-tieu-de">Lịch sử bảng lương</h2>
@@ -375,7 +449,7 @@ const _BL_IC = {
 function _blSvg(ten) { return '<svg class="bl-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + (_BL_IC[ten] || '') + '</svg>'; }
 
 // ── Tháng ───────────────────────────────────────────────────────────────────
-const _bl = { thang: '', dang: 0 };
+const _bl = { thang: '', dang: 0, cc: null, p: null };
 function _blThangHienTai() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
 (function _blVeChonThang() {
   const sel = document.getElementById('bl-thang'), d = new Date(), ds = [];
@@ -401,6 +475,8 @@ function blChonThang(t) {
 async function blTai(thang) {
   _bl.thang = thang;
   const luot = ++_bl.dang;
+  _bl.p = null;
+  blTaiChamCong(thang, luot);
   document.getElementById('bl-ct-tieu-de').textContent = `Bảng lương tháng ${_blThangNgan(thang)} — Chi tiết`;
   document.getElementById('bl-ct').innerHTML = '<div class="bl-trong">Đang tính bảng lương...</div>';
   document.getElementById('bl-nut-tai').disabled = true;
@@ -419,6 +495,8 @@ async function blTai(thang) {
   if (luot !== _bl.dang) return;
   _blVeNhanVien(d.employee || {});
   _blVeLuong(d.payroll, thang);
+  _bl.p = { thang, p: d.payroll || null };
+  _blDoiChieuMuon();
 }
 
 function _blVeNhanVien(e) {
@@ -495,6 +573,120 @@ function _blVeLuong(p, thang) {
     </div>
   </div>`;
   _blToDongLichSu();
+}
+
+// ── Chấm công trong tháng ───────────────────────────────────────────────────
+/* Mọi mã trạng thái đi qua bảng nhãn (frontend-ui luật 2) — mã lạ thì "Chưa đặt tên" + console.warn. */
+const _BL_CC_NHAN = {
+  di_lam: 'Đi làm', di_muon: 'Đi muộn', quen_cham_ra: 'Quên chấm ra', quen_cham_ra_da_sua: 'Quên chấm ra · đã chỉnh',
+  cong_tac: 'Công tác', nghi_phep: 'Nghỉ', nghi_le: 'Nghỉ lễ', khong_cham: 'Không chấm công', chu_nhat: 'Chủ nhật',
+  dang_lam: 'Đang làm', chua_cham: 'Chưa chấm công', tuong_lai: '', chua_vao_lam: 'Chưa vào làm', da_nghi_viec: 'Đã nghỉ việc'
+};
+// Cùng nhãn loại nghỉ với màn Xin nghỉ / Phê duyệt (viec_rieng = Nghỉ chính sách từ 16/09/2026).
+const _BL_NGHI = { nghi_phep: 'Nghỉ phép năm', nghi_khong_luong: 'Nghỉ không lương', nghi_om: 'Nghỉ ốm', nghi_bu: 'Nghỉ bù',
+  doi_ca: 'Nghỉ đổi ca', viec_rieng: 'Nghỉ chính sách', nghi_le: 'Nghỉ lễ / Tết', xin_thoi_viec: 'Xin thôi việc' };
+const _BL_THU = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+const _BL_THU_DAI = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ nhật'];
+function _blNhanCc(ma) { if (ma in _BL_CC_NHAN) return _BL_CC_NHAN[ma]; console.warn('Thiếu nhãn trạng thái chấm công:', ma); return 'Chưa đặt tên'; }
+function _blNhanNghi(ma, buoi) {
+  const t = _BL_NGHI[ma] || 'Nghỉ có đơn';
+  return buoi === 'sang' ? t + ' (buổi sáng)' : buoi === 'chieu' ? t + ' (buổi chiều)' : t;
+}
+function _blGio(n) { return (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 1 }) + ' giờ'; }
+
+async function blTaiChamCong(thang, luot) {
+  const than = document.getElementById('bl-cc-than'), tong = document.getElementById('bl-cc-tong');
+  document.getElementById('bl-cc').hidden = false;
+  document.getElementById('bl-cc-tieu-de').textContent = `Chấm công tháng ${_blThangNgan(thang)}`;
+  document.getElementById('bl-cc-ghi').hidden = true;
+  tong.innerHTML = '';
+  than.innerHTML = '<div class="bl-lich" aria-hidden="true">' + '<div class="bl-o-xuong"></div>'.repeat(14) + '</div>';
+  let d;
+  try { d = await _blApi('/api/cham-cong/lich-thang?thang=' + encodeURIComponent(thang)); }
+  catch (e) {
+    if (luot !== _bl.dang) return;
+    if (e.status === 404 && /hồ sơ/i.test(e.message || '')) {
+      than.innerHTML = `<div class="bl-cc-trong"><b>Chưa có hồ sơ nhân viên</b>${_blE(e.message)} — liên hệ phòng Nhân sự để gắn tài khoản với hồ sơ.</div>`;
+      return;
+    }
+    // Máy chủ chưa có API này (bản cũ) → ẩn cả khối thay vì hiện khung rỗng.
+    if (e.status === 404 || e.status === 405) { document.getElementById('bl-cc').hidden = true; return; }
+    than.innerHTML = `<div class="bl-cc-trong"><b>Không tải được chấm công tháng ${_blThangNgan(thang)}</b>${_blE(e.message || '')} `
+      + `<button type="button" class="btn-link" onclick="blTaiChamCong('${_blE(thang)}', _bl.dang)">Thử lại</button></div>`;
+    return;
+  }
+  if (luot !== _bl.dang) return;
+  _bl.cc = { thang, d };
+  _blVeChamCong(d);
+  _blDoiChieuMuon();
+}
+
+function _blVeChamCong(d) {
+  const than = document.getElementById('bl-cc-than'), ngay = (d && d.ngay) || [];
+  const cm = d.tong || {};
+  const lamViec = ngay.filter(x => !['chua_vao_lam', 'da_nghi_viec'].includes(x.trang_thai));
+  if (!lamViec.length) {
+    document.getElementById('bl-cc-tong').innerHTML = '';
+    than.innerHTML = `<div class="bl-cc-trong"><b>Tháng ${_blThangNgan(d.thang)} không nằm trong thời gian làm việc</b>`
+      + 'Tháng này trước ngày vào làm hoặc sau ngày nghỉ việc của bạn. Chọn tháng khác ở thanh phía trên.</div>';
+    return;
+  }
+  // Dòng tổng = chú thích màu: ba mục chính luôn hiện kể cả khi bằng 0 (0 ngày đi muộn cũng là tin cần biết).
+  const chip = (lop, so, nhan) => `<span class="bl-cc-chip ${lop}"><b>${_blSo(so)}</b> ${nhan}</span>`;
+  document.getElementById('bl-cc-tong').innerHTML =
+    chip('is-tot', cm.di_lam, 'ngày đi làm' + (cm.cong_tac ? ` (${_blSo(cm.cong_tac)} ngày công tác)` : ''))
+    + chip('is-muon', cm.di_muon, 'ngày đi muộn')
+    + chip('is-xau', cm.quen_cham_ra, 'ngày quên chấm ra')
+    + chip('is-xau', cm.khong_cham, 'ngày không chấm công')
+    + (cm.nghi_phep ? chip('is-nghi', cm.nghi_phep, 'ngày nghỉ có đơn') : '')
+    + (cm.nghi_le ? chip('is-nghi', cm.nghi_le, 'ngày lễ') : '');
+
+  const o = x => {
+    const [, m, dd] = String(x.ngay).split('-');
+    const tt = x.trang_thai;
+    let nhan = _blNhanCc(tt), phu = '';
+    if (tt === 'di_muon') nhan = x.phut_muon != null ? `Muộn ${x.phut_muon} phút` : 'Muộn ca chiều';
+    else if (tt === 'nghi_phep') nhan = x.nghi_loai ? _blNhanNghi(x.nghi_loai, x.nghi_buoi) : 'Nghỉ có đơn';
+    else if (tt === 'nghi_le') nhan = x.le ? 'Lễ: ' + x.le : 'Nghỉ lễ';
+    else if (tt === 'cong_tac') nhan = x.cong_tac === 'lenh_di' ? 'Lệnh đi' : 'Công trình';
+    else if (tt === 'khong_cham' && x.le) nhan = 'Lễ: ' + x.le;
+    // Thông tin phụ: muộn kèm quên chấm ra, nghỉ nửa buổi, HCNS thêm/chỉnh công.
+    if (tt === 'quen_cham_ra' && x.di_muon) phu = x.phut_muon != null ? `Muộn ${x.phut_muon} phút` : 'Muộn ca chiều';
+    else if (x.nghi_loai && tt !== 'nghi_phep') phu = _blNhanNghi(x.nghi_loai, x.nghi_buoi);
+    else if (x.hcns_sua && tt !== 'quen_cham_ra_da_sua') phu = 'HCNS đã chỉnh công';
+    const gio = x.gio_vao ? `${x.gio_vao} – ${x.gio_ra || '?'}` : '';
+    const moTa = [`${_BL_THU_DAI[x.thu]} ${dd}/${m}`, nhan, x.gio_vao ? `vào ${x.gio_vao}` : '',
+      x.gio_vao ? (x.gio_ra ? `ra ${x.gio_ra}` : 'chưa chấm ra') : '', x.so_gio ? _blGio(x.so_gio) : '', phu].filter(Boolean).join(', ');
+    const homNay = x.ngay === String(d.hom_nay);
+    return `<div class="bl-o bl-o--${_blE(tt)}${homNay ? ' is-hom-nay' : ''}" role="listitem" title="${_blE(moTa)}" aria-label="${_blE(moTa)}">`
+      + `<span class="bl-o-so"><b>${Number(dd)}</b><span class="bl-o-thu">${_BL_THU[x.thu]} · ${dd}/${m}${homNay ? ' · Hôm nay' : ''}</span></span>`
+      + (nhan ? `<span class="bl-o-nhan">${_blE(nhan)}</span>` : '')
+      + (gio ? `<span class="bl-o-gio">${_blE(gio)}</span>` : '')
+      + (phu ? `<span class="bl-o-phu">${_blE(phu)}</span>` : '') + '</div>';
+  };
+  const dau = ngay.length ? ngay[0].thu : 0;
+  than.innerHTML = '<div class="bl-lich" role="list" aria-label="Chấm công từng ngày trong tháng">'
+    + _BL_THU.map(t => `<div class="bl-lich-thu" aria-hidden="true">${t}</div>`).join('')
+    + '<div class="bl-o-trong" aria-hidden="true"></div>'.repeat(dau)
+    + ngay.map(o).join('') + '</div>';
+}
+
+/* Số ngày muộn của lịch phải bằng số lần bảng lương tính (luật "số liệu khớp nhau") — cùng một hàm ở máy chủ nên
+   lệch là có lỗi thật; khi đó báo rõ thay vì để hai con số mâu thuẫn đứng cạnh nhau. */
+function _blDoiChieuMuon() {
+  const g = document.getElementById('bl-cc-ghi');
+  if (!_bl.cc || !_bl.p || _bl.cc.thang !== _bl.thang || _bl.p.thang !== _bl.thang) return;
+  const d = _bl.cc.d, p = _bl.p.p;
+  let chu = `Ngày đi muộn tính đúng theo luật bảng lương dùng để trừ hoa hồng và tối ưu KD (mốc ca sáng <b>${_blE(d.gio_vao_chuan)}</b>).`;
+  if (p && p.di_muon_so_lan != null) {
+    const pct = Number(p.di_muon_tru_pct) || 0;
+    chu += ` Bảng lương tháng này tính <b>${_blSo(p.di_muon_so_lan)} lần</b> đi muộn`
+      + (pct ? ` — trừ <b>${_blSo(pct)}%</b> hoa hồng và tối ưu KD.` : ' — chưa tới mức bị trừ.');
+    if (Number(p.di_muon_so_lan) !== Number(d.tong.di_muon)) {
+      chu += ` <span class="bl-lech">Lịch đếm ${_blSo(d.tong.di_muon)} ngày muộn nhưng bảng lương tính ${_blSo(p.di_muon_so_lan)} lần — báo phòng Nhân sự kiểm tra.</span>`;
+    }
+  }
+  g.innerHTML = chu; g.hidden = false;
 }
 
 // ── Lịch sử ─────────────────────────────────────────────────────────────────
