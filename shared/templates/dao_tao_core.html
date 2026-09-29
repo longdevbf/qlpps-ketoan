@@ -32,6 +32,10 @@
        lượng từ tệp, thà để trống còn hơn in số bịa.
      · Màn "buổi đào tạo" cũ (tên buổi, ngày, giảng viên) KHÔNG bị bỏ — nó nằm ở
        `/buoi-dao-tao`, có đường dẫn ngay trên đầu màn này.
+     · 29/09/2026: hai nguồn cũ còn hiện lại NGAY TRONG màn này bằng hai tab "Buổi đào tạo" và
+       "Văn bản công ty" (chỉ đọc; API `/api/thu-vien/buoi-dao-tao` và `/api/thu-vien/van-ban-cong-ty`).
+       Lý do: từ 12/09 màn chỉ còn thư viện trống, buổi đào tạo + văn bản mất đường vào, và hcns / ceo
+       không có trang `/buoi-dao-tao` nên mất hẳn. Tạo / sửa / xoá vẫn làm ở trang cũ.
 
    Màu/khoảng cách/cỡ chữ chỉ lấy token `theme.css` (ADR-012). MỌI selector nằm dưới
    `.dt` — màn này chạy trong 8 khung app, có app nạp Bootstrap / components.css riêng.
@@ -142,6 +146,40 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
 .dt .dt-nguoi small{font-size:var(--fs-meta);color:var(--text-3)}
 .dt .dt-trong{padding:48px var(--sp-9);text-align:center;color:var(--text-3)}
 
+/* ── Buổi đào tạo + Văn bản công ty (chỉ đọc) ────────────────────────────── */
+.dt .dt-tab-ngan{flex:none;width:1px;margin:var(--sp-2) var(--sp-3);background:var(--border)}
+.dt .dt-ds{display:flex;flex-direction:column;padding:var(--sp-3) var(--sp-9) var(--sp-7)}
+.dt .dt-hang{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-7);
+     padding:var(--sp-7) 0;border-top:1px solid var(--border-soft)}
+.dt .dt-hang:first-child{border-top:0}
+.dt .dt-hang-than{display:flex;flex-direction:column;gap:var(--sp-3);min-width:0;flex:1}
+.dt .dt-hang-ten{font-weight:600;color:var(--text-1);overflow-wrap:anywhere}
+.dt .dt-hang-meta{font-size:var(--fs-meta);color:var(--text-3)}
+.dt .dt-hang-mo-ta{color:var(--text-2);overflow-wrap:anywhere}
+.dt .dt-hang-chip{display:flex;flex-wrap:wrap;gap:var(--sp-3);margin-top:var(--sp-2)}
+.dt .dt-hang-hanh{display:flex;align-items:center;flex:none}
+.dt a.dt-tep-chip{display:inline-flex;align-items:center;gap:var(--sp-3);max-width:100%;padding:var(--sp-2) var(--sp-5);
+     border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg-card);color:var(--brand-hover);
+     font-size:var(--fs-meta);font-weight:600;text-decoration:none}
+.dt a.dt-tep-chip:hover{border-color:var(--brand-border);background:var(--brand-soft)}
+.dt a.dt-tep-chip b{flex:none;font-size:var(--fs-eyebrow);font-weight:700;color:var(--text-3)}
+.dt a.dt-tep-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Nút viền (outline), KHÔNG pastel: mỗi màn chỉ một nút nhấn chính, còn lại outline/ghost (frontend-ui luật 3). */
+.dt a.dt-nut-vien,.dt button.dt-nut-vien{display:inline-flex;align-items:center;justify-content:center;min-height:40px;
+     padding:0 var(--sp-8);border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card);
+     color:var(--brand-hover);font:inherit;font-size:var(--fs-body);font-weight:600;text-decoration:none;
+     cursor:pointer;white-space:nowrap}
+.dt a.dt-nut-vien:hover,.dt button.dt-nut-vien:hover{border-color:var(--brand-border);background:var(--brand-soft)}
+.dt a.dt-tep-chip:focus-visible,.dt a.dt-nut-vien:focus-visible,.dt button.dt-nut-vien:focus-visible{outline:0;box-shadow:var(--focus-ring)}
+@media(max-width:767px){
+  .dt .dt-tab,.dt a.dt-tep-chip,.dt a.dt-nut-vien,.dt button.dt-nut-vien{min-height:44px}   /* vùng bấm >= 44px trên điện thoại */
+  .dt .dt-ds{padding:var(--sp-3) var(--sp-7) var(--sp-6)}
+  .dt .dt-hang{flex-direction:column;gap:var(--sp-5)}
+  /* 6 tab không vừa một hàng ở 375px mà thanh cuộn lại ẩn — hai tab mới sẽ nằm ngoài màn hình. Cho xuống dòng. */
+  .dt .dt-tabs{flex-wrap:wrap}
+  .dt .dt-tab-ngan{display:none}
+}
+
 /* ── Modal ───────────────────────────────────────────────────────────────── */
 .dt .modal{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:var(--sp-8);background:rgba(15,23,42,.45)}
 .dt .modal-box{width:min(720px,100%);max-height:calc(100vh - 64px);display:flex;flex-direction:column;
@@ -210,11 +248,14 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
   <h1 class="dt-sr">Đào tạo</h1>
 
   <div class="dt-thanh">
-    <div class="dt-tabs" role="tablist" aria-label="Phạm vi nội dung">
+    <div class="dt-tabs" role="tablist" aria-label="Mục đào tạo">
       <button type="button" class="dt-tab is-chon" data-pv="" onclick="dtChonTab('')">Tất cả</button>
       <button type="button" class="dt-tab" data-pv="cong_ty" onclick="dtChonTab('cong_ty')">Công ty</button>
       <button type="button" class="dt-tab" data-pv="phong_ban" onclick="dtChonTab('phong_ban')">Phòng ban</button>
       <button type="button" class="dt-tab" data-pv="danh_dau" onclick="dtChonTab('danh_dau')">Đã đánh dấu</button>
+      <span class="dt-tab-ngan" aria-hidden="true"></span>
+      <button type="button" class="dt-tab" data-pv="buoi_dao_tao" onclick="dtChonTab('buoi_dao_tao')">Buổi đào tạo</button>
+      <button type="button" class="dt-tab" data-pv="van_ban" onclick="dtChonTab('van_ban')">Văn bản công ty</button>
     </div>
     <span class="dt-day"></span>
     {#- Chỉ hiện ở app thật sự có màn buổi đào tạo cũ: hcns và ceo chưa từng có màn đó,
@@ -242,8 +283,10 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
       <option value="thich_nhieu">Thích nhiều nhất</option>
       <option value="ten">Theo tên A→Z</option>
     </select>
+    <select id="dt-l-vb-loai" aria-label="Loại văn bản" onchange="dtVeVanBan()" hidden><option value="">Tất cả loại văn bản</option></select>
   </div>
 
+  <div id="dt-khoi-thu-vien">
   <section class="card" aria-labelledby="dt-nd-ten">
     <div class="card-header"><h2 id="dt-nd-ten">Nội dung đào tạo</h2><span class="nd-ngay" id="dt-tong">—</span></div>
     <div class="dt-luoi" id="dt-luoi"><div class="dt-trong">Đang tải...</div></div>
@@ -257,6 +300,17 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
   <section class="card" style="margin-top:var(--sp-8)" aria-labelledby="dt-ng-ten">
     <div class="card-header"><h2 id="dt-ng-ten">Người chia sẻ nổi bật</h2></div>
     <div class="dt-nguoi-ds" id="dt-nguoi"></div>
+  </section>
+  </div>
+
+  <!-- Hai nguồn cũ, chỉ đọc: /api/thu-vien/buoi-dao-tao và /api/thu-vien/van-ban-cong-ty -->
+  <section class="card" id="dt-khoi-buoi" hidden aria-labelledby="dt-buoi-ten">
+    <div class="card-header"><h2 id="dt-buoi-ten">Buổi đào tạo</h2><span class="nd-ngay" id="dt-buoi-tong"></span></div>
+    <div class="dt-ds" id="dt-buoi-ds" aria-live="polite"><div class="dt-trong">Đang tải...</div></div>
+  </section>
+  <section class="card" id="dt-khoi-vb" hidden aria-labelledby="dt-vb-ten">
+    <div class="card-header"><h2 id="dt-vb-ten">Văn bản công ty</h2><span class="nd-ngay" id="dt-vb-tong"></span></div>
+    <div class="dt-ds" id="dt-vb-ds" aria-live="polite"><div class="dt-trong">Đang tải...</div></div>
   </section>
 </div>
 
@@ -366,7 +420,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
 
 <script>
 const DT_ME = {{ (user.username if user else '')|tojson }};
-const _dt = { pv: '', tim: '', trang: 1, the: [], tep: null, anh: null, meta: null, dangGui: false };
+const _dt = { pv: '', tim: '', trang: 1, the: [], tep: null, anh: null, meta: null, dangGui: false, seq: 0 };
 
 function _dtE(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function _dtNgay(v) { if (!v) return ''; const s = String(v).slice(0, 10).split('-'); return s.length === 3 ? `${s[2]}/${s[1]}/${s[0]}` : String(v); }
@@ -399,14 +453,29 @@ const _DT_SVG = {
 
 /* ── Nạp ─────────────────────────────────────────────────────────────────── */
 function dtChonTab(pv) {
+  const cu = _dtCheDo();
   _dt.pv = pv;
-  document.querySelectorAll('.dt-tab').forEach(b => b.classList.toggle('is-chon', b.dataset.pv === pv));
-  dtTai(1);
+  document.querySelectorAll('.dt-tab').forEach(b => {
+    const chon = b.dataset.pv === pv;
+    b.classList.toggle('is-chon', chon); b.setAttribute('aria-selected', chon ? 'true' : 'false');
+  });
+  const moi = _dtCheDo();
+  if (moi !== cu) { _dt.tim = ''; document.getElementById('dt-tim').value = ''; }   // từ khoá tab này vô nghĩa ở tab kia
+  dtDoiCheDo();
+  // Buổi / Văn bản luôn nạp lại khi bấm tab (không dùng bản nhớ cũ): người khác có thể vừa đăng buổi mới.
+  if (moi === 'buoi') dtTaiBuoi(true); else if (moi === 'vb') dtTaiVanBan(true); else dtTai(1);
 }
 let _dtTimer = null;
-function dtTimGo() { _dt.tim = document.getElementById('dt-tim').value; clearTimeout(_dtTimer); _dtTimer = setTimeout(() => dtTai(1), 300); }
+function dtTimGo() {
+  _dt.tim = document.getElementById('dt-tim').value; clearTimeout(_dtTimer);
+  _dtTimer = setTimeout(() => {
+    const c = _dtCheDo();
+    if (c === 'buoi') dtVeBuoi(); else if (c === 'vb') dtVeVanBan(); else dtTai(1);
+  }, 300);
+}
 
 async function dtTai(trang) {
+  if (_dtCheDo()) return;   // đang ở tab Buổi đào tạo / Văn bản: không nạp thư viện
   if (trang) _dt.trang = trang;
   const luoi = document.getElementById('dt-luoi');
   const p = new URLSearchParams({ trang: String(_dt.trang), so_dong: '12',
@@ -419,10 +488,15 @@ async function dtTai(trang) {
   if (cd) p.set('chu_de', cd);
   if (loai) p.set('loai_nd', loai);
   if (_dt.tim.trim()) p.set('q', _dt.tim.trim());
+  const my = ++_dt.seq;
   luoi.innerHTML = '<div class="dt-trong">Đang tải...</div>';
   let d;
   try { d = await _dtApi('/api/thu-vien?' + p.toString()); }
-  catch (e) { luoi.innerHTML = `<div class="dt-trong">Không tải được: ${_dtE(e.message)}</div>`; return; }
+  catch (e) {
+    if (my === _dt.seq && !_dtCheDo()) luoi.innerHTML = `<div class="dt-trong">Không tải được: ${_dtE(e.message)}</div>`;
+    return;
+  }
+  if (my !== _dt.seq || _dtCheDo()) return;   // đã chuyển tab, hoặc có lần nạp mới hơn trong lúc chờ: đừng vẽ đè
   document.getElementById('dt-nut-tao').hidden = !d.duoc_tao;
   document.getElementById('dt-tong').textContent = d.total ? `${d.total} nội dung` : '';
   dtVeLuoi(d.items || []);
@@ -498,6 +572,121 @@ function dtLocChuDe(t) {
   const s = document.getElementById('dt-l-cd');
   s.value = (s.value === t) ? '' : t;
   dtTai(1);
+}
+
+/* ── Buổi đào tạo + Văn bản công ty (chỉ đọc) ────────────────────────────── */
+const _dtCache = { buoi: null, vb: null };
+function _dtCheDo() { return _dt.pv === 'buoi_dao_tao' ? 'buoi' : (_dt.pv === 'van_ban' ? 'vb' : ''); }
+function dtDoiCheDo() {
+  const c = _dtCheDo();
+  document.getElementById('dt-khoi-thu-vien').hidden = !!c;
+  document.getElementById('dt-khoi-buoi').hidden = c !== 'buoi';
+  document.getElementById('dt-khoi-vb').hidden = c !== 'vb';
+  ['dt-l-pb', 'dt-l-cd', 'dt-l-loai', 'dt-l-sx'].forEach(id => { document.getElementById(id).hidden = !!c; });
+  document.getElementById('dt-l-vb-loai').hidden = c !== 'vb';
+  document.getElementById('dt-tim').placeholder = c === 'buoi' ? 'Tìm tên buổi, giảng viên, phòng ban...'
+    : c === 'vb' ? 'Tìm tên văn bản, số hiệu...' : 'Tìm tiêu đề, từ khóa, người chia sẻ...';
+  if (c) document.getElementById('dt-nut-tao').hidden = true;   // đăng nội dung chỉ áp cho thư viện
+}
+function _dtLoi(tieuDe, e, hamThuLai) {
+  // Người dùng cần biết CHUYỆN GÌ SAI và LÀM GÌ TIẾP, không cần mã kỹ thuật (`database_error`, `HTTP 401`, `Failed to fetch`).
+  const s = e && e.status;
+  // fetch mất mạng ném TypeError (không có status); phản hồi rỗng / sai dạng là Error thường (cũng không có status) — hai chuyện khác nhau.
+  const chiTiet = (!s && e instanceof TypeError) ? 'không kết nối được máy chủ — kiểm tra mạng rồi bấm Thử lại'
+    : !s ? 'máy chủ trả dữ liệu không hợp lệ — bấm Thử lại, nếu vẫn vậy hãy báo bộ phận IT'
+    : s === 401 ? 'phiên đăng nhập đã hết — hãy đăng nhập lại'
+    : s === 403 ? 'bạn không có quyền xem mục này'
+    : s === 404 ? 'không tìm thấy dữ liệu — bấm Thử lại, nếu vẫn vậy hãy báo bộ phận IT'
+    : s >= 500 ? 'máy chủ đang gặp sự cố — bấm Thử lại sau ít phút'
+    : (e.message || 'lỗi không rõ');
+  return `<div class="dt-trong"><p>${_dtE(tieuDe)}: ${_dtE(chiTiet)}</p>
+    <button type="button" class="dt-nut-vien" style="margin-top:var(--sp-5)" onclick="${hamThuLai}">Thử lại</button></div>`;
+}
+function _dtLoaiTep(duoi) {
+  const b = { pdf: 'PDF', doc: 'DOC', docx: 'DOC', xls: 'XLS', xlsx: 'XLS', ppt: 'PPT', pptx: 'PPT',
+              png: 'Ảnh', jpg: 'Ảnh', jpeg: 'Ảnh', webp: 'Ảnh', gif: 'Ảnh', mp4: 'Video', mov: 'Video' };
+  return b[String(duoi || '').toLowerCase()] || 'Tệp';
+}
+// Bỏ dấu tiếng Việt khi so khớp: gõ "dao tao" vẫn ra "Đào tạo". `k` phải đi qua _dtBoDau trước khi truyền vào.
+function _dtBoDau(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase(); }
+function _dtKhop(k, ...truong) { return !k || truong.some(x => _dtBoDau(x).includes(k)); }
+// Phòng thủ nhiều lớp: chỉ cho link nội bộ (`/…`) hoặc http(s) vào href — chặn `javascript:` dù server đã lọc.
+function _dtUrl(u) { u = String(u || ''); return (/^\/(?!\/)/.test(u) || /^https?:\/\//i.test(u)) ? u : '#'; }
+
+async function dtTaiBuoi(lai) {
+  const el = document.getElementById('dt-buoi-ds');
+  if (_dtCache.buoi && !lai) { dtVeBuoi(); return; }
+  el.innerHTML = '<div class="dt-trong">Đang tải...</div>';
+  try {
+    const d = await _dtApi('/api/thu-vien/buoi-dao-tao');
+    if (!d || !Array.isArray(d.items)) throw new Error('phản hồi không hợp lệ');   // _dtApi trả null khi thân rỗng / không phải JSON
+    _dtCache.buoi = d;
+  }
+  catch (e) { el.innerHTML = _dtLoi('Không tải được danh sách buổi đào tạo', e, 'dtTaiBuoi(true)'); return; }
+  dtVeBuoi();
+}
+function dtVeBuoi() {
+  const d = _dtCache.buoi; if (!d) return;
+  const k = _dtBoDau(_dt.tim.trim());
+  const ds = (d.items || []).filter(r => _dtKhop(k, r.ten, r.giang_vien, r.phong_ban, r.mo_ta));
+  document.getElementById('dt-buoi-tong').textContent = ds.length ? `${ds.length} buổi` : '';
+  const el = document.getElementById('dt-buoi-ds');
+  if (!ds.length) {
+    const coTrang = !!document.querySelector('.dt a[href="/buoi-dao-tao"]');
+    el.innerHTML = `<div class="dt-trong">${k ? 'Không có buổi đào tạo nào khớp từ khoá.'
+      : 'Chưa có buổi đào tạo nào dành cho phòng ban của bạn.' + (coTrang ? ' Trưởng nhóm trở lên đăng buổi mới ở trang "Buổi đào tạo (lịch, giảng viên)".' : '')}</div>`;
+    return;
+  }
+  el.innerHTML = ds.map(r => `<div class="dt-hang"><div class="dt-hang-than">
+      <span class="dt-hang-ten">${_dtE(r.ten)}</span>
+      <span class="dt-hang-meta">${[_dtNgay(r.ngay), r.phong_ban || 'Toàn công ty', r.giang_vien ? 'Giảng viên: ' + r.giang_vien : ''].filter(Boolean).map(_dtE).join(' · ')}</span>
+      ${r.mo_ta ? `<span class="dt-hang-mo-ta">${_dtE(r.mo_ta)}</span>` : ''}
+      ${(r.tep || []).length
+        ? `<span class="dt-hang-chip">${r.tep.map(t => `<a class="dt-tep-chip" href="${_dtE(_dtUrl(t.url))}" target="_blank" rel="noopener" title="${_dtE(t.ten)}"><b>${_dtE(_dtLoaiTep(t.duoi))}</b><span>${_dtE(t.ten)}</span></a>`).join('')}</span>`
+        : '<span class="dt-hang-meta">Chưa có tệp đính kèm</span>'}
+    </div></div>`).join('');
+}
+
+async function dtTaiVanBan(lai) {
+  const el = document.getElementById('dt-vb-ds');
+  if (_dtCache.vb && !lai) { dtVeVanBan(); return; }
+  el.innerHTML = '<div class="dt-trong">Đang tải...</div>';
+  try {
+    const d = await _dtApi('/api/thu-vien/van-ban-cong-ty');
+    if (!d || !Array.isArray(d.items)) throw new Error('phản hồi không hợp lệ');
+    _dtCache.vb = d;
+  }
+  catch (e) { el.innerHTML = _dtLoi('Không tải được danh sách văn bản', e, 'dtTaiVanBan(true)'); return; }
+  const s = document.getElementById('dt-l-vb-loai'), cu = s.value;
+  const loai = [...new Set((_dtCache.vb.items || []).map(v => v.loai_van_ban).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi'));
+  s.innerHTML = '<option value="">Tất cả loại văn bản</option>' + loai.map(l => `<option value="${_dtE(l)}">${_dtE(l)}</option>`).join('');
+  s.value = cu;
+  dtVeVanBan();
+}
+function dtVeVanBan() {
+  const d = _dtCache.vb; if (!d) return;
+  const k = _dtBoDau(_dt.tim.trim()), loai = document.getElementById('dt-l-vb-loai').value;
+  const ds = (d.items || []).filter(v => (!loai || v.loai_van_ban === loai) && _dtKhop(k, v.ten_van_ban, v.so_hieu, v.mo_ta));
+  document.getElementById('dt-vb-tong').textContent = ds.length ? `${ds.length} văn bản` : '';
+  const el = document.getElementById('dt-vb-ds');
+  if (!ds.length) {
+    el.innerHTML = `<div class="dt-trong">${k || loai ? 'Không có văn bản nào khớp bộ lọc.' : 'Chưa có văn bản nào áp dụng cho phòng ban của bạn.'}</div>`;
+    return;
+  }
+  el.innerHTML = ds.map(v => {
+    const pbs = v.ap_dung_phong_ban || [];
+    const chip = !pbs.length ? '<span class="the-chip">Toàn công ty</span>'
+      : pbs.slice(0, 4).map(p => `<span class="the-chip">${_dtE(p)}</span>`).join('') + (pbs.length > 4 ? `<span class="the-chip">+${pbs.length - 4}</span>` : '');
+    return `<div class="dt-hang"><div class="dt-hang-than">
+        <span class="dt-hang-ten">${_dtE(v.ten_van_ban)}</span>
+        <span class="dt-hang-meta">${[v.loai_van_ban, v.so_hieu, _dtNgay(v.ngay_ban_hanh)].filter(Boolean).map(_dtE).join(' · ')}</span>
+        ${v.mo_ta ? `<span class="dt-hang-mo-ta">${_dtE(v.mo_ta)}</span>` : ''}
+        <span class="dt-hang-chip">${chip}</span>
+      </div>
+      <div class="dt-hang-hanh">${v.co_tep
+        ? `<a class="dt-nut-vien" href="${_dtE(_dtUrl(v.url_tep))}" target="_blank" rel="noopener">Mở văn bản</a>`
+        : '<span class="dt-hang-meta">Chưa có tệp</span>'}</div></div>`;
+  }).join('');
 }
 
 /* ── Tương tác ───────────────────────────────────────────────────────────── */
@@ -639,6 +828,15 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') dtDongModal(
 
 /* ── Khởi động ───────────────────────────────────────────────────────────── */
 (async function () {
+  // `?tab=buoi` / `?tab=van-ban` mở thẳng tab đó, làm NGAY — hai tab này không cần chờ meta / danh sách nhân viên bên dưới.
+  // hasOwnProperty: `{...}[key]` với key như `constructor` / `__proto__` trả về hàm/đối tượng chứ không phải undefined.
+  const _DT_TAB_URL = { 'buoi': 'buoi_dao_tao', 'van-ban': 'van_ban' };
+  const _dtK = new URLSearchParams(location.search).get('tab');
+  const vao = Object.prototype.hasOwnProperty.call(_DT_TAB_URL, _dtK) ? _DT_TAB_URL[_dtK] : '';
+  document.querySelectorAll('.dt-tab').forEach(b => {
+    b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', b.classList.contains('is-chon') ? 'true' : 'false');
+  });
+  if (vao) dtChonTab(vao);
   try {
     _dt.meta = await _dtApi('/api/thu-vien/meta');
     document.getElementById('dt-f-loai').innerHTML = (_dt.meta.loai_nd || []).map(l => `<option value="${_dtE(l.ma)}">${_dtE(l.ten)}</option>`).join('');
@@ -658,7 +856,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') dtDongModal(
     document.getElementById('dt-f-pb').innerHTML = '<option value="">— Phòng ban của tôi —</option>' +
       pb.map(p => `<option value="${_dtE(p)}">${_dtE(p)}</option>`).join('');
   } catch (e) { /* fail-soft */ }
-  dtTai(1);
+  if (!vao) dtTai(1);
 })();
 </script>
 </body>

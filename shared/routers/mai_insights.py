@@ -26,7 +26,7 @@ from shared.db import get_db
 
 
 router = APIRouter()
-_AUTH = Depends(require_ceo)
+_AUTH = Depends(require_ceo(write=False))  # phải có (): thiếu () là KHÔNG kiểm đăng nhập
 
 
 def _parse_range(date_from: Optional[date], date_to: Optional[date]) -> tuple[datetime, datetime]:

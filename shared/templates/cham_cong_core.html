@@ -20,8 +20,11 @@
    CHẤM CÔNG — màn dùng chung cho cả 8 app (bố cục 11/09/2026).
 
    Bố cục theo ảnh mẫu người duyệt gửi 11/09/2026: đường dẫn trên thanh trên cùng ·
-   thẻ hôm nay (khối ngày · đồng hồ · nút chấm công) · bảng chấm công ĐỦ NGÀY
-   trong tháng · cột phụ (ca hôm nay · tổng quan tháng · lịch sử gần đây · lưu ý).
+   thẻ hôm nay (khối ngày · đồng hồ · nút chấm công) · bảng chấm công HÔM NAY
+   (một dòng) · cột phụ (ca hôm nay · tổng quan tháng · lịch sử gần đây · lưu ý).
+   17/09/2026: bảng chính từng liệt kê ĐỦ NGÀY trong tháng kèm ‹ › + ô chọn tháng —
+   người duyệt bảo "quá nhiều, chỉ cần biết ngày hôm đó". Nay bảng chỉ còn dòng hôm
+   nay; tháng vẫn được tải nguyên để nuôi cột phụ (tổng quan · lịch sử gần đây).
    Xuất phát từ lớp bố cục HCNS (`qlpps-hcns/templates/cham_cong.html`, 10/09) —
    nhưng dựng thẳng trong markup, không chuyển node bằng JS lúc chạy.
 
@@ -96,8 +99,6 @@ html body{background:#EDF4FC}
 .cc .card-sub{flex:1;min-width:0;font-size:var(--fs-meta);color:var(--text-3)}
 .cc .card-toolbar{display:flex;align-items:center;gap:var(--sp-4);margin-left:auto}
 .cc .card-body{padding:0 var(--sp-9) var(--sp-9)}
-.cc .cc-link{font-size:var(--fs-meta);font-weight:500;color:var(--brand-hover);text-decoration:none;margin-left:auto;white-space:nowrap}
-.cc .cc-link:hover{text-decoration:underline}
 .cc .cc-rong{font-size:var(--fs-body);color:var(--text-3)}
 
 /* Icon nét viền, một màu, ăn `currentColor` — cùng ngôn ngữ với icon sidebar. */
@@ -115,12 +116,8 @@ html body{background:#EDF4FC}
 .cc .btn-primary:hover{background:var(--brand-hover);border-color:var(--brand-hover)}
 .cc .btn-soft{background:var(--brand-soft);color:var(--brand-hover);border:1px solid var(--brand-border)}
 .cc .btn-soft:hover{filter:brightness(.97)}
-.cc .btn-primary:focus-visible,.cc .btn-soft:focus-visible,.cc .cc-nut-icon:focus-visible,
+.cc .btn-primary:focus-visible,.cc .btn-soft:focus-visible,
 .cc .month-select:focus-visible{outline:0;box-shadow:var(--focus-ring)}
-.cc .cc-nut-icon{display:inline-grid;place-items:center;width:32px;height:32px;padding:0;
-     border:1px solid transparent;border-radius:var(--r);background:transparent;color:var(--text-1);cursor:pointer}
-.cc .cc-nut-icon:hover{background:var(--bg-page)}
-.cc .cc-nut-icon:disabled{color:var(--text-3);opacity:.5;cursor:default;background:transparent}
 .cc .btn-sm{display:inline-flex;align-items:center;min-height:30px;padding:0 var(--sp-6);border-radius:var(--r-sm);
      font:inherit;font-size:var(--fs-meta);font-weight:600;cursor:pointer;border:1px solid transparent}
 .cc .btn-success{background:var(--success-soft);color:var(--success-fg)}
@@ -132,13 +129,6 @@ html body{background:#EDF4FC}
 .cc .month-select{min-width:146px;height:36px;padding:0 var(--sp-5);border:1px solid var(--border);
      border-radius:var(--r);background:var(--bg-card);color:var(--text-1);font:inherit;
      font-size:var(--fs-body);cursor:pointer}
-/* Ô tháng của bảng chính có icon lịch đứng trước, như ảnh mẫu. `min-width` chứ
-   không `width`: chuỗi dài nhất "Tháng 04/2026" cần ~138px ở máy tính (lớp HCNS
-   đo bằng canvas 10/09), ô hẹp hơn thì mũi tên che mất chữ cuối. */
-.cc .cc-chon-thang{display:inline-flex;align-items:center;gap:var(--sp-3);height:36px;padding-left:var(--sp-5);
-     border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card);color:var(--text-2)}
-.cc .cc-chon-thang .month-select{border:0;height:34px;padding-left:0;min-width:130px}
-
 /* ── Thẻ HÔM NAY: khối ngày · đồng hồ · nút + lời nhắc ─────────────────────
    Điện thoại: khối ngày và đồng hồ nằm CẠNH NHAU, nút trải hết hàng dưới — xếp
    cả ba một cột thì thẻ cao hơn 1/3 màn hình chỉ để nói ngày và giờ. */
@@ -228,16 +218,13 @@ html body{background:#EDF4FC}
 .cc .data-table tbody tr:hover > td:first-child{box-shadow:none}
 .cc .data-table tr.empty-row td{height:auto;padding:40px 0;text-align:center;color:var(--text-3);border-bottom:0}
 .cc .data-table tr.empty-row:hover td{background:transparent}
-/* Bảng chính: Chủ nhật nền lõm + chữ đỏ; HÔM NAY nền nhấn, chữ đậm. Chỉ Chủ nhật
-   — dữ liệu thật có phiên thứ Bảy (05/09/2026, 08:30–12:00), nên thứ Bảy KHÔNG
-   được tô là ngày nghỉ. */
-.cc .cc-bang-tbl td.cc-stt{width:44px;color:var(--text-3);font-variant-numeric:tabular-nums}
+/* Bảng chính chỉ một dòng (hôm nay): Chủ nhật vẫn nền lõm + chữ đỏ. Không tô
+   "hôm nay" nữa — bảng không còn ngày khác để phân biệt. Thứ Bảy KHÔNG được tô là
+   ngày nghỉ: dữ liệu thật có phiên thứ Bảy (05/09/2026, 08:30–12:00). */
 .cc .cc-bang-tbl td{white-space:nowrap;font-variant-numeric:tabular-nums}
 .cc .cc-bang-tbl td.cc-ghi-chu{white-space:normal;min-width:140px;color:var(--text-3)}
 .cc .cc-bang-tbl tr.is-chu-nhat td{background:var(--bg-page)}
 .cc .cc-bang-tbl tr.is-chu-nhat .cc-ngay-o,.cc .cc-bang-tbl tr.is-chu-nhat .cc-thu-o{color:var(--danger)}
-.cc .cc-bang-tbl tr.is-hom-nay td{background:var(--brand-soft);color:var(--text-1);font-weight:600}
-.cc .cc-thang-nav{display:flex;gap:var(--sp-1)}
 
 /* ── Pill trạng thái — hợp đồng 03-mau-sac §2.4 (ADR-002: chấm ::before, không
    viền). Kích thước 04 §3.9: cao 24, chấm 8. Họ `--neutral-*` CHƯA có trong
@@ -366,8 +353,6 @@ html body{background:#EDF4FC}
        font-weight:600;color:var(--text-3)}
   .cc .data-table tbody tr:hover td{background:transparent}
   .cc .cc-bang-tbl tr.is-chu-nhat,.cc .cc-bang-tbl tr.is-chu-nhat td{background:var(--bg-page)}
-  .cc .cc-bang-tbl tr.is-hom-nay,.cc .cc-bang-tbl tr.is-hom-nay td{background:var(--brand-soft)}
-  .cc .cc-bang-tbl td.cc-stt{display:none}
   .cc .data-table td.act-cell{flex-wrap:wrap;margin-top:var(--sp-3);padding-top:var(--sp-5);border-top:1px solid var(--border-soft)}
   .cc .data-table td.act-cell::before{display:none}
   .cc .data-table tr.empty-row{padding:0}
@@ -428,31 +413,17 @@ html body{background:#EDF4FC}
         </div>
       </section>
 
-      <!-- Bảng chấm công tháng — ĐỦ NGÀY từ mùng 1 tới hôm nay (tháng cũ: tới cuối tháng) -->
+      <!-- Bảng chấm công HÔM NAY — một dòng. Từng là bảng đủ ngày trong tháng có ‹ › +
+           ô chọn tháng; bỏ 17/09/2026 theo người duyệt ("chỉ cần biết ngày hôm đó"). -->
       <section class="card" id="cc-bang">
         <div class="card-header">
-          <div class="cc-thang-nav">
-            <button type="button" class="cc-nut-icon" id="cc-thang-truoc" aria-label="Tháng trước">
-              <svg class="cc-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
-            </button>
-            <button type="button" class="cc-nut-icon" id="cc-thang-sau" aria-label="Tháng sau">
-              <svg class="cc-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg>
-            </button>
-          </div>
-          <h2 id="cc-bang-tieu-de">Bảng chấm công tháng</h2>
-          <div class="card-toolbar">
-            <label class="cc-chon-thang">
-              <svg class="cc-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-              <select class="month-select" id="cc-lich-su-thang" aria-label="Chọn tháng" onchange="loadLichSuChamCong(this.value)"></select>
-            </label>
-          </div>
+          <h2>Chấm công hôm nay</h2>
         </div>
         <div class="card-body">
           <div class="tbl-wrap">
             <table class="data-table cc-bang-tbl" id="tbl-lich-su">
               <thead>
                 <tr>
-                  <th>#</th>
                   <th>Ngày</th>
                   <th>Thứ</th>
                   <th>Giờ vào</th>
@@ -463,7 +434,7 @@ html body{background:#EDF4FC}
                 </tr>
               </thead>
               <tbody id="cc-lich-su-tbody">
-                <tr class="empty-row"><td colspan="8">Đang tải...</td></tr>
+                <tr class="empty-row"><td colspan="7">Đang tải...</td></tr>
               </tbody>
             </table>
           </div>
@@ -546,11 +517,10 @@ html body{background:#EDF4FC}
       <section class="card">
         <div class="card-header">
           <h2>Lịch sử chấm công gần đây</h2>
-          <a class="cc-link" href="#cc-bang">Xem tất cả →</a>
         </div>
         <div class="card-body" id="cc-gan-day"><p class="cc-rong">Đang tải...</p></div>
         <!-- Lưu ý ở ĐÁY thẻ lịch sử, chung một thẻ (người duyệt 11/09/2026) — nằm
-             NGOÀI #cc-gan-day vì JS vẽ lại cả hộp đó mỗi lần đổi tháng. -->
+             NGOÀI #cc-gan-day vì JS vẽ lại cả hộp đó mỗi lần tải lại. -->
         <div class="cc-luu-y" role="note" aria-labelledby="cc-luu-y-tieu-de">
         <h3 id="cc-luu-y-tieu-de">
           <span class="cc-bao-ic"><svg class="cc-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 16v-5M12 8h.01"/></svg></span>
@@ -1072,7 +1042,7 @@ function _ccVePhien(sessions, loi){
     + '</dl>';
 }
 
-// ── Bảng chấm công tháng ──────────────────────────────────────────────────────
+// ── Bảng chấm công hôm nay + số liệu tháng cho cột phụ ───────────────────────
 const _CC_LOAI = {van_phong:'Văn phòng', di_ngoai:'Đi ngoài', cong_trinh:'Công trình', nghi_phep:'Nghỉ phép'};
 function _ccTenLoai(k){
   if(_CC_LOAI[k]) return _CC_LOAI[k];
@@ -1080,8 +1050,9 @@ function _ccTenLoai(k){
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Văn phòng';
 }
 
-/* API trả TỪNG PHIÊN (một ngày có thể 2–3 phiên). Gộp theo ngày, và dựng đủ các
-   ngày của tháng: tháng đang chạy tới hôm nay, tháng cũ tới ngày cuối tháng. */
+/* API trả TỪNG PHIÊN (một ngày có thể 2–3 phiên). Gộp theo ngày, dựng đủ các ngày
+   từ mùng 1 tới hôm nay: cột phụ (tổng quan · gần đây) đếm trên cả tháng, còn bảng
+   chính chỉ lấy dòng `homNay`. */
 function _ccNhomNgay(thang, list){
   const [y, m] = thang.split('-').map(Number);
   const homNay = _ccHomNayStr();
@@ -1117,23 +1088,25 @@ function _ccTrangThaiNgay(n){
   return ['Không chấm công', 'neutral'];
 }
 
-let _ccThangData = null;   // {thang, ngay:[…]} — nguồn chung của bảng + cột phụ
+let _ccThangData = null;   // {thang, ngay:[…]} — tháng hiện tại, nguồn chung của bảng + cột phụ
 
-async function loadLichSuChamCong(thang){
-  if(!thang) thang = document.getElementById('cc-lich-su-thang')?.value || thisMonth();
+/* Luôn tải THÁNG HIỆN TẠI: bảng chính chỉ vẽ dòng hôm nay, còn cả tháng nuôi tổng
+   quan + lịch sử gần đây ở cột phụ. Không còn ô chọn tháng (17/09/2026). */
+async function loadLichSuChamCong(){
+  const thang = thisMonth();
   const tbody = document.getElementById('cc-lich-su-tbody');
   if(!tbody) return;
   _ccVeTieuDeThang(thang);
-  tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Đang tải...</td></tr>';
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Đang tải...</td></tr>';
   try {
     const list = await api('GET', '/api/cham-cong/lich-su?thang=' + thang);
     const ngay = _ccNhomNgay(thang, list);
     _ccThangData = { thang, ngay };
-    _ccVeBang(tbody, ngay);
+    _ccVeBang(tbody, ngay.filter(n => n.homNay));
     _ccVeTongQuan(ngay);
     _ccVeGanDay(ngay);
   } catch(e){
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="8" style="color:var(--danger-fg)">Không tải được bảng chấm công: ${_ccEsc(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="color:var(--danger-fg)">Không tải được bảng chấm công: ${_ccEsc(e.message)}</td></tr>`;
     ['cc-tong-quan', 'cc-gan-day'].forEach(id => {
       const b = document.getElementById(id);
       if(b) b.innerHTML = '<p class="cc-rong">Chưa có số — bảng chấm công chưa tải được.</p>';
@@ -1141,12 +1114,14 @@ async function loadLichSuChamCong(thang){
   }
 }
 
+/* Chỉ nhận dòng hôm nay (đã lọc ở loadLichSuChamCong); giữ dạng danh sách để khỏi
+   viết lại nếu sau này cần thêm ngày. */
 function _ccVeBang(tbody, ds){
   if(!ds.length){
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Tháng này chưa bắt đầu.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Chưa có dữ liệu hôm nay.</td></tr>';
     return;
   }
-  tbody.innerHTML = ds.map((n, i) => {
+  tbody.innerHTML = ds.map(n => {
     const p = n.phien;
     const vao = p.map(s=>s.gio_vao).filter(Boolean)[0];
     const mo = p.some(s=>s.gio_vao && !s.gio_ra);
@@ -1158,9 +1133,7 @@ function _ccVeBang(tbody, ds){
     const ghiChu = [soPhien > 1 ? soPhien + ' phiên' : '']
       .concat(p.map(s=>(s.ghi_chu || '').trim()))
       .filter((v, j, a) => v && a.indexOf(v) === j).join('; ');
-    const lop = [n.homNay ? 'is-hom-nay' : '', n.thu === 0 ? 'is-chu-nhat' : ''].filter(Boolean).join(' ');
-    return `<tr${lop ? ` class="${lop}"` : ''}>
-      <td class="cc-stt" data-label="#">${i + 1}</td>
+    return `<tr${n.thu === 0 ? ' class="is-chu-nhat"' : ''}>
       <td class="cc-ngay-o" data-label="Ngày">${_ccFmtDate(n.ngay)}</td>
       <td class="cc-thu-o" data-label="Thứ">${_CC_THU[n.thu]}</td>
       <td data-label="Giờ vào">${vao ? _ccFmtTime(vao) : '—'}</td>
@@ -1197,7 +1170,7 @@ function _ccVeTongQuan(ds){
     + o('danger', 'canh', quenRa, 'Quên chấm ra');
 }
 
-/* Năm lần chấm gần nhất của tháng đang xem, mới nhất trước. Cắt ở 5 — dài hơn
+/* Năm lần chấm gần nhất của tháng hiện tại, mới nhất trước. Cắt ở 5 — dài hơn
    thì cột phụ cao vượt cột chính, hở một mảng trắng bên cạnh bảng. */
 function _ccVeGanDay(ds){
   const box = document.getElementById('cc-gan-day');
@@ -1259,26 +1232,11 @@ function _ccDatDuongDan(){
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _ccDatDuongDan);
 else _ccDatDuongDan();
 
-// ── Chuyển tháng: ‹ › đi trong đúng các tháng của ô chọn (mới nhất đứng đầu) ──
-function _ccDoiThang(buoc){
-  const sel = document.getElementById('cc-lich-su-thang');
-  if(!sel) return;
-  const i = sel.selectedIndex + buoc;
-  if(i < 0 || i >= sel.options.length) return;
-  sel.selectedIndex = i;
-  loadLichSuChamCong(sel.value);
-}
+// ── Tiêu đề "Tổng quan tháng MM/YYYY" ở cột phụ ──────────────────────────────
 function _ccVeTieuDeThang(thang){
   const [y, m] = String(thang).split('-');
-  const nhan = m + '/' + y;
-  const dat = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
-  dat('cc-bang-tieu-de', 'Bảng chấm công tháng ' + nhan);
-  dat('cc-tq-tieu-de', 'Tổng quan tháng ' + nhan);
-  const sel = document.getElementById('cc-lich-su-thang');
-  const truoc = document.getElementById('cc-thang-truoc');
-  const sau = document.getElementById('cc-thang-sau');
-  if(sel && truoc) truoc.disabled = sel.selectedIndex >= sel.options.length - 1;
-  if(sel && sau) sau.disabled = sel.selectedIndex <= 0;
+  const el = document.getElementById('cc-tq-tieu-de');
+  if(el) el.textContent = 'Tổng quan tháng ' + m + '/' + y;
 }
 
 // ── Tiện ích (nguyên văn bản cũ) ──────────────────────────────────────────────
@@ -1344,7 +1302,7 @@ async function chamVao(){
     const method = d.check_method === 'gps' ? ' (GPS)' : ' (WiFi)';
     showToast('Chấm vào thành công lúc ' + _ccFmtTime(d.gio_vao) + method, 'success');
     await loadTrangThaiHomNay();
-    loadLichSuChamCong(document.getElementById('cc-lich-su-thang')?.value);
+    loadLichSuChamCong();
   } catch(e){
     showToast('Lỗi: ' + e.message, 'error');
     if(btn){ btn.disabled = false; btn.innerHTML = nhanCu; }
@@ -1361,7 +1319,7 @@ async function chamRa(){
     const d = await api('POST', '/api/cham-cong/ra', {});
     showToast('Đã chấm ra lúc ' + _ccFmtTime(d.gio_ra), 'success');
     await loadTrangThaiHomNay();
-    loadLichSuChamCong(document.getElementById('cc-lich-su-thang')?.value);
+    loadLichSuChamCong();
   } catch(e){
     showToast('Lỗi: ' + e.message, 'error');
     if(btn){ btn.disabled = false; btn.innerHTML = nhanCu; }
@@ -1953,13 +1911,10 @@ async function xoaCongTrinh(id){
 // ── Khởi động ─────────────────────────────────────────────────────────────────
 (async function(){
   _ccPopulateMonthSelect('ldd-nv-thang');
-  _ccPopulateMonthSelect('cc-lich-su-thang');
   _ccVeDongHo();
   setInterval(_ccVeDongHo, 20000);   // đồng hồ chỉ tới PHÚT — 20 giây một nhịp là đủ
-  document.getElementById('cc-thang-truoc')?.addEventListener('click', ()=>_ccDoiThang(1));
-  document.getElementById('cc-thang-sau')?.addEventListener('click', ()=>_ccDoiThang(-1));
   await loadTrangThaiHomNay();
-  await loadLichSuChamCong();        // bảng tháng trước lệnh đi — đó là thứ người ta mở màn này để xem
+  await loadLichSuChamCong();        // dòng hôm nay + số tháng ở cột phụ, trước lệnh đi
   await loadLenhDiDoNv();
   await loadCongTrinhCuaToi();
 })();

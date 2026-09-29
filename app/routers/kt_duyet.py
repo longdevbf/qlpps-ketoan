@@ -176,6 +176,53 @@ def _mark_customer_da_mua(db: Session, quote) -> None:
         )
 
 
+def _mark_customer_da_chot(db: Session, quote) -> None:
+    """KT duyệt cọc → đặt trang_thai khách hàng = 'Đã chốt' (Customer + Lead
+    liên kết), CHỈ khi trang_thai hiện tại không phải 'Đẩy lại'.
+
+    tien_trinh (mark_da_mua) và trang_thai là HAI cột khác nhau trên cùng
+    Customer/Lead — tien_trinh theo dõi phễu bán hàng, trang_thai theo dõi
+    trạng thái xử lý lead bên Marketing/Báo giá. Trước bản sửa này chỉ
+    tien_trinh được tự động, khiến trang_thai lệch lớn giữa hai app (đo trên
+    DB dev 2026-09-28: 7.202 KH "Đã chốt" bên Báo giá nhưng chỉ 28 lead "Đã
+    chốt" bên Marketing) — trigger đây để hai bên đồng bộ ngay lúc duyệt cọc.
+
+    Không ghi đè vô điều kiện như mark_da_mua: 'trang_thai' đã có một nhánh
+    khác chủ động set 'Đẩy lại' (baogia/app/routers/customers.py, endpoint
+    day-lai-mkt) khi admin/CEO đẩy KH cũ về MKT chăm sóc lại — hành động đó
+    còn xoá kd_nhan/ngay_chuyen. Một đơn báo giá cũ của KH đó có thể được KT
+    duyệt SAU thời điểm bị đẩy lại; ghi đè thành 'Đã chốt' lúc này sẽ xoá mất
+    tín hiệu "đang cần MKT chăm sóc lại" dù không còn ai bên KD theo dõi tiếp.
+
+    Fail-soft — lỗi không chặn việc duyệt cọc. Transaction riêng, giống
+    _mark_customer_da_mua.
+    """
+    cust_id = getattr(quote, "customer_id", None)
+    if not cust_id:
+        return
+    try:
+        from baogia.app.models import Customer
+
+        cust = db.get(Customer, cust_id)
+        if cust is None:
+            return
+        if (cust.trang_thai or "").strip().lower() != "đẩy lại":
+            cust.trang_thai = "Đã chốt"
+        if getattr(cust, "lead_id", None):
+            from marketing.app.models import Lead
+
+            lead = db.get(Lead, cust.lead_id)
+            if lead is not None and (lead.trang_thai or "").strip().lower() != "đẩy lại":
+                lead.trang_thai = "Đã chốt"
+        db.commit()
+    except Exception:
+        db.rollback()
+        import logging
+        logging.getLogger(__name__).warning(
+            "mark_customer_da_chot failed qid=%s", getattr(quote, "id", None), exc_info=True
+        )
+
+
 # ── API: List đơn chờ KT ─────────────────────────────────────────────
 
 @router.get("/api/kt-duyet/list")
@@ -308,6 +355,9 @@ def kt_duyet(
         _sync_coc_to_soquy(db, quote, user.username)
         # Khách hàng → "Đã Mua" (Customer + Lead liên kết, idempotent, fail-soft)
         _mark_customer_da_mua(db, quote)
+        # Khách hàng → "Đã chốt" (Customer + Lead liên kết, fail-soft) — đồng bộ
+        # trang_thai theo cùng khuôn, tránh lệch dữ liệu giữa Báo giá/Marketing
+        _mark_customer_da_chot(db, quote)
         # Báo "đã duyệt tiền" lên nhóm "Kinh Doanh - Kế Toán" (fail-soft).
         try:
             from shared.services.chat_post import post_to_group

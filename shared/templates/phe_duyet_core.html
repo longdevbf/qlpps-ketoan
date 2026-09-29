@@ -1885,9 +1885,11 @@ async function pdQuyet(quyet) {
     else if (h.nguon === 'don_hang') await gui(`/api/quotes/${id}/duyet`, 'POST', { action: duyet ? 'approved' : 'rejected', ghi_chu_duyet: ykien });
     else if (h.nguon === 'ngay_giao') await gui(`/api/quotes/${encodeURIComponent(h.quote_id)}/ngay-giao/${id}/duyet`, 'POST', { action: duyet ? 'approved' : 'tu_choi', ghi_chu: ykien });
     else if (h.nguon === 'po') {
-      // Duyệt PO cần nhà cung cấp; bỏ trống thì máy chủ lấy NCC tốt nhất trong bảng so sánh,
-      // không có thì trả 400 và người duyệt phải mở đơn ở app Mua hàng để chọn.
-      if (duyet) await gui(`/api/orders/${id}/approve`, 'POST', { approval_note: ykien });
+      // Duyệt PO cần nhà cung cấp — gửi kèm đúng NCC (kể cả combo) đang hiển thị ở "NCC đang
+      // chọn" trên màn này, cùng công thức _pdPoNcc() dùng để hiển thị. Combo (id ảo dạng
+      // combo_XXX) không lưu được vào cột comparison_best_ncc (có FK tới suppliers.id) nên nếu
+      // không gửi tường minh, server không có gì để duyệt và trả 400.
+      if (duyet) await gui(`/api/orders/${id}/approve`, 'POST', { selected_ncc_id: _pdPoNcc(h.raw || {}).chon || undefined, approval_note: ykien });
       else await gui(`/api/orders/${id}/reject`, 'POST', { reason: ykien });
     }
     // App CEO: bước CEO duyệt cuối — đề nghị TT ở Sale Admin, trả NCC ở chính app CEO.

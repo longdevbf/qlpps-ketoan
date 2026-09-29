@@ -15,6 +15,11 @@
      không phải khai tay.
    · Khác ảnh mẫu, có chủ ý: dưới 11 mục giữ Đề xuất — không có đường vào nào khác
      (đếm trong 7 header 11/09/2026). Chỉ hiện khi app có route `/de-xuat`.
+   · "Tạo ticket cho Công Nghệ" thêm 24/09/2026 (người dùng: các phòng ban chưa biết
+     có link tạo ticket dù route /support/new đã mount sẵn ở cả 8 app — support router
+     dùng chung, xem shared/routers/support.py). Đặt cùng khối với Đề xuất, trước
+     Đăng xuất. Chỉ hiện khi app có route `/support/new` (luôn đúng ở cả 8 app hiện tại,
+     nhưng vẫn dò route để không vỡ nếu app nào tương lai gỡ router support).
    · "Đổi ảnh đại diện" và "Đổi mật khẩu" đã BỎ 14/09/2026 (người dùng: "đã có trong
      trang hồ sơ rồi"). Trang Hồ sơ nhân sự `/ho-so-ca-nhan` — cả 8 app đều có — làm
      được cả hai: nút máy ảnh trên ảnh đại diện (POST /api/profile/avatar) và mục Đổi
@@ -78,6 +83,7 @@
   'sach':    '<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>',
   'thumuc':  '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   'dexuat':  '<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V16h8v-1.3A7 7 0 0 0 12 2Z"/>',
+  'ticket':  '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   'ra':      '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>'
 }[ten] | safe }}</svg>
 {%- endmacro -%}
@@ -121,10 +127,15 @@
   {%- endif %}
 {%- endfor %}
 </nav>
-{%- if '/de-xuat' in _tk_routes %}
+{%- if '/de-xuat' in _tk_routes or '/support/new' in _tk_routes %}
 <div class="ab-div"></div>
 <div class="tk-ds">
+  {%- if '/de-xuat' in _tk_routes %}
   <a href="/de-xuat" class="ab-item tk-muc{% if _tk_path == '/de-xuat' %} is-dang-o{% endif %}">{{ _tk_ic('dexuat') }}<span>Đề xuất</span></a>
+  {%- endif %}
+  {%- if '/support/new' in _tk_routes %}
+  <a href="/support/new" class="ab-item tk-muc{% if _tk_path.startswith('/support') %} is-dang-o{% endif %}">{{ _tk_ic('ticket') }}<span>Tạo ticket cho Công Nghệ</span></a>
+  {%- endif %}
 </div>
 {%- endif %}
 <div class="ab-div"></div>
