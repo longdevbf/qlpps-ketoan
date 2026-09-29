@@ -62,7 +62,7 @@
       const qh = han && han < homNay && c > 0 ? Math.round((new Date(homNay) - new Date(han)) / 864e5) : 0;
       if (qh > 0) quaHan += c;
       return {
-        id: x.id, so_phieu: x.ma_don || x.id, don_hang: x.ma_don ? x.id : '', ngay: x.ngay, han_tt: han,
+        id: x.id, so_phieu: x.ma_don || x.id, don_hang: '', ngay: x.ngay, han_tt: han,
         tong: +x.so_tien || 0, da_thu: +x.da_tra || 0, con_lai: c, qua_han_ngay: qh,
         trang_thai: c <= 0 ? 'da_thu_du' : qh > 0 ? 'qua_han' : (+x.da_tra > 0 ? 'thu_mot_phan' : 'chua_thu'),
       };
@@ -75,7 +75,7 @@
       nhom_tuoi: conLai <= 0 ? 'da_thu_du' : nhomTheoNgay(Math.max(0, ...phieu.map((p) => p.qua_han_ngay))),
       no_thuc: +g.no_thuc_phai_tra || 0, no_du_kien: +g.no_du_kien || 0,
       phieu,
-      lich_su_thu: (g.don_list || []).filter((x) => +x.da_tra > 0).map((x) => ({ ngay: x.ngay_tra || x.ngay, so_ct: x.ma_don || x.id, so_tien: +x.da_tra || 0, hinh_thuc: x.ngay_tra ? 'Đã trả' : 'Chưa ghi ngày' }))
+      lich_su_thu: (g.don_list || []).filter((x) => +x.da_tra > 0).map((x) => ({ ngay: x.ngay_tra || x.ngay, so_ct: x.ma_don || x.id, ma_cn: x.id, so_tien: +x.da_tra || 0, hinh_thuc: x.ngay_tra ? 'Đã trả' : 'Chưa ghi ngày' }))
         .sort((a, b) => (a.ngay < b.ngay ? 1 : -1)),
     };
   }
@@ -111,7 +111,7 @@
       const quaHanNgay = hanTinh && hanTinh < homNay && c > 0 ? Math.round((new Date(homNay) - new Date(hanTinh)) / 864e5) : 0;
       if (quaHanNgay > 0) quaHan += c;
       return {
-        id: r.id, so_phieu: r.ma_don || r.id, don_hang: r.ma_don ? r.id : '', ngay: r.ngay, han_tt: hanTinh,
+        id: r.id, so_phieu: r.ma_don || r.id, don_hang: '', ngay: r.ngay, han_tt: hanTinh,
         tong: +r.so_tien || 0, da_thu: +r.da_tra || 0, con_lai: c,
         trang_thai: r.trang_thai === 'da_tra' ? 'da_thu_du' : quaHanNgay > 0 ? 'qua_han' : (+r.da_tra > 0 ? 'thu_mot_phan' : 'chua_thu'),
         qua_han_ngay: quaHanNgay,
@@ -148,9 +148,16 @@
       + the('bi-hourglass-split', 'warning', C.con, d.con_lai, KD.soDem(soHd) + ' hoá đơn còn nợ') + the('bi-exclamation-triangle', 'danger', 'Quá hạn', d.qua_han, kh || d.co_han ? (d.qua_han ? '<span class="pill pill--danger">' + (kh ? 'Cần đòi ngay' : 'Cần trả ngay') + '</span>' : 'Không có') : 'Chưa có dữ liệu hạn');
     $('dt-kpi').classList.remove('kt-kpi-row--6'); $('dt-kpi').classList.add('kt-kpi-row--4');
     const con = d.phieu.filter((p) => p.con_lai == null || p.con_lai > 0);
+    // Trả trước/ứng (con_lai < 0) liệt kê TỪNG khoản kèm mã CN + đơn + ngày để số âm truy ngược được về dòng gốc, không
+    // gộp thành một số "−5.000.000" không nói của đơn nào. Chưa gắn link: Sổ cái không có bút toán nào cho các dòng này
+    // (kiểm DB 29/09/2026: 0/31), Sổ quỹ chỉ có ở 27/31 — chưa có đích bấm được cho cả loại. Khai ở đây (không phải chỗ
+    // dựng chân bảng) vì khách/NCC hết hoá đơn nợ mà còn khoản ứng vẫn phải hiện bảng, nếu không thẻ "Còn phải thu/trả" âm mà không giải thích.
+    const dsUng = d.phieu.filter((p) => p.con_lai != null && p.con_lai < 0)
+      .sort((a, b) => (a.ngay < b.ngay ? -1 : a.ngay > b.ngay ? 1 : String(a.id).localeCompare(String(b.id))));
+    const ung = dsUng.reduce((a, p) => a + p.con_lai, 0);
     $('dt-hd-gy').innerHTML = kh && con.length ? 'Cũ nhất trước' + KD.tip('Tiền thu được trừ vào hoá đơn cũ nhất.') : (!kh && !d.co_han ? 'Chỉ có tổng phải trả' : '');
-    $('dt-hd-cuon').hidden = !con.length; $('dt-hd-tt').innerHTML = con.length ? '' : KD.khoiRong('Không còn hoá đơn nào nợ', 'Mọi hoá đơn đã được ' + (kh ? 'thu' : 'trả') + ' đủ.');
-    $('dt-hd').innerHTML = con.slice().sort((a, b) => (a.ngay < b.ngay ? -1 : 1)).map((p) => '<tr><td>' + KT.linkCt(p.so_phieu, p.ngay) + (p.don_hang ? '<span class="kt-khach__ma">' + esc(p.don_hang) + '</span>' : '') + '</td><td>' + KD.ngay(p.ngay) + '</td>'
+    $('dt-hd-cuon').hidden = !con.length && !dsUng.length; $('dt-hd-tt').innerHTML = con.length ? '' : KD.khoiRong('Không còn hoá đơn nào nợ', 'Mọi hoá đơn đã được ' + (kh ? 'thu' : 'trả') + ' đủ.');
+    $('dt-hd').innerHTML = con.slice().sort((a, b) => (a.ngay < b.ngay ? -1 : 1)).map((p) => '<tr><td>' + KT.linkCt(p.so_phieu, p.ngay) + '<span class="kt-khach__ma">' + esc(p.id) + (p.don_hang ? ' · ' + esc(p.don_hang) : '') + '</span></td><td>' + KD.ngay(p.ngay) + '</td>'
       + '<td>' + (p.han_tt ? KD.ngay(p.han_tt) + (p.qua_han_ngay > 0 ? '<span class="kt-khach__ma">Quá ' + KD.soDem(p.qua_han_ngay) + ' ngày</span>' : '') : '<span class="kd-muted">—</span>') + '</td><td class="num">' + KD.tien(p.tong) + '</td><td class="num">' + KT.tienSo(p.da_thu) + '</td><td class="num kd-strong">' + (p.con_lai == null ? '<span class="kd-muted">—</span>' : KD.tien(p.con_lai)) + '</td>'
       + '<td>' + (p.trang_thai ? KT.pillPhieu(p.trang_thai, kh ? '' : ({ chua_thu: 'Chưa trả', thu_mot_phan: 'Trả một phần', da_thu_du: 'Đã trả đủ' })[p.trang_thai] || '') : '<span class="kd-muted">—</span>') + '</td></tr>').join('');
     // Dòng cộng đối chiếu (BRIEF2): bảng chỉ gồm khoản còn nợ (con_lai > 0) nên tổng bảng lệch thẻ
@@ -158,12 +165,13 @@
     // bảng 728.717.049, thẻ 350.717.049, chênh -378.000.000. Hiện cả hai dòng để khớp được.
     const coSo = con.filter((p) => p.con_lai != null);
     const cg = coSo.reduce((a, p) => ({ gt: a.gt + p.tong, da: a.da + (p.da_thu || 0), con: a.con + p.con_lai }), { gt: 0, da: 0, con: 0 });
-    const ung = d.phieu.reduce((a, p) => a + (p.con_lai != null && p.con_lai < 0 ? p.con_lai : 0), 0);
-    $('dt-hd-cong').innerHTML = coSo.length ? '<tr><th scope="row" colspan="3">Cộng ' + KD.soDem(coSo.length) + ' hoá đơn còn nợ</th><td class="num">' + KD.tien(cg.gt) + '</td><td class="num">' + KT.tienSo(cg.da) + '</td><td class="num">' + KD.tien(cg.con) + '</td><td></td></tr>'
-      + (ung ? '<tr><th scope="row" colspan="5">Trả trước/ứng chưa cấn trừ vào hoá đơn</th><td class="num">' + KD.tien(ung) + '</td><td></td></tr>'
-        + '<tr><th scope="row" colspan="5">= ' + C.con + '</th><td class="num">' + KD.tien(cg.con + ung) + '</td><td></td></tr>' : '') : '';
+    const moTaUng = (p) => '<span class="kt-khach__ma">' + esc(p.id) + (p.so_phieu && p.so_phieu !== p.id ? ' · đơn ' + esc(p.so_phieu) : '') + ' · ' + KD.ngay(p.ngay) + '</span>';
+    $('dt-hd-cong').innerHTML = (coSo.length ? '<tr><th scope="row" colspan="3">Cộng ' + KD.soDem(coSo.length) + ' hoá đơn còn nợ</th><td class="num">' + KD.tien(cg.gt) + '</td><td class="num">' + KT.tienSo(cg.da) + '</td><td class="num">' + KD.tien(cg.con) + '</td><td></td></tr>' : '')
+      + (dsUng.length ? dsUng.map((p) => '<tr><th scope="row" colspan="5">Trả trước/ứng chưa cấn trừ vào hoá đơn ' + moTaUng(p) + '</th><td class="num">' + KD.tien(p.con_lai) + '</td><td></td></tr>').join('')
+        + (dsUng.length > 1 ? '<tr><th scope="row" colspan="5">Cộng ' + KD.soDem(dsUng.length) + ' khoản trả trước/ứng</th><td class="num">' + KD.tien(ung) + '</td><td></td></tr>' : '')
+        + '<tr><th scope="row" colspan="5">= ' + C.con + '</th><td class="num">' + KD.tien(cg.con + ung) + '</td><td></td></tr>' : '');
     $('dt-kv').innerHTML = [['Mã', k.ma !== '—' ? k.ma : null], ['Tên', k.ten], ['Mã số thuế', k.mst], ['Điện thoại', k.sdt], [C.nv, k.nv_kd], ['Tài khoản', 'TK ' + C.tk]].filter((x) => x[1]).map((x) => '<dt>' + esc(x[0]) + '</dt><dd>' + esc(x[1]) + '</dd>').join('');
-    $('dt-ls').innerHTML = (d.lich_su_thu || []).length ? '<ul class="kd-lines">' + d.lich_su_thu.slice(0, 8).map((x) => '<li><span>' + KT.linkCt(x.so_ct, x.ngay) + ' · ' + esc(x.hinh_thuc) + '</span><b class="num">' + KD.tienVnd(x.so_tien) + '</b><span class="kd-lines__sub">' + KD.ngay(x.ngay) + '</span></li>').join('') + '</ul>'
+    $('dt-ls').innerHTML = (d.lich_su_thu || []).length ? '<ul class="kd-lines">' + d.lich_su_thu.slice(0, 8).map((x) => '<li><span>' + KT.linkCt(x.so_ct, x.ngay) + ' · ' + esc(x.hinh_thuc) + '</span><b class="num">' + KD.tienVnd(x.so_tien) + '</b><span class="kd-lines__sub">' + (x.ma_cn && x.ma_cn !== x.so_ct ? esc(x.ma_cn) + ' · ' : '') + KD.ngay(x.ngay) + '</span></li>').join('') + '</ul>'
       : KD.khoiRong(kh ? 'Chưa thu lần nào' : 'Chưa trả lần nào', '');
     $('dt-lq').innerHTML = [[C.hoSo[0] + encodeURIComponent(k.id), 'bi-person-vcard', C.hoSo[1], ''], [C.ve[0], 'bi-list-ul', C.ve[1], '']]
       .map((x) => '<li><a href="' + x[0] + '"><i class="bi ' + x[1] + '" aria-hidden="true"></i><span class="kd-related__ten">' + esc(x[2]) + '</span>' + (x[3] ? '<span class="kd-related__sub">' + esc(x[3]) + '</span>' : '') + '</a></li>').join('');
