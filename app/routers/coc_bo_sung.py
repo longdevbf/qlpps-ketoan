@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from shared.audit import log_action
 from shared.auth import JWTPayload, require_app
 from shared.db import get_db
+from shared.templates import _lookup_user_info
 
 router = APIRouter()
 _AUTH = Depends(require_app("ketoan"))
@@ -188,6 +189,21 @@ def duyet(
                  "so_tien": float(d.so_tien or 0), "tai_khoan": tk},
     )
     _notify_nv(db, d, q, ok=True, by=user.username)
+
+    # Báo "đã duyệt tiền" (cọc bổ sung) lên nhóm "Kinh Doanh - Kế Toán" (fail-soft).
+    try:
+        from shared.services.chat_post import post_to_group
+        # Tên thật thay cho mã NV — xem ghi chú ở kt_duyet.py
+        _kt_ten = _lookup_user_info(user.username)[0] or user.username
+        _msg = (
+            f"✅ Kế Toán {_kt_ten} đã duyệt cọc bổ sung lần {d.lan} "
+            f"đơn {d.quote_number} — {int(float(d.so_tien or 0)):,}đ đã vào sổ quỹ. "
+            f"KH {getattr(q, 'customer_name', '') or ''}."
+        )
+        post_to_group(db, content=_msg)
+    except Exception:
+        pass
+
     return {"ok": True, "id": did, "trang_thai": "duyet", "doanh_thu_id": d.doanh_thu_id}
 
 

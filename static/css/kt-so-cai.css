@@ -1,0 +1,36 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   kt-so-cai.css — riêng màn Sổ kế toán (#kd-kt-so-cai): nhật ký chung + sổ cái
+   Nạp SAU kd-man-hinh.css + kt-chung.css. Chỉ var(--token).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Đầu thẻ: tiêu đề chế độ sổ + link về nhật ký chung. */
+.kt-dau-so { flex-wrap: wrap; }
+
+/* Ô chọn tài khoản rộng hơn ô chọn thường (tên TK dài). */
+@media (min-width: 1024px) { #kd-kt-so-cai .kd-filter > .kt-o-tk { width: 280px; } }
+
+/* Nhật ký chung: một bút toán nhiều dòng. Dòng CUỐI của mỗi bút toán kẻ dưới bằng --border (đậm hơn kẻ giữa dòng)
+   để mắt thấy ranh giới bút toán; dòng tiếp theo bỏ trống ngày/số CT/diễn giải (chữ vẫn còn cho trình đọc màn hình). */
+#kd-kt-so-cai .kt-bang tbody tr.kt-dong-cuoi:not(:last-child) td { border-bottom-color: var(--border); }
+#kd-kt-so-cai .kt-bang tbody tr.kt-dong-tiep td { height: 36px; }
+
+/* Diễn giải được xuống tối đa 2 dòng thay vì đẩy bảng cuộn ngang quá xa. */
+#kd-kt-so-cai .kt-dg { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-width: 200px; max-width: 320px; white-space: normal; }
+
+/* Cột Nợ/Có/Dư: độ rộng tối thiểu bằng nhau để các cột số thẳng hàng giữa các trang. */
+#kd-kt-so-cai .kt-bang th.num, #kd-kt-so-cai .kt-bang td.num { min-width: 128px; }
+
+/* Panel chi tiết giờ là popup giữa màn cho mọi màn (kd-man-hinh.css, 28/09/2026) — bỏ bố cục lớp phủ/đặt cạnh bảng riêng ở đây. */
+
+/* Đợt 4: bớt 1 cột → diễn giải rộng hơn; dòng "Kỳ …" + ⓘ đậm vừa, dễ đọc. */
+#kd-kt-so-cai .kt-dg { max-width: 440px; }
+#kd-kt-so-cai .kt-pham-vi { font-size: var(--fs-body); color: var(--text-2); }
+#kd-kt-so-cai .kt-khach__ma .kt-cat { max-width: 220px; }
+
+@media print {
+  #kd-kt-so-cai .kd-head__tools, #kd-kt-so-cai .kd-filter, #kd-kt-so-cai .kd-card__foot, #kd-kt-so-cai .kt-panel { display: none !important; }
+}
+
+/* Cột "Loại · định khoản" (28/09/2026): thẻ Thu/Chi + dòng "Nợ 131 · Có 511" không bẻ giữa mã tài khoản. */
+#kd-kt-so-cai td.kt-nv { white-space: nowrap; }
+#kd-kt-so-cai td.kt-nv .kt-khach__ma { white-space: nowrap; }

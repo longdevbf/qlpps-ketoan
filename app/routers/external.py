@@ -15,7 +15,9 @@ from sqlalchemy.orm import Session
 from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
+from shared.templates import _lookup_user_info
 
+from ..services.tim_kiem import mau_like, sql_khop
 from ._deps import require_ketoan_user
 
 
@@ -28,9 +30,13 @@ def _safe_rows(db: Session, sql: str, **params) -> list[dict[str, Any]]:
     try:
         rows = db.execute(text(sql), params).mappings().all()
         return [dict(r) for r in rows]
-    except (ProgrammingError, OperationalError) as e:
+    except (ProgrammingError, OperationalError):
+        # KHÔNG trả chi tiết lỗi DB ra client (lộ tên bảng/cột) — log server-side,
+        # trả [] (SEC-05, 2026-08-28).
         db.rollback()
-        return [{"_error": str(e)[:200]}]
+        import logging
+        logging.getLogger(__name__).warning("_safe_rows query failed", exc_info=True)
+        return []
 
 
 def _safe_rows_silent(db: Session, sql: str, **params) -> list[dict[str, Any]]:
@@ -223,7 +229,7 @@ def get_ads_external(
 def list_employees_external(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
-    q: Optional[str] = Query(None, description="Tìm theo ho_ten/ma_nv (ILIKE)"),
+    q: Optional[str] = Query(None, description="Tìm theo ho_ten/ma_nv (không phân biệt dấu, hoa/thường)"),
     active: bool = Query(True, description="Chỉ NV đang làm (trang_thai='Đang làm')"),
     phong_ban: Optional[str] = Query(None),
 ):
@@ -244,9 +250,9 @@ def list_employees_external(
     if phong_ban:
         sql += " AND phong_ban = :pb"
         params["pb"] = phong_ban
-    if q:
-        sql += " AND (ho_ten ILIKE :kw OR ma_nv ILIKE :kw)"
-        params["kw"] = f"%{q.strip()}%"
+    if q and q.strip():
+        sql += " AND " + sql_khop(("ho_ten", "ma_nv"))   # không phân biệt dấu + hoa/thường
+        params["kw"] = mau_like(q)
     sql += " ORDER BY phong_ban NULLS LAST, ho_ten LIMIT 200"
     rows = _safe_rows_silent(db, sql, **params)
     # Enrich `id` từ ma_nv: 'NV26015' → 26015
@@ -393,9 +399,9 @@ def list_quotes_external(
         else:
             sql += " AND COALESCE(status, '') = :st"
             params["st"] = status_filter
-    if q:
-        sql += " AND (quote_number ILIKE :kw OR customer_name ILIKE :kw)"
-        params["kw"] = f"%{q.strip()}%"
+    if q and q.strip():
+        sql += " AND " + sql_khop(("quote_number", "customer_name"))   # không phân biệt dấu + hoa/thường
+        params["kw"] = mau_like(q)
     if tu_ngay:
         sql += " AND COALESCE(duyet_luc::date, created_at::date) >= :tu"
         params["tu"] = tu_ngay
@@ -475,14 +481,33 @@ def orders_salespeople(
     return {"data": data}
 
 
+# orders-overview: giới hạn dòng khi KHÔNG lọc kỳ (giữ như cũ) / khi có lọc kỳ trong SQL.
+_OV_LIMIT = 200
+_OV_LIMIT_CO_KY = 3000
+_OV_TZ = "Asia/Ho_Chi_Minh"
+_OV_NGAY_EXPR = {
+    "duyet": f"(COALESCE(q.duyet_luc, q.created_at) AT TIME ZONE '{_OV_TZ}')::date",
+    "created": f"(q.created_at AT TIME ZONE '{_OV_TZ}')::date",
+    "ketoan": f"(v.ketoan_approved_at AT TIME ZONE '{_OV_TZ}')::date",
+}
+
+
 @router.get("/orders-overview")
 def orders_overview(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
     filter: str = Query("active", description="active|pending|done|all"),
     salesperson: Optional[str] = Query(None, description="Lọc NV KD (q.salesperson, case-insensitive)"),
+    date_basis: Optional[str] = Query(None, description="duyet|created|ketoan — cột ngày dùng cho tu_ngay/den_ngay"),
+    tu_ngay: Optional[date_cls] = Query(None),
+    den_ngay: Optional[date_cls] = Query(None),
 ):
     """Bảng đối chiếu kế toán — overview mỗi đơn báo giá đã duyệt.
+
+    `date_basis` + `tu_ngay`/`den_ngay` (tuỳ chọn, màn /ketoan/don-hang): lọc kỳ NGAY
+    TRONG SQL (trước LIMIT) — màn cũ lọc kỳ phía trình duyệt trên 200 đơn mới nhất nên
+    kỳ cũ hơn bị thiếu đơn. `date_basis=ketoan` ép filter=done (giống màn cũ).
+    Không truyền → hành vi y như cũ (index.html cũ vẫn dùng).
 
     `filter`:
       - `active`:  đơn duyệt + CHƯA Hoàn Thành (case-insensitive trim — bắt cả 'hoàn thành' lowercase)
@@ -496,6 +521,10 @@ def orders_overview(
     completed, mà KT chỉ quan tâm 2 trạng thái: đã đối chiếu vs chưa đối chiếu.)
     """
     where_clause = "q.duyet_status = 'approved'"
+    sp_params: dict[str, Any] = {}  # bind params cho IN-list salesperson (SEC-06)
+    ngay_expr = _OV_NGAY_EXPR.get(date_basis or "")
+    if date_basis == "ketoan":
+        filter = "done"
     if filter == "pending":
         where_clause = "v.trang_thai = 'da_giao'"
     elif filter == "done":
@@ -520,16 +549,33 @@ def orders_overview(
         aliases = [r["s"] for r in raw_rows if _canon_sp(r.get("s"), idmap).lower() == target]
         if not aliases:
             aliases = [salesperson.strip()]
-        in_list = ", ".join("'" + a.replace("'", "''").lower() + "'" for a in aliases)
-        where_clause += f" AND LOWER(TRIM(COALESCE(q.salesperson,''))) IN ({in_list})"
+        # BIND PARAM thay vì ghép chuỗi escape tay (SEC-06, 2026-08-28)
+        _ph = []
+        for _i, _a in enumerate(aliases):
+            _k = f"sp_{_i}"
+            _ph.append(f":{_k}")
+            sp_params[_k] = (_a or "").strip().lower()
+        where_clause += f" AND LOWER(TRIM(COALESCE(q.salesperson,''))) IN ({', '.join(_ph)})"
+
+    limit = _OV_LIMIT
+    if ngay_expr and (tu_ngay or den_ngay):
+        limit = _OV_LIMIT_CO_KY
+        if tu_ngay:
+            where_clause += f" AND {ngay_expr} >= :ov_tu"
+            sp_params["ov_tu"] = tu_ngay
+        if den_ngay:
+            where_clause += f" AND {ngay_expr} <= :ov_den"
+            sp_params["ov_den"] = den_ngay
 
     sql = f"""
         WITH doanh_thu_agg AS (
             -- Tổng thu theo mã đơn, tách Đặt Cọc / Thanh Toán / tổng
             SELECT ma_don,
                    SUM(so_tien) AS thu_thuc,
-                   SUM(CASE WHEN loai_thanh_toan = 'Đặt cọc'   THEN so_tien ELSE 0 END) AS thu_dat_coc,
-                   SUM(CASE WHEN loai_thanh_toan = 'Thanh toán' THEN so_tien ELSE 0 END) AS thu_thanh_toan
+                   -- ILIKE (không phân biệt hoa/thường): data ghi lẫn 'Thanh toán'/'Thanh Toán',
+                   -- 'Đặt cọc'/'Đặt Cọc' → so sánh '=' làm thu_thanh_toan luôn 0 (DB-04, 2026-08-28)
+                   SUM(CASE WHEN loai_thanh_toan ILIKE '%cọc%'      THEN so_tien ELSE 0 END) AS thu_dat_coc,
+                   SUM(CASE WHEN loai_thanh_toan ILIKE 'thanh toán' THEN so_tien ELSE 0 END) AS thu_thanh_toan
             FROM ketoan.doanh_thu
             WHERE ma_don IS NOT NULL
             GROUP BY ma_don
@@ -649,9 +695,9 @@ def orders_overview(
         ) gc ON TRUE
         WHERE {where_clause}
         ORDER BY q.created_at DESC
-        LIMIT 200
+        LIMIT {limit}
     """
-    return {"filter": filter, "data": _safe_rows(db, sql)}
+    return {"filter": filter, "limit": limit, "data": _safe_rows(db, sql, **sp_params)}
 
 
 @router.get("/orders-optimization")
@@ -835,6 +881,7 @@ def orders_optimization(
             "is_papasan_mix": is_papasan_mix,
             "papasan_base": round(papasan_base),
             "max_ck_ap_dung": mck,
+            "phan_khuc_duyet": (r.get("phan_khuc_duyet") or "").strip(),
             "tam_tinh": round(row_tam_tinh),
             "tong_giam": round(row_tong_giam),
             "ck_pct": round(ck_pct_eff, 2),
@@ -908,6 +955,9 @@ def orders_optimization(
         "max_ck": max_ck_go,          # tương thích ngược (trần Đồ Gỗ = mức cũ)
         "max_ck_go": max_ck_go,
         "max_ck_may": max_ck_may,
+        # Trần Gỗ phân khúc khác (Hàng Trạm) — chỉ trả khi đã hiệu lực trong kỳ đang xem.
+        "max_ck_go_tram": max_ck_go_tram if _tram_hieu_luc else None,
+        "max_ck_go_tram_ap_tu": _tram_ap_tu if _tram_hieu_luc else None,
         "totals": {
             "so_don": T["so_don"], "tam_tinh": round(T["tam_tinh"]),
             "sau_ck": round(T["tam_tinh"] - T["tong_giam"]),  # tổng tiền sau chiết khấu
@@ -1135,9 +1185,9 @@ def list_products_with_inventory(
     params: dict[str, Any] = {}
     if active_only:
         where.append("p.active = TRUE")
-    if q:
-        where.append("(p.ma_sp ILIKE :kw OR p.ten_sp ILIKE :kw OR p.label ILIKE :kw)")
-        params["kw"] = f"%{q.strip()}%"
+    if q and q.strip():
+        where.append(sql_khop(("p.ma_sp", "p.ten_sp", "p.label")))   # không phân biệt dấu + hoa/thường
+        params["kw"] = mau_like(q)
     if nhom_hang:
         where.append("p.nhom_hang = :nh")
         params["nh"] = nhom_hang
@@ -1179,15 +1229,16 @@ def list_ton_kho_from_muahang(
     """Đọc tồn kho từ phòng Mua Hàng (`muahang.ton_kho_items`) — mỗi dòng = 1 lô nhập."""
     where = ["1=1"]
     params: dict[str, Any] = {}
-    if q:
-        where.append("(t.ma_sp ILIKE :kw OR t.ten_sp ILIKE :kw)")
-        params["kw"] = f"%{q.strip()}%"
+    # q + ncc: 2 ô tìm của màn Tồn kho — không phân biệt dấu + hoa/thường.
+    if q and q.strip():
+        where.append(sql_khop(("t.ma_sp", "t.ten_sp")))
+        params["kw"] = mau_like(q)
     if danh_muc:
         where.append("t.danh_muc = :dm")
         params["dm"] = danh_muc
-    if ncc:
-        where.append("t.ncc_name ILIKE :ncc")
-        params["ncc"] = f"%{ncc.strip()}%"
+    if ncc and ncc.strip():
+        where.append(sql_khop(("t.ncc_name",), "ncc"))
+        params["ncc"] = mau_like(ncc)
     if only_remaining:
         where.append("t.so_luong > 0")
 
@@ -1523,11 +1574,13 @@ def toggle_hoan_sla(
                     "WHERE role IN ('ceo','assistant_ceo','admin') AND active = true"
                 )).all() if r[0]
             ]
+            # Tên thật thay mã NV (anh Quang 07/09/2026)
+            _kt_ten = _lookup_user_info(user.username)[0] or user.username
             notify_many(
                 db, ceo_targets,
                 source_app="ketoan", event_type="kt_hoan_sla",
                 title=f"KT hoãn đơn {ma_don} (chờ thu tiền)",
-                message=f"Kế toán {user.username} hoãn đơn {ma_don} — {_ly_do}. "
+                message=f"Kế toán {_kt_ten} hoãn đơn {ma_don} — {_ly_do}. "
                         f"Đơn đã giao nhưng chưa thu tiền → tạm loại khỏi SLA hoàn thành.",
                 ref_type="vanchuyen", ref_id=ma_vh,
                 url="https://ketoan.qlpps.com/",
@@ -1627,22 +1680,32 @@ def mark_vanchuyen_completed(
         """), {"mn": ma_don}).mappings().first()
 
         if q:
-            tong_cht = float(q["tong_chua_thue"] or 0)
-            disc_pct = float(q["discount_percent"] or 0)
-            dt_thuan = round(tong_cht * (1.0 - disc_pct / 100.0), 2) if tong_cht > 0 else 0.0
+            # doanh_thu + sổ quỹ ghi theo CASH ⇒ trần = `tong_don` (số KH THỰC TRẢ:
+            # đã net chiết khấu, ĐÃ gồm VAT). KHÔNG dùng tong_chua_thue (pre-VAT) và
+            # KHÔNG nhân (1−discount_percent) lần nữa — chiết khấu đã nằm trong tong_don
+            # (8.5tr công thức ×(1−20%)=6.8tr=tong_don). (anh Quang 2026-08-27)
+            tong_don_cash = float(q["tong_don"] or 0)
+            if tong_don_cash <= 0:  # fallback đơn cũ thiếu tong_don
+                tong_don_cash = float(q["tong_chua_thue"] or 0)
+            dt_thuan = round(tong_don_cash, 2)  # giữ tên cũ cho revenue_info bên dưới
 
-            # Trừ tiền CỌC đã ghi → phần CÒN LẠI mới ghi doanh thu + đẩy sổ quỹ lúc
-            # hoàn thành (tránh double với cọc — anh Quang 2026-07-09).
+            # Cọc đã ghi (để hiển thị) + TỔNG doanh thu ĐÃ ghi (cọc + mọi Thanh Toán).
+            # con_lai = tong_don − đã ghi ⇒ phần CÒN được ghi. Chặn CẢ 2 lỗi:
+            #   (1) cộng đúp cọc (SA báo COD gồm cả phần đã cọc)
+            #   (2) đối chiếu 2 lần (đơn đã có Thanh Toán trước đó, kể cả khác hoa/thường)
             coc_da_ghi = float(db.execute(text("""
                 SELECT COALESCE(SUM(so_tien), 0) FROM ketoan.doanh_thu
                 WHERE ma_don = :mn AND loai_thanh_toan ILIKE '%cọc%'
             """), {"mn": ma_don}).scalar() or 0)
-            con_lai = round(max(0.0, dt_thuan - coc_da_ghi), 2)
+            da_ghi_all = float(db.execute(text("""
+                SELECT COALESCE(SUM(so_tien), 0) FROM ketoan.doanh_thu
+                WHERE ma_don = :mn
+            """), {"mn": ma_don}).scalar() or 0)
+            con_lai = round(max(0.0, dt_thuan - da_ghi_all), 2)
 
-            # QUYẾT ĐỊNH NGHIỆP VỤ (anh Quang 2026-08-24): sổ quỹ VÀ doanh thu ghi
-            # theo TIỀN THỰC NHẬN KT xác nhận, KHÔNG theo con_lai báo giá. Phần khách
-            # trả thiếu tự hiện ở "Còn thu" trang Đơn Hàng (không tách công nợ riêng).
-            #   so_ghi_nhan = COALESCE(KT nhập, COD lái xe khai, con_lai)
+            # so_ghi_nhan = KT nhập tay | COD SA báo | con_lai — RỒI CAP ≤ con_lai để
+            # TỔNG ghi (cọc + các Thanh Toán) KHÔNG BAO GIỜ vượt tong_don. Khách trả
+            # THIẾU vẫn ghi đúng số thực nhận (< con_lai), phần thiếu hiện ở "Còn thu".
             _cod_khai = row["delivery_cod_received"]
             if so_tien_thuc_nhan is not None:
                 so_ghi_nhan = round(float(so_tien_thuc_nhan), 2)
@@ -1650,7 +1713,12 @@ def mark_vanchuyen_completed(
                 so_ghi_nhan = round(float(_cod_khai), 2)
             else:
                 so_ghi_nhan = con_lai
-            so_ghi_nhan = round(max(0.0, so_ghi_nhan), 2)
+            # VND là số nguyên — làm tròn về đồng (trước 25/09/2026 để 2 số lẻ → doanh thu,
+            # sổ quỹ, bút toán có phần lẻ kiểu 699.999,68, lệch 1đ khi cộng trên màn).
+            from decimal import ROUND_HALF_UP as _HALF_UP
+            so_ghi_nhan = float(
+                Decimal(str(max(0.0, min(so_ghi_nhan, con_lai)))).quantize(Decimal(1), rounding=_HALF_UP)
+            )
 
             # Loại doanh thu theo nhóm SP CHÍNH Mây/Gỗ (shared.products.nhom_master)
             _nm = db.execute(text("""
@@ -1668,9 +1736,11 @@ def mark_vanchuyen_completed(
             # 4a. Ghi doanh thu phần CÒN LẠI + đẩy SỔ QUỸ (idempotent qua
             # ma_don + loai_thanh_toan='Thanh Toán').
             if so_ghi_nhan > 0:
+                # Idempotent: đơn đã có Thanh Toán (KHÔNG phân biệt hoa/thường —
+                # 'Thanh toán' vs 'Thanh Toán') → không ghi thêm (tránh đối chiếu 2 lần).
                 existed = db.execute(text("""
                     SELECT id FROM ketoan.doanh_thu
-                    WHERE ma_don = :mn AND loai_thanh_toan = 'Thanh Toán' LIMIT 1
+                    WHERE ma_don = :mn AND loai_thanh_toan ILIKE 'thanh toán' LIMIT 1
                 """), {"mn": ma_don}).first()
                 if not existed:
                     from ..models import DoanhThu as _DoanhThu
@@ -1745,6 +1815,15 @@ def mark_vanchuyen_completed(
                         "gc": f"COGS đơn {ma_don} hoàn thành (FIFO from muahang.ton_kho_items)",
                         "by": user.username,
                     })
+                    # Trừ tồn kho KT (inventory_balance). Trước 25/09/2026 chỉ INSERT phiếu xuất
+                    # mà không trừ tồn → kho KT dư đúng số đã bán. Không dùng apply_movement():
+                    # hàm đó ghi đè giá xuất = giá BQ, lệch với bút toán 632 ghi theo giá FIFO.
+                    # Giá vốn BQ giữ nguyên khi xuất; cho phép âm để không chặn hoàn thành đơn.
+                    from ..services.inventory_avg import get_or_create_balance
+                    bal = get_or_create_balance(db, p_row[0])
+                    bal.so_luong_ton = (bal.so_luong_ton or Decimal(0)) - Decimal(str(qty))
+                    # Giữ bất biến của inventory_avg: gia_tri_ton = so_luong_ton × gia_von_bq.
+                    bal.gia_tri_ton = bal.so_luong_ton * (bal.gia_von_bq or Decimal(0))
                     movements_info["created"] += 1
 
             # 6. Sinh journal kép — DT (Nợ 131 / Có 511) + COGS (Nợ 632 / Có 156)
@@ -1841,6 +1920,21 @@ def mark_vanchuyen_completed(
     )
     db.commit()
 
+    # Báo "đã thu nốt + hoàn thành" lên nhóm "Kinh Doanh - Kế Toán" (fail-soft).
+    try:
+        from shared.services.chat_post import post_to_group
+        _thu = float(revenue_info.get("so_tien") or 0) if isinstance(revenue_info, dict) else 0
+        _thu_txt = f" — thu nốt {int(_thu):,}đ" if _thu > 0 else ""
+        # Tên thật thay cho mã NV — xem ghi chú ở kt_duyet.py
+        _kt_ten = _lookup_user_info(user.username)[0] or user.username
+        _msg = (
+            f"🏁 Đơn {ma_don} đã đối chiếu{_thu_txt}, đơn HOÀN THÀNH. "
+            f"(Kế Toán {_kt_ten})"
+        )
+        post_to_group(db, content=_msg)
+    except Exception:
+        pass
+
     # ZNS: gửi "Giao Hàng Thành Công" sau khi KT xác nhận hoàn thành (fail-soft)
     if ma_don:
         try:
@@ -1882,9 +1976,9 @@ def list_suppliers_for_dropdown(
     """List NCC từ `muahang.suppliers` cho dropdown chọn đối tác công nợ phải trả."""
     where = ["1=1"]
     params: dict[str, Any] = {}
-    if q:
-        where.append("(name ILIKE :kw OR short_code ILIKE :kw)")
-        params["kw"] = f"%{q.strip()}%"
+    if q and q.strip():
+        where.append(sql_khop(("name", "short_code")))   # không phân biệt dấu + hoa/thường
+        params["kw"] = mau_like(q)
     sql = f"""
         SELECT id, name, short_code, phone
         FROM muahang.suppliers
@@ -1966,9 +2060,9 @@ def list_customers_for_dropdown(
     """List KH từ `baogia.customers` cho dropdown chọn đối tác công nợ phải thu."""
     where = ["1=1"]
     params: dict[str, Any] = {}
-    if q:
-        where.append("(ho_ten ILIKE :kw OR sdt ILIKE :kw)")
-        params["kw"] = f"%{q.strip()}%"
+    if q and q.strip():
+        where.append(sql_khop(("ho_ten", "sdt")))   # không phân biệt dấu + hoa/thường
+        params["kw"] = mau_like(q)
     sql = f"""
         SELECT id, ho_ten, sdt, dia_chi
         FROM baogia.customers

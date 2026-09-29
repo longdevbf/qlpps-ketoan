@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Ngân hàng + tiền mặt — L3 (thay màn cũ /app#tai-khoan-nh + phần "Số dư theo tài khoản"
+   của /app#so-quy). Dữ liệu thật:
+     GET/POST/PUT /api/tai-khoan              — danh mục tài khoản (TaiKhoanNH, kèm tk_ke_toan)
+     GET /api/tai-khoan/ma-tk-tiep-theo?loai  — gợi ý TK kế toán con 111x/112x còn trống
+     GET /api/so-quy/summary?tu_ngay&den_ngay — đầu kỳ/thu/chi/cuối kỳ từng tài khoản theo kỳ
+     GET /api/tai-khoan/{id}/giao-dich        — sổ giao dịch (nguồn ketoan.so_quy) + số dư sau
+     POST /api/so-du-dau-ky                   — chốt số dư đầu tháng (mốc SoDuDauKy)
+     POST /api/so-quy/chuyen-noi-bo           — chuyển tiền giữa 2 tài khoản
+   Không có API đối soát sao kê (sepay.py chỉ nhận webhook) — nút "Nhập sao kê" chỉ báo rõ. #}
+{% block title %}Ngân hàng{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-ngan-hang.css?v=tk0928a2">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page kt-l3-rong" id="kd-kt-ngan-hang">
+  {% call ui.dau_trang('Ngân hàng', 'Số dư và sổ giao dịch từng tài khoản') %}
+    {{ ui.chon_ky('nh') }}
+    {{ ui.nut_loc('nh') }}
+    <button type="button" class="kd-btn" id="nh-nhap"><i class="bi bi-upload" aria-hidden="true"></i>Nhập sao kê</button>
+    <button type="button" class="kd-btn kd-btn--primary" id="nh-chuyen"><i class="bi bi-arrow-left-right" aria-hidden="true"></i>Chuyển nội bộ</button>
+  {% endcall %}
+
+  <section class="kd-card" aria-labelledby="nh-tk-td">
+    <div class="kd-box__head kt-the-dau kt-nh-dau">
+      <div>
+        <h2 class="kd-box__title" id="nh-tk-td">Số dư theo tài khoản<button type="button" class="kd-tip" data-tip="Bấm một tài khoản để xem sổ giao dịch của tài khoản đó." aria-label="Bấm một tài khoản để xem sổ giao dịch của tài khoản đó."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2>
+        <p class="kd-meta" id="nh-tk-ky"></p>
+      </div>
+      <div class="kt-nh-dau__cong-cu">
+        <label class="kt-check"><input type="checkbox" id="nh-ca-ngung"> Hiện tài khoản ngừng dùng</label>
+        <button type="button" class="kd-btn kd-btn--sm" id="nh-them-tk"><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm tài khoản</button>
+      </div>
+    </div>
+    <div class="kd-table-scroll kd-table-scroll--thanh" id="nh-tk-cuon">
+      <table class="kd-table kd-table--click kt-bang kt-nh-bang">
+        <caption class="visually-hidden">Danh sách tài khoản ngân hàng, tiền mặt và số dư trong kỳ</caption>
+        <thead><tr>
+          <th scope="col">Tài khoản</th><th scope="col">Số tài khoản · chủ tài khoản</th>
+          <th scope="col" class="num">Đầu kỳ (VND)</th><th scope="col" class="num">Thu (VND)</th><th scope="col" class="num">Chi (VND)</th><th scope="col" class="num">Cuối kỳ (VND)</th>
+          <th scope="col" class="kd-col-act"><span class="visually-hidden">Thao tác</span></th>
+        </tr></thead>
+        <tbody id="nh-tk-ds"></tbody>
+        <tfoot id="nh-tk-tong"></tfoot>
+      </table>
+    </div>
+    <div id="nh-tk-tt"></div>
+  </section>
+
+  {{ ui.the_so('nh', [('dau_ky', 'Số dư đầu kỳ', '', 'bi-journal-text'), ('thu', 'Tổng thu', 'success', 'bi-box-arrow-in-down'),
+                       ('chi', 'Tổng chi', 'danger', 'bi-box-arrow-up'), ('cuoi_ky', 'Số dư cuối kỳ', 'info', 'bi-wallet2')], kieu='strip', nhan_vung='Tài khoản đang xem') }}
+
+  {% call ui.the_bang('nh', 'Sổ giao dịch tài khoản', panel='Chi tiết giao dịch') %}
+    {{ ui.o_chon('nh', 'trang_thai', 'Loại giao dịch', [('', 'Tất cả'), ('thu', 'Thu (tiền vào)'), ('chi', 'Chi (tiền ra)')]) }}
+  {% endcall %}
+</main>
+
+<dialog class="kd-dialog" id="nh-dlg-tk" aria-labelledby="nh-tk-dlg-td">
+  <form method="dialog" novalidate id="nh-form-tk">
+    <header class="kd-dialog__head">
+      <h2 class="kd-dialog__title" id="nh-tk-dlg-td">Thêm tài khoản</h2>
+      <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div class="kd-dialog__body">
+      <div class="kd-field">
+        <label class="kd-field__label" for="nh-t-ten">Tên tài khoản <span class="kd-field__req" aria-hidden="true">*</span></label>
+        <input class="kd-input" id="nh-t-ten" maxlength="128" placeholder="VD: BIDV - Công ty" autocomplete="off" aria-describedby="nh-t-ten-gy">
+        <p class="kd-meta" id="nh-t-ten-gy">Tên hiện trên Sổ quỹ, Doanh thu, Chi phí.</p>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="nh-t-loai">Loại tài khoản</label>
+          <select class="kd-input" id="nh-t-loai"><option value="ngan_hang">Ngân hàng</option><option value="tien_mat">Tiền mặt</option><option value="vi_dien_tu">Ví điện tử</option></select>
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="nh-t-tk">TK kế toán <span class="kd-field__req" aria-hidden="true">*</span><button type="button" class="kd-tip" data-tip="Tài khoản con của 111 (tiền mặt) hoặc 112 (ngân hàng) mà bút toán của tài khoản này ghi vào. VD 1121." aria-label="Tài khoản con của 111 (tiền mặt) hoặc 112 (ngân hàng) mà bút toán của tài khoản này ghi vào. VD 1121."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+          <input class="kd-input num" id="nh-t-tk" inputmode="numeric" maxlength="6" autocomplete="off" aria-required="true" aria-describedby="nh-t-tk-gy">
+          <p class="kd-meta" id="nh-t-tk-gy"></p>
+        </div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="nh-t-nh">Ngân hàng</label>
+          <input class="kd-input" id="nh-t-nh" maxlength="80" placeholder="VD: BIDV" autocomplete="off">
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="nh-t-cn">Chi nhánh</label>
+          <input class="kd-input" id="nh-t-cn" maxlength="80" placeholder="VD: CN Từ Liêm" autocomplete="off">
+        </div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="nh-t-stk">Số tài khoản</label>
+          <input class="kd-input num" id="nh-t-stk" inputmode="numeric" maxlength="24" placeholder="VD: 2170426720" autocomplete="off">
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="nh-t-chu">Chủ tài khoản</label>
+          <input class="kd-input" id="nh-t-chu" maxlength="120" placeholder="Đúng tên in trên sao kê" autocomplete="off">
+        </div>
+      </div>
+      <div class="kd-field">
+        <label class="kd-field__label" for="nh-t-mt">Mô tả</label>
+        <input class="kd-input" id="nh-t-mt" maxlength="250" placeholder="Ghi chú thêm (không bắt buộc)" autocomplete="off">
+      </div>
+      <div class="kd-field" id="nh-t-dau-o">
+        <label class="kd-field__label" for="nh-t-dau">Số dư ban đầu (VND)<button type="button" class="kd-tip" data-tip="Số dư khi bắt đầu dùng phần mềm. Về sau chốt lại theo tháng bằng &quot;Chốt số dư đầu kỳ&quot;." aria-label="Số dư khi bắt đầu dùng phần mềm. Về sau chốt lại theo tháng bằng &quot;Chốt số dư đầu kỳ&quot;."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+        <input class="kd-input num" id="nh-t-dau" inputmode="numeric" placeholder="0" autocomplete="off">
+      </div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="submit" class="kd-btn kd-btn--primary" id="nh-t-luu"><i class="bi bi-check2" aria-hidden="true"></i>Lưu tài khoản</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="nh-dlg-sd" aria-labelledby="nh-sd-td">
+  <form method="dialog" novalidate id="nh-form-sd">
+    <header class="kd-dialog__head">
+      <h2 class="kd-dialog__title" id="nh-sd-td">Chốt số dư đầu kỳ<button type="button" class="kd-tip" data-tip="Số dư đã chốt là mốc tính số dư mọi kỳ của tài khoản này trên Sổ quỹ, Ngân hàng và Bảng cân đối." aria-label="Số dư đã chốt là mốc tính số dư mọi kỳ của tài khoản này trên Sổ quỹ, Ngân hàng và Bảng cân đối."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2>
+      <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div class="kd-dialog__body">
+      <p class="kd-meta" id="nh-sd-tk"></p>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="nh-sd-thang">Tháng <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input" type="month" id="nh-sd-thang">
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="nh-sd-so">Số dư đầu tháng (VND) <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input num" id="nh-sd-so" inputmode="numeric" placeholder="0" autocomplete="off">
+        </div>
+      </div>
+      <p class="kd-meta" id="nh-sd-gy"></p>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="submit" class="kd-btn kd-btn--primary" id="nh-sd-luu"><i class="bi bi-check2" aria-hidden="true"></i>Lưu số dư</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="nh-dlg-cnb" aria-labelledby="nh-cnb-td">
+  <form method="dialog" novalidate id="nh-form-cnb">
+    <header class="kd-dialog__head">
+      <h2 class="kd-dialog__title" id="nh-cnb-td">Chuyển tiền nội bộ<button type="button" class="kd-tip" data-tip="Ghi 1 dòng chi ở tài khoản nguồn và 1 dòng thu ở tài khoản đích trên Sổ quỹ. Bị chặn nếu tài khoản nguồn không đủ số dư." aria-label="Ghi 1 dòng chi ở tài khoản nguồn và 1 dòng thu ở tài khoản đích trên Sổ quỹ. Bị chặn nếu tài khoản nguồn không đủ số dư."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2>
+      <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div class="kd-dialog__body">
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="nh-c-tu">Từ tài khoản (chi) <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <select class="kd-input" id="nh-c-tu"></select>
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="nh-c-den">Sang tài khoản (thu) <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <select class="kd-input" id="nh-c-den"></select>
+        </div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="nh-c-ngay">Ngày <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input" type="date" id="nh-c-ngay">
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="nh-c-tien">Số tiền (VND) <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input num" id="nh-c-tien" inputmode="numeric" placeholder="0" autocomplete="off">
+        </div>
+      </div>
+      <div class="kd-field">
+        <label class="kd-field__label" for="nh-c-nd">Nội dung</label>
+        <input class="kd-input" id="nh-c-nd" maxlength="200" placeholder="Để trống = Chuyển sang … / Nhận từ …" autocomplete="off">
+      </div>
+      <div class="kd-field">
+        <label class="kd-field__label" for="nh-c-gc">Ghi chú</label>
+        <input class="kd-input" id="nh-c-gc" maxlength="200" autocomplete="off">
+      </div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="submit" class="kd-btn kd-btn--primary" id="nh-c-luu"><i class="bi bi-arrow-left-right" aria-hidden="true"></i>Chuyển tiền</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="nh-dlg-ngung" role="alertdialog" aria-labelledby="nh-ng-td" aria-describedby="nh-ng-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="nh-ng-td">Ngừng dùng tài khoản?</h2></header>
+    <div class="kd-dialog__body"><p id="nh-ng-nd"></p><p class="kd-form-err" role="alert" hidden></p></div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Giữ lại</button>
+      <button type="button" class="kd-btn kd-btn--primary" id="nh-ng-ok">Ngừng dùng</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="nh-dlg-sk" aria-labelledby="nh-sk-td">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head">
+      <h2 class="kd-dialog__title" id="nh-sk-td">Nhập sao kê ngân hàng</h2>
+      <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div class="kd-dialog__body">
+      <p class="kd-note">Chưa hỗ trợ nhập và đối soát sao kê ngân hàng. Giao dịch ngân hàng tự lên sổ khi ghi Doanh thu, Chi phí, Công nợ, Chuyển nội bộ (và qua SePay nếu đã kết nối).</p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn kd-btn--primary" data-dong>Đã hiểu</button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-ngan-hang.js?v=tk0928a2"></script>
+{% endblock %}

@@ -24,6 +24,7 @@ from ..services.ads_phan_bo import (
     get_pool_breakdown,
     recalc_ads_phan_bo,
 )
+from .bao_cao_cpa import invalidate_cpa_cache
 
 
 router = APIRouter()
@@ -96,6 +97,12 @@ def recalc(
         payload={"thang": thang, "summary": summary},
     )
     db.commit()
+    # Báo cáo CPA cache (TTL 30s, key theo cpa/cohort/per_don) — invalidate hết
+    # ngay sau recalc để màn "Phân bổ về đơn hàng (CPA)" thấy số mới thay vì
+    # đợi hết TTL / số cũ (có thể = 0). Recalc 1 tháng chi ads cũng đổi
+    # thang_hoan_thanh của các đơn liên quan → có thể ảnh hưởng cohort/per-don
+    # của nhiều tháng khác, nên clear toàn bộ thay vì chỉ theo `thang`.
+    invalidate_cpa_cache()
     return {"ok": True, **summary}
 
 

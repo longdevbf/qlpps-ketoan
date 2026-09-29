@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{# Chi tiết công nợ một đối tượng (khách hàng / nhà cung cấp) — L4. /ketoan/doi-tuong?ben=kh|ncc&id=<id>[&tu&den]
+   API thật: KH → app/routers/cong_no.py GET /api/cong-no?doi_tac=&loai= (lọc theo TÊN đối tác — ketoan
+   không có id khách ổn định); NCC → app/routers/cong_no_ncc.py GET /api/cong-no/ncc/<id>/detail.
+   Không có API "sổ chi tiết theo đối tượng" (README 4.23) — xem đầu static/js/kt-doi-tuong.js #}
+{% block title %}Chi tiết công nợ{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-chung-tu.css?v=dot4">
+<link rel="stylesheet" href="/static/css/kt-doi-tuong.css?v=r4a">
+<link rel="stylesheet" href="/static/css/kt-ghi-nhan-tra.css?v=r4a">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-doi-tuong">
+  <nav aria-label="Đường dẫn">
+    <ol class="kd-crumb">
+      <li><a href="/ketoan/cong-no-kh" id="dt-ve"><i class="bi bi-arrow-left" aria-hidden="true"></i>Công nợ khách hàng</a></li>
+      <li aria-current="page" id="dt-crumb">Chi tiết</li>
+    </ol>
+  </nav>
+  <header class="kd-dhead">
+    <div class="kd-dhead__id">
+      <span class="ico-tile ico-tile--lg" id="dt-ico" aria-hidden="true"><i class="bi bi-person-lines-fill"></i></span>
+      <div class="kd-dhead__main">
+        <div class="kd-dhead__title"><h1 class="kd-h1" id="dt-h1">Chi tiết công nợ</h1><span id="dt-pill"></span></div>
+        <p class="kd-dhead__code" id="dt-ma"><span class="kd-skel kd-skel--ngan"></span></p>
+        <p class="kd-dhead__meta" id="dt-meta"></p>
+      </div>
+    </div>
+    <div class="kd-dhead__tools">
+      <a class="kd-btn" id="dt-doi-chieu" href="#"><i class="bi bi-printer" aria-hidden="true"></i>In biên bản đối chiếu</a>
+      <button type="button" class="kd-btn kd-btn--primary" id="dt-lap"><i class="bi bi-cash-coin" aria-hidden="true"></i><span id="dt-lap-chu">Ghi nhận thu</span></button>
+    </div>
+  </header>
+
+  <div id="dt-tt"></div>
+  <div class="kt-ct-cot" id="dt-than" hidden>
+    <section class="kd-kpi-row kt-kpi-row--4" aria-label="Tổng hợp công nợ" id="dt-kpi"></section>
+    <div class="kd-detail">
+      <div class="kt-ct-cot">
+        <section class="kd-card" aria-labelledby="dt-h-so">
+          <div class="kd-box__head kt-the-dau kt-nh-dau">
+            <div><h2 class="kd-box__title" id="dt-h-so">Sổ chi tiết công nợ</h2><p class="kd-meta" id="dt-so-gy"></p></div>
+            <div class="kd-daterange kt-khoang" role="group" aria-label="Kỳ xem sổ">
+              <i class="bi bi-calendar3" aria-hidden="true"></i>
+              <input type="date" id="dt-tu" aria-label="Từ ngày" disabled><span aria-hidden="true">–</span><input type="date" id="dt-den" aria-label="Đến ngày" disabled>
+            </div>
+          </div>
+          <div class="kd-table-scroll kd-table-scroll--thanh" id="dt-so-cuon" hidden>
+            <table class="kd-table kt-bang"><caption class="visually-hidden">Sổ chi tiết công nợ theo đối tượng</caption>
+              <thead><tr><th scope="col">Ngày</th><th scope="col">Chứng từ</th><th scope="col">Diễn giải</th><th scope="col" class="num">Phát sinh Nợ</th><th scope="col" class="num">Phát sinh Có</th><th scope="col" class="num" id="dt-cot-du">Số dư</th></tr></thead>
+              <tbody id="dt-so"></tbody><tfoot id="dt-so-cong"></tfoot></table>
+          </div>
+          <div id="dt-so-tt"></div>
+        </section>
+        <section class="kd-card" aria-labelledby="dt-h-hd">
+          <div class="kd-box__head kt-the-dau"><h2 class="kd-box__title" id="dt-h-hd">Hoá đơn còn nợ</h2><p class="kd-meta" id="dt-hd-gy"></p></div>
+          <div class="kd-table-scroll kd-table-scroll--thanh" id="dt-hd-cuon">
+            <table class="kd-table kt-bang"><caption class="visually-hidden">Hoá đơn còn nợ của đối tượng</caption>
+              <thead><tr><th scope="col">Số hoá đơn</th><th scope="col">Ngày</th><th scope="col">Hạn thanh toán</th><th scope="col" class="num">Giá trị</th><th scope="col" class="num" id="dt-cot-da">Đã thu</th><th scope="col" class="num">Còn lại</th><th scope="col">Tình trạng</th></tr></thead>
+              <tbody id="dt-hd"></tbody><tfoot id="dt-hd-cong"></tfoot></table>
+          </div>
+          <div id="dt-hd-tt"></div>
+        </section>
+      </div>
+      <aside class="kd-side">
+        <section class="kd-box" aria-labelledby="dt-h-tt"><div class="kd-box__head"><h2 class="kd-box__title" id="dt-h-tt">Thông tin</h2></div><dl class="kd-kv kd-kv--2" id="dt-kv"></dl></section>
+        <section class="kd-box" aria-labelledby="dt-h-ls"><div class="kd-box__head"><h2 class="kd-box__title" id="dt-h-ls">Lần thanh toán gần nhất</h2></div><div id="dt-ls"></div></section>
+        <section class="kd-box" aria-labelledby="dt-h-lq"><div class="kd-box__head"><h2 class="kd-box__title" id="dt-h-lq">Liên quan</h2></div><ul class="kd-related" id="dt-lq"></ul></section>
+      </aside>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-ghi-nhan-tra.js?v=r4a"></script>
+<script src="/static/js/kt-doi-tuong.js?v=r4c"></script>
+{% endblock %}

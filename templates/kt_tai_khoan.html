@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{# ─────────────────────────────────────────────────────────────────────────────
+   Danh mục tài khoản (chart of accounts) — đợt 2.
+   ĐỌC THẬT: GET /api/journal/can-doi-phat-sinh (mã, tên, tính chất, số dòng đã phát sinh, cấp +
+   TK cha — TK con của tài khoản tiền hiện thụt dưới 111/112; chưa có đối tượng/trạng thái/ghi chú qua API).
+   GHI (thêm/sửa/xoá/ngừng dùng): backend CHƯA CÓ bảng danh mục tài khoản đầy đủ — kt-tai-khoan.js
+   gọi tới /api/danh-muc-tai-khoan (ĐỀ XUẤT, chưa tồn tại) nên các thao tác này sẽ báo lỗi thật
+   (không giả vờ thành công) cho tới khi backend bổ sung. Xem báo cáo bàn giao của phiên dựng màn này.
+   KHÔNG dùng /api/tai-khoan — path đó là API tài khoản NGÂN HÀNG/tiền mặt thật trong app này
+   (app/routers/tai_khoan_nh.py, mounted prefix "/api/tai-khoan"), đụng path nếu tái dùng.
+   ───────────────────────────────────────────────────────────────────────────── #}
+{% block title %}Danh mục tài khoản{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-tai-khoan.css?v=g4a">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-tai-khoan">
+  <header class="kd-head">
+    <div class="kd-head__title">
+      <h1 class="kd-h1">Danh mục tài khoản</h1>
+      <p class="kd-sub">Theo Thông tư 99/2025/TT-BTC <button type="button" class="kd-tip" data-tip="Danh sách đọc từ hệ thống tài khoản đang dùng. Thêm / Sửa / Xoá / Ngừng dùng chưa lưu được cho tới khi hệ thống bổ sung bảng danh mục tài khoản đầy đủ." aria-label="Danh sách đọc từ hệ thống tài khoản đang dùng. Thêm / Sửa / Xoá / Ngừng dùng chưa lưu được cho tới khi hệ thống bổ sung bảng danh mục tài khoản đầy đủ."><i class="bi bi-info-circle" aria-hidden="true"></i></button></p>
+    </div>
+    <div class="kd-head__tools">
+      <label class="kd-search kt-search">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" id="tk-tim" placeholder="Số hiệu hoặc tên tài khoản…" aria-label="Tìm tài khoản" autocomplete="off">
+      </label>
+      <button type="button" class="kd-btn kd-btn--primary" id="tk-them"><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm tài khoản</button>
+    </div>
+  </header>
+
+  <section class="kd-card" aria-labelledby="tk-td">
+    <h2 class="visually-hidden" id="tk-td">Danh sách tài khoản</h2>
+    <div class="kd-tabs" role="tablist" aria-label="Lọc theo loại tài khoản" id="tk-loai">
+      {% for k, ten in [('', 'Tất cả'), ('1', 'Loại 1 · TS ngắn hạn'), ('2', 'Loại 2 · TS dài hạn'), ('3', 'Loại 3 · Nợ phải trả'), ('4', 'Loại 4 · Vốn CSH'), ('5', 'Loại 5 · Doanh thu'), ('6', 'Loại 6 · Chi phí SXKD'), ('7', 'Loại 7 · Thu nhập khác'), ('8', 'Loại 8 · Chi phí khác'), ('9', 'Loại 9 · Xác định KQKD')] %}
+      <button type="button" role="tab" data-loai="{{ k }}" aria-selected="{{ 'true' if loop.first else 'false' }}" aria-controls="tk-bang-vung"{% if not loop.first %} tabindex="-1"{% endif %}>{{ ten }} <span class="kd-muted" data-dem="{{ k }}"></span></button>
+      {% endfor %}
+    </div>
+    <form class="kd-filter" id="tk-loc" role="search" novalidate>
+      <label class="kd-field">
+        <span class="kd-field__label">Trạng thái</span>
+        <select class="kd-input" id="tk-tt">
+          <option value="dang_dung">Đang dùng</option>
+          <option value="ngung">Ngừng dùng</option>
+          <option value="tat_ca">Tất cả</option>
+        </select>
+      </label>
+      <label class="kd-field">
+        <span class="kd-field__label">Tính chất số dư</span>
+        <select class="kd-input" id="tk-tc">
+          <option value="">Tất cả</option>
+          <option value="no">Dư Nợ</option>
+          <option value="co">Dư Có</option>
+          <option value="luong_tinh">Lưỡng tính</option>
+        </select>
+      </label>
+      <button type="button" class="kd-link" id="tk-dat-lai">Đặt lại bộ lọc</button>
+    </form>
+
+    <div class="kd-table-scroll kd-table-scroll--thanh" id="tk-bang-vung" role="tabpanel">
+      <table class="kd-table kd-table--click kt-bang kt-tk-bang">
+        <thead><tr>
+          <th scope="col">Số hiệu</th>
+          <th scope="col">Tên tài khoản</th>
+          <th scope="col">Tính chất</th>
+          <th scope="col" title="Đã có bút toán hoặc số dư — không xoá được, chỉ ngừng dùng">Đã phát sinh</th>
+          <th scope="col">Trạng thái</th>
+          <th scope="col" class="kd-col-act">Thao tác</th>
+        </tr></thead>
+        <tbody id="tk-tbody"></tbody>
+      </table>
+    </div>
+    <div id="tk-tt-khoi"></div>
+    <footer class="kd-card__foot" id="tk-foot" hidden>
+      <span><span id="tk-hien-thi" aria-live="polite"></span><button type="button" class="kd-tip" data-tip="Bấm một dòng để sửa · menu ⋯ để ngừng dùng hoặc xoá." aria-label="Bấm một dòng để sửa · menu ⋯ để ngừng dùng hoặc xoá."><i class="bi bi-info-circle" aria-hidden="true"></i></button></span>
+    </footer>
+  </section>
+</main>
+
+<dialog class="kd-dialog" id="tk-dlg" aria-labelledby="tk-dlg-td">
+  <form method="dialog" novalidate id="tk-form">
+    <header class="kd-dialog__head">
+      <h2 class="kd-dialog__title" id="tk-dlg-td">Thêm tài khoản</h2>
+      <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div class="kd-dialog__body">
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="tk-f-cha">Tài khoản cấp trên</label>
+          <select class="kd-input" id="tk-f-cha"><option value="">Không — tài khoản cấp 1</option></select>
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="tk-f-ma">Số hiệu <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input num" id="tk-f-ma" inputmode="numeric" maxlength="6" placeholder="VD: 1388" aria-describedby="tk-f-ma-loi" autocomplete="off">
+          <p class="kd-form-err" id="tk-f-ma-loi" role="alert" hidden></p>
+        </div>
+      </div>
+      <div class="kd-field">
+        <label class="kd-field__label" for="tk-f-ten">Tên tài khoản <span class="kd-field__req" aria-hidden="true">*</span></label>
+        <input class="kd-input" id="tk-f-ten" maxlength="150" placeholder="VD: Phải thu tiền đặt cọc showroom" aria-describedby="tk-f-ten-loi" autocomplete="off">
+        <p class="kd-form-err" id="tk-f-ten-loi" role="alert" hidden></p>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="tk-f-tc">Tính chất số dư</label>
+          <select class="kd-input" id="tk-f-tc">
+            <option value="no">Dư Nợ</option><option value="co">Dư Có</option><option value="luong_tinh">Lưỡng tính</option>
+          </select>
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="tk-f-dt">Theo dõi chi tiết theo</label>
+          <select class="kd-input" id="tk-f-dt">
+            <option value="">Không theo dõi</option><option value="kh">Khách hàng</option><option value="ncc">Nhà cung cấp</option><option value="nv">Nhân viên</option>
+          </select>
+        </div>
+      </div>
+      <div class="kd-field">
+        <label class="kd-field__label" for="tk-f-gc">Ghi chú</label>
+        <textarea class="kd-input kd-textarea" id="tk-f-gc" maxlength="500" placeholder="VD: Dùng cho tiền khách đặt cọc giữ hàng tại showroom"></textarea>
+      </div>
+      <p class="kd-note" id="tk-f-meo" hidden></p>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="submit" class="kd-btn kd-btn--primary" id="tk-f-luu"><i class="bi bi-check2" aria-hidden="true"></i>Thêm tài khoản</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="tk-dlg-xoa" role="alertdialog" aria-labelledby="tk-xoa-td" aria-describedby="tk-xoa-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="tk-xoa-td">Xoá tài khoản?</h2></header>
+    <div class="kd-dialog__body">
+      <p id="tk-xoa-nd"></p>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Giữ lại</button>
+      <button type="button" class="kd-btn kd-btn--danger" id="tk-xoa-ok"><i class="bi bi-trash" aria-hidden="true"></i>Xoá tài khoản</button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-tai-khoan.js?v=tk0928b"></script>
+{% endblock %}

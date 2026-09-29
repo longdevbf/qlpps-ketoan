@@ -28,9 +28,7 @@
    ═══════════════════════════════════════════════════════════════════════════ #}
 {# Phá cache trình duyệt khi sửa CSS — repo không có build step nên phải thủ công.
    KHÔNG thêm vào shared/templates.py: file đó dùng chung cho cả 6 app. #}
-{# Nâng 4 → 20260825 (25/08/2026): theme.css có token mới --bg-app, mà static
-   phục vụ với `cache-control: immutable` nên không đổi URL là client không thấy. #}
-{% set ASSET_V = '20260825' %}
+{% set ASSET_V = 'xanh2' %}
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -38,7 +36,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{% block title %}{{ page_title|default('Kế Toán') }}{% endblock %} — PAPASAN Kế Toán</title>
 <link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
+{# Chuyển trang mượt (Chrome/Edge 126+): at-rule @view-transition phải nằm trong <head> — đặt trong <body> (_header.html)
+   làm trình duyệt huỷ hiệu ứng và báo InvalidStateError mỗi lần chuyển trang. #}
+<style>@view-transition{navigation:auto}</style>
 <link rel="shortcut icon" href="/static/papasan.ico">
+{# Bootstrap Icons (bi bi-*) — vendored from qlpps-baogia, dùng bởi bộ giao diện kế toán mới (kt-*).
+   Nạp ở đây (thay vì mỗi trang tự CDN) vì mọi màn kt_*.html đều cần. #}
+<link rel="stylesheet" href="/static/css/bootstrap-icons.css?v=1">
 
 {# THỨ TỰ NÀY LÀ BẮT BUỘC. CSS cùng độ đặc hiệu thì file nạp SAU thắng:
      theme.css      → token màu. ⚠️ Từ 08/08/2026 đây là BẢN THỬ RIÊNG của
@@ -48,7 +52,7 @@
      components.css → nút, ô nhập, thẻ, bảng, modal, toast
      page_css       → CSS riêng của trang, phải ghi đè được cả ba ở trên
    Đặt ngược thứ tự thì mọi ghi đè riêng của trang im lặng mất tác dụng. #}
-<link rel="stylesheet" href="/static/css/theme.css?v=cam6 ASSET_V }}">
+<link rel="stylesheet" href="/static/css/theme.css?v={{ ASSET_V }}">
 <link rel="stylesheet" href="/static/css/base.css?v={{ ASSET_V }}">
 <link rel="stylesheet" href="/static/css/components.css?v={{ ASSET_V }}">
 {% block page_css %}{% endblock %}

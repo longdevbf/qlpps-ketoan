@@ -1,0 +1,59 @@
+/* kt-cai-dat.css — riêng trang Cài đặt Kế toán. Tiền tố kt-cd. Chỉ var(--token). */
+.kt-cd-the > .kd-box__head { margin: 0; padding: var(--sp-8) var(--sp-8) var(--sp-6); }
+.kt-cd-luoi { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-6) var(--sp-7); padding: 0 var(--sp-8) var(--sp-8); }
+@media (min-width: 768px) { .kt-cd-luoi { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .kt-cd-luoi { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.kt-cd-luoi .kt-cd-rong { grid-column: 1 / -1; }
+.kt-cd-luoi > .kd-field { align-content: start; }
+.kt-cd-luoi .kd-meta { margin: var(--sp-2) 0 0; }
+.kt-cd-the + .kt-cd-the { margin-top: var(--sp-9); }
+.kt-cd-the .kd-note { margin: 0 var(--sp-8) var(--sp-8); }
+
+/* Bảng danh số / phân quyền: ô nhập gọn trong ô bảng; ô tích căn giữa. */
+.kt-cd-bang td { vertical-align: middle; }
+.kt-cd-bang .kd-input { min-width: 0; }
+.kt-cd-bang .kt-cd-o-to { width: 120px; }
+.kt-cd-bang .kt-cd-o-dai { width: 150px; }
+.kt-cd-bang .kt-cd-o-lai { width: 180px; }
+.kt-cd-bang th.kt-cd-giua, .kt-cd-bang td.kt-cd-giua { text-align: center; }
+.kt-cd-bang td.kt-cd-giua input { width: 16px; height: 16px; margin: 0; accent-color: var(--brand); cursor: pointer; }
+.kt-cd-nguoi { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.kt-cd-nguoi .kd-chip { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.kt-cd-nguoi .kd-chip button { display: inline-grid; place-items: center; padding: 0; border: 0; background: transparent; color: var(--text-3); cursor: pointer; font-size: var(--fs-meta); }
+.kt-cd-nguoi .kd-chip button:hover { color: var(--danger); }
+.kt-cd-nguoi select { width: auto; min-width: 150px; }
+
+/* Nhãn tab có thay đổi chưa lưu: chấm brand + chữ ẩn cho trình đọc màn hình. */
+.kt-cd-cham { display: inline-block; width: 6px; height: 6px; margin-left: var(--sp-3); border-radius: 50%; background: var(--brand); vertical-align: middle; }
+.kt-cd-tt { margin: 0; font-size: var(--fs-body); color: var(--text-2); }
+/* Số dư đầu kỳ: ô số trong bảng */
+.kt-cd-bang .kt-sd-so { width: 160px; text-align: right; font-variant-numeric: tabular-nums; }
+.kt-cd-bang tr.is-sua td { background: var(--brand-soft); }
+
+/* Duyệt chi (chỉ đọc): các cấp duyệt dạng bước đánh số. */
+.kt-cd-luong { list-style: none; margin: 0; padding: 0 var(--sp-8) var(--sp-6); display: grid; gap: var(--sp-6); }
+@media (min-width: 1024px) { .kt-cd-luong { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.kt-cd-buoc { display: flex; gap: var(--sp-5); align-items: flex-start; padding: var(--sp-6); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-page); }
+.kt-cd-so { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); font-weight: 600; font-size: var(--fs-meta); }
+.kt-cd-buoc__ten { margin: 0 0 var(--sp-2); font-weight: 600; color: var(--text-1); }
+.kt-cd-buoc .kd-meta { margin: 0; }
+.kt-cd-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
+.kt-cd-luoi .kd-field__label { margin: 0; }
+
+/* Phân quyền (chỉ đọc) */
+.kt-cd-pq th[scope="row"] { min-width: 180px; white-space: normal; vertical-align: top; }
+.kt-cd-pq td { vertical-align: top; }
+.kt-cd-pq td .kt-cd-chips { margin-top: 0; max-width: 360px; }
+.kt-cd-quyen { margin: 0; padding-left: 1.1em; display: grid; gap: var(--sp-2); min-width: 280px; }
+.kt-cd-the > .kd-table-scroll { margin: 0 var(--sp-8) var(--sp-6); }
+.kd-stickybar .kt-cd-tt { min-width: 0; }
+
+/* Điện thoại: tiêu đề thẻ + câu mô tả xếp dọc (trước bị ép 1 hàng → "Đơn vị kế / toán" gãy từng chữ). */
+@media (max-width: 767px) {
+  .kt-cd-the > .kd-box__head { flex-direction: column; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-7) var(--sp-6) var(--sp-5); }
+  .kt-cd-the > .kd-box__head .kd-box__title { white-space: normal; }
+  .kt-cd-luoi { padding: 0 var(--sp-6) var(--sp-7); }
+  .kt-cd-luong { padding: 0 var(--sp-6) var(--sp-5); }
+  .kt-cd-the .kd-note { margin: 0 var(--sp-6) var(--sp-7); }
+  .kt-cd-the > .kd-table-scroll { margin: 0 var(--sp-6) var(--sp-5); }
+}

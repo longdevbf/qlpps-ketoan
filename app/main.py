@@ -30,6 +30,7 @@ import os
 
 import sentry_sdk
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 try:
@@ -105,6 +106,9 @@ import baogia.app.models  # noqa: F401
 import ketoan.app.models  # noqa: F401
 from shared.routers.xin_nghi import router as xin_nghi_router
 from shared.routers.duyet_chi import router as duyet_chi_router
+from shared.routers.de_xuat import router as de_xuat_router
+from shared.routers.tai_lieu import router as tai_lieu_router
+from shared.routers.thu_vien import router as thu_vien_router
 from shared.routers.giao_viec import router as giao_viec_router
 from shared.routers.calendar import router as calendar_router
 from hcns.app.routers.cham_cong import router as cham_cong_router
@@ -163,6 +167,18 @@ from .routers import (
     ncc_de_xuat,
     # SePay webhook — thu tiền auto qua QR CK
     sepay,
+    # Giao diện Kế toán mới (2026-09-25) — 9 batch, 42 màn, prefix /ketoan
+    ui_ketoan_dot1, ui_ketoan_dot2, ui_ketoan_dot3a, ui_ketoan_dot3b,
+    ui_ketoan_dot4, ui_ketoan_dot5, ui_ketoan_dot6, ui_ketoan_dot7, ui_ketoan_dot8,
+    # Đơn vị (letterhead) + Cài đặt Kế toán — backend thật cho /ketoan/in và
+    # /ketoan/cai-dat, trước đó 2 màn này chưa có backend (anh Quang 2026-09-25)
+    don_vi, cai_dat,
+    # Bảng mã NV → họ tên cho lớp hiển thị dùng chung (anh Quang 2026-09-25: hiện tên, không hiện mã)
+    nhan_vien_ten,
+    # Tạm ứng (TK 141) + Số dư đầu kỳ theo hệ thống TK (GL) — backend thật 2026-09-25
+    tam_ung, so_du_dau_ky_gl,
+    # Thuế GTGT / TNCN / TNDN + Chi phí chờ phân bổ (TK 242) — backend thật 2026-09-25
+    thue, phan_bo,
 )
 
 
@@ -219,6 +235,90 @@ async def lifespan(app: FastAPI):
     except Exception as _e:
         import logging
         logging.getLogger(__name__).warning("auto-migrate congno.kt_duyet failed: %s", _e)
+
+    # anh Quang 2026-09-25: bảng "Cài đặt Kế toán" (đơn vị letterhead + chính
+    # sách/đánh số) — trước đây 2 màn /ketoan/in và /ketoan/cai-dat không có
+    # backend thật. create_all() KHÔNG tạo bảng mới cho model đã tồn tại từ
+    # trước lần chạy này (đã tạo tay qua psql lúc build) nên vẫn giữ y hệt DDL
+    # đó ở đây — idempotent, để môi trường mới (fresh DB) cũng tự có bảng.
+    try:
+        from sqlalchemy import text as _sa_text
+        from shared.db import engine as _engine
+        with _engine.begin() as _c:
+            _c.execute(_sa_text(
+                "CREATE TABLE IF NOT EXISTS ketoan.don_vi ("
+                " id SMALLINT PRIMARY KEY DEFAULT 1,"
+                " ten VARCHAR(200) NOT NULL DEFAULT '',"
+                " ten_ngan VARCHAR(40), mst VARCHAR(14), dien_thoai VARCHAR(20),"
+                " dia_chi VARCHAR(240), email VARCHAR(120),"
+                " giam_doc VARCHAR(80), ke_toan_truong VARCHAR(80), thu_quy VARCHAR(80),"
+                " updated_by VARCHAR(64), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+                " CONSTRAINT don_vi_singleton_ck CHECK (id = 1)"
+                ")"
+            ))
+            _c.execute(_sa_text(
+                "CREATE TABLE IF NOT EXISTS ketoan.cai_dat_he_thong ("
+                " id SMALLINT PRIMARY KEY DEFAULT 1,"
+                " che_do VARCHAR(20) NOT NULL DEFAULT 'tt99',"
+                " nam_tc_bat_dau VARCHAR(2) NOT NULL DEFAULT '01',"
+                " tien_te VARCHAR(10) NOT NULL DEFAULT 'VND',"
+                " ngay_bat_dau_dung DATE,"
+                " gia_xuat_kho VARCHAR(30) NOT NULL DEFAULT 'binh_quan_cuoi_ky',"
+                " khau_hao VARCHAR(30) NOT NULL DEFAULT 'duong_thang',"
+                " ky_ke_khai_thue VARCHAR(10) NOT NULL DEFAULT 'quy',"
+                " danh_so JSONB NOT NULL DEFAULT '[]',"
+                " updated_by VARCHAR(64), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),"
+                " CONSTRAINT cai_dat_he_thong_singleton_ck CHECK (id = 1)"
+                ")"
+            ))
+            _c.execute(_sa_text(
+                "INSERT INTO ketoan.don_vi (id, ten, mst, dien_thoai, dia_chi, giam_doc) "
+                "VALUES (1, 'CÔNG TY TNHH PAPASAN VIỆT NAM', '0108512878', '0987 379 717', "
+                "'Số 14 ngõ 14 phố Sài Đồng, Phường Long Biên, TP. Hà Nội, Việt Nam', "
+                "'Nguyễn Duy Quang') ON CONFLICT (id) DO NOTHING"
+            ))
+            # dùng bind param cho JSON literal — text() coi ":do_dai" là bind
+            # param nên KHÔNG được nhúng chuỗi JSON thô chứa ":digit" (đã ăn
+            # lỗi "A value is required for bind parameter '4'" lúc build).
+            import json as _json
+            _danh_so_seed = _json.dumps([
+                {"ma": "phieu_thu", "ten": "Phiếu thu", "tien_to": "PT", "do_dai": 4, "lam_lai": "nam"},
+                {"ma": "phieu_chi", "ten": "Phiếu chi", "tien_to": "PC", "do_dai": 4, "lam_lai": "nam"},
+                {"ma": "but_toan_tay", "ten": "Bút toán kế toán", "tien_to": "BT", "do_dai": 4, "lam_lai": "nam"},
+                {"ma": "xuat_kho", "ten": "Xuất kho", "tien_to": "XK", "do_dai": 4, "lam_lai": "nam"},
+                {"ma": "khau_hao", "ten": "Khấu hao TSCĐ", "tien_to": "KH", "do_dai": 4, "lam_lai": "nam"},
+                {"ma": "ket_chuyen", "ten": "Kết chuyển", "tien_to": "KC", "do_dai": 4, "lam_lai": "nam"},
+                {"ma": "bu_tru", "ten": "Bù trừ công nợ", "tien_to": "BTCN", "do_dai": 4, "lam_lai": "nam"},
+            ], ensure_ascii=False)
+            _c.execute(
+                _sa_text(
+                    "INSERT INTO ketoan.cai_dat_he_thong (id, danh_so) "
+                    "VALUES (1, CAST(:danh_so AS jsonb)) ON CONFLICT (id) DO NOTHING"
+                ),
+                {"danh_so": _danh_so_seed},
+            )
+    except Exception as _e:
+        import logging
+        logging.getLogger(__name__).warning("auto-migrate cai_dat_he_thong/don_vi failed: %s", _e)
+    # Bảng tạm ứng + quyết toán + số dư đầu kỳ theo đối tượng (DDL idempotent).
+    try:
+        from shared.db import engine as _engine_tu
+        from .services.tam_ung_schema import ensure_schema as _ensure_tam_ung
+        _ensure_tam_ung(_engine_tu)
+        from .services.thue_phan_bo_schema import dam_bao_bang as _ensure_thue_phan_bo
+        _ensure_thue_phan_bo(_engine_tu)
+        # Ứng lương nhiều khoản cùng kỳ: chỉ mục UNIQUE chỉ chặn trùng khoá nối lương PAYROLL-… (2026-09-28)
+        from .services.chi_phi_schema import dam_bao_chi_muc_ky_luong as _ensure_chi_phi
+        _ensure_chi_phi(_engine_tu)
+        # Hàm SQL ketoan.bo_dau() cho ô tìm kiếm không dấu / không phân biệt hoa thường (2026-09-28)
+        from .services.tim_kiem_schema import dam_bao_ham_bo_dau as _ensure_bo_dau
+        _ensure_bo_dau(_engine_tu)
+        # TK kế toán con cho từng tài khoản tiền (1111, 1121…) + cấp mã cho tài khoản chưa có (2026-09-28)
+        from .services.tai_khoan_tien import dam_bao_cot_tk_ke_toan as _ensure_tk_ke_toan
+        _ensure_tk_ke_toan(_engine_tu)
+    except Exception as _e:
+        import logging
+        logging.getLogger(__name__).warning("auto-migrate tam_ung/thue/phan_bo failed: %s", _e)
     yield
 
 
@@ -226,6 +326,11 @@ app = FastAPI(
     title="QLPPS Kế Toán",
     version="0.1.0",
     lifespan=lifespan,
+    # TẮT Swagger/OpenAPI ở prod — tránh phơi toàn bộ sơ đồ API (mọi endpoint, field
+    # nội bộ) cho kẻ chưa đăng nhập. (anh Quang 2026-08-31)
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 
@@ -238,8 +343,40 @@ install_sliding_session(app)
 
 # Static files (CSS/JS/fonts/icon)
 _STATIC_DIR = _BASE_DIR / "static"
+# Dev: agent/dev sửa CSS-JS liên tục, có khi quên đổi v → chỉ cache ngắn để không kẹt bản cũ.
+_STATIC_CACHE_VERSIONED = (
+    "public, max-age=31536000, immutable" if settings.is_prod else "public, max-age=30"
+)
+_STATIC_CACHE_DEFAULT = "no-cache"
+
+
+class _VersionedStaticFiles(StaticFiles):
+    """File có `?v=...` là bất biến (đổi nội dung thì đổi v) → cache 1 năm, chuyển trang
+    không phải hỏi lại server từng file CSS/JS. File không có v → no-cache (luôn kiểm ETag)."""
+
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        if resp.status_code == 200:
+            versioned = b"v=" in scope.get("query_string", b"")
+            resp.headers["Cache-Control"] = _STATIC_CACHE_VERSIONED if versioned else _STATIC_CACHE_DEFAULT
+        return resp
+
+
 if _STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+    app.mount("/static", _VersionedStaticFiles(directory=str(_STATIC_DIR)), name="static")
+
+
+# templates/index.html:10 tro toi /manifest.webmanifest tu truoc, nhung ketoan
+# chua bao gio co route nay -> production tra 404, nen "them vao man hinh chinh"
+# tren iOS khong bao gio chay. File da co san la static/manifest.json; chi thieu
+# dia chi va dung media_type. Doi ten file se lam hong cac tham chieu cu, nen
+# phuc vu no duoi ca hai ten. (khoi phuc sau khi merge 01/09 lo tay xoa mat.)
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def _manifest():
+    return FileResponse(
+        str(_STATIC_DIR / "manifest.json"),
+        media_type="application/manifest+json",
+    )
 
 # HTML pages
 app.include_router(pages.router, tags=["pages"])
@@ -251,6 +388,17 @@ app.include_router(coc_bo_sung.router, tags=["coc_bo_sung"])
 app.include_router(bao_cao_duyet_chi.router, tags=["bao_cao_duyet_chi"])
 app.include_router(de_nghi_tt.router, tags=["de_nghi_tt"])
 app.include_router(ncc_de_xuat.router, tags=["ncc_de_xuat"])
+
+# Giao diện Kế toán mới (2026-09-25) — 9 batch, 42 màn, tất cả tại prefix /ketoan
+app.include_router(ui_ketoan_dot1.router, tags=["ui_ketoan"])
+app.include_router(ui_ketoan_dot2.router, tags=["ui_ketoan"])
+app.include_router(ui_ketoan_dot3a.router, tags=["ui_ketoan"])
+app.include_router(ui_ketoan_dot3b.router, tags=["ui_ketoan"])
+app.include_router(ui_ketoan_dot4.router, tags=["ui_ketoan"])
+app.include_router(ui_ketoan_dot5.router, tags=["ui_ketoan"])
+app.include_router(ui_ketoan_dot6.router, tags=["ui_ketoan"])
+app.include_router(ui_ketoan_dot7.router, tags=["ui_ketoan"])
+app.include_router(ui_ketoan_dot8.router, tags=["ui_ketoan"])
 
 # API routers
 app.include_router(doanh_thu.router, prefix="/api/doanh-thu", tags=["doanh_thu"])
@@ -355,6 +503,9 @@ app.include_router(product_files_router, tags=["product_files"])
 app.include_router(xin_nghi_router, prefix="/api/xin-nghi", tags=["xin-nghi"])
 # Duyệt Chi — cross-app expense request system
 app.include_router(duyet_chi_router, prefix="/api/duyet-chi", tags=["duyet-chi"])
+app.include_router(de_xuat_router, prefix="/api/de-xuat", tags=["de-xuat"])
+app.include_router(tai_lieu_router, prefix="/api/tai-lieu", tags=["tai-lieu"])  # van ban cong ty dung chung 8 app (12/09/2026)
+app.include_router(thu_vien_router, prefix="/api/thu-vien", tags=["thu-vien"])  # thu vien dao tao dung chung 8 app (12/09/2026)
 # Giao Việc — cross-app
 app.include_router(giao_viec_router, prefix="/api/giao-viec", tags=["giao-viec"])
 # Lịch Làm Việc — cross-app calendar
@@ -367,11 +518,20 @@ app.include_router(ip_config_router_hcns, prefix="/api/ip-config",    tags=["ip_
 app.include_router(bao_cao_cong_router,   prefix="/api/bao-cao-cong", tags=["bao_cao_cong"])
 app.include_router(profile_avatar_router, prefix="/api/profile",      tags=["profile"])
 app.include_router(chat_router,           prefix="/api/chat",          tags=["chat"])
+# Đơn vị (letterhead in chứng từ) + Cài đặt Kế toán — path đầy đủ tự khai báo
+# trong router (giống uploads.router) (anh Quang 2026-09-25)
+app.include_router(don_vi.router, tags=["don_vi"])
+app.include_router(nhan_vien_ten.router, tags=["nhan_vien"])
+app.include_router(tam_ung.router, tags=["tam_ung"])
+app.include_router(so_du_dau_ky_gl.router, tags=["so_du_dau_ky_gl"])
+app.include_router(thue.router, tags=["thue"])
+app.include_router(phan_bo.router, tags=["phan_bo"])
+app.include_router(cai_dat.router, tags=["cai_dat"])
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "ketoan", "env": settings.app_env}
+    return {"status": "ok"}  # KHÔNG lộ service/env cho endpoint public (2026-08-31)
 
 
 

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Tài sản cố định + khấu hao — L3.
+   Dữ liệu thật: app/routers/tai_san.py — GET /api/tai-san (mảng phẳng, không phân trang — lọc ở trình duyệt để thẻ số
+   luôn tính trên mọi TSCĐ đang dùng, giống /api/tai-san/summary của màn cũ /app#tscd) · GET /api/tai-san/{id}
+   · GET|POST /api/tai-san/khau-hao/{thang} · DELETE /api/tai-san/{id} (chỉ khi chưa khấu hao).
+   "Nhóm tài sản" là chữ tự do → ô lọc nạp từ chính dữ liệu. "Đã khấu hao hết" suy ra ở trình duyệt. #}
+{% block title %}Tài sản cố định{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-tscd.css?v=g4">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page kt-l3-rong" id="kd-kt-tscd" data-vai-tro-goc="{{ ((user.role if user else '') or '')|lower }}">
+  {% call ui.dau_trang('Tài sản cố định', 'Nguyên giá, khấu hao, giá trị còn lại') %}
+    {{ ui.nut_loc('ts') }}
+    <button type="button" class="kd-btn" id="ts-trich"><i class="bi bi-calculator" aria-hidden="true"></i><span id="ts-trich-chu">Trích khấu hao tháng</span></button>
+    <a class="kd-btn kd-btn--primary" href="/ketoan/tscd/phieu"><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm tài sản</a>
+  {% endcall %}
+
+  {{ ui.the_so('ts', [('nguyen_gia', 'Tổng nguyên giá', '', 'bi-building'), ('hao_mon', 'Hao mòn luỹ kế', 'tim', 'bi-graph-down-arrow'),
+                       ('con_lai', 'Giá trị còn lại', 'success', 'bi-box-seam'), ('kh_thang', 'Khấu hao mỗi tháng', 'warning', 'bi-calendar3')]) }}
+
+  {% call ui.the_bang('ts', 'Danh sách tài sản cố định', panel='Chi tiết tài sản') %}
+    {{ ui.o_tim('ts', 'tim', 'Tìm tài sản', 'Mã, tên tài sản, nhà cung cấp…') }}
+    {{ ui.o_chon('ts', 'loai', 'Loại', [('', 'Tất cả'), ('huu_hinh', 'Hữu hình'), ('vo_hinh', 'Vô hình')]) }}
+    {{ ui.o_chon('ts', 'nhom', 'Nhóm tài sản', [('', 'Tất cả')]) }}
+    {{ ui.o_chon('ts', 'bo_phan', 'Bộ phận', [('', 'Tất cả'), ('ban_hang', 'Bán hàng'), ('quan_ly', 'Quản lý'), ('tai_chinh', 'Tài chính'), ('khac', 'Khác')]) }}
+    {{ ui.o_chon('ts', 'trang_thai', 'Trạng thái', [('', 'Tất cả'), ('dang_su_dung', 'Đang sử dụng'), ('dang_khau_hao', 'Đang khấu hao'), ('het_khau_hao', 'Đã khấu hao hết'), ('hong', 'Hỏng / ngừng dùng'), ('da_thanh_ly', 'Đã thanh lý')]) }}
+  {% endcall %}
+
+  <section class="kd-card kt-ts-kh" aria-labelledby="ts-kh-h">
+    <div class="kd-box__head kt-the-dau kt-ts-kh__dau">
+      <div>
+        <h2 class="kd-box__title" id="ts-kh-h">Khấu hao theo tháng</h2>
+        <p class="kd-meta" id="ts-kh-tong"></p>
+      </div>
+      <label class="kd-field kt-ts-kh__thang">
+        <span class="kd-field__label">Tháng</span>
+        <input class="kd-input" type="month" id="ts-kh-thang">
+      </label>
+    </div>
+    <div class="kd-table-scroll kd-table-scroll--thanh" id="ts-kh-cuon">
+      <table class="kd-table kt-bang"><caption class="visually-hidden">Bút toán khấu hao theo tháng</caption>
+        <thead><tr><th scope="col">Tài sản</th><th scope="col" class="num">Khấu hao</th><th scope="col" class="num">Hao mòn luỹ kế</th><th scope="col">Bút toán</th></tr></thead>
+        <tbody id="ts-kh-tbody"></tbody><tfoot id="ts-kh-tfoot"></tfoot></table>
+    </div>
+    <div id="ts-kh-tt"></div>
+  </section>
+</main>
+
+<dialog class="kd-dialog" id="ts-dlg-xoa" role="alertdialog" aria-labelledby="ts-xoa-td" aria-describedby="ts-xoa-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="ts-xoa-td">Xoá tài sản?</h2></header>
+    <div class="kd-dialog__body"><p id="ts-xoa-nd"></p><p class="kd-form-err" role="alert" hidden></p></div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="button" class="kd-btn kd-btn--danger" id="ts-xoa-ok"><i class="bi bi-trash" aria-hidden="true"></i>Xoá tài sản</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="ts-dlg" role="alertdialog" aria-labelledby="ts-dlg-td" aria-describedby="ts-dlg-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="ts-dlg-td">Trích khấu hao tháng?</h2></header>
+    <div class="kd-dialog__body">
+      <label class="kd-field kt-ts-kh__thang">
+        <span class="kd-field__label">Tháng trích khấu hao</span>
+        <input class="kd-input" type="month" id="ts-dlg-thang">
+      </label>
+      <p id="ts-dlg-nd"></p>
+      <table class="kt-dk"><thead><tr><th scope="col">Tài khoản</th><th scope="col" class="num">Nợ (VND)</th><th scope="col" class="num">Có (VND)</th></tr></thead><tbody id="ts-dlg-dk"></tbody></table>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="button" class="kd-btn kd-btn--primary" id="ts-dlg-ok"><i class="bi bi-check2" aria-hidden="true"></i>Ghi sổ khấu hao</button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-tscd.js?v=tk0928a"></script>
+{% endblock %}
+

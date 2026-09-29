@@ -118,13 +118,16 @@ def logout(request: Request):
     return redirect
 
 
+TRANG_CHU = "/ketoan/tong-quan"  # trang sau đăng nhập (2026-09-28: chuyển sang giao diện mới)
+
+
 @router.get("/", response_class=HTMLResponse, name="root")
 def root(request: Request):
-    """V1: nếu chưa login → /login, đã login → /app."""
+    """Chưa login → /login; đã login → Tổng quan giao diện kế toán mới (SPA cũ vẫn ở /app)."""
     user = _optional_user(request)
     if not user:
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    return RedirectResponse(url="/app", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(url=TRANG_CHU, status_code=status.HTTP_302_FOUND)
 
 
 @router.get("/app", response_class=HTMLResponse, name="index")
@@ -149,6 +152,17 @@ def dao_tao_page(
     )
 
 
+
+@router.get("/buoi-dao-tao", response_class=HTMLResponse, name="buoi_dao_tao")
+def buoi_dao_tao_page(
+    request: Request,
+    user: Annotated[JWTPayload, Depends(_require_user_redirect)],
+):
+    return templates.TemplateResponse(
+        "buoi_dao_tao.html",
+        {"request": request, "user": user_ctx(user)},
+    )
+
 @router.get("/xin-nghi", response_class=HTMLResponse, name="xin_nghi")
 def xin_nghi_page(
     request: Request,
@@ -156,6 +170,18 @@ def xin_nghi_page(
 ):
     return templates.TemplateResponse(
         "xin_nghi.html",
+        {"request": request, "user": user_ctx(user)},
+    )
+
+
+@router.get("/bang-luong-thang", response_class=HTMLResponse, name="bang_luong_thang")
+def bang_luong_thang_page(
+    request: Request,
+    user: Annotated[JWTPayload, Depends(_require_user_redirect)],
+):
+    """Bảng lương cá nhân — màn dùng chung, số liệu lấy từ /api/payroll/me."""
+    return templates.TemplateResponse(
+        "bang_luong_thang.html",
         {"request": request, "user": user_ctx(user)},
     )
 
@@ -170,6 +196,30 @@ def duyet_chi_page(
         {"request": request, "user": user_ctx(user)},
     )
 
+
+@router.get("/de-xuat", response_class=HTMLResponse, name="de_xuat")
+def de_xuat_page(
+    request: Request,
+    user: Annotated[JWTPayload, Depends(_require_user_redirect)],
+):
+    return templates.TemplateResponse(
+        "de_xuat.html",
+        {"request": request, "user": user_ctx(user)},
+    )
+
+
+
+@router.get("/van-ban-cong-ty", response_class=HTMLResponse, name="van_ban_cong_ty")
+def van_ban_cong_ty_page(
+    request: Request,
+    user: Annotated[JWTPayload, Depends(_require_user_redirect)],
+):
+    """Tài liệu / Văn bản công ty — màn dùng chung (shared/templates/tai_lieu_core.html),
+    thêm 12/09/2026. Đọc `hcns.documents` qua router dùng chung `/api/tai-lieu`."""
+    return templates.TemplateResponse(
+        "van_ban_cong_ty.html",
+        {"request": request, "user": user_ctx(user)},
+    )
 
 @router.get("/chi-tap-trung", response_class=HTMLResponse, name="chi_tap_trung")
 def chi_tap_trung_page(
@@ -244,28 +294,31 @@ def phe_duyet_page(request: Request, user: Annotated[JWTPayload, Depends(_requir
     return templates.TemplateResponse("phe_duyet.html", {"request": request, "user": user_ctx(user)})
 
 
-@router.get("/de-nghi-tt", response_class=HTMLResponse, name="de_nghi_tt")
-def de_nghi_tt_page(
-    request: Request,
-    user: Annotated[JWTPayload, Depends(_require_user_redirect)],
-):
-    """KT duyệt cấp 1 các Đề nghị thanh toán từ saleadmin."""
-    return templates.TemplateResponse(
-        "de_nghi_tt.html",
-        {"request": request, "user": user_ctx(user)},
-    )
+def _duyet_chi_url(request: Request, nguon: str, tien_to_id: str) -> str:
+    """URL hàng chờ Duyệt chi mới lọc theo luồng; giữ ?id= cũ (mở sẵn panel, id dạng '<tiền tố>:<id>')."""
+    from urllib.parse import urlencode
+    q = {"nguon": nguon}
+    goc = request.query_params.get("id")
+    if goc:
+        q["id"] = goc if ":" in goc else f"{tien_to_id}:{goc}"
+    return "/ketoan/kt-duyet?" + urlencode(q)
 
 
-@router.get("/duyet-ncc", response_class=HTMLResponse, name="duyet_ncc")
-def duyet_ncc_page(
-    request: Request,
-    user: Annotated[JWTPayload, Depends(_require_user_redirect)],
-):
-    """KT duyệt cấp 1 các Đề Xuất Trả NCC từ muahang.congno."""
-    return templates.TemplateResponse(
-        "ncc_de_xuat.html",
-        {"request": request, "user": user_ctx(user)},
-    )
+@router.get("/de-nghi-tt", name="de_nghi_tt")
+def de_nghi_tt_page(request: Request):
+    """Trang cũ — thay bằng giao diện mới (2026-09-25), chuyển hướng."""
+    from fastapi.responses import RedirectResponse
+    # Trang cũ là HÀNG CHỜ KT duyệt đề nghị TT (saleadmin) → hàng chờ trong Duyệt chi,
+    # KHÔNG phải form tạo đề nghị /ketoan/de-nghi-tt.
+    return RedirectResponse(_duyet_chi_url(request, "de_nghi_tt", "tt"))
+
+
+@router.get("/duyet-ncc", name="duyet_ncc")
+def duyet_ncc_page(request: Request):
+    """Trang cũ — thay bằng giao diện mới (2026-09-25), chuyển hướng."""
+    from fastapi.responses import RedirectResponse
+    # Mua Hàng gửi thông báo link /duyet-ncc (muahang congno.py) → hàng chờ trả NCC trong Duyệt chi.
+    return RedirectResponse(_duyet_chi_url(request, "de_xuat_ncc", "ncc"))
 
 
 @router.get("/khuyen-mai", response_class=HTMLResponse, name="khuyen_mai")

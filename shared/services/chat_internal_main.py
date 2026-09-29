@@ -94,3 +94,8 @@ def health():
         "service": "chat_internal",
         "env": settings.app_env,
     }
+
+
+# ── Demo masking (che chỉ số kinh doanh cho tài khoản demo) — gắn NGOÀI CÙNG ──
+from shared.middleware.demo_mask import install_demo_masking as _install_demo_masking  # noqa: E402
+_install_demo_masking(app)

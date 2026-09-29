@@ -1,0 +1,18 @@
+/* kt-tam-ung.css — riêng màn Tạm ứng.
+   Hộp thoại nằm ngoài .kd-page nên luật `.kd-page [hidden]` (kd-man-hinh.css) không phủ tới:
+   `.kd-field { display: grid }` thắng thuộc tính hidden → ô "Tiền thừa hoàn lại bằng" vẫn hiện khi
+   không kết thúc khoản. Sửa tạm tại đây; đề xuất chuyển lên kd-man-hinh.css: `.kd-dialog [hidden] { display: none !important; }` */
+#tu-dlg [hidden], #tu-dlg-ung [hidden], #tu-dlg-xoa [hidden] { display: none !important; }
+
+/* Số phiếu "TU-2026-0001" dưới ngày ứng không bẻ đôi khi panel chi tiết mở làm bảng hẹp lại. */
+#tu-tbody .kt-khach__ma { white-space: nowrap; }
+
+/* Khối "Nội dung / Đã ứng / Còn phải quyết toán" đầu hộp quyết toán: nội dung dài làm cột nhãn bị ép,
+   nhãn xuống dòng từng chữ ở màn hẹp → nhãn giữ một dòng, giá trị được xuống dòng. */
+#tu-dlg-tt { grid-template-columns: auto minmax(0, 1fr); }
+#tu-dlg-tt dt { white-space: nowrap; }
+#tu-dlg-tt dd { white-space: normal; overflow-wrap: anywhere; }
+
+/* Hai lựa chọn xử lý tiền thừa chia đôi bề ngang, không vỡ thành "viên thuốc" méo ở màn hẹp. */
+#tu-xl { display: grid; grid-template-columns: 1fr 1fr; }
+#tu-xl button { height: auto; min-height: 40px; padding-block: 4px; white-space: normal; line-height: 1.3; }

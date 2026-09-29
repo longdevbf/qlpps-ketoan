@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Sản phẩm — danh mục DÙNG CHUNG toàn hệ (shared.products). Kế toán là nơi duy nhất thêm/sửa/xoá (products.py); các app khác chỉ đọc.
+   GET/POST /api/products · GET/PUT/DELETE /api/products/<id> · POST /api/products/<id>/upload-image · GET /api/products/meta/nhom-hang
+   GET /api/product-category · PUT /api/product/by-ma-sp/<ma>/category (README mục 4.32)
+   Các tab "Kho kế toán" thay trang cũ /products (M1 — Sản phẩm + Tồn kho + Biến động + Cảnh báo + BOM), JS riêng kt-san-pham-kho.js:
+   GET /api/product · /api/inventory/balance · /api/product-category/tree · /api/inventory/movement · /api/inventory/canh-bao · /api/bom · /api/bom/margin-report
+   POST/PUT/DELETE /api/product[/<id>] · /api/product-category[/<id>] · POST /api/inventory/movement · /api/inventory/kiem-ke · /api/bom[/<id>][/clone] #}
+{% block title %}Sản phẩm{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}{{ ui.css('') }}<link rel="stylesheet" href="/static/css/kt-san-pham.css?v=g4">{% endblock %}
+
+{% block content %}
+<main class="kd-page kt-l3-rong" id="kd-kt-san-pham">
+  {% call ui.dau_trang('Sản phẩm', 'Danh mục chung, kho kế toán, giá vốn BOM') %}
+    <span class="kt-sp-cong-cu" id="sp-cong-cu">
+    {{ ui.nut_loc('sp') }}
+    <a class="kd-btn" href="/ketoan/ton-kho"><i class="bi bi-box-seam" aria-hidden="true"></i>Tồn kho theo lô</a>
+    <button type="button" class="kd-btn kd-btn--primary" id="sp-them"><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm sản phẩm</button>
+    </span>
+  {% endcall %}
+
+  <div class="kd-tabs kd-tabs--lon kt-tabs-trang" role="tablist" aria-label="Nghiệp vụ sản phẩm" id="sp-tabs">
+    <button type="button" role="tab" id="sp-tab-chung" data-tab="chung" aria-controls="sp-p-chung" aria-selected="true">Danh mục dùng chung</button>
+    <button type="button" role="tab" id="sp-tab-kho" data-tab="kho" aria-controls="sp-p-kho" aria-selected="false" tabindex="-1">Kho kế toán</button>
+    <button type="button" role="tab" id="sp-tab-nhom" data-tab="nhom" aria-controls="sp-p-nhom" aria-selected="false" tabindex="-1">Nhóm hàng kế toán</button>
+    <button type="button" role="tab" id="sp-tab-bien_dong" data-tab="bien_dong" aria-controls="sp-p-bien_dong" aria-selected="false" tabindex="-1">Biến động kho</button>
+    <button type="button" role="tab" id="sp-tab-canh_bao" data-tab="canh_bao" aria-controls="sp-p-canh_bao" aria-selected="false" tabindex="-1">Cảnh báo tồn <span class="kd-muted" id="cb-dem-tab"></span></button>
+    <button type="button" role="tab" id="sp-tab-bom" data-tab="bom" aria-controls="sp-p-bom" aria-selected="false" tabindex="-1">BOM giá vốn</button>
+  </div>
+
+  <!-- ═══ Tab 1: Danh mục dùng chung (shared.products) ═══ -->
+  <div class="kt-tab-pane" role="tabpanel" id="sp-p-chung" aria-labelledby="sp-tab-chung">
+
+  {{ ui.the_so('sp', [('dang_ban', 'Đang bán', '', 'bi-box', 'Danh mục dùng chung: đổi tên, giá hay nhóm master ở đây sẽ áp cho báo giá, mua hàng và quảng cáo. Sản phẩm đã lên đơn chỉ tạm dừng, không xoá.'), ('go', 'Đồ Gỗ', 'warning', 'bi-tree'), ('may', 'Đồ Mây', 'success', 'bi-flower1'), ('chua_gia', 'Chưa đặt giá bán', 'danger', 'bi-tag')], kieu='strip', nhan_vung='Tình trạng danh mục sản phẩm') }}
+
+  {% call ui.the_bang('sp', 'Danh mục sản phẩm', panel='Chi tiết sản phẩm', phan_trang=False) %}
+    {{ ui.o_tim('sp', 'q', 'Tìm', 'Tên hoặc mã sản phẩm…') }}
+    {{ ui.o_chon('sp', 'nhom_hang', 'Nhóm hàng', [('', 'Tất cả nhóm hàng')]) }}
+    {{ ui.o_chon('sp', 'nhom_master', 'Nhóm master', [('', 'Tất cả'), ('Đồ Gỗ', 'Đồ Gỗ'), ('Đồ Mây', 'Đồ Mây'), ('Dự Án', 'Dự Án')]) }}
+    {{ ui.o_chon('sp', 'active_only', 'Trạng thái', [('true', 'Chỉ đang bán'), ('false', 'Gồm cả tạm dừng')]) }}
+  {% endcall %}
+  </div>
+
+  <!-- ═══ Tab 2: Kho kế toán (ketoan.product + inventory_balance) — gộp tab "Sản Phẩm" + "Tồn Kho" của trang cũ /products ═══ -->
+  <div class="kt-tab-pane" role="tabpanel" id="sp-p-kho" aria-labelledby="sp-tab-kho" hidden>
+    {{ ui.the_so('kk', [('so_sp', 'Sản phẩm', '', 'bi-box'), ('tong_sl', 'Số lượng tồn', 'info', 'bi-boxes', 'Tồn trên sổ kho kế toán.'), ('gia_tri', 'Giá trị tồn', 'success', 'bi-cash-stack', 'Theo giá vốn bình quân của sổ kho kế toán.')], kieu='strip', nhan_vung='Tổng hợp kho kế toán') }}
+    <section class="kd-card" aria-labelledby="kk-td">
+      <div class="kd-box__head"><h2 class="kd-box__title" id="kk-td">Tồn kho kế toán theo nhóm<button type="button" class="kd-tip" data-tip="Sổ kho của Kế toán: sản phẩm tự tạo khi Mua hàng nhập PO; tồn và giá vốn bình quân cập nhật theo từng phiếu nhập, xuất (phiếu xuất tự sinh khi đơn hoàn thành). Khác màn Tồn kho theo lô — từng dòng nhập của Mua hàng." aria-label="Sổ kho của Kế toán: sản phẩm tự tạo khi Mua hàng nhập PO; tồn và giá vốn bình quân cập nhật theo từng phiếu nhập, xuất (phiếu xuất tự sinh khi đơn hoàn thành). Khác màn Tồn kho theo lô — từng dòng nhập của Mua hàng."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2><p class="kd-meta" id="kk-dem"></p></div>
+      <form class="kd-filter kt-kk-loc" role="search" novalidate id="kk-loc">
+        <label class="kd-field"><span class="kd-field__label">Tìm</span><input class="kd-input" type="search" id="kk-q" placeholder="Mã hoặc tên sản phẩm…" autocomplete="off"></label>
+        <label class="kd-field"><span class="kd-field__label">Nhóm hàng kế toán</span><select class="kd-input" id="kk-nhom"><option value="">Tất cả nhóm</option></select></label>
+        <label class="kd-field"><span class="kd-field__label">Trạng thái</span><select class="kd-input" id="kk-active"><option value="true">Đang dùng</option><option value="false">Gồm cả ngừng dùng</option></select></label>
+        <button type="button" class="kd-link" id="kk-dat-lai">Đặt lại bộ lọc</button>
+        <span class="kt-kk-nut"><button type="button" class="kd-btn kd-btn--primary" id="kk-them"><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm sản phẩm kế toán</button></span>
+      </form>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="kk-cuon">
+        <table class="kd-table kt-bang kt-kk-bang"><caption class="visually-hidden">Tồn kho kế toán theo nhóm</caption>
+          <thead><tr><th scope="col">Sản phẩm</th><th scope="col">ĐVT</th><th scope="col" class="num">Tồn</th><th scope="col" class="num">Giá vốn BQ</th><th scope="col" class="num">Giá trị tồn</th><th scope="col" class="num">Giá bán</th><th scope="col">Trạng thái</th><th scope="col" class="kd-col-act">Thao tác</th></tr></thead>
+          <tbody id="kk-tbody"></tbody><tfoot id="kk-tfoot"></tfoot>
+        </table>
+      </div>
+      <div id="kk-tt"></div>
+    </section>
+  </div>
+
+  <!-- ═══ Tab 3: Nhóm hàng kế toán (ketoan.product_category, dạng cây) ═══ -->
+  <div class="kt-tab-pane" role="tabpanel" id="sp-p-nhom" aria-labelledby="sp-tab-nhom" hidden>
+    <section class="kd-card" aria-labelledby="kn-td">
+      <div class="kd-box__head kt-kk-dau"><div><h2 class="kd-box__title" id="kn-td">Nhóm hàng kế toán<button type="button" class="kd-tip" data-tip="Phân nhóm sản phẩm kho kế toán — dùng cho tồn kho theo nhóm và BOM giá vốn. Nhóm có thể lồng nhóm con." aria-label="Phân nhóm sản phẩm kho kế toán — dùng cho tồn kho theo nhóm và BOM giá vốn. Nhóm có thể lồng nhóm con."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+        <button type="button" class="kd-btn kd-btn--primary" id="kn-them"><i class="bi bi-folder-plus" aria-hidden="true"></i>Thêm nhóm</button></div>
+      <div class="kd-table-scroll" id="kn-cuon">
+        <table class="kd-table kt-bang"><caption class="visually-hidden">Nhóm hàng kế toán</caption>
+          <thead><tr><th scope="col">Mã nhóm</th><th scope="col">Tên nhóm</th><th scope="col" class="num">Số sản phẩm</th><th scope="col" class="num">Thứ tự</th><th scope="col" class="kd-col-act">Thao tác</th></tr></thead>
+          <tbody id="kn-tbody"></tbody>
+        </table>
+      </div>
+      <div id="kn-tt"></div>
+    </section>
+  </div>
+
+  <!-- ═══ Tab 4: Biến động kho (ketoan.inventory_movement) ═══ -->
+  <div class="kt-tab-pane" role="tabpanel" id="sp-p-bien_dong" aria-labelledby="sp-tab-bien_dong" hidden>
+    {{ ui.the_so('mv', [('nhap', 'Nhập', 'success', 'bi-box-arrow-in-down'), ('xuat', 'Xuất', 'warning', 'bi-box-arrow-up'), ('dieu_chinh', 'Điều chỉnh', 'info', 'bi-sliders')], kieu='strip', nhan_vung='Tổng biến động theo bộ lọc') }}
+    <section class="kd-card" aria-labelledby="mv-td">
+      <div class="kd-box__head"><h2 class="kd-box__title" id="mv-td">Biến động kho</h2><p class="kd-meta" id="mv-dem"></p></div>
+      <form class="kd-filter kt-kk-loc" role="search" novalidate id="mv-loc">
+        <label class="kd-field"><span class="kd-field__label">Sản phẩm</span><select class="kd-input" id="mv-sp"><option value="">Tất cả sản phẩm</option></select></label>
+        <label class="kd-field"><span class="kd-field__label">Loại</span><select class="kd-input" id="mv-loai"><option value="">Mọi loại</option><option value="nhap">Nhập</option><option value="xuat">Xuất</option><option value="dieu_chinh">Điều chỉnh</option></select></label>
+        <label class="kd-field"><span class="kd-field__label">Từ ngày</span><input class="kd-input" type="date" id="mv-tu"></label>
+        <label class="kd-field"><span class="kd-field__label">Đến ngày</span><input class="kd-input" type="date" id="mv-den"></label>
+        <button type="button" class="kd-link" id="mv-dat-lai">Đặt lại bộ lọc</button>
+        <span class="kt-kk-nut"><button type="button" class="kd-btn" id="mv-kiem-ke"><i class="bi bi-clipboard-check" aria-hidden="true"></i>Kiểm kê</button><button type="button" class="kd-btn kd-btn--primary" id="mv-them"><i class="bi bi-plus-lg" aria-hidden="true"></i>Lập phiếu kho</button></span>
+      </form>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="mv-cuon">
+        <table class="kd-table kt-bang"><caption class="visually-hidden">Biến động kho</caption>
+          <thead><tr><th scope="col">Ngày</th><th scope="col">Sản phẩm</th><th scope="col">Loại</th><th scope="col" class="num">Số lượng</th><th scope="col" class="num">Đơn giá</th><th scope="col" class="num">Thành tiền</th><th scope="col">Nguồn</th></tr></thead>
+          <tbody id="mv-tbody"></tbody>
+        </table>
+      </div>
+      <div id="mv-tt"></div>
+    </section>
+  </div>
+
+  <!-- ═══ Tab 5: Cảnh báo tồn (dưới tối thiểu / trên tối đa) ═══ -->
+  <div class="kt-tab-pane" role="tabpanel" id="sp-p-canh_bao" aria-labelledby="sp-tab-canh_bao" hidden>
+    <section class="kd-card" aria-labelledby="cb-td">
+      <div class="kd-box__head"><h2 class="kd-box__title" id="cb-td">Sản phẩm vượt ngưỡng tồn<button type="button" class="kd-tip" data-tip="So tồn hiện tại với ngưỡng tối thiểu / tối đa của từng sản phẩm kho kế toán." aria-label="So tồn hiện tại với ngưỡng tối thiểu / tối đa của từng sản phẩm kho kế toán."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+      <div class="kd-table-scroll" id="cb-cuon">
+        <table class="kd-table kt-bang"><caption class="visually-hidden">Cảnh báo tồn</caption>
+          <thead><tr><th scope="col">Sản phẩm</th><th scope="col" class="num">Tồn hiện tại</th><th scope="col" class="num">Tối thiểu</th><th scope="col" class="num">Tối đa</th><th scope="col">Cảnh báo</th></tr></thead>
+          <tbody id="cb-tbody"></tbody>
+        </table>
+      </div>
+      <div id="cb-tt"></div>
+    </section>
+  </div>
+
+  <!-- ═══ Tab 6: BOM giá vốn (ketoan.bom_master + bom_item) ═══ -->
+  <div class="kt-tab-pane" role="tabpanel" id="sp-p-bom" aria-labelledby="sp-tab-bom" hidden>
+    <section class="kd-card" aria-labelledby="bom-td">
+      <div class="kd-box__head"><h2 class="kd-box__title" id="bom-td">Định mức giá vốn (BOM) theo nhóm<button type="button" class="kd-tip" data-tip="Tổng nguyên vật liệu × đơn giá = giá vốn định mức của nhóm; đổi giá thì tạo phiên bản mới." aria-label="Tổng nguyên vật liệu × đơn giá = giá vốn định mức của nhóm; đổi giá thì tạo phiên bản mới."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+      <form class="kd-filter kt-kk-loc" role="search" novalidate id="bom-loc">
+        <label class="kd-field"><span class="kd-field__label">Nhóm hàng kế toán</span><select class="kd-input" id="bom-nhom"><option value="">Tất cả nhóm</option></select></label>
+        <label class="kd-field"><span class="kd-field__label">Trạng thái</span><select class="kd-input" id="bom-active"><option value="">Tất cả</option><option value="true" selected>Đang áp dụng</option><option value="false">Đã ngừng</option></select></label>
+        <button type="button" class="kd-link" id="bom-dat-lai">Đặt lại bộ lọc</button>
+        <span class="kt-kk-nut"><button type="button" class="kd-btn" id="bom-margin"><i class="bi bi-graph-up" aria-hidden="true"></i>Biên lãi theo nhóm</button><button type="button" class="kd-btn kd-btn--primary" id="bom-them"><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm BOM</button></span>
+      </form>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="bom-cuon">
+        <table class="kd-table kt-bang"><caption class="visually-hidden">Danh sách BOM</caption>
+          <thead><tr><th scope="col">BOM</th><th scope="col">Nhóm</th><th scope="col">Hiệu lực</th><th scope="col" class="num">Số NVL</th><th scope="col" class="num">Tổng giá vốn</th><th scope="col">Trạng thái</th><th scope="col" class="kd-col-act">Thao tác</th></tr></thead>
+          <tbody id="bom-tbody"></tbody>
+        </table>
+      </div>
+      <div id="bom-tt"></div>
+    </section>
+  </div>
+</main>
+
+<dialog class="kd-dialog kt-sp-dlg" id="sp-dlg" aria-labelledby="sp-dlg-td">
+  <form method="dialog" novalidate id="sp-form">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="sp-dlg-td">Thêm sản phẩm</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <fieldset class="kt-sp-nhom"><legend>Định danh</legend>
+        <div class="kd-row2">
+          <div class="kd-field"><label class="kd-field__label" for="sp-f-ma">Mã sản phẩm <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="sp-f-ma" maxlength="40" autocomplete="off" placeholder="Vd: SF-GO-03"></div>
+          <div class="kd-field"><label class="kd-field__label" for="sp-f-ten">Tên sản phẩm <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="sp-f-ten" maxlength="160" autocomplete="off" placeholder="Vd: Sofa 3 chỗ gỗ sồi"></div>
+        </div>
+        <div class="kd-row2">
+          <div class="kd-field"><label class="kd-field__label" for="sp-f-nhom">Nhóm hàng</label><input class="kd-input" id="sp-f-nhom" list="sp-f-nhom-ds" maxlength="60" autocomplete="off" placeholder="Sofa, Giường, Bàn…"><datalist id="sp-f-nhom-ds"></datalist></div>
+          <div class="kd-field"><label class="kd-field__label" for="sp-f-master">Nhóm master<button type="button" class="kd-tip kd-tip--trai" data-tip="Quyết định trần chiết khấu, thuộc tính và phân bổ quảng cáo." aria-label="Quyết định trần chiết khấu, thuộc tính và phân bổ quảng cáo."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label><select class="kd-input" id="sp-f-master"><option value="">— Chưa phân loại —</option><option>Đồ Gỗ</option><option>Đồ Mây</option><option>Dự Án</option></select></div>
+        </div>
+        <div class="kd-row2">
+          <div class="kd-field"><label class="kd-field__label" for="sp-f-dm">Danh mục kế toán</label><select class="kd-input" id="sp-f-dm"><option value="">— Chưa chọn —</option></select></div>
+          <div class="kd-field"><label class="kd-field__label" for="sp-f-dvt">Đơn vị tính</label><input class="kd-input" id="sp-f-dvt" maxlength="20" autocomplete="off" placeholder="chiếc, bộ, m, m²"></div>
+        </div>
+      </fieldset>
+      <fieldset class="kt-sp-nhom"><legend>Giá</legend>
+        <div class="kd-row2">
+          <div class="kd-field"><label class="kd-field__label" for="sp-f-unit">Cách tính giá</label><select class="kd-input" id="sp-f-unit"><option value="">— Chọn —</option><option value="fixed">Cố định theo cái / bộ</option><option value="met_dai">Theo mét dài</option><option value="met_vuong">Theo mét vuông</option><option value="size_table">Bảng giá theo kích thước</option></select></div>
+          <div class="kd-field"><label class="kd-field__label" for="sp-f-thu-tu">Thứ tự hiển thị</label><input class="kd-input num" id="sp-f-thu-tu" type="number" min="0" step="1" value="0"></div>
+        </div>
+        <div class="kd-row2">
+          <div class="kd-field"><label class="kd-field__label" for="sp-f-gia">Giá bán cơ bản (VND)</label><input class="kd-input num" id="sp-f-gia" inputmode="numeric" autocomplete="off" placeholder="0"></div>
+          <div class="kd-field"><label class="kd-field__label" for="sp-f-gia-min">Giá sàn (VND)</label><input class="kd-input num" id="sp-f-gia-min" inputmode="numeric" autocomplete="off" placeholder="Không bắt buộc"></div>
+        </div>
+        <div class="kt-sp-size" id="sp-f-size-o" hidden>
+          <p class="kd-field__label">Bảng giá theo kích thước</p>
+          <table class="kt-bang-nho"><thead><tr><th scope="col">Kích thước</th><th scope="col" class="num">Giá (VND)</th><th scope="col"><span class="visually-hidden">Xoá</span></th></tr></thead><tbody id="sp-f-size"></tbody></table>
+          <button type="button" class="kd-btn kd-btn--sm" id="sp-f-size-them"><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm kích thước</button>
+        </div>
+      </fieldset>
+      <fieldset class="kt-sp-nhom"><legend>Mô tả</legend>
+        <div class="kt-sp-anh-o">
+          <img class="kt-sp-anh kt-sp-anh--lon" id="sp-f-anh" alt="" hidden><span class="kt-sp-anh kt-sp-anh--lon kt-sp-anh--rong" id="sp-f-anh-rong" aria-hidden="true"><i class="bi bi-image"></i></span>
+          <div class="kd-field"><label class="kd-field__label" for="sp-f-tep">Ảnh sản phẩm</label><input class="kd-input" type="file" id="sp-f-tep" accept="image/*"><button type="button" class="kd-link" id="sp-f-anh-bo" hidden>Bỏ ảnh</button></div>
+        </div>
+        <div class="kd-row2">
+          <div class="kd-field"><label class="kd-field__label" for="sp-f-kt">Kích thước chuẩn</label><input class="kd-input" id="sp-f-kt" maxlength="60" placeholder="Vd: 2,2 × 0,9 m"></div>
+          <div class="kd-field"><label class="kd-field__label" for="sp-f-mau">Màu chuẩn</label><input class="kd-input" id="sp-f-mau" maxlength="60" placeholder="Vd: Nâu gỗ"></div>
+        </div>
+        <div class="kd-field"><label class="kd-field__label" for="sp-f-mo-ta">Mô tả (cho Marketing)</label><textarea class="kd-input kd-textarea" id="sp-f-mo-ta" rows="2" maxlength="1000"></textarea></div>
+        <div class="kd-field"><label class="kd-field__label" for="sp-f-ghi-chu">Ghi chú nội bộ</label><textarea class="kd-input kd-textarea" id="sp-f-ghi-chu" rows="2" maxlength="1000"></textarea></div>
+        <label class="kt-check"><input type="checkbox" id="sp-f-active" checked> Đang bán</label>
+      </fieldset>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="sp-f-ok"><i class="bi bi-check2" aria-hidden="true"></i>Lưu sản phẩm</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="sp-dlg-xoa" role="alertdialog" aria-labelledby="sp-xoa-td" aria-describedby="sp-xoa-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="sp-xoa-td">Xoá sản phẩm?</h2></header>
+    <div class="kd-dialog__body"><p id="sp-xoa-nd"></p><p class="kd-form-err" role="alert" hidden></p></div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="button" class="kd-btn kd-btn--danger" id="sp-xoa-ok"><i class="bi bi-trash" aria-hidden="true"></i>Xoá hẳn</button></footer>
+  </form>
+</dialog>
+{# ── Hộp thoại các tab Kho kế toán (kt-san-pham-kho.js) ── #}
+<dialog class="kd-dialog" id="kk-dlg-sp" aria-labelledby="kk-sp-td">
+  <form method="dialog" novalidate id="kk-form-sp">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="kk-sp-td">Thêm sản phẩm kế toán</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="kk-sp-ma">Mã sản phẩm <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="kk-sp-ma" maxlength="64" autocomplete="off" placeholder="Vd: GIUONG-NGU"></div>
+        <div class="kd-field"><label class="kd-field__label" for="kk-sp-ten">Tên sản phẩm <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="kk-sp-ten" maxlength="255" autocomplete="off" placeholder="Vd: Giường ngủ gỗ sồi"></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="kk-sp-nhom">Nhóm hàng kế toán <span class="kd-field__req" aria-hidden="true">*</span></label><select class="kd-input" id="kk-sp-nhom"></select></div>
+        <div class="kd-field"><label class="kd-field__label" for="kk-sp-dvt">Đơn vị tính</label><input class="kd-input" id="kk-sp-dvt" maxlength="32" autocomplete="off" placeholder="cái, bộ, m, m²"></div>
+      </div>
+      <div class="kd-field"><label class="kd-field__label" for="kk-sp-gia">Giá bán mặc định (VND)<button type="button" class="kd-tip" data-tip="Giá hiển thị mặc định cho khách. Giá dùng khi báo giá đặt ở tab Danh mục dùng chung." aria-label="Giá hiển thị mặc định cho khách. Giá dùng khi báo giá đặt ở tab Danh mục dùng chung."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label><input class="kd-input num" id="kk-sp-gia" inputmode="numeric" autocomplete="off" placeholder="0"></div>
+      <label class="kt-check"><input type="checkbox" id="kk-sp-active" checked> Đang dùng</label>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="kk-sp-ok"><i class="bi bi-check2" aria-hidden="true"></i>Lưu</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="kk-dlg-nhom" aria-labelledby="kk-nhom-td">
+  <form method="dialog" novalidate id="kk-form-nhom">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="kk-nhom-td">Thêm nhóm hàng kế toán</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="kk-nhom-ma">Mã nhóm <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="kk-nhom-ma" maxlength="32" autocomplete="off" placeholder="Vd: GIUONG"></div>
+        <div class="kd-field"><label class="kd-field__label" for="kk-nhom-ten">Tên nhóm <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="kk-nhom-ten" maxlength="128" autocomplete="off" placeholder="Vd: Giường"></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="kk-nhom-cha">Nhóm cha</label><select class="kd-input" id="kk-nhom-cha"></select></div>
+        <div class="kd-field"><label class="kd-field__label" for="kk-nhom-tt">Thứ tự hiển thị</label><input class="kd-input num" id="kk-nhom-tt" type="number" min="0" step="1" value="0"></div>
+      </div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="kk-nhom-ok"><i class="bi bi-check2" aria-hidden="true"></i>Lưu</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="kk-dlg-mv" aria-labelledby="kk-mv-td">
+  <form method="dialog" novalidate id="kk-form-mv">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="kk-mv-td">Lập phiếu nhập / xuất / điều chỉnh</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="kk-mv-ngay">Ngày <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" type="date" id="kk-mv-ngay"></div>
+        <div class="kd-field"><label class="kd-field__label" for="kk-mv-loai">Loại phiếu</label><select class="kd-input" id="kk-mv-loai"><option value="nhap">Nhập</option><option value="xuat">Xuất</option><option value="dieu_chinh">Điều chỉnh</option></select></div>
+      </div>
+      <div class="kd-field"><label class="kd-field__label" for="kk-mv-sp">Sản phẩm <span class="kd-field__req" aria-hidden="true">*</span></label><select class="kd-input" id="kk-mv-sp"></select><p class="kd-meta" id="kk-mv-ton"></p></div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="kk-mv-sl">Số lượng <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input num" id="kk-mv-sl" inputmode="decimal" autocomplete="off" placeholder="Vd: 2 hoặc 1,5"></div>
+        <div class="kd-field"><label class="kd-field__label" for="kk-mv-dg">Đơn giá (VND)</label><input class="kd-input num" id="kk-mv-dg" inputmode="numeric" autocomplete="off" placeholder="0" aria-describedby="kk-mv-dg-gy"><p class="kd-meta" id="kk-mv-dg-gy">Chỉ áp dụng cho phiếu nhập — tính lại giá vốn bình quân.</p></div>
+      </div>
+      <div class="kd-field"><label class="kd-field__label" for="kk-mv-gc">Ghi chú</label><textarea class="kd-input kd-textarea" id="kk-mv-gc" rows="2" maxlength="500"></textarea></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="kk-mv-ok"><i class="bi bi-check2" aria-hidden="true"></i>Lưu phiếu</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="kk-dlg-kk" aria-labelledby="kk-kk-td">
+  <form method="dialog" novalidate id="kk-form-kk">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="kk-kk-td">Kiểm kê tồn</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="kk-kk-ngay">Ngày kiểm kê <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" type="date" id="kk-kk-ngay"></div>
+        <div class="kd-field"><label class="kd-field__label" for="kk-kk-tt">Tồn thực tế đếm được <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input num" id="kk-kk-tt" inputmode="decimal" autocomplete="off"></div>
+      </div>
+      <div class="kd-field"><label class="kd-field__label" for="kk-kk-sp">Sản phẩm <span class="kd-field__req" aria-hidden="true">*</span></label><select class="kd-input" id="kk-kk-sp"></select><p class="kd-meta" id="kk-kk-ton"></p></div>
+      <div class="kd-field"><label class="kd-field__label" for="kk-kk-gc">Ghi chú</label><textarea class="kd-input kd-textarea" id="kk-kk-gc" rows="2" maxlength="500"></textarea></div>
+      <p class="kd-meta">Chênh lệch sẽ tự sinh phiếu điều chỉnh.</p>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="kk-kk-ok"><i class="bi bi-check2" aria-hidden="true"></i>Chốt kiểm kê</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog kt-sp-dlg" id="kk-dlg-bom" aria-labelledby="kk-bom-td">
+  <form method="dialog" novalidate id="kk-form-bom">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="kk-bom-td">Thêm BOM</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="kk-bom-ma">Mã BOM</label><input class="kd-input" id="kk-bom-ma" maxlength="32" autocomplete="off" placeholder="Để trống = tự sinh BOM-NNN"></div>
+        <div class="kd-field"><label class="kd-field__label" for="kk-bom-ten">Tên BOM <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="kk-bom-ten" maxlength="255" autocomplete="off"></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="kk-bom-nhom">Nhóm sản phẩm áp dụng <span class="kd-field__req" aria-hidden="true">*</span></label><select class="kd-input" id="kk-bom-nhom"></select></div>
+        <div class="kd-row2">
+          <div class="kd-field"><label class="kd-field__label" for="kk-bom-tu">Hiệu lực từ</label><input class="kd-input" type="date" id="kk-bom-tu"></div>
+          <div class="kd-field"><label class="kd-field__label" for="kk-bom-den">Đến (trống = vô hạn)</label><input class="kd-input" type="date" id="kk-bom-den"></div>
+        </div>
+      </div>
+      <div class="kt-sp-size">
+        <p class="kd-field__label">Nguyên vật liệu</p>
+        <div class="kd-table-scroll"><table class="kt-bang-nho kt-bom-nvl"><thead><tr><th scope="col">Tên NVL</th><th scope="col">ĐVT</th><th scope="col" class="num">Số lượng</th><th scope="col" class="num">Đơn giá (VND)</th><th scope="col" class="num">Thành tiền</th><th scope="col"><span class="visually-hidden">Xoá</span></th></tr></thead><tbody id="kk-bom-nvl"></tbody>
+          <tfoot><tr><th scope="row" colspan="4">Tổng giá vốn (VND)</th><td class="num"><b id="kk-bom-tong">0</b></td><td></td></tr></tfoot></table></div>
+        <button type="button" class="kd-btn kd-btn--sm" id="kk-bom-them-nvl"><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm dòng NVL</button>
+      </div>
+      <div class="kd-field"><label class="kd-field__label" for="kk-bom-gc">Ghi chú</label><textarea class="kd-input kd-textarea" id="kk-bom-gc" rows="2" maxlength="500"></textarea></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="kk-bom-ok"><i class="bi bi-check2" aria-hidden="true"></i>Lưu BOM</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog kt-sp-dlg" id="kk-dlg-margin" aria-labelledby="kk-mg-td">
+  <form method="dialog" novalidate id="kk-form-margin">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="kk-mg-td">Biên lãi theo nhóm — giá vốn BOM so với giá bán thực tế</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <div class="kt-kk-mg-loc">
+        <div class="kd-field"><label class="kd-field__label" for="kk-mg-tu">Từ ngày</label><input class="kd-input" type="date" id="kk-mg-tu"></div>
+        <div class="kd-field"><label class="kd-field__label" for="kk-mg-den">Đến ngày</label><input class="kd-input" type="date" id="kk-mg-den"></div>
+        <button type="submit" class="kd-btn kd-btn--primary" id="kk-mg-chay"><i class="bi bi-play-fill" aria-hidden="true"></i>Xem</button>
+      </div>
+      <div id="kk-mg-kq"></div>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Đóng</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="kk-dlg-xoa" role="alertdialog" aria-labelledby="kk-xoa-td" aria-describedby="kk-xoa-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="kk-xoa-td">Xoá?</h2></header>
+    <div class="kd-dialog__body"><p id="kk-xoa-nd"></p><p class="kd-form-err" role="alert" hidden></p></div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="button" class="kd-btn kd-btn--danger" id="kk-xoa-ok"><i class="bi bi-trash" aria-hidden="true"></i>Xoá</button></footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}{{ ui.js('kt-san-pham', v='loc0928') }}<script src="/static/js/kt-san-pham-kho.js?v=loc0928"></script>{% endblock %}

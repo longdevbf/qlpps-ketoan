@@ -16,6 +16,7 @@ class TaiKhoanNHBase(BaseModel):
     so_du_dau: Decimal = Decimal("0")
     mo_ta: Optional[str] = None
     active: bool = True
+    tk_ke_toan: Optional[str] = None  # TK con của 111/112; bỏ trống khi thêm → tự cấp mã kế tiếp
 
 
 class TaiKhoanNHCreate(TaiKhoanNHBase):
@@ -32,6 +33,7 @@ class TaiKhoanNHUpdate(BaseModel):
     so_du_dau: Optional[Decimal] = None
     mo_ta: Optional[str] = None
     active: Optional[bool] = None
+    tk_ke_toan: Optional[str] = None
 
 
 class TaiKhoanNHOut(TaiKhoanNHBase):

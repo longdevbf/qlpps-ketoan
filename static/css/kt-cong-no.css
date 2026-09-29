@@ -1,0 +1,75 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   kt-cong-no.css — dùng chung Công nợ khách hàng + Công nợ nhà cung cấp (main.kt-cong-no)
+   Nạp SAU kd-man-hinh.css + kt-chung.css. Chỉ var(--token).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Cột nút mở rộng đầu dòng. */
+.kt-cn-bang .kt-col-mo { width: 48px; padding-right: 0; text-align: center; }
+.kt-mo { transition: transform .15s; }
+.kt-mo[aria-expanded="true"] .bi { transform: rotate(90deg); }
+.kt-mo .bi { display: inline-block; transition: transform .15s; }
+@media (prefers-reduced-motion: reduce) { .kt-mo .bi { transition: none; } }
+
+/* Tên khách + dòng phụ mã · SĐT (mẫu .cn-khach). */
+.kt-khach__ten { display: block; min-width: 160px; font-weight: 600; color: var(--text-1); }
+.kt-khach__ma { display: block; margin-top: var(--sp-1); font-size: var(--fs-meta); font-weight: 400; color: var(--text-3); }
+
+/* Số theo nghĩa, bản -fg (đọc được cả trên nền dòng đang chọn brand-soft). */
+.kt-so--qua-han { color: var(--danger-fg); font-weight: 600; }
+.kt-so--con { font-weight: 700; }
+
+/* Dòng khách đang mở rộng: nền lõm nối liền với khối hoá đơn bên dưới. */
+.kt-cn-bang tbody tr.is-mo td { background: var(--bg-page); border-bottom-color: transparent; }
+.kt-cn-bang tbody tr.kt-mo-rong { cursor: default; }
+.kt-cn-bang tbody tr.kt-mo-rong:hover td { background: var(--bg-page); }
+.kt-cn-bang tbody tr.kt-mo-rong > td { height: auto; padding: 0 var(--sp-7) var(--sp-7) 48px; background: var(--bg-page); border-bottom: 1px solid var(--border); white-space: normal; }
+
+/* Khối hoá đơn con: thẻ trắng viền (ô con trong thẻ — viền, không bóng). */
+.kt-con { border: 1px solid var(--border); border-radius: var(--r); background: var(--bg-card); overflow: hidden; }
+.kt-con .kd-table-scroll { border-radius: var(--r); }
+.kt-con .kd-table th { background: var(--bg-card); }
+.kt-con .kd-table tbody tr:hover td { background: transparent; }
+.kt-con__chan { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-5); padding: var(--sp-5) var(--sp-6); border-top: 1px solid var(--border-soft); font-size: var(--fs-meta); color: var(--text-3); }
+
+/* Panel: tổng quan số của khách (mẫu .cn-tq). */
+.kt-p-khach { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-6); align-items: center; padding-bottom: var(--sp-7); }
+.kt-p-ten { margin: 0; font-size: var(--fs-title); font-weight: 700; line-height: var(--lh-tight); color: var(--text-1); overflow-wrap: anywhere; }
+.kt-p-khach .kd-chips { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-top: var(--sp-3); }
+.kt-lines-2 li { align-items: baseline; }
+.kt-lines-2 .kd-lines__sub { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
+.kt-p-doi-chieu { margin: var(--sp-5) 0 0; padding-top: var(--sp-5); border-top: 1px solid var(--border-soft); font-size: var(--fs-meta); line-height: 1.7; color: var(--text-2); }
+.kt-p-doi-chieu b { color: var(--text-1); }
+
+/* Panel chi tiết giờ là popup giữa màn cho mọi màn (kd-man-hinh.css, 28/09/2026) — bỏ bố cục lớp phủ/đặt cạnh bảng riêng ở đây. */
+
+/* Nút Xuất Excel bị khoá khi backend chưa có endpoint xuất (CFG.xuatChuaCo — đợt 2, bên NCC). */
+.kd-btn.is-disabled { opacity: .55; cursor: not-allowed; }
+
+/* Bảng con (2026-09-25): hiện cả khoản đã trả đủ như màn cũ — làm mờ nhẹ để khoản còn nợ nổi lên. */
+.kt-con-bang tbody tr.kt-con--xong td { color: var(--text-3); }
+.kt-con-bang .kt-cat--hep { display: block; max-width: 220px; }
+.kt-con-bang .kt-khach__ma.kt-cat { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Đợt 4 (gọn cho người lớn tuổi): bảng 7 cột, số HĐ nợ / quá hạn thành dòng phụ. */
+.kt-cn-bang tbody > tr:not(.kt-mo-rong) > td { padding-top: var(--sp-5); padding-bottom: var(--sp-5); }
+.kt-cn-bang .kt-khach__ten { font-size: var(--fs-body-lg, var(--fs-body)); }
+.kt-cn-bang .kt-so--con { font-size: var(--fs-body-lg, var(--fs-body)); }
+.kt-cn-bang td .kt-so--qua-han.kt-khach__ma { font-weight: 600; }
+.kt-cn-bang tfoot .kt-cong-qh > span { display: inline; margin: 0 var(--sp-2) 0 0; text-align: left; }
+.kt-cn-bang tfoot .kt-cong-qh .num { font-weight: 700; }
+.kt-cong-no .kt-pham-vi { display: flex; align-items: center; }
+.kt-con__chan b { color: var(--text-1); }
+.kt-con__nhom { display: block; margin-top: var(--sp-2); }
+.kt-con-bang td { vertical-align: top; }
+
+/* Đồng bộ công nợ (28/09/2026): hộp thoại rộng hơn để bảng trước/sau + cảnh báo đọc được. */
+.kd-dialog.kt-cn-db-dlg { width: min(680px, calc(100vw - 2 * var(--sp-8))); }
+.kt-cn-xt { display: grid; gap: var(--sp-5); }
+.kt-cn-xt:empty { display: none; }
+.kt-cn-xt__cau { color: var(--text-1); }
+.kt-cn-xt__bang th[scope="row"] { font-weight: 500; color: var(--text-2); }
+.kt-cn-xt__ds li { display: flex; justify-content: space-between; gap: var(--sp-5); }
+.kt-cn-xt__note { overflow-wrap: anywhere; }
+
+/* Cột thao tác bảng con: Ghi nhận + Sửa/Xoá (Sửa/Xoá chỉ hiện với quyền CEO — data-quyen). */
+.kt-con__nut { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); white-space: nowrap; }

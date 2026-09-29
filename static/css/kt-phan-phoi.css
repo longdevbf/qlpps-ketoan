@@ -1,0 +1,8 @@
+/* kt-phan-phoi.css — riêng màn Phân phối lợi nhuận. */
+/* Đầu thẻ "Lịch sử phân phối": tiêu đề + dòng giải thích — màn hẹp xếp xuống dòng, không bóp tiêu đề thành từng chữ. */
+#kd-kt-phan-phoi .kt-the-dau { flex-wrap: wrap; }
+#kd-kt-phan-phoi .kt-the-dau .kd-box__title { flex: none; }
+/* Đợt 4: dòng giải thích dưới hàng thẻ đã chuyển vào ⓘ → ẩn khi trống để không chừa khoảng. */
+#kd-kt-phan-phoi .kt-pham-vi:empty { display: none; }
+/* Hộp Lập phân phối: nhãn ô (kd-field__label mặc định nowrap) được xuống dòng, không đè sang ô bên cạnh. */
+#pp-dlg .kd-field__label { white-space: normal; }

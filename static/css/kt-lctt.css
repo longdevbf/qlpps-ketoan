@@ -1,0 +1,47 @@
+/* kt-lctt.css — riêng màn Lưu chuyển tiền tệ. Chỉ var(--token). */
+
+/* Tình hình tiền và công nợ: 3 ô số lớn (màn cũ: Tiền mặt hiện có · Tổng nợ phải trả · Thanh khoản thuần) */
+.kt-lc-th { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-7); padding: 0 var(--sp-8) var(--sp-8); }
+@media (min-width: 1024px) { .kt-lc-th { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.kt-lc-th__o { display: grid; align-content: start; row-gap: var(--sp-3); min-width: 0; padding: var(--sp-7); border: 1px solid var(--border-soft); border-radius: var(--r-lg); background: var(--bg-page); }
+.kt-lc-th__so { font-size: var(--fs-h, 22px); font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.kt-lc-ds { display: grid; row-gap: var(--sp-2); margin: var(--sp-3) 0 0; padding: var(--sp-4) 0 0; list-style: none; border-top: 1px solid var(--border-soft); font-size: var(--fs-meta); color: var(--text-2); }
+.kt-lc-ds li { display: flex; justify-content: space-between; gap: var(--sp-5); min-width: 0; }
+.kt-lc-ds li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kt-lc-ds li b { font-weight: 600; color: var(--text-1); white-space: nowrap; }
+
+/* Dải tab trong thẻ (không phải tab cấp trang) */
+.kd-tabs.kt-lc-tabs { padding: 0 var(--sp-8); }
+
+/* Giao dịch nổi bật: tab + ô tìm cùng một dải */
+.kt-lc-gd-dau { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--sp-5) var(--sp-8); border-bottom: 1px solid var(--border); padding-right: var(--sp-8); }
+.kt-lc-gd-dau .kd-tabs { border-bottom: 0; flex: 1 1 auto; min-width: 0; }
+.kt-lc-tim { width: 260px; max-width: 100%; margin: 0 0 var(--sp-4) var(--sp-8); }
+
+/* Công nợ ngầm: cảnh báo dưới bảng */
+.kt-lc-canh { margin: 0; padding: var(--sp-6) var(--sp-8) var(--sp-8); font-size: var(--fs-meta); color: var(--text-2); }
+
+/* Đối chiếu trực tiếp ↔ gián tiếp: 2 cột dl */
+.kt-lc-dx { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); padding: 0 var(--sp-8); }
+@media (min-width: 640px) { .kt-lc-dx { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kt-lc-dx__td { margin: 0 0 var(--sp-5); font-size: var(--fs-meta); font-weight: 600; color: var(--text-2); }
+.kt-lc-dx .kt-tq dd { font-weight: 500; }
+.kt-lc-dx__kq { margin: var(--sp-7) var(--sp-8) var(--sp-8); padding: var(--sp-5) var(--sp-7); border-radius: var(--r-md, 8px); background: var(--bg-page); font-size: var(--fs-body); text-align: center; }
+.kt-lc-dx__kq:empty { display: none; }
+
+/* "Phân tích thêm": 1 khối gập, mỗi phân tích một tab */
+.kd-tabs.kt-lc-pt-tabs { margin-top: var(--sp-4); }
+.kt-lc-pane { display: grid; row-gap: var(--sp-6); min-width: 0; padding: var(--sp-8) 0; }
+.kt-lc-pane__dau { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--sp-3) var(--sp-8); padding: 0 var(--sp-8); }
+.kt-lc-pane__dau .kd-box__title { margin: 0; }
+.kt-lc-pane__dau > .kd-meta { margin: 0; }
+.kt-lc-pane > .kd-chart { padding: 0 var(--sp-8); }
+.kt-lc-pane > [id$="-tt"]:not(:empty) { padding: 0 var(--sp-8); }
+.kt-lc-pane .kt-lc-th { padding-bottom: 0; }
+.kt-gap__phu { margin: 0 0 0 var(--sp-4); font-weight: 400; }
+@media (max-width: 767.98px) { .kt-gap__phu { display: none; } }
+
+/* Tab công nợ theo đối tác có thể dài (70+ nhà cung cấp) — cuộn trong khung, giữ tiêu đề cột */
+#th-p-ncc, #th-p-pt, #th-p-vay { max-height: 420px; overflow-y: auto; }
+#th-p-ncc thead th, #th-p-pt thead th { position: sticky; top: 0; z-index: 1; background: var(--surface, #fff); }
+.kt-lc-th__o > .kd-kpi__label { display: flex; align-items: center; min-height: 22px; }

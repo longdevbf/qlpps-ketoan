@@ -30,8 +30,8 @@ async def sepay_webhook(
 
     try:
         payload = await request.json()
-    except Exception as e:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Invalid JSON: {e}")
+    except Exception:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid JSON")
 
     if not isinstance(payload, dict):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Payload must be a JSON object")
@@ -40,9 +40,12 @@ async def sepay_webhook(
         result = handle_webhook(db, payload)
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
-    except Exception as e:
-        # Log ở service. Trả 500 để SePay retry (payload đúng, nội bộ lỗi).
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"Internal: {e}")
+    except Exception:
+        # KHÔNG lộ chi tiết lỗi nội bộ ra client (2026-08-31). Log ở service.
+        # Trả 500 để SePay retry (payload đúng, nội bộ lỗi).
+        import logging
+        logging.getLogger("ketoan.sepay").error("sepay webhook internal error", exc_info=True)
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Internal error")
 
     return result
 

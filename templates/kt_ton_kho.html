@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Tồn kho — theo TỪNG DÒNG NHẬP (muahang.ton_kho_items). Ranh giới: Mua hàng nhập kho + giá nhập; Kế toán CHỈ đặt giá bán.
+   GET /api/external/ton-kho-mh?q&danh_muc&ncc&only_remaining (Xuất Excel = CSV dựng tại trình duyệt từ các dòng đang lọc) · PATCH /api/external/products/<id>/gia-ban · PATCH /api/external/ton-kho-mh/<ma_sp>/gia-ban (README mục 4.33) #}
+{% block title %}Tồn kho{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}{{ ui.css('') }}<link rel="stylesheet" href="/static/css/kt-san-pham.css?v=g4">{% endblock %}
+
+{% block content %}
+<main class="kd-page kt-l3-rong" id="kd-kt-ton-kho">
+  {% call ui.dau_trang('Tồn kho', 'Tồn theo lô nhập, giá nhập, giá bán', tip='Mua hàng nhập kho và giá nhập; Kế toán chỉ đặt giá bán, không nhập hay sửa tồn ở đây. Tồn tự giảm theo FIFO khi đơn hàng hoàn thành.') %}
+    {{ ui.nut_loc('tk') }}
+    <a class="kd-btn" href="/ketoan/san-pham"><i class="bi bi-box" aria-hidden="true"></i>Sản phẩm</a>
+    <button type="button" class="kd-btn kd-btn--primary" id="tk-xuat" title="Tải các dòng đang lọc thành tệp CSV mở được bằng Excel"><i class="bi bi-download" aria-hidden="true"></i>Xuất Excel</button>
+  {% endcall %}
+
+  {{ ui.the_so('tk', [('dong', 'Dòng nhập', '', 'bi-list-ol'), ('sl', 'Số lượng tồn', 'info', 'bi-box-seam', 'Tồn theo các lô Mua hàng đang lọc.'), ('gt', 'Giá trị tồn', 'success', 'bi-cash-stack', 'Số lượng × giá nhập. Khác sổ kho kế toán (Sản phẩm → Kho kế toán, giá vốn bình quân).')], kieu='strip', nhan_vung='Tổng hợp tồn kho theo bộ lọc') }}
+
+  {% set dau_the %}
+    <ul class="kt-tk-phe" aria-label="Chú thích màu cột">
+      <li><span class="kt-tk-o kt-tk-o--mh" aria-hidden="true"></span>Cột do Mua hàng nhập</li>
+      <li><span class="kt-tk-o kt-tk-o--kt" aria-hidden="true"></span>Cột Kế toán đặt</li>
+      <li>Biên lãi<button type="button" class="kd-tip" data-tip="Biên lãi = (giá bán − giá nhập) / giá bán. Từ 30% trở lên tốt, 15–30% cần theo dõi, dưới 15% thấp. Giá bán lấy từ danh mục Sản phẩm (dùng chung với Báo giá)." aria-label="Biên lãi = (giá bán − giá nhập) / giá bán. Từ 30% trở lên tốt, 15–30% cần theo dõi, dưới 15% thấp. Giá bán lấy từ danh mục Sản phẩm (dùng chung với Báo giá)."><i class="bi bi-info-circle" aria-hidden="true"></i></button></li>
+    </ul>
+  {% endset %}
+  {% call ui.the_bang('tk', 'Tồn kho theo dòng nhập', phan_trang=False, dau_the=dau_the) %}
+    {{ ui.o_tim('tk', 'q', 'Tìm', 'Tên hoặc mã sản phẩm…') }}
+    {{ ui.o_chon('tk', 'danh_muc', 'Danh mục', [('', 'Tất cả danh mục')]) }}
+    {{ ui.o_tim('tk', 'ncc', 'Nhà cung cấp', 'Tên nhà cung cấp…') }}
+    {{ ui.o_chon('tk', 'only_remaining', 'Tồn', [('', 'Tất cả dòng nhập'), ('true', 'Chỉ dòng còn tồn')]) }}
+  {% endcall %}
+</main>
+
+<dialog class="kd-dialog" id="tk-dlg" aria-labelledby="tk-dlg-td">
+  <form method="dialog" novalidate id="tk-form">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="tk-dlg-td">Đặt giá bán</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <dl class="kt-tq" id="tk-dlg-tt"></dl>
+      <p class="kd-note" id="tk-dlg-moi" hidden><i class="bi bi-info-circle" aria-hidden="true"></i> Chưa có trong danh mục — lưu giá sẽ tự tạo sản phẩm.</p>
+      <div class="kd-field"><label class="kd-field__label" for="tk-gia">Giá bán mới (VND) <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input num" id="tk-gia" inputmode="numeric" autocomplete="off" aria-describedby="tk-gia-gy"><p class="kd-meta" id="tk-gia-gy"></p></div>
+      <button type="button" class="kd-link" id="tk-goi-y" hidden></button>
+      <div class="kd-field"><label class="kd-field__label" for="tk-ly-do">Lý do đặt giá (không bắt buộc)</label><input class="kd-input" id="tk-ly-do" maxlength="200" autocomplete="off" placeholder="Vd: điều chỉnh theo giá nhập lô tháng 9"></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="tk-ok"><i class="bi bi-tag" aria-hidden="true"></i>Lưu giá bán</button></footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}{# = ui.js('kt-ton-kho') nhưng tự đặt ?v= cho JS riêng để trình duyệt không dùng bản cache cũ #}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-ton-kho.js?v=loc0928"></script>{% endblock %}

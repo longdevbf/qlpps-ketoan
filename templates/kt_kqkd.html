@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Báo cáo kết quả hoạt động kinh doanh — mẫu B02-DN.
+   Nguồn chính = GET /api/bao-cao/pl?thang=YYYY-MM (services/pl_calculator.calc_pl_for_month — P&L chuẩn
+   22 dòng, ĐÚNG nguồn màn cũ #pnl dùng mặc định). API chỉ tính theo THÁNG → kt-kqkd.js gọi từng tháng
+   thuộc kỳ chọn (song song) rồi cộng; kỳ trước = cùng số tháng liền trước.
+   Khối gập "Đối chiếu theo tiền thu thực tế" = GET /api/bao-cao/pnl?from&to&compare=1 (chế độ cũ
+   "theo khoảng" của #pnl: waterfall + cơ cấu chi phí + chi tiết theo hình thức thu / kênh ads).
+   In = in trang; Xuất Excel = tải CSV từ bảng đang xem (không có endpoint xuất ở backend). #}
+{% block title %}Kết quả kinh doanh{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-bao-cao.css?v=d4">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-kqkd">
+  {% call ui.dau_trang('Kết quả kinh doanh', 'Mẫu B02-DN, so với kỳ liền trước') %}
+    {{ ui.chon_ky('kq') }}
+    <button type="button" class="kd-btn" id="kq-in"><i class="bi bi-printer" aria-hidden="true"></i>In</button>
+    <button type="button" class="kd-btn kd-btn--primary" id="kq-xuat"><i class="bi bi-download" aria-hidden="true"></i>Xuất Excel</button>
+  {% endcall %}
+
+  {{ ui.the_so('kq', [('dt', 'Doanh thu thuần', 'info', 'bi-graph-up-arrow'), ('ln_gop', 'Lợi nhuận gộp', 'success', 'bi-bar-chart'),
+                       ('ln_tt', 'Lợi nhuận trước thuế', 'tim', 'bi-calculator'), ('ln_st', 'Lợi nhuận sau thuế', '', 'bi-piggy-bank')], nhan_vung='Chỉ tiêu chính của kỳ') }}
+
+  {{ ui.the_bao_cao('kq', 'Báo cáo kết quả hoạt động kinh doanh', 'Mẫu B02-DN', [('Mã số', False), ('Kỳ này', True), ('Kỳ trước', True), ('Chênh lệch', True)]) }}
+
+  <details class="kd-card kt-gap" id="dc-khoi">
+    <summary class="kt-gap__dau">
+      <span class="kt-gap__ten"><i class="bi bi-bar-chart-line" aria-hidden="true"></i><b>Phân tích thêm: theo tiền thu thực tế</b><span class="kd-tip" role="note" tabindex="0" data-tip="Doanh thu = tiền khách trả trong kỳ (gồm tiền cọc), giá vốn theo phiếu xuất kho." aria-label="Doanh thu = tiền khách trả trong kỳ (gồm tiền cọc), giá vốn theo phiếu xuất kho."><i class="bi bi-info-circle" aria-hidden="true"></i></span></span>
+      <span class="kt-gap__mo" aria-hidden="true"></span>
+      <i class="bi bi-chevron-down" aria-hidden="true"></i>
+    </summary>
+    <div class="kt-gap__than">
+      <p class="kt-pham-vi" id="dc-pham-vi"></p>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="dc-cuon">
+        <table class="kd-table kt-bang kt-bc kt-dc">
+          <caption class="visually-hidden">P&amp;L theo tiền thu thực tế</caption>
+          <thead><tr><th scope="col">Khoản mục</th><th scope="col" class="num">Số tiền (VND)</th><th scope="col" class="num">% doanh thu</th><th scope="col" class="num">Kỳ trước (VND)</th><th scope="col" class="num">Thay đổi</th></tr></thead>
+          <tbody id="dc-tbody"></tbody>
+        </table>
+      </div>
+      <div class="kt-dc-luoi" id="dc-bieu-do">
+        <section class="kd-box" aria-labelledby="dc-wf-td">
+          <div class="kd-box__head"><h3 class="kd-box__title" id="dc-wf-td">Từ tiền thu đến lợi nhuận sau thuế</h3></div>
+          <div class="kt-wf" id="dc-wf"></div>
+        </section>
+        <section class="kd-box" aria-labelledby="dc-cc-td">
+          <div class="kd-box__head"><h3 class="kd-box__title" id="dc-cc-td">Cơ cấu chi phí</h3></div>
+          <div id="dc-cc"></div>
+        </section>
+      </div>
+      <div id="dc-tt"></div>
+    </div>
+  </details>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-bao-cao.js?v=loc0928b"></script>
+<script src="/static/js/kt-kqkd-tinh.js?v=loc0928"></script>
+<script src="/static/js/kt-kqkd.js?v=loc0928"></script>
+{% endblock %}

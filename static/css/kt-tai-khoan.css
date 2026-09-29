@@ -1,0 +1,27 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   kt-tai-khoan.css — riêng màn Danh mục tài khoản (#kd-kt-tai-khoan). Chỉ var(--token).
+   ═══════════════════════════════════════════════════════════════════════════ */
+/* Dòng TK cấp 1 đậm, cấp 2 thụt vào; TK ngừng dùng mờ chữ (trạng thái vẫn nói bằng pill). */
+.kt-tk-bang tbody tr.kt-cap1 td:nth-child(-n+2) { font-weight: 700; }
+.kt-tk-bang tbody tr.kt-cap2 td:nth-child(2) { color: var(--text-2); }
+.kt-tk-bang tbody tr.is-ngung td:nth-child(-n+2) { color: var(--text-3); }
+.kt-tk-bang td:nth-child(2) { white-space: normal; min-width: 240px; }
+.kt-tk-bang .kt-ma-tk { font-variant-numeric: tabular-nums; }
+
+/* Dòng TK vừa thêm/sửa: nháy nền brand-soft một lần để mắt tìm thấy. */
+@keyframes kt-vua-luu { from { background: var(--brand-soft); } to { background: transparent; } }
+.kt-tk-bang tbody tr.kt-vua-luu td { animation: kt-vua-luu 1.6s ease-out; }
+@media (prefers-reduced-motion: reduce) { .kt-tk-bang tbody tr.kt-vua-luu td { animation: none; background: var(--brand-soft); } }
+
+/* Tab loại TK: số đếm nhỏ cạnh nhãn. */
+#kd-kt-tai-khoan .kd-tabs [data-dem] { font-weight: 400; }
+
+/* Ô số hiệu sai định dạng. */
+#tk-dlg .kd-input[aria-invalid="true"] { border-color: var(--danger); }
+
+/* Ghi chú giới hạn dữ liệu thật đầu trang. */
+#tk-canh-bao { margin: 0 0 var(--sp-5); }
+
+/* 10 tab loại TK dài hơn bề ngang thẻ ở ≤1600px (tab "Loại 9" bị cắt, QA 25/09/2026) → cuộn ngang trong dải tab. */
+#kd-kt-tai-khoan #tk-loai { overflow-x: auto; scrollbar-width: thin; }
+#kd-kt-tai-khoan #tk-loai [role="tab"] { flex: none; white-space: nowrap; }

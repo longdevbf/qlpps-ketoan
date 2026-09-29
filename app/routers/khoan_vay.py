@@ -36,6 +36,8 @@ from ..schemas import (
     LaiSuatCreate, TraGocBody, TraGocLaiBody, TraLaiBody,
 )
 from ..services.journal import post_journal
+from ..services.tai_khoan_tien import tk_tien_cua
+from ..services.tim_kiem import khop_khong_dau
 from ._deps import require_ketoan_user
 
 
@@ -45,9 +47,7 @@ def _khoan_vay_account(ky_han_thang: Optional[int]) -> str:
 
 
 def _cash_account(tk: Optional[TaiKhoanNH]) -> str:
-    if tk is None:
-        return "112"
-    return "111" if (tk.loai or "").strip() == "tien_mat" else "112"
+    return tk_tien_cua(tk)
 
 
 router = APIRouter()
@@ -163,8 +163,9 @@ def list_khoan_vay(
     stmt = select(KhoanVay).order_by(KhoanVay.status, KhoanVay.ngay_vay.desc())
     if status_filter:
         stmt = stmt.where(KhoanVay.status == status_filter)
-    if nguon_vay:
-        stmt = stmt.where(KhoanVay.nguon_vay.ilike(f"%{nguon_vay}%"))
+    if nguon_vay and nguon_vay.strip():
+        # Lọc gõ tay theo tên bên cho vay — không phân biệt dấu + hoa/thường (services/tim_kiem.py).
+        stmt = stmt.where(khop_khong_dau(KhoanVay.nguon_vay, nguon_vay))
     items = db.execute(stmt).scalars().all()
     return [_serialize(kv, db) for kv in items]
 

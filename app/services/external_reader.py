@@ -44,6 +44,17 @@ def read_luong_total(
     return _safe_scalar(db, sql, thang=thang)
 
 
+# Định nghĩa "đơn hàng" cộng vào doanh thu Dashboard (công thức cũ) — dùng chung cho tổng
+# (read_don_hang_total) và chuỗi theo tháng (read_don_hang_by_thang) để hai số luôn khớp.
+_DON_HANG_GIA_TRI = (
+    "COALESCE((ncc_totals->>selected_ncc_id)::numeric, 0) - COALESCE(discount, 0)"
+)
+_DON_HANG_WHERE = """
+        WHERE created_at::date >= :tu AND created_at::date <= :den
+          AND status IN ('Hoàn Thành', 'Đã có hàng', 'Đặt hàng', 'Đang SX', 'Đã Duyệt Mua')
+"""
+
+
 def read_don_hang_total(
     db: Session,
     tu_ngay: date,
@@ -55,15 +66,33 @@ def read_don_hang_total(
     trong PurchaseOrder. Tính từ items → join + sum nếu có cột `gia_chot`.
     Fallback: COUNT(*) → 0 nếu không có cột phù hợp.
     """
-    sql = """
-        SELECT COALESCE(SUM(
-            COALESCE((ncc_totals->>selected_ncc_id)::numeric, 0) - COALESCE(discount, 0)
-        ), 0)
+    sql = f"""
+        SELECT COALESCE(SUM({_DON_HANG_GIA_TRI}), 0)
         FROM muahang.purchase_orders
-        WHERE created_at::date >= :tu AND created_at::date <= :den
-          AND status IN ('Hoàn Thành', 'Đã có hàng', 'Đặt hàng', 'Đang SX', 'Đã Duyệt Mua')
+        {_DON_HANG_WHERE}
     """
     return _safe_scalar(db, sql, tu=tu_ngay, den=den_ngay)
+
+
+def read_don_hang_by_thang(
+    db: Session,
+    tu_ngay: date,
+    den_ngay: date,
+) -> dict[str, Decimal]:
+    """Cùng định nghĩa read_don_hang_total, gộp theo tháng 'YYYY-MM' (fail-soft {})."""
+    sql = f"""
+        SELECT to_char(created_at::date, 'YYYY-MM') AS thang,
+               COALESCE(SUM({_DON_HANG_GIA_TRI}), 0)
+        FROM muahang.purchase_orders
+        {_DON_HANG_WHERE}
+        GROUP BY 1
+    """
+    try:
+        rows = db.execute(text(sql), {"tu": tu_ngay, "den": den_ngay}).all()
+    except (ProgrammingError, OperationalError):
+        db.rollback()
+        return {}
+    return {str(k): Decimal(v or 0) for k, v in rows}
 
 
 def read_ads_total(

@@ -1,9 +1,14 @@
+{# SINH TỰ ĐỘNG — ĐỪNG sửa file này trong repo.
+   Sửa `claude-kit/core/shared/templates/cham_cong_core.html` rồi chạy:
+       cd d:\PapaSanIT\claude-kit && python sync.py
+   File này giống hệt nhau ở cả 8 repo. Muốn một app khác đi thì đặt
+   bản riêng trong templates/ của app đó (Jinja đọc templates/ trước). -#}
 <!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Chấm Công — QLPPS</title>
+<title>Chấm công — QLPPS</title>
 <link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
 <link rel="shortcut icon" href="/static/papasan.ico">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -11,368 +16,439 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{
- --bg:var(--bg-page); --line:var(--border); --text:var(--text-1); --muted:var(--text-3);
- --primary:var(--brand); --primary-d:var(--info); --navy:var(--brand); --navy-d:var(--brand-hover);
- /* --success và --danger đã có trong theme.css — khai lại gây chu trình
-    `--success:var(--success)` làm biến vô hiệu. Xoá, dùng token toàn cục. */
- --warn:var(--warning);
- --amber-bg:#fef3c7; --amber-bd:var(--warning-soft); --amber-txt:#92400e;
- --green-bg:#dcfce7; --green-bd:var(--success-soft); --green-txt:#15803d;
- --purple-bg:var(--brand-soft); --purple-bd:var(--brand-soft); --purple-txt:var(--brand-hover);
- --blue-bg:#dbeafe; --blue-bd:var(--info-soft); --blue-txt:var(--info-fg);
- --rose-bg:var(--danger-soft); --rose-bd:var(--danger-soft); --rose-txt:var(--danger-fg);
- --cyan-bg:var(--info-soft); --cyan-bd:var(--info-soft); --cyan-txt:var(--info-fg);
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   CHẤM CÔNG — màn dùng chung cho cả 8 app (bố cục 11/09/2026).
+
+   Bố cục theo ảnh mẫu người duyệt gửi 11/09/2026: đường dẫn trên thanh trên cùng ·
+   thẻ hôm nay (khối ngày · đồng hồ · nút chấm công) · bảng chấm công HÔM NAY
+   (một dòng) · cột phụ (ca hôm nay · tổng quan tháng · lịch sử gần đây · lưu ý).
+   17/09/2026: bảng chính từng liệt kê ĐỦ NGÀY trong tháng kèm ‹ › + ô chọn tháng —
+   người duyệt bảo "quá nhiều, chỉ cần biết ngày hôm đó". Nay bảng chỉ còn dòng hôm
+   nay; tháng vẫn được tải nguyên để nuôi cột phụ (tổng quan · lịch sử gần đây).
+   Xuất phát từ lớp bố cục HCNS (`qlpps-hcns/templates/cham_cong.html`, 10/09) —
+   nhưng dựng thẳng trong markup, không chuyển node bằng JS lúc chạy.
+
+   Màu/khoảng cách/cỡ chữ chỉ lấy token của `theme.css` (hệ TRẮNG + XANH,
+   ADR-012). Không một mã hex nào trong file này.
+
+   MỌI selector nằm dưới `.cc`: file này được include vào 8 khung app khác nhau,
+   có app nạp Bootstrap (`.card`, `.btn-*` trùng tên). Thêm một lớp cha là đủ
+   độ đặc hiệu để không bị CSS của khung đè, mà không cần `!important`.
+   ═══════════════════════════════════════════════════════════════════════════ */
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:var(--bg);min-height:100vh;color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;
+     min-height:100vh;color:var(--text-1);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+/* NỀN TRANG như ảnh mẫu: xanh rất nhạt #EDF4FC — đúng giá trị --bg-app của theme.css
+   (ADR-012). Khai CỨNG chứ không var(--bg-app): HCNS đè --bg-app thành #f6faf9 (xám
+   ngả lục) trong `_he_mau.html`, mà người duyệt chốt 11/09/2026 màn này phải cùng
+   nền ảnh mẫu ở cả 8 app (design-system.md, mục "Thẻ"). `html body` (0,0,2) để
+   thắng `body{background:…}` mà `_header.html` của app khai SAU khối này. */
+html body{background:#EDF4FC}
+@media print{html body{background:var(--bg-card)}}
 
-/* ── Topbar ── */
-.topbar{height:54px;background:var(--brand-soft);color:var(--brand-hover);padding:0 22px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 4px 14px rgba(15,23,42,.18)}
-.topbar-logo{font-size:15px;font-weight:800;letter-spacing:.3px;white-space:nowrap}
-.topbar-logo span{color:var(--brand)}
-.topbar-sep{color:var(--text-3);font-size:16px}
-.topbar-title{font-size:14px;font-weight:700;white-space:nowrap}
-.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:12.5px}
-.topbar-user{color:var(--text-2);font-weight:600}
-.topbar-btn{padding:6px 13px;border-radius:7px;border:none;cursor:pointer;font-size:12.5px;font-weight:600;transition:all .15s;text-decoration:none;display:inline-flex;align-items:center;gap:5px}
-.mt-btn-back{background:var(--bg-card);color:var(--brand-hover);border:1px solid var(--border)}
-.mt-btn-back:hover{filter:brightness(.95)}
-.mt-btn-logout{background:var(--danger-fg);color:#fff}
-.mt-btn-logout:hover{background:var(--danger-fg)}
+.cc{color:var(--text-2);font-size:var(--fs-body);line-height:var(--lh-body)}
+/* Trải HẾT bề ngang như Tổng quan HCNS — người duyệt 11/09/2026: "không để phí
+   không gian 2 bên". Trần 1280 cũ để trống ~130px mỗi bên ở màn 1536 có sidebar. */
+.cc .cc-wrap{max-width:none;margin:0;padding:var(--sp-8) var(--sp-8) 40px}
+@media(min-width:768px){.cc .cc-wrap{padding:var(--sp-8) var(--sp-9) 40px}}
+@media(min-width:1600px){.cc .cc-wrap{padding:var(--sp-9) var(--sp-10) 48px}}
+/* Tên màn nay nằm trên thanh trên cùng, thân trang không lặp H1 + dòng phụ nữa —
+   nhưng trang vẫn cần một H1 cho trình đọc màn hình. */
+.cc .cc-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
+     clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
-/* ── Hero (page header reimagined) — full-bleed background, content căn theo max-width 1200px ── */
-.page-header{
- background:var(--brand-soft);color:var(--brand-hover);
-  width:100vw;margin-left:calc(50% - 50vw);
-  padding-top:30px;padding-bottom:56px;
-  padding-left:max(26px,calc((100vw - 1200px) / 2 + 18px));
-  padding-right:max(26px,calc((100vw - 1200px) / 2 + 18px));
-  position:relative;overflow:hidden;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+/* ── Đường dẫn trên THANH TRÊN CÙNG của app ─────────────────────────────────
+   Người duyệt 11/09/2026: bỏ H1 + dòng phụ trong thân trang, đưa "Trang chủ ›
+   Chấm công" lên đúng chỗ tiêu đề trang ở header. `_ccDatDuongDan()` ghi vào ô
+   `.ab-ptitle` có sẵn (hcns · baogia · ketoan); app chưa có ô thì chèn một ô ngay
+   sau nút ☰. Header nằm NGOÀI `.cc` nên selector bắt đầu bằng `.appbar`; (0,2,0)
+   đủ thắng `.ab-ptitle{font-size…}` riêng của từng header. */
+.appbar .cc-duong-dan{display:flex;align-items:center;gap:var(--sp-3);flex:0 1 auto;min-width:0;
+     padding-left:var(--sp-8);margin-right:var(--sp-8);overflow:hidden;white-space:nowrap;
+     font-size:var(--fs-body);font-weight:500;color:var(--text-3)}
+.appbar .cc-duong-dan[hidden]{display:none}
+.appbar .cc-duong-dan a{flex:none;color:var(--text-3);text-decoration:none}
+.appbar .cc-duong-dan a:hover{color:var(--brand-hover)}
+.appbar .cc-duong-dan svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2;
+     stroke-linecap:round;stroke-linejoin:round}
+.appbar .cc-duong-dan [aria-current]{min-width:0;overflow:hidden;text-overflow:ellipsis;
+     font-size:var(--fs-h);font-weight:800;color:var(--text-1)}
+@media(max-width:768px){.appbar .cc-duong-dan{display:none}}
+
+/* ── Lưới: nội dung chính + cột phụ ─────────────────────────────────────────
+   2 cột từ 1280px (01-BAN-CHOT-THANG §5: "lưới chính + cột phụ — 2 cột ≥1280").
+   `minmax(0,1fr)` chứ không `1fr`: bên trong có bảng cuộn ngang, `1fr` để bề rộng
+   tối thiểu của bảng đẩy cả lưới tràn ra ngoài. */
+.cc .cc-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-8);align-items:start}
+@media(min-width:1280px){.cc .cc-grid{grid-template-columns:minmax(0,1fr) 380px}}
+@media(min-width:1600px){.cc .cc-grid{grid-template-columns:minmax(0,1fr) 420px}}
+.cc .cc-main,.cc .cc-rail{display:flex;flex-direction:column;gap:var(--sp-8);min-width:0}
+
+/* ── Thẻ ─────────────────────────────────────────────────────────────────── */
+/* Viền + mép ĐÚNG như Tổng quan HCNS (`.block` · `.kpi`) — người duyệt chốt 11/09/2026,
+   luật design-system.md mục "Thẻ": viền 1px --border + bóng --shadow-sm. KHÔNG
+   --shadow-card: vòng --ring đen 14% của nó chồng lên viền thành cái RÌA xám. */
+.cc .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);
+     box-shadow:var(--shadow-sm);overflow:hidden;margin:0}
+/* `border:0; background:transparent` phải khai TƯỜNG MINH: vài app kẻ viền dưới
+   cho `.card-header` trong app.css của chúng (thấy ở saleadmin, 11/09/2026). */
+.cc .card-header{display:flex;align-items:center;gap:var(--sp-5) var(--sp-6);flex-wrap:wrap;
+     padding:var(--sp-8) var(--sp-9);border:0;background:transparent}
+.cc .card-header h2{font-size:var(--fs-h);font-weight:700;color:var(--text-1);line-height:var(--lh-tight)}
+.cc .cc-rail .card-header h2{font-size:var(--fs-title)}
+.cc .card-sub{flex:1;min-width:0;font-size:var(--fs-meta);color:var(--text-3)}
+.cc .card-toolbar{display:flex;align-items:center;gap:var(--sp-4);margin-left:auto}
+.cc .card-body{padding:0 var(--sp-9) var(--sp-9)}
+.cc .cc-rong{font-size:var(--fs-body);color:var(--text-3)}
+
+/* Icon nét viền, một màu, ăn `currentColor` — cùng ngôn ngữ với icon sidebar. */
+.cc svg.cc-ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;
+     stroke-linecap:round;stroke-linejoin:round}
+
+/* ── Nút ─────────────────────────────────────────────────────────────────────
+   Nút chính = khối đặc --brand + chữ trắng (ADR-012, 5,17:1). Nút phụ trong
+   thanh công cụ thẻ = nền soft + chữ --brand-hover (5,95:1 — KHÔNG dùng chữ
+   --brand trên soft, 4,59 sát ngưỡng). */
+.cc .btn-primary,.cc .btn-soft{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);
+     min-height:36px;padding:0 var(--sp-8);border-radius:var(--r);font:inherit;font-size:var(--fs-body);
+     font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
+.cc .btn-primary{background:var(--brand);color:var(--text-on-brand);border:1px solid var(--brand)}
+.cc .btn-primary:hover{background:var(--brand-hover);border-color:var(--brand-hover)}
+.cc .btn-soft{background:var(--brand-soft);color:var(--brand-hover);border:1px solid var(--brand-border)}
+.cc .btn-soft:hover{filter:brightness(.97)}
+.cc .btn-primary:focus-visible,.cc .btn-soft:focus-visible,
+.cc .month-select:focus-visible{outline:0;box-shadow:var(--focus-ring)}
+.cc .btn-sm{display:inline-flex;align-items:center;min-height:30px;padding:0 var(--sp-6);border-radius:var(--r-sm);
+     font:inherit;font-size:var(--fs-meta);font-weight:600;cursor:pointer;border:1px solid transparent}
+.cc .btn-success{background:var(--success-soft);color:var(--success-fg)}
+.cc .btn-warning{background:var(--warning-soft);color:var(--warning-fg)}
+.cc .btn-danger{background:var(--danger-soft);color:var(--danger-fg)}
+.cc .btn-info{background:var(--brand-soft);color:var(--brand-hover)}
+.cc .btn-sm:hover{filter:brightness(.95)}
+
+.cc .month-select{min-width:146px;height:36px;padding:0 var(--sp-5);border:1px solid var(--border);
+     border-radius:var(--r);background:var(--bg-card);color:var(--text-1);font:inherit;
+     font-size:var(--fs-body);cursor:pointer}
+/* ── Thẻ HÔM NAY: khối ngày · đồng hồ · nút + lời nhắc ─────────────────────
+   Điện thoại: khối ngày và đồng hồ nằm CẠNH NHAU, nút trải hết hàng dưới — xếp
+   cả ba một cột thì thẻ cao hơn 1/3 màn hình chỉ để nói ngày và giờ. */
+.cc .cc-homnay{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--sp-8);padding:var(--sp-8)}
+.cc .cc-homnay .cc-hanh-dong{grid-column:1 / -1}
+@media(min-width:768px){
+  .cc .cc-homnay{grid-template-columns:150px minmax(140px,1fr) minmax(260px,1.3fr);padding:var(--sp-9)}
+  .cc .cc-homnay .cc-hanh-dong{grid-column:auto}
 }
-.page-header::before{content:'';position:absolute;top:-40%;right:-10%;width:380px;height:380px;background:rgba(255 0%,transparent 70%);pointer-events:none;z-index:0}
-.page-header > *{position:relative;z-index:1}
-/* Elevate first content section over hero (overlap pattern giống stats-bar) */
-.main-layout{margin-top:-40px;position:relative;z-index:5}
+.cc .cc-lich{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-1);
+     min-width:112px;padding:var(--sp-8) var(--sp-6);border-radius:var(--r-lg);background:var(--brand-soft);text-align:center}
+.cc .cc-lich-thu{font-size:var(--fs-body-lg);font-weight:700;color:var(--text-1)}
+/* Số ngày là con số ĐỒ HOẠ, không phải chữ đọc — như --fs-glyph cho ☰ ✕. Thang
+   chữ dừng ở --fs-display 32; ảnh mẫu cho số này ~44px. */
+.cc .cc-lich-so{font-size:44px;font-weight:800;color:var(--text-1);line-height:1.05;letter-spacing:-.02em;
+     font-variant-numeric:tabular-nums}
+.cc .cc-lich-thang{font-size:var(--fs-meta);color:var(--text-3)}
+.cc .cc-dongho{display:flex;flex-direction:column;justify-content:center;gap:var(--sp-2);min-width:0}
+.cc .cc-dongho-nhan{font-size:var(--fs-body);color:var(--text-2)}
+.cc .cc-dongho-gio{font-size:var(--fs-display, 32px);font-weight:800;color:var(--text-1);line-height:1.1;
+     letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.cc .cc-dongho-ngay{font-size:var(--fs-body);color:var(--text-3)}
+.cc .cc-hanh-dong{display:flex;flex-direction:column;justify-content:center;gap:var(--sp-5);min-width:0}
+.cc .cc-not-yet{font-size:var(--fs-body);color:var(--text-3)}
 
-.page-header-icon{width:54px;height:54px;background:var(--bg-card);border:1px solid var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center;color:var(--brand);font-size:22px;flex-shrink:0;position:relative;z-index:1}
-.page-header-text{position:relative;z-index:1}
-.page-header-text h4{margin:0;font-weight:800;color:var(--brand-hover);font-size:22px;letter-spacing:-.4px}
-.page-header-text p{font-size:13px;color:var(--text-2);margin:4px 0 0}
-.btn-refresh{padding:9px 16px;background:var(--bg-card);color:var(--brand-hover);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;margin-left:auto;position:relative;z-index:1}
-.btn-refresh:hover{filter:brightness(.95)}
+/* Nút chấm công: icon trái, nhãn + giờ xếp dọc bên phải — đúng dạng ảnh mẫu.
+   Chấm VÀO = khối đặc --brand (việc chính, mở đầu ngày). Chấm RA và "chấm vào
+   tiếp" = cùng sắc đó pha nhạt: một cái nút đổi sang màu cảnh báo cuối mỗi ngày
+   là đọc nhầm việc bình thường thành sự cố (lý do HCNS bỏ màu hổ phách, 10/09). */
+.cc .btn-cham-vao,.cc .btn-cham-ra{display:flex;align-items:center;justify-content:center;gap:var(--sp-8);
+     width:100%;min-height:64px;padding:var(--sp-6) var(--sp-9);border-radius:var(--r-lg);
+     font:inherit;text-align:left;cursor:pointer;transition:background .15s,border-color .15s}
+.cc .btn-cham-vao{background:var(--brand);color:var(--text-on-brand);border:1px solid var(--brand);
+     box-shadow:var(--shadow-sm)}
+.cc .btn-cham-vao:hover{background:var(--brand-hover);border-color:var(--brand-hover)}
+.cc .btn-cham-vao:active{background:var(--brand-active)}
+.cc .btn-cham-ra,.cc .btn-cham-vao.is-phu{background:var(--brand-soft);color:var(--brand-hover);
+     border:1px solid var(--brand-border);box-shadow:none}
+.cc .btn-cham-ra:hover,.cc .btn-cham-vao.is-phu:hover{background:var(--brand-soft);filter:brightness(.97)}
+.cc .btn-cham-vao:focus-visible,.cc .btn-cham-ra:focus-visible{outline:0;box-shadow:var(--focus-ring)}
+.cc .btn-cham-vao:disabled,.cc .btn-cham-ra:disabled{opacity:.6;cursor:not-allowed}
+.cc .btn-cham-vao svg.cc-ic,.cc .btn-cham-ra svg.cc-ic{width:28px;height:28px}
+.cc .cc-nut-nhan{display:flex;flex-direction:column;line-height:1.2}
+.cc .cc-nut-nhan b{font-size:var(--fs-h);font-weight:700}
+.cc .cc-nut-gio{font-size:var(--fs-body-lg);font-weight:600;opacity:.9;font-variant-numeric:tabular-nums}
 
-/* ── Page wrap ── */
-.page-wrap{max-width:1200px;margin:0 auto;padding:0 18px 30px;width:100%}
-.page-wrap > *:not(.page-header){position:relative;z-index:2}
+/* Lời nhắc dưới nút. Icon có NỀN RIÊNG → nền đặc + nét trắng (ADR-009). */
+.cc .cc-bao{display:flex;align-items:flex-start;gap:var(--sp-5);padding:var(--sp-6) var(--sp-7);
+     border-radius:var(--r-md);background:var(--brand-soft);font-size:var(--fs-meta);color:var(--text-3)}
+.cc .cc-bao b{display:block;font-size:var(--fs-body);font-weight:600;color:var(--text-1)}
+.cc .cc-bao-ic{display:inline-grid;place-items:center;flex:none;width:20px;height:20px;border-radius:var(--r-full);
+     background:var(--tile-blue);color:var(--text-on-brand)}
+.cc .cc-bao-ic svg.cc-ic{width:12px;height:12px;stroke-width:2.6}
+.cc .cc-bao--success{background:var(--success-soft)}
+.cc .cc-bao--success .cc-bao-ic{background:var(--tile-green)}
 
-/* ── Stats bar (overlap hero) ── */
-.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:-40px;margin-bottom:18px;position:relative;z-index:5}
-@media(max-width:700px){.stats-bar{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:420px){.stats-bar{grid-template-columns:1fr}}
-.stat-card{background:#fff;border-radius:14px;border:1px solid var(--line);padding:14px 16px;display:flex;align-items:center;gap:13px;cursor:pointer;transition:all .15s;box-shadow:0 4px 12px rgba(15,23,42,.06);position:relative;overflow:hidden}
-.stat-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line);border-radius:14px 0 0 14px}
-.stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(15,23,42,.1)}
-.stat-card.active{box-shadow:0 0 0 2px var(--primary),0 4px 12px rgba(15,23,42,.06)}
-.stat-card.active::before{background:var(--primary)}
-.stat-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
-.stat-icon.nghi{background:var(--amber-bg);color:var(--amber-txt)}
-.stat-icon.chi{background:var(--purple-bg);color:var(--purple-txt)}
-.stat-icon.lenh{background:var(--blue-bg);color:var(--blue-txt)}
-.stat-icon.ct{background:var(--green-bg);color:var(--green-txt)}
-.stat-num{font-size:22px;font-weight:800;color:var(--text);line-height:1}
-.stat-label{font-size:11px;color:var(--muted);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+/* ── Cảnh báo rời phạm vi văn phòng ──────────────────────────────────────── */
+.cc .geofence-banner{display:none;align-items:center;justify-content:space-between;gap:var(--sp-6);flex-wrap:wrap;
+     padding:var(--sp-7) var(--sp-8);border-radius:var(--r-lg);background:var(--warning-soft);color:var(--warning-fg)}
+.cc .geofence-banner.show{display:flex}
+.cc .geofence-banner b{display:block;font-size:var(--fs-body-lg)}
+.cc .geofence-banner small{font-size:var(--fs-meta)}
+.cc .geofence-banner .cc-geo-nut{display:flex;gap:var(--sp-4);flex:none}
+.cc .btn-geo-ra{background:var(--danger);color:var(--text-on-brand);border:1px solid var(--danger)}
+.cc .btn-geo-bo{background:var(--bg-card);color:var(--warning-fg);border:1px solid var(--warning)}
 
-/* ── Filter Tabs ── */
-.tabs-bar{background:#fff;border-radius:12px;border:1px solid var(--line);padding:6px;display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px;box-shadow:0 2px 6px rgba(15,23,42,.04)}
-.tab-btn{padding:9px 18px;border:0;background:transparent;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-radius:9px;transition:all .15s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-family:inherit}
-.tab-btn:hover{background:var(--bg-page);color:var(--brand-hover)}
-.tab-btn.active{background:var(--brand-soft);color:var(--brand-hover);font-weight:700}
+/* ── Bảng ────────────────────────────────────────────────────────────────────
+   Đầu bảng chữ thường như ảnh mẫu, nền dải nhấn --bg-band (chữ --text-2 trên
+   đó 8,39:1). Hàng nén: pill 24px + đệm 4px mỗi bên = hàng 32px. */
+/* Khung cuộn khai TƯỜNG MINH: components.css của marketing (28/08/2026) khoét "lòng
+   chìm" cho MỌI `.tbl-wrap` — viền trắng 12px ba cạnh + nền lõm + bóng trong — nên
+   bảng thụt vào và kẻ vệt xám hai bên (thấy trên ảnh 11/09/2026). */
+.cc .tbl-wrap{overflow-x:auto;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.cc .data-table{width:100%;border-collapse:separate;border-spacing:0;font-size:var(--fs-body)}
+/* `text-transform:none` tường minh: lớp bảng dùng chung trong theme.css
+   (`@layer qlpps.table`) viết IN HOA đầu bảng; ảnh mẫu các màn này là chữ thường. */
+.cc .data-table thead th{padding:var(--sp-5) var(--sp-6);background:var(--bg-band);color:var(--text-2);
+     font-size:var(--fs-meta);font-weight:600;text-align:left;white-space:nowrap;
+     text-transform:none;letter-spacing:normal;border:0;box-shadow:none}
+.cc .data-table thead th:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm)}
+.cc .data-table thead th:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
+.cc .data-table tbody td{padding:var(--sp-2) var(--sp-6);height:36px;border-bottom:1px solid var(--border-soft);
+     color:var(--text-2);vertical-align:middle}
+.cc .data-table tbody tr:hover td{background:var(--bg-page)}
+/* marketing vẽ rìa xanh lá ở ô đầu khi rê chuột — `.tbl-wrap table tbody tr:hover >
+   td:first-child` đặc hiệu (0,3,4), phải (0,4,3) mới gỡ được. */
+.cc .data-table tbody tr:hover > td:first-child{box-shadow:none}
+.cc .data-table tr.empty-row td{height:auto;padding:40px 0;text-align:center;color:var(--text-3);border-bottom:0}
+.cc .data-table tr.empty-row:hover td{background:transparent}
+/* Bảng chính chỉ một dòng (hôm nay): Chủ nhật vẫn nền lõm + chữ đỏ. Không tô
+   "hôm nay" nữa — bảng không còn ngày khác để phân biệt. Thứ Bảy KHÔNG được tô là
+   ngày nghỉ: dữ liệu thật có phiên thứ Bảy (05/09/2026, 08:30–12:00). */
+.cc .cc-bang-tbl td{white-space:nowrap;font-variant-numeric:tabular-nums}
+.cc .cc-bang-tbl td.cc-ghi-chu{white-space:normal;min-width:140px;color:var(--text-3)}
+.cc .cc-bang-tbl tr.is-chu-nhat td{background:var(--bg-page)}
+.cc .cc-bang-tbl tr.is-chu-nhat .cc-ngay-o,.cc .cc-bang-tbl tr.is-chu-nhat .cc-thu-o{color:var(--danger)}
 
-/* ── Table ── */
-.tbl-wrap{background:#fff;border-radius:14px;border:1px solid var(--line);overflow:hidden;box-shadow:0 2px 6px rgba(15,23,42,.04)}
-.tbl-scroll{overflow-x:auto}
-.data-table{width:100%;border-collapse:collapse;font-size:13px}
-.data-table thead th{background:var(--bg-page);color:var(--muted);padding:11px 13px;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;text-align:left;border-bottom:1px solid var(--line)}
-.data-table tbody tr{border-bottom:1px solid var(--bg-page);transition:background .15s}
-.data-table tbody tr:hover{background:var(--bg-page)}
-.data-table tbody td{padding:11px 13px;vertical-align:middle}
-.empty-row td{text-align:center;color:var(--text-3);padding:44px 0;font-size:13px}
+/* ── Pill trạng thái — hợp đồng 03-mau-sac §2.4 (ADR-002: chấm ::before, không
+   viền). Kích thước 04 §3.9: cao 24, chấm 8. Họ `--neutral-*` CHƯA có trong
+   theme đang chạy → pill trung tính dựng bằng --bg-band + --text-3 (4,59:1). */
+.cc .pill{display:inline-flex;align-items:center;gap:var(--sp-3);height:24px;padding:0 var(--sp-5);
+     border-radius:var(--r-full);font-size:var(--fs-eyebrow);font-weight:600;line-height:1;white-space:nowrap}
+.cc .pill::before{content:"";width:8px;height:8px;border-radius:var(--r-full);background:currentColor;flex:none}
+.cc .pill--success{background:var(--success-soft);color:var(--success-fg)}
+.cc .pill--danger{background:var(--danger-soft);color:var(--danger-fg)}
+.cc .pill--warning{background:var(--warning-soft);color:var(--warning-fg)}
+.cc .pill--info{background:var(--info-soft);color:var(--info-fg)}
+.cc .pill--neutral{background:var(--bg-band);color:var(--text-3)}
 
-/* ── NV cell ── */
-.nv-cell{display:flex;align-items:center;gap:9px}
-.nv-ava{width:32px;height:32px;border-radius:50%;background:var(--info);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 4px rgba(0,132,255,.25)}
+/* ── Ô icon nền đặc, nét trắng (ADR-009, ADR-011 — mức 600, nhóm --tile-*) ── */
+.cc .ico-tile{display:inline-grid;place-items:center;flex:none;width:40px;height:40px;border-radius:var(--r-md);
+     background:var(--tile-blue);color:var(--text-on-brand)}
+.cc .ico-tile svg.cc-ic{width:20px;height:20px}
+.cc .ico-tile--success{background:var(--tile-green)}
+.cc .ico-tile--warning{background:var(--tile-orange)}
+.cc .ico-tile--danger{background:var(--tile-red)}
+.cc .ico-tile--tim{background:var(--tile-violet)}
 
-/* ── Type badge ── */
-.type-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
-.type-nghi{background:var(--amber-bg);color:var(--amber-txt);border:1px solid var(--amber-bd)}
-.type-chi{background:var(--purple-bg);color:var(--purple-txt);border:1px solid var(--purple-bd)}
-.type-lenh{background:var(--blue-bg);color:var(--blue-txt);border:1px solid var(--blue-bd)}
-.type-ct{background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd)}
+/* ── Cột phụ ─────────────────────────────────────────────────────────────── */
+.cc .cc-kv{display:flex;flex-direction:column}
+.cc .cc-kv-dong{display:grid;grid-template-columns:20px minmax(0,1fr) auto;align-items:center;gap:var(--sp-6);
+     padding:var(--sp-4) 0;border-bottom:1px solid var(--border-soft)}
+.cc .cc-kv-dong:last-child{border-bottom:0}
+.cc .cc-kv-dong svg.cc-ic{color:var(--text-1)}
+.cc .cc-kv dt{color:var(--text-2)}
+.cc .cc-kv dd{color:var(--text-1);font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.cc .cc-kv .cc-kv-tong dd{color:var(--brand-hover)}
+.cc .cc-dang-lam{color:var(--warning-fg)}
 
-/* ── Action btns ── */
-.btn-approve{padding:6px 13px;background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
-.btn-approve:hover{background:var(--success);color:#fff;border-color:var(--success);transform:translateY(-1px)}
-.btn-reject{padding:6px 13px;background:#fee2e2;color:#991b1b;border:1px solid var(--danger-soft);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
-.btn-reject:hover{background:var(--danger);color:#fff;border-color:var(--danger);transform:translateY(-1px)}
+/* Bốn ô tổng quan. Nhãn giữ MỘT dòng: vỡ dòng thì bốn ô cao thấp so le. Cột phụ
+   380px → mỗi ô ~165px; đệm 10 + khe 10 thì còn ~95px cho nhãn. Đệm 12 + khe 12
+   chỉ còn 89px và "Ngày nghỉ phép" (~90px ở 12px Inter) bị cắt — đã thấy trên
+   ảnh chụp 11/09/2026. */
+.cc .cc-tq{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-5)}
+.cc .cc-tq > .cc-rong{grid-column:1 / -1}   /* câu "đang tải / chưa có số" trải hết hai cột */
+.cc .cc-tq-o{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:var(--sp-5);align-items:center;
+     padding:var(--sp-5);border:1px solid var(--border);border-radius:var(--r-md);min-width:0}
+.cc .cc-tq-o .ico-tile{grid-row:span 2}
+.cc .cc-tq-so{align-self:end;font-size:var(--fs-h);font-weight:700;color:var(--text-1);line-height:1.2;
+     font-variant-numeric:tabular-nums;white-space:nowrap}
+.cc .cc-tq-nhan{align-self:start;font-size:var(--fs-meta);color:var(--text-3);white-space:nowrap;
+     overflow:hidden;text-overflow:ellipsis}
 
-/* ── Card (shared) ── */
-.card{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:16px;box-shadow:0 2px 6px rgba(15,23,42,.04);overflow:hidden}
-.card-header{padding:16px 20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid transparent;transition:background .15s}
-.card-header:hover{background:var(--bg-page)}
-.card-header h3{font-size:15px;font-weight:700;color:var(--text);margin:0;display:flex;align-items:center;gap:9px}
-.card-toolbar{display:flex;align-items:center;gap:8px}
-.card-body{padding:0 20px 20px}
-.month-select{padding:7px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:12.5px;color:var(--text);background:#fff;font-family:inherit;cursor:pointer}
-.month-select:focus{outline:0;box-shadow:var(--focus-ring)}
+.cc .cc-gan-ds{list-style:none;display:flex;flex-direction:column;gap:var(--sp-6)}
+.cc .cc-gan-ds li{display:flex;align-items:center;gap:var(--sp-6);min-width:0}
+.cc .cc-gan-ds .ico-tile{width:28px;height:28px;border-radius:var(--r-sm)}
+.cc .cc-gan-ds .ico-tile svg.cc-ic{width:15px;height:15px}
+.cc .cc-gan-t{min-width:0;flex:1;color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cc .cc-gan-h{flex:none;color:var(--text-1);font-weight:700;font-variant-numeric:tabular-nums}
 
-/* ── Modal ── */
-.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:1060;display:none;align-items:center;justify-content:center;padding:16px}
-.modal-overlay.show{display:flex}
-.modal-box{background:#fff;border-radius:16px;width:520px;max-width:96vw;box-shadow:0 20px 60px rgba(15,23,42,.3);overflow:hidden;animation:modalIn .25s ease-out}
-@keyframes modalIn{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
-.modal-header{background:var(--brand-soft);padding:18px 22px;display:flex;align-items:center;gap:10px}
-.modal-header h5{color:var(--brand-hover);margin:0;font-weight:800;font-size:16px}
-.modal-body{padding:22px 24px}
-.modal-footer{padding:14px 24px;border-top:1px solid var(--bg-page);display:flex;gap:8px;justify-content:flex-end;background:var(--bg-page)}
-.modal-info-card{background:var(--bg-page);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-bottom:18px}
-.info-chip{background:var(--blue-bg);color:var(--blue-txt);border-radius:7px;padding:4px 11px;font-size:12px;font-weight:600;display:inline-block;margin:2px 4px 2px 0;border:1px solid var(--blue-bd)}
-.modal-textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:9px;font-size:13px;outline:none;resize:vertical;min-height:80px;font-family:inherit;transition:border-color .15s,box-shadow .15s}
-.modal-textarea:focus{box-shadow:var(--focus-ring)}
-.btn-modal-approve{background:var(--success);color:#fff;border:none;border-radius:9px;padding:10px 20px;font-weight:700;cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
-.btn-modal-approve:hover{background:var(--success-fg);transform:translateY(-1px)}
-.btn-modal-reject{background:var(--danger);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-weight:700;cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
-.btn-modal-reject:hover{background:var(--danger-fg);transform:translateY(-1px)}
-.btn-cancel-m{background:#fff;color:var(--text);border:1.5px solid var(--line);border-radius:9px;padding:10px 16px;font-weight:600;cursor:pointer;font-size:13px;font-family:inherit;transition:all .15s}
-.btn-cancel-m:hover{background:var(--bg-page);border-color:var(--text-3)}
+/* Lưu ý — nằm TRONG thẻ lịch sử, ở đáy thẻ (người duyệt 11/09/2026). Nền chuyển từ
+   trắng (trên) xuống xanh nhạt (đáy) — ngoại lệ gradient duy nhất của design-system.md.
+   Không bo góc riêng: thẻ cha đã bo 12px + `overflow:hidden`. */
+.cc .cc-luu-y{padding:var(--sp-8) var(--sp-9) var(--sp-9);
+     background:linear-gradient(to top, var(--brand-soft), var(--bg-card))}
+.cc .cc-luu-y h3{display:flex;align-items:center;gap:var(--sp-4);margin-bottom:var(--sp-5);
+     font-size:var(--fs-title);font-weight:700;color:var(--text-1)}
+.cc .cc-luu-y ul{list-style:none;display:flex;flex-direction:column;gap:var(--sp-4)}
+.cc .cc-luu-y li{position:relative;padding-left:var(--sp-7);color:var(--text-2)}
+.cc .cc-luu-y li::before{content:"";position:absolute;left:var(--sp-1);top:.6em;width:5px;height:5px;
+     border-radius:var(--r-full);background:var(--brand)}
 
-/* ── Loading spinner ── */
-.loading-row td{text-align:center;padding:44px 0}
-.spinner{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
-@keyframes spin{to{transform:rotate(360deg)}}
+/* ── Modal (giữ markup cũ, đổi mặt) ──────────────────────────────────────── */
+.cc .modal-overlay{position:fixed;inset:0;z-index:1060;display:none;align-items:center;justify-content:center;
+     padding:var(--sp-8);background:rgba(15,23,42,.45)}
+.cc .modal-overlay.show{display:flex}
+.cc .modal-box{width:520px;max-width:96vw;max-height:90vh;overflow-y:auto;background:var(--bg-card);
+     border-radius:var(--r-lg);box-shadow:var(--shadow-pop, var(--shadow-lg))}
+.cc .modal-header{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;
+     gap:var(--sp-5);padding:var(--sp-8) var(--sp-10);background:var(--bg-card);border-bottom:1px solid var(--border)}
+.cc .modal-header h5{font-size:var(--fs-h);font-weight:700;color:var(--text-1)}
+.cc .modal-close{background:none;border:0;color:var(--text-3);font-size:var(--fs-h);line-height:1;cursor:pointer;padding:0}
+.cc .modal-close:hover{color:var(--text-1)}
+.cc .modal-body{padding:var(--sp-9) var(--sp-10)}
+.cc .modal-footer{display:flex;justify-content:flex-end;gap:var(--sp-4);padding:var(--sp-7) var(--sp-10);
+     border-top:1px solid var(--border);background:var(--bg-page)}
+.cc .modal-tabs{display:flex;margin-bottom:var(--sp-8);border-bottom:1px solid var(--border)}
+.cc .modal-tab{flex:1;padding:var(--sp-5);background:none;border:0;border-bottom:2px solid transparent;
+     font:inherit;font-size:var(--fs-meta);font-weight:600;color:var(--text-3);cursor:pointer}
+.cc .modal-tab:hover{color:var(--brand-hover)}
+.cc .modal-tab.active{color:var(--brand-hover);border-bottom-color:var(--brand)}
+.cc .modal-pane{display:none}
+.cc .modal-pane.active{display:block}
+.cc .form-field{margin-bottom:var(--sp-7)}
+.cc .form-field label{display:block;margin-bottom:var(--sp-2);font-size:var(--fs-meta);font-weight:600;color:var(--text-2)}
+.cc .form-field input,.cc .form-field select,.cc .form-field textarea{width:100%;min-height:40px;padding:var(--sp-4) var(--sp-6);
+     border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card);color:var(--text-1);
+     font:inherit;font-size:var(--fs-body);outline:none}
+.cc .form-field textarea{min-height:72px;resize:vertical}
+.cc .form-field input:focus,.cc .form-field select:focus,.cc .form-field textarea:focus{box-shadow:var(--focus-ring);border-color:var(--brand)}
 
-/* ── Toast ── */
-.toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast{padding:13px 20px;border-radius:10px;font-size:13px;font-weight:600;color:#fff;box-shadow:0 6px 22px rgba(15,23,42,.25);opacity:0;transform:translateY(12px);transition:all .28s;pointer-events:none;max-width:340px;display:flex;align-items:center;gap:8px}
-.toast.show{opacity:1;transform:translateY(0)}
-.toast.success{background:var(--success)}
-.toast.error{background:var(--danger)}
-.toast.info{background:var(--brand-soft);color:var(--brand-hover)}
-.toast.warning{background:var(--warn)}
+/* ── Toast ───────────────────────────────────────────────────────────────── */
+.cc .toast-wrap{position:fixed;right:24px;bottom:24px;z-index:9999;display:flex;flex-direction:column;gap:var(--sp-4);pointer-events:none}
+.cc .toast{max-width:340px;padding:var(--sp-6) var(--sp-9);border-radius:var(--r);font-size:var(--fs-body);font-weight:600;
+     color:var(--text-on-brand);box-shadow:var(--shadow-lg);opacity:0;transform:translateY(12px);transition:all .25s}
+.cc .toast.show{opacity:1;transform:none}
+.cc .toast.success{background:var(--success)}
+.cc .toast.error{background:var(--danger)}
+.cc .toast.warning{background:var(--warning)}
+.cc .toast.info{background:var(--brand)}
 
-/* ─────────────────────────────────────────────── */
-/* ── Module-specific: Chấm Công ─────────────── */
-/* ─────────────────────────────────────────────── */
-
-/* ── Layout ── */
-.main-layout{display:grid;grid-template-columns:340px 1fr;gap:18px;align-items:start;margin-top:18px}
-@media(max-width:860px){.main-layout{grid-template-columns:1fr}}
-
-/* ── Status Card (chấm vào/ra hôm nay) ── */
-.cc-status-card{background:#fff;border-radius:14px;border:1px solid var(--line);padding:22px 24px;margin-bottom:16px;text-align:center;box-shadow:0 2px 6px rgba(15,23,42,.04)}
-.cc-date-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-.cc-date-big{font-size:16px;font-weight:800;color:var(--navy);margin-bottom:16px}
-.cc-not-yet{font-size:15px;color:var(--text-3);margin-bottom:16px}
-.cc-done-msg{font-size:14px;color:var(--green-txt);font-weight:700;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:9px;padding:10px 14px;margin-bottom:10px}
-.btn-cham-vao{width:100%;padding:16px;background:var(--success);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;letter-spacing:.2px;box-shadow:0 4px 12px rgba(16,185,129,.3)}
-.btn-cham-vao:hover{background:var(--success-fg);transform:translateY(-1px);box-shadow:0 6px 18px rgba(16,185,129,.4)}
-.btn-cham-vao:disabled{opacity:.6;cursor:not-allowed;transform:none}
-.btn-cham-ra{width:100%;padding:16px;background:var(--warning-soft);color:var(--warning-fg);border:1.5px solid var(--warning);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;letter-spacing:.2px}
-.btn-cham-ra:hover{background:var(--warning);transform:translateY(-1px);box-shadow:0 6px 18px rgba(245,158,11,.4)}
-.btn-cham-ra:disabled{opacity:.6;cursor:not-allowed;transform:none}
-
-/* ── Geofence Banner ── */
-.geofence-banner{display:none;background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:12px;padding:14px 16px;margin-bottom:14px;color:var(--amber-txt)}
-.geofence-banner.show{display:block}
-
-/* ── Status badges (riêng cho cham_cong) ── */
-.st-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
-.st-cho{background:var(--amber-bg);color:var(--amber-txt);border:1px solid var(--amber-bd)}
-.st-duyet{background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd)}
-.st-tuchoi{background:#fee2e2;color:#991b1b;border:1px solid var(--danger-soft)}
-.st-dangoai{background:var(--blue-bg);color:var(--blue-txt);border:1px solid var(--blue-bd)}
-
-/* ── Form ── */
-.form-field{margin-bottom:14px}
-.form-field label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
-.form-field input,.form-field select,.form-field textarea{width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;outline:none;background:var(--bg-page);font-family:inherit;color:var(--text);transition:border-color .15s,box-shadow .15s}
-.form-field input:focus,.form-field select:focus,.form-field textarea:focus{background:#fff;box-shadow:var(--focus-ring)}
-
-/* ── Btn variants (chấm công) ── */
-.btn-primary{padding:8px 16px;background:var(--brand-soft);color:var(--brand-hover);border:none;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;font-family:inherit}
-.btn-primary:hover{filter:brightness(.95);transform:translateY(-1px)}
-.btn-sm{padding:5px 12px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all .15s;font-family:inherit}
-.btn-success{background:var(--green-bg);color:var(--green-txt);border:1px solid var(--green-bd)}
-.btn-success:hover{background:var(--success);color:#fff;border-color:var(--success)}
-.btn-warning{background:var(--amber-bg);color:var(--amber-txt);border:1px solid var(--amber-bd)}
-.btn-warning:hover{background:var(--warn);color:#fff;border-color:var(--warn)}
-.btn-danger{background:#fee2e2;color:#991b1b;border:1px solid var(--danger-soft)}
-.btn-danger:hover{background:var(--danger);color:#fff;border-color:var(--danger)}
-.btn-info{background:var(--blue-bg);color:var(--blue-txt);border:1px solid var(--blue-bd)}
-.btn-info:hover{background:var(--info);color:#fff;border-color:var(--info)}
-
-/* ── Modal extensions ── */
-.modal-box{max-height:90vh;overflow-y:auto}
-.modal-header{justify-content:space-between;position:sticky;top:0;z-index:1}
-.modal-close{background:none;border:none;color:var(--text-3);font-size:22px;cursor:pointer;line-height:1;padding:0}
-.modal-close:hover{color:var(--brand-hover)}
-.modal-tabs{display:flex;border-bottom:1.5px solid var(--line);margin-bottom:16px}
-.modal-tab{flex:1;padding:9px;background:none;border:none;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;font-family:inherit;transition:all .15s}
-.modal-tab:hover{color:var(--primary)}
-.modal-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
-.modal-pane{display:none}
-.modal-pane.active{display:block}
-
-/* ── Phiên table (chi tiết phiên chấm công) ── */
-.session-tbl{width:100%;font-size:13px;border-collapse:collapse;margin-bottom:12px}
-.session-tbl th{background:var(--bg-page);padding:6px 10px;text-align:left;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
-.session-tbl td{padding:7px 10px;border-bottom:1px solid var(--bg-page)}
-
-/* ── Card body override cho chấm công (table flush) ── */
-.card-body.flush{padding:0}
-
-/* ── Mobile (tablet nhỏ trở xuống) ── */
-@media(max-width:768px){
-  html,body{overflow-x:hidden}
-  .topbar{padding:0 10px;gap:6px}
-  .topbar-logo,.topbar-sep{display:none}
-  .topbar-user{display:none}
-  .topbar-btn{padding:5px 10px;font-size:11px}
-  .page-wrap{padding:0 8px 16px}
-  .page-header{padding-top:20px;padding-bottom:36px;gap:10px}
- .page-header-icon{width:42px;height:42px;font-size:22px;border-radius:11px}
- .page-header-text h4{font-size:16px}
-  .page-header-text p{font-size:12px}
-  .main-layout{margin-top:12px;gap:12px}
-
-  /* Card header — ẩn text mô tả, thu gọn toolbar */
-  .card-header{padding:11px 12px;gap:8px;flex-wrap:wrap}
-  .card-header h3{font-size:13px}
-  .card-header>div[style*="font-size:11px"]{display:none!important}
-  .card-toolbar{gap:6px;flex-wrap:nowrap}
-  .month-select{max-width:120px;font-size:11.5px;padding:6px 8px}
-  .btn-primary{font-size:11px;padding:6px 10px;gap:4px}
-  .btn-primary i{font-size:12px}
-
-  /* Tables — giảm padding, font */
-  .data-table{font-size:11px}
-  .data-table thead th,.data-table tbody td{padding:7px 7px;white-space:normal;word-break:break-word}
-  .data-table thead th{white-space:nowrap}
-
-  /* Bảng Lệnh đi (8 cột) → giữ: Ngày, Địa điểm, Trạng thái, Thao tác */
-  #tbl-lenh-di th:nth-child(3),#tbl-lenh-di td:nth-child(3),
-  #tbl-lenh-di th:nth-child(5),#tbl-lenh-di td:nth-child(5),
-  #tbl-lenh-di th:nth-child(6),#tbl-lenh-di td:nth-child(6),
-  #tbl-lenh-di th:nth-child(7),#tbl-lenh-di td:nth-child(7){display:none}
-
-  /* Bảng Lịch sử (5 cột) → ẩn Loại */
-  #tbl-lich-su th:nth-child(5),#tbl-lich-su td:nth-child(5){display:none}
-
-  /* Bảng Công trình (6 cột) → giữ: Từ ngày, Địa điểm, Trạng thái, Thao tác */
-  #tbl-cong-trinh th:nth-child(2),#tbl-cong-trinh td:nth-child(2),
-  #tbl-cong-trinh th:nth-child(4),#tbl-cong-trinh td:nth-child(4){display:none}
-
-  /* Status card */
-  .cc-status-card{padding:14px 16px}
-  .cc-date-big{font-size:15px;margin-bottom:10px}
-  .btn-cham-vao,.btn-cham-ra{font-size:15px;padding:12px}
-
-  /* Geofence */
-  .geofence-banner{padding:10px 12px}
-
-  /* Modal */
-  .modal-overlay{padding:6px}
-  .modal-box{border-radius:12px;max-height:96vh;width:100%!important}
-  .modal-body{padding:14px 16px}
-  .modal-footer{padding:10px 14px}
-
-  /* Toast */
-  .toast-wrap{right:8px;bottom:8px}
-  .toast{max-width:calc(100vw - 16px);font-size:12px}
-
-  /* Btn nhỏ trong bảng */
-  .btn-sm{padding:4px 8px;font-size:11px}
-
-  /* Mobile: input ≥16px chống iOS auto-zoom */
-  .form-field input,.form-field select,.form-field textarea{font-size:16px}
-  /* Bảng cuộn ngang được (khối bọc vốn overflow:hidden) */
-  .tbl-wrap{overflow-x:auto}
-  /* Tap target nút nhỏ */
-  .btn-sm,.btn-approve,.btn-reject{min-height:40px}
-  /* Modal 2 ô ngày (Từ/Đến, Mã CT/Giai đoạn) → 1 cột */
-  .cc-modal-2col{grid-template-columns:1fr!important}
+/* ── Điện thoại & tablet dọc: bảng → THẺ ────────────────────────────────────
+   Không giấu cột: các dòng ở đây KHÔNG bấm mở được chi tiết, giấu là mất hẳn.
+   Mỗi dòng thành một thẻ, `td::before` in lại tên cột lấy từ `data-label` (mẫu
+   thẻ `qlpps-ceo/templates/duyet_chi.html`, 09/07/2026). */
+@media(max-width:767px){
+  .cc .card-header{padding:var(--sp-6)}
+  .cc .card-body{padding:0 var(--sp-6) var(--sp-6)}
+  .cc .card-sub{display:none}
+  .cc .cc-luu-y{padding:var(--sp-6)}
+  .cc .data-table thead{display:none}
+  .cc .data-table,.cc .data-table tbody,.cc .data-table tr,.cc .data-table td{display:block}
+  /* `min-width:0` tường minh: app.css của saleadmin (dòng 246, 11/09/2026) đặt
+     `table{min-width:560px}` cho MỌI bảng ở màn hẹp để cuộn ngang. Lọt vào đây thì
+     thẻ rộng 560px trong khung 332px — giá trị căn phải bị đẩy ra ngoài màn hình. */
+  .cc .data-table{width:100%;min-width:0}
+  .cc .data-table tbody tr{margin-bottom:var(--sp-6);padding:var(--sp-5) var(--sp-7);border:1px solid var(--border);
+       border-radius:var(--r-md);background:var(--bg-card)}
+  .cc .data-table tbody td{display:flex;justify-content:space-between;align-items:center;gap:var(--sp-6);
+       height:auto;padding:var(--sp-2) 0;border:0;text-align:right;white-space:normal}
+  .cc .data-table tbody td::before{content:attr(data-label);flex:none;text-align:left;font-size:var(--fs-meta);
+       font-weight:600;color:var(--text-3)}
+  .cc .data-table tbody tr:hover td{background:transparent}
+  .cc .cc-bang-tbl tr.is-chu-nhat,.cc .cc-bang-tbl tr.is-chu-nhat td{background:var(--bg-page)}
+  .cc .data-table td.act-cell{flex-wrap:wrap;margin-top:var(--sp-3);padding-top:var(--sp-5);border-top:1px solid var(--border-soft)}
+  .cc .data-table td.act-cell::before{display:none}
+  .cc .data-table tr.empty-row{padding:0}
+  .cc .data-table tr.empty-row td{display:block;padding:32px 0;text-align:center}
+  .cc .data-table tr.empty-row td::before{display:none}
+  .cc .btn-sm{min-height:40px}
+  /* input ≥16px: iOS tự phóng to trang khi chạm ô nhập nhỏ hơn */
+  .cc .form-field input,.cc .form-field select,.cc .form-field textarea{font-size:16px}
+  .cc .modal-overlay{padding:var(--sp-3)}
+  .cc .modal-box{width:100%;max-height:96vh}
+  /* `!important` bắt buộc: hai ô ngày khai lưới 2 cột bằng style="" ngay trên thẻ. */
+  .cc .cc-modal-2col{grid-template-columns:1fr!important}
+  .cc .toast-wrap{right:8px;bottom:8px}
 }
-
-/* ── Điện thoại nhỏ ── */
-@media(max-width:420px){
-  .page-wrap{padding:0 6px 12px}
-  .topbar-btn span{display:none}
-  .cc-date-big{font-size:14px}
-  .btn-cham-vao,.btn-cham-ra{font-size:14px;padding:11px}
-  .data-table thead th,.data-table tbody td{padding:5px 5px;font-size:10.5px}
-  .month-select{max-width:100px;font-size:10.5px}
-  /* Bảng Lịch sử: ẩn thêm cột Giờ vào */
-  #tbl-lich-su th:nth-child(2),#tbl-lich-su td:nth-child(2){display:none}
-}
+@media(prefers-reduced-motion:reduce){.cc *{transition:none}}
 </style>
 </head>
 <body>
 {% include "_header.html" %}
 
-<!-- Topbar -->
+{# Mọi thứ của màn nằm trong `.cc` — kể cả modal và toast — để CSS phạm vi `.cc …`
+   ăn được hết mà không lọt ra header của app. #}
+<div class="cc">
+<div class="cc-wrap">
 
-<div class="page-wrap">
+  <h1 class="cc-sr">Chấm công</h1>
 
-  <!-- Page Header -->
-  <div class="page-header">
-    <div class="page-header-text">
-      <h4>Chấm Công</h4>
-      <p>Chấm công và quản lý lệnh đi ngoài của bạn</p>
-    </div>
-  </div>
+  <div class="cc-grid">
+    <div class="cc-main">
 
-  <div class="main-layout">
-
-    <!-- Left column: chấm công hôm nay -->
-    <div>
-
-      <!-- Geofence Banner -->
-      <div class="geofence-banner" id="cc-geofence-banner">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-          <div>
- <div style="font-weight:700;color:var(--warning-fg);font-size:14px">Bạn đã rời khỏi phạm vi công ty</div>
- <div id="cc-geofence-dist" style="font-size:12px;color:var(--warning-fg);margin-top:2px"></div>
-          </div>
-          <div style="display:flex;gap:8px;flex-shrink:0">
- <button onclick="chamRa()" style="padding:7px 14px;background:var(--danger);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Chấm ra ngay</button>
-            <button onclick="document.getElementById('cc-geofence-banner').classList.remove('show')"
- style="padding:7px 14px;background:#fff;border:1.5px solid var(--warning-fg);color:var(--warning-fg);border-radius:8px;font-size:13px;cursor:pointer">Bỏ qua</button>
-          </div>
+      <!-- Cảnh báo rời phạm vi công ty — JS bật lớp .show khi đang trong phiên mà GPS ở xa văn phòng -->
+      <div class="geofence-banner" id="cc-geofence-banner" role="alert">
+        <div>
+          <b>Bạn đã rời khỏi phạm vi công ty</b>
+          <small id="cc-geofence-dist"></small>
+        </div>
+        <div class="cc-geo-nut">
+          <button type="button" class="btn-sm btn-geo-ra" onclick="chamRa()">Chấm ra ngay</button>
+          <button type="button" class="btn-sm btn-geo-bo" onclick="document.getElementById('cc-geofence-banner').classList.remove('show')">Bỏ qua</button>
         </div>
       </div>
 
-      <!-- Status Card -->
-      <div class="cc-status-card" id="cc-today-card">
-        <div class="cc-date-label">Hôm nay</div>
-        <div class="cc-date-big" id="cc-today-date">—</div>
-        <div id="cc-today-content">
+      <!-- Thẻ hôm nay: khối ngày · đồng hồ · nút chấm công + lời nhắc.
+           `#cc-today-content` do JS vẽ lại sau MỖI lần chấm vào / ra. -->
+      <section class="card cc-homnay" id="cc-homnay" aria-label="Chấm công hôm nay">
+        <div class="cc-lich" aria-hidden="true">
+          <span class="cc-lich-thu" id="cc-lich-thu">—</span>
+          <span class="cc-lich-so" id="cc-lich-so">—</span>
+          <span class="cc-lich-thang" id="cc-lich-thang"></span>
+        </div>
+        <div class="cc-dongho">
+          <span class="cc-dongho-nhan">Giờ hiện tại</span>
+          <span class="cc-dongho-gio" id="cc-dongho-gio">--:--</span>
+          <span class="cc-dongho-ngay" id="cc-today-date">—</span>
+        </div>
+        <div class="cc-hanh-dong" id="cc-today-content">
           <div class="cc-not-yet">Đang tải...</div>
         </div>
-      </div>
+      </section>
 
-    </div>
-
-    <!-- Right column: lệnh đi + lịch sử -->
-    <div>
-
-      <!-- Card lệnh đi trong ngày -->
-      <div class="card">
+      <!-- Bảng chấm công HÔM NAY — một dòng. Từng là bảng đủ ngày trong tháng có ‹ › +
+           ô chọn tháng; bỏ 17/09/2026 theo người duyệt ("chỉ cần biết ngày hôm đó"). -->
+      <section class="card" id="cc-bang">
         <div class="card-header">
-          <h3>Lệnh đi trong ngày</h3>
- <div style="font-size:11px;color:var(--text-3);margin-left:6px;flex:1">Đi rồi về trong ngày, vẫn chấm công VP</div>
+          <h2>Chấm công hôm nay</h2>
+        </div>
+        <div class="card-body">
+          <div class="tbl-wrap">
+            <table class="data-table cc-bang-tbl" id="tbl-lich-su">
+              <thead>
+                <tr>
+                  <th>Ngày</th>
+                  <th>Thứ</th>
+                  <th>Giờ vào</th>
+                  <th>Giờ ra</th>
+                  <th>Tổng giờ</th>
+                  <th>Trạng thái</th>
+                  <th>Ghi chú</th>
+                </tr>
+              </thead>
+              <tbody id="cc-lich-su-tbody">
+                <tr class="empty-row"><td colspan="7">Đang tải...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Lệnh đi trong ngày -->
+      <section class="card">
+        <div class="card-header">
+          <h2>Lệnh đi trong ngày</h2>
+          <span class="card-sub">Đi rồi về trong ngày, vẫn chấm công văn phòng</span>
           <div class="card-toolbar">
-            <select class="month-select" id="ldd-nv-thang" onchange="loadLenhDiDoNv(this.value)"></select>
-            <button class="btn-primary" onclick="openLenhDiModal()">Tạo lệnh đi</button>
+            <select class="month-select" id="ldd-nv-thang" aria-label="Tháng của lệnh đi" onchange="loadLenhDiDoNv(this.value)"></select>
+            <button type="button" class="btn-soft" onclick="openLenhDiModal()">Tạo lệnh đi</button>
           </div>
         </div>
         <div class="card-body">
@@ -396,43 +472,15 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
             </table>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- Card lịch sử chấm công -->
-      <div class="card">
+      <!-- Đăng ký công trình -->
+      <section class="card">
         <div class="card-header">
-          <h3>Lịch sử chấm công</h3>
+          <h2>Đăng ký công trình</h2>
+          <span class="card-sub">Đi cả ngày / nhiều ngày, thay cho chấm công văn phòng</span>
           <div class="card-toolbar">
-            <select class="month-select" id="cc-lich-su-thang" onchange="loadLichSuChamCong(this.value)"></select>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="tbl-wrap">
-            <table class="data-table" id="tbl-lich-su">
-              <thead>
-                <tr>
-                  <th>Ngày</th>
-                  <th>Giờ vào</th>
-                  <th>Giờ ra</th>
-                  <th>Tổng giờ</th>
-                  <th>Loại</th>
-                </tr>
-              </thead>
-              <tbody id="cc-lich-su-tbody">
-                <tr class="empty-row"><td colspan="5">Đang tải...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Card đăng ký công trình -->
-      <div class="card">
-        <div class="card-header">
-          <h3>Đăng ký công trình</h3>
- <div style="font-size:11px;color:var(--text-3);margin-left:6px;flex:1">Đi cả ngày/nhiều ngày, thay thế chấm công VP</div>
-          <div class="card-toolbar">
-            <button class="btn-primary" onclick="openCongTrinhModal()">Đăng ký</button>
+            <button type="button" class="btn-soft" onclick="openCongTrinhModal()">Đăng ký</button>
           </div>
         </div>
         <div class="card-body">
@@ -449,12 +497,47 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
             </table>
           </div>
         </div>
-      </div>
+      </section>
 
     </div>
+
+    <!-- Cột phụ. Mọi số ở đây TÍNH TỪ CÙNG dữ liệu của bảng tháng đang chọn —
+         không gọi API riêng, để hai nơi không bao giờ lệch nhau khi đổi tháng. -->
+    <aside class="cc-rail" aria-label="Tóm tắt chấm công">
+      <section class="card">
+        <div class="card-header"><h2>Ca làm việc hôm nay</h2></div>
+        <div class="card-body" id="cc-phien"><p class="cc-rong">Đang tải...</p></div>
+      </section>
+
+      <section class="card">
+        <div class="card-header"><h2 id="cc-tq-tieu-de">Tổng quan tháng</h2></div>
+        <div class="card-body"><div class="cc-tq" id="cc-tong-quan"><p class="cc-rong">Đang tải...</p></div></div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>Lịch sử chấm công gần đây</h2>
+        </div>
+        <div class="card-body" id="cc-gan-day"><p class="cc-rong">Đang tải...</p></div>
+        <!-- Lưu ý ở ĐÁY thẻ lịch sử, chung một thẻ (người duyệt 11/09/2026) — nằm
+             NGOÀI #cc-gan-day vì JS vẽ lại cả hộp đó mỗi lần tải lại. -->
+        <div class="cc-luu-y" role="note" aria-labelledby="cc-luu-y-tieu-de">
+        <h3 id="cc-luu-y-tieu-de">
+          <span class="cc-bao-ic"><svg class="cc-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 16v-5M12 8h.01"/></svg></span>
+          Lưu ý
+        </h3>
+        <ul>
+          <li>Chỉ chấm ra được sau khi đã chấm vào.</li>
+          <li>Chấm công đúng giờ theo quy định của công ty.</li>
+          <li>Đi ra ngoài rồi về trong ngày thì tạo <b>lệnh đi</b>, vẫn tính công văn phòng.</li>
+          <li>Đi cả ngày hoặc nhiều ngày thì dùng <b>đăng ký công trình</b> thay cho chấm công.</li>
+          <li>Sai sót về chấm công liên hệ phòng Nhân sự.</li>
+        </ul>
+        </div>
+      </section>
+    </aside>
   </div>
 </div>
-
 <!-- Modal Đăng ký Công Trình -->
 <div class="modal-overlay" id="modal-cong-trinh" style="display:none">
   <div class="modal-box">
@@ -550,7 +633,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
  <div id="ct-coords-display" style="font-size:11px;color:var(--text-3);margin-top:4px"></div>
           </div>
           <a id="ct-gmaps-link" href="#" target="_blank"
- style="display:inline-flex;align-items:center;gap:6px;background:var(--info);color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;flex-shrink:0">
+ style="display:inline-flex;align-items:center;gap:6px;background:var(--info);color:var(--text-on-brand);padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;flex-shrink:0">
             Xem Maps
           </a>
         </div>
@@ -571,7 +654,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 <div class="modal-overlay" id="modal-sua-dd">
   <div class="modal-box" style="max-width:520px">
     <div class="modal-header">
- <i class="bi bi-pencil-square" style="color:var(--info-soft);font-size:16px"></i>
+ <i class="bi bi-pencil-square" style="color:var(--brand);font-size:16px"></i>
       <h5>Sửa địa điểm lệnh đi</h5>
  <button onclick="document.getElementById('modal-sua-dd').style.display='none'" style="margin-left:auto;background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-3)">×</button>
     </div>
@@ -795,7 +878,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
  <div id="ldd-coords-display" style="font-size:11px;color:var(--text-3);margin-top:4px"></div>
           </div>
           <a id="ldd-gmaps-link" href="#" target="_blank"
- style="display:inline-flex;align-items:center;gap:6px;background:var(--info);color:#fff;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;flex-shrink:0">
+ style="display:inline-flex;align-items:center;gap:6px;background:var(--info);color:var(--text-on-brand);padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;flex-shrink:0">
             Xem Maps
           </a>
         </div>
@@ -816,6 +899,7 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;background:va
 
 <!-- Toast container -->
 <div class="toast-wrap" id="toast-wrap"></div>
+</div>
 
 <script>
 // ── API helper — dùng cookie HttpOnly, không cần đọc token qua JS ──────────────
@@ -829,19 +913,333 @@ async function api(method, path, body){
   if(!r.ok){ const e=await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail||r.statusText); }
   return r.json();
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Toast — textContent: thông điệp có cả e.message của server, không dựng HTML ──
 function showToast(msg, type='info'){
   const wrap = document.getElementById('toast-wrap');
+  if(!wrap) return;
   const t = document.createElement('div');
   t.className = `toast ${type}`;
-  const icon = type==='success'?'check-circle':type==='error'?'exclamation-triangle':type==='warning'?'exclamation-circle':'info-circle';
-  t.innerHTML = `${msg}`;
+  t.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  t.textContent = msg;
   wrap.appendChild(t);
   setTimeout(()=>t.classList.add('show'), 30);
-  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); }, 3500);
+  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); }, type === 'error' ? 6000 : 3500);
 }
 
+// ── Icon nét viền (24×24, ăn currentColor) ────────────────────────────────────
+const _CC_IC = {
+  vao:    '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/>',
+  ra:     '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+  lich:   '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/>',
+  dongho: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  nghi:   '<path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2M10 2v2M14 2v2"/>',
+  canh:   '<circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>',
+  tong:   '<path d="M5 22h14M5 2h14"/><path d="M17 22v-4.2a2 2 0 0 0-.6-1.4L12 12l-4.4 4.4a2 2 0 0 0-.6 1.4V22"/><path d="M7 2v4.2a2 2 0 0 0 .6 1.4L12 12l4.4-4.4a2 2 0 0 0 .6-1.4V2"/>',
+  info:   '<path d="M12 16v-5M12 8h.01"/>',
+  xong:   '<path d="M20 6 9 17l-5-5"/>'
+};
+function _ccSvg(ten){
+  return '<svg class="cc-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + (_CC_IC[ten] || '') + '</svg>';
+}
+
+// ── Ngày giờ ─────────────────────────────────────────────────────────────────
+const _CC_THU = ['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+function _cc2(n){ return String(n).padStart(2,'0'); }
+/* Ngày hôm nay theo GIỜ MÁY, không qua toISOString() — hàm đó đổi sang UTC,
+   ở GMT+7 trước 7 giờ sáng sẽ ra ngày hôm qua. */
+function _ccHomNayStr(){
+  const d = new Date();
+  return d.getFullYear() + '-' + _cc2(d.getMonth()+1) + '-' + _cc2(d.getDate());
+}
+/* 8.57 (giờ thập phân của API) → "8h 34m", đúng dạng ảnh mẫu. */
+function _ccGioPhut(h){
+  const phut = Math.round((parseFloat(h) || 0) * 60);
+  if(!phut) return '0h';
+  return Math.floor(phut / 60) + 'h ' + _cc2(phut % 60) + 'm';
+}
+function _ccVeDongHo(){
+  const d = new Date();
+  const dat = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+  const gio = _cc2(d.getHours()) + ':' + _cc2(d.getMinutes());
+  dat('cc-lich-thu', _CC_THU[d.getDay()]);
+  dat('cc-lich-so', d.getDate());
+  dat('cc-lich-thang', 'Tháng ' + _cc2(d.getMonth()+1) + ', ' + d.getFullYear());
+  dat('cc-dongho-gio', gio);
+  dat('cc-today-date', _CC_THU[d.getDay()] + ', ' + _cc2(d.getDate()) + '/' + _cc2(d.getMonth()+1) + '/' + d.getFullYear());
+  // Giờ nhỏ trên nút chấm công — nút hiện giờ sẽ được ghi nếu bấm ngay lúc này
+  document.querySelectorAll('#cc-today-content .cc-nut-gio').forEach(el => { el.textContent = gio; });
+}
+
+// ── Trạng thái hôm nay ────────────────────────────────────────────────────────
+async function loadTrangThaiHomNay(){
+  _ccVeDongHo();
+  const el = document.getElementById('cc-today-content');
+  if(!el) return;
+  try {
+    const sessions = await api('GET', '/api/cham-cong/hom-nay');
+    _ccRenderTrangThai(sessions);
+    _ccCheckGeofence(sessions);
+  } catch(e){
+    el.innerHTML = `<div class="cc-not-yet" style="color:var(--danger-fg)">Không tải được trạng thái hôm nay: ${_ccEsc(e.message)}</div>`;
+    _ccVePhien(null, e.message);
+  }
+}
+
+/* loai: 'vao' | 'ra' | 'vao-tiep'. Giữ đúng hai lớp `.btn-cham-vao` / `.btn-cham-ra`
+   và `onclick` cũ — chamVao() / chamRa() tìm nút theo đúng hai lớp đó. */
+function _ccNut(loai){
+  const vao = loai !== 'ra';
+  const nhan = loai === 'vao' ? 'Chấm vào' : (loai === 'ra' ? 'Chấm ra' : 'Chấm vào tiếp');
+  const d = new Date();
+  return `<button type="button" class="${vao ? 'btn-cham-vao' : 'btn-cham-ra'}${loai === 'vao-tiep' ? ' is-phu' : ''}" onclick="${vao ? 'chamVao()' : 'chamRa()'}">`
+    + _ccSvg(vao ? 'vao' : 'ra')
+    + `<span class="cc-nut-nhan"><b>${nhan}</b><span class="cc-nut-gio">${_cc2(d.getHours())}:${_cc2(d.getMinutes())}</span></span>`
+    + `</button>`;
+}
+function _ccBao(tone, tieuDe, moTa){
+  return `<div class="cc-bao${tone === 'success' ? ' cc-bao--success' : ''}" role="status">`
+    + `<span class="cc-bao-ic">${_ccSvg(tone === 'success' ? 'xong' : 'info')}</span>`
+    + `<div><b>${tieuDe}</b>${moTa ? `<span>${moTa}</span>` : ''}</div></div>`;
+}
+
+function _ccRenderTrangThai(sessions){
+  const el = document.getElementById('cc-today-content');
+  if(!el) return;
+  _ccVePhien(sessions);
+
+  if(!sessions || !sessions.length){
+    el.innerHTML = _ccNut('vao') + _ccBao('brand', 'Bạn chưa chấm công hôm nay', 'Vui lòng chấm vào khi bắt đầu làm việc.');
+    return;
+  }
+  const openSess = sessions.find(s=>!s.gio_ra);
+  const tongGio = sessions.filter(s=>s.tong_gio).reduce((sum,s)=>sum+parseFloat(s.tong_gio),0);
+  if(openSess){
+    el.innerHTML = _ccNut('ra')
+      + _ccBao('brand', 'Đang làm việc từ ' + _ccFmtTime(openSess.gio_vao), 'Nhớ chấm ra khi rời văn phòng hoặc kết thúc ngày.');
+  } else {
+    const cuoi = sessions[sessions.length - 1];
+    el.innerHTML = _ccNut('vao-tiep')
+      + _ccBao('success', 'Đã chấm ra lúc ' + _ccFmtTime(cuoi.gio_ra), 'Tổng hôm nay ' + _ccGioPhut(tongGio) + '. Quay lại làm tiếp thì chấm vào phiên mới.');
+  }
+}
+
+/* Ca hôm nay ở cột phụ: mỗi phiên một dòng + tổng. Hệ thống KHÔNG lưu giờ chuẩn
+   của ca, giờ nghỉ trưa hay tên ca (đã kiểm schema ChamCongOut 11/09/2026) — nên
+   ở đây chỉ hiện đúng các phiên đã ghi, không in số "08:30 – 17:30" tự chế. */
+function _ccVePhien(sessions, loi){
+  const box = document.getElementById('cc-phien');
+  if(!box) return;
+  if(loi){ box.innerHTML = `<p class="cc-rong">Không tải được: ${_ccEsc(loi)}</p>`; return; }
+  if(!sessions || !sessions.length){
+    box.innerHTML = '<p class="cc-rong">Chưa có phiên nào hôm nay. Phiên đầu tiên bắt đầu khi bạn bấm Chấm vào.</p>';
+    return;
+  }
+  const tong = sessions.filter(s=>s.tong_gio).reduce((t,s)=>t+parseFloat(s.tong_gio),0);
+  box.innerHTML = '<dl class="cc-kv">'
+    + sessions.map((s,i)=>`<div class="cc-kv-dong">${_ccSvg('dongho')}<dt>Phiên ${i+1}</dt>`
+        + `<dd>${_ccFmtTime(s.gio_vao)} – ${s.gio_ra ? _ccFmtTime(s.gio_ra) : '<span class="cc-dang-lam">Đang làm</span>'}</dd></div>`).join('')
+    + `<div class="cc-kv-dong cc-kv-tong">${_ccSvg('tong')}<dt>Tổng hôm nay</dt><dd>${_ccGioPhut(tong)}</dd></div>`
+    + '</dl>';
+}
+
+// ── Bảng chấm công hôm nay + số liệu tháng cho cột phụ ───────────────────────
+const _CC_LOAI = {van_phong:'Văn phòng', di_ngoai:'Đi ngoài', cong_trinh:'Công trình', nghi_phep:'Nghỉ phép'};
+function _ccTenLoai(k){
+  if(_CC_LOAI[k]) return _CC_LOAI[k];
+  const s = String(k || '').replace(/_/g, ' ').trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Văn phòng';
+}
+
+/* API trả TỪNG PHIÊN (một ngày có thể 2–3 phiên). Gộp theo ngày, dựng đủ các ngày
+   từ mùng 1 tới hôm nay: cột phụ (tổng quan · gần đây) đếm trên cả tháng, còn bảng
+   chính chỉ lấy dòng `homNay`. */
+function _ccNhomNgay(thang, list){
+  const [y, m] = thang.split('-').map(Number);
+  const homNay = _ccHomNayStr();
+  const soNgay = new Date(y, m, 0).getDate();
+  const theoNgay = {};
+  (list || []).forEach(r => { const k = String(r.ngay).slice(0,10); (theoNgay[k] = theoNgay[k] || []).push(r); });
+  const ds = [];
+  for(let d = 1; d <= soNgay; d++){
+    const k = y + '-' + _cc2(m) + '-' + _cc2(d);
+    if(k > homNay) break;
+    const phien = (theoNgay[k] || []).slice()
+      .sort((a,b)=>String(a.gio_vao||'').localeCompare(String(b.gio_vao||'')));
+    ds.push({ ngay:k, thu:new Date(y, m-1, d).getDay(), phien, homNay: k === homNay });
+  }
+  return ds;
+}
+
+/* Trạng thái một ngày → [nhãn, họ màu] theo bảng 03-mau-sac §2.4.
+   CHỈ những trạng thái suy ra chắc từ dữ liệu. "Đủ công" / "Thiếu công" cần giờ
+   chuẩn của ca — hệ thống chưa lưu, nên KHÔNG hiện (Luật 0.4: cấm bịa).
+   Thứ Bảy không mặc định là ngày nghỉ: dữ liệu thật có phiên thứ Bảy. */
+function _ccTrangThaiNgay(n){
+  const p = n.phien;
+  if(p.length){
+    const mo = p.some(s=>s.gio_vao && !s.gio_ra);
+    if(mo) return n.homNay ? ['Đang làm', 'info'] : ['Chưa chấm ra', 'warning'];
+    const loai = (p.find(s=>s.loai && s.loai !== 'nghi_phep') || p[0]).loai || 'van_phong';
+    if(loai === 'nghi_phep') return ['Nghỉ phép', 'neutral'];
+    return [_ccTenLoai(loai), 'success'];
+  }
+  if(n.homNay) return ['Chưa chấm công', 'neutral'];
+  if(n.thu === 0) return ['Nghỉ cuối tuần', 'neutral'];
+  return ['Không chấm công', 'neutral'];
+}
+
+let _ccThangData = null;   // {thang, ngay:[…]} — tháng hiện tại, nguồn chung của bảng + cột phụ
+
+/* Luôn tải THÁNG HIỆN TẠI: bảng chính chỉ vẽ dòng hôm nay, còn cả tháng nuôi tổng
+   quan + lịch sử gần đây ở cột phụ. Không còn ô chọn tháng (17/09/2026). */
+async function loadLichSuChamCong(){
+  const thang = thisMonth();
+  const tbody = document.getElementById('cc-lich-su-tbody');
+  if(!tbody) return;
+  _ccVeTieuDeThang(thang);
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Đang tải...</td></tr>';
+  try {
+    const list = await api('GET', '/api/cham-cong/lich-su?thang=' + thang);
+    const ngay = _ccNhomNgay(thang, list);
+    _ccThangData = { thang, ngay };
+    _ccVeBang(tbody, ngay.filter(n => n.homNay));
+    _ccVeTongQuan(ngay);
+    _ccVeGanDay(ngay);
+  } catch(e){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="7" style="color:var(--danger-fg)">Không tải được bảng chấm công: ${_ccEsc(e.message)}</td></tr>`;
+    ['cc-tong-quan', 'cc-gan-day'].forEach(id => {
+      const b = document.getElementById(id);
+      if(b) b.innerHTML = '<p class="cc-rong">Chưa có số — bảng chấm công chưa tải được.</p>';
+    });
+  }
+}
+
+/* Chỉ nhận dòng hôm nay (đã lọc ở loadLichSuChamCong); giữ dạng danh sách để khỏi
+   viết lại nếu sau này cần thêm ngày. */
+function _ccVeBang(tbody, ds){
+  if(!ds.length){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Chưa có dữ liệu hôm nay.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = ds.map(n => {
+    const p = n.phien;
+    const vao = p.map(s=>s.gio_vao).filter(Boolean)[0];
+    const mo = p.some(s=>s.gio_vao && !s.gio_ra);
+    const raDs = p.map(s=>s.gio_ra).filter(Boolean);
+    const ra = mo ? null : raDs[raDs.length - 1];
+    const tong = p.reduce((t,s)=>t + (parseFloat(s.tong_gio) || 0), 0);
+    const [nhan, ho] = _ccTrangThaiNgay(n);
+    const soPhien = p.filter(s=>s.gio_vao).length;
+    const ghiChu = [soPhien > 1 ? soPhien + ' phiên' : '']
+      .concat(p.map(s=>(s.ghi_chu || '').trim()))
+      .filter((v, j, a) => v && a.indexOf(v) === j).join('; ');
+    return `<tr${n.thu === 0 ? ' class="is-chu-nhat"' : ''}>
+      <td class="cc-ngay-o" data-label="Ngày">${_ccFmtDate(n.ngay)}</td>
+      <td class="cc-thu-o" data-label="Thứ">${_CC_THU[n.thu]}</td>
+      <td data-label="Giờ vào">${vao ? _ccFmtTime(vao) : '—'}</td>
+      <td data-label="Giờ ra">${ra ? _ccFmtTime(ra) : '—'}</td>
+      <td data-label="Tổng giờ">${tong ? _ccGioPhut(tong) : '—'}</td>
+      <td data-label="Trạng thái"><span class="pill pill--${ho}">${nhan}</span></td>
+      <td class="cc-ghi-chu" data-label="Ghi chú">${ghiChu ? _ccEsc(ghiChu) : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* Bốn ô tổng quan. Màu nền theo NGHĨA của số (09-he-icon §9.0.4, ADR-011), nét
+   trắng: xanh lá = ngày đi làm · xanh dương = giờ · cam = nghỉ phép · đỏ = sót.
+   "Quên chấm ra" thay cho ô "Ngày nghỉ khác" của ảnh mẫu: hệ thống không có loại
+   nghỉ nào khác ngoài nghỉ phép để đếm, còn ngày quên chấm ra thì có thật và
+   người dùng cần biết để báo HCNS. */
+function _ccVeTongQuan(ds){
+  const box = document.getElementById('cc-tong-quan');
+  if(!box) return;
+  let ngayLam = 0, gio = 0, nghiPhep = 0, quenRa = 0;
+  ds.forEach(n => {
+    const p = n.phien;
+    if(!p.length) return;
+    if(p.some(s=>s.loai === 'nghi_phep')) nghiPhep++;
+    if(p.some(s=>s.gio_vao)) ngayLam++;
+    if(!n.homNay && p.some(s=>s.gio_vao && !s.gio_ra)) quenRa++;
+    gio += p.reduce((t,s)=>t + (s.loai === 'nghi_phep' ? 0 : (parseFloat(s.tong_gio) || 0)), 0);
+  });
+  const o = (tone, ic, so, nhan) => `<div class="cc-tq-o"><span class="ico-tile${tone ? ' ico-tile--' + tone : ''}">${_ccSvg(ic)}</span>`
+    + `<span class="cc-tq-so">${so}</span><span class="cc-tq-nhan" title="${nhan}">${nhan}</span></div>`;
+  box.innerHTML = o('success', 'lich', ngayLam, 'Ngày làm việc')
+    + o('', 'dongho', _ccGioPhut(gio), 'Tổng giờ làm')
+    + o('warning', 'nghi', nghiPhep, 'Ngày nghỉ phép')
+    + o('danger', 'canh', quenRa, 'Quên chấm ra');
+}
+
+/* Năm lần chấm gần nhất của tháng hiện tại, mới nhất trước. Cắt ở 5 — dài hơn
+   thì cột phụ cao vượt cột chính, hở một mảng trắng bên cạnh bảng. */
+function _ccVeGanDay(ds){
+  const box = document.getElementById('cc-gan-day');
+  if(!box) return;
+  const sk = [];
+  for(let i = ds.length - 1; i >= 0 && sk.length < 5; i--){
+    const n = ds[i];
+    const p = n.phien.filter(s=>s.gio_vao).slice().reverse();
+    for(const s of p){
+      if(s.gio_ra && sk.length < 5) sk.push({ ra:true, ngay:n.ngay, gio:s.gio_ra });
+      if(sk.length < 5) sk.push({ ra:false, ngay:n.ngay, gio:s.gio_vao });
+      if(sk.length >= 5) break;
+    }
+  }
+  if(!sk.length){
+    box.innerHTML = '<p class="cc-rong">Chưa có lần chấm công nào trong tháng này.</p>';
+    return;
+  }
+  box.innerHTML = '<ul class="cc-gan-ds">' + sk.map(x =>
+    `<li><span class="ico-tile ico-tile--${x.ra ? 'danger' : 'success'}">${_ccSvg(x.ra ? 'ra' : 'vao')}</span>`
+    + `<span class="cc-gan-t">${_ccFmtDate(x.ngay)} - ${x.ra ? 'Chấm ra' : 'Chấm vào'}</span>`
+    + `<b class="cc-gan-h">${_ccFmtTime(x.gio)}</b></li>`).join('') + '</ul>';
+}
+
+// ── Đường dẫn "Trang chủ › Chấm công" trên thanh trên cùng ─────────────────────
+// Đăng ký SAU listener DOMContentLoaded của `_header.html` (header include trước) nên
+// chạy sau `abInit()` — HCNS tự điền tiêu đề từ <title> trong đó, chạy trước là bị đè.
+// Thanh có menu ngang (ceo · congnghe · muahang · saleadmin): menu cách khối chuông +
+// avatar dưới 16px thì ẩn đường dẫn — đo 11/09/2026 ở saleadmin 1180px: có đường dẫn
+// thì menu bị bóp lại và dí sát khối phải (922 = 922).
+function _ccDatDuongDan(){
+  const bar = document.querySelector('.appbar');
+  if(!bar) return;
+  let o = bar.querySelector('.ab-ptitle');
+  if(!o){
+    o = document.createElement('div');
+    o.className = 'ab-ptitle';
+    const moc = bar.querySelector('.ab-burger') || bar.querySelector('.ab-logo');
+    if(moc) moc.after(o); else bar.prepend(o);
+  }
+  o.classList.add('cc-duong-dan');
+  o.setAttribute('role', 'navigation');
+  o.setAttribute('aria-label', 'Đường dẫn');
+  o.innerHTML = '<a href="/">Trang chủ</a>'
+    + '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg>'
+    + '<span aria-current="page">Chấm công</span>';
+  const vua = () => {
+    o.hidden = false;
+    const phai = bar.querySelector('.ab-right');
+    const nav = bar.querySelector('.ab-nav');
+    const tran = bar.scrollWidth > bar.clientWidth + 1;
+    const de = !!(phai && nav && nav.offsetWidth
+      && nav.getBoundingClientRect().right > phai.getBoundingClientRect().left - 16);
+    if(tran || de) o.hidden = true;
+  };
+  vua();
+  window.addEventListener('resize', vua);
+}
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _ccDatDuongDan);
+else _ccDatDuongDan();
+
+// ── Tiêu đề "Tổng quan tháng MM/YYYY" ở cột phụ ──────────────────────────────
+function _ccVeTieuDeThang(thang){
+  const [y, m] = String(thang).split('-');
+  const el = document.getElementById('cc-tq-tieu-de');
+  if(el) el.textContent = 'Tổng quan tháng ' + m + '/' + y;
+}
+
+// ── Tiện ích (nguyên văn bản cũ) ──────────────────────────────────────────────
 function _ccEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function _ccFmtDate(s){
@@ -865,15 +1263,6 @@ function thisMonth(){
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
 }
 
-function _ccLoaiBadge(loai){
-  const m = {
-    van_phong:'<span class="st-badge st-duyet">Văn phòng</span>',
-    di_ngoai:'<span class="st-badge st-dangoai">Đi ngoài</span>',
-    cong_trinh:'<span class="st-badge st-cho">Công trình</span>',
-  };
-  return m[loai] || `<span class="st-badge">${_ccEsc(loai)}</span>`;
-}
-
 function _ccPopulateMonthSelect(id){
   const el = document.getElementById(id);
   if(!el) return;
@@ -887,66 +1276,6 @@ function _ccPopulateMonthSelect(id){
     if(i===0) opt.selected = true;
     el.appendChild(opt);
   }
-}
-
-// ── Trạng thái hôm nay ────────────────────────────────────────────────────────
-async function loadTrangThaiHomNay(){
-  const el = document.getElementById('cc-today-content');
-  const dateEl = document.getElementById('cc-today-date');
-  if(dateEl){
-    const d = new Date();
-    dateEl.textContent = d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear()+' — '+['CN','Th.2','Th.3','Th.4','Th.5','Th.6','Th.7'][d.getDay()];
-  }
-  if(!el) return;
-  try {
-    const sessions = await api('GET', '/api/cham-cong/hom-nay');
-    _ccRenderTrangThai(sessions);
-    _ccCheckGeofence(sessions);
-  } catch(e){
- el.innerHTML = `<div class="cc-not-yet" style="color:var(--danger-fg)">Lỗi tải dữ liệu: ${_ccEsc(e.message)}</div>`;
-  }
-}
-
-function _ccRenderTrangThai(sessions){
-  const el = document.getElementById('cc-today-content');
-  if(!el) return;
-
-  if(!sessions || !sessions.length){
-    el.innerHTML = `
-      <div class="cc-not-yet">Chưa chấm công hôm nay</div>
-      <button class="btn-cham-vao" onclick="chamVao()">CHẤM VÀO</button>
-    `;
-    return;
-  }
-
-  const openSess = sessions.find(s=>!s.gio_ra);
- const tongGio = sessions.filter(s=>s.tong_gio).reduce((sum,s)=>sum+parseFloat(s.tong_gio),0).toFixed(2);
-
-  const bangPhien = sessions.map((s,i)=>`
-    <tr>
- <td style="color:var(--text-3);font-size:12px">Phiên ${i+1}</td>
-      <td><b>${_ccFmtTime(s.gio_vao)}</b></td>
-      <td>${s.gio_ra ? `<b>${_ccFmtTime(s.gio_ra)}</b>` : '<span style="color:var(--warning-fg)">Đang làm</span>'}</td>
-      <td>${s.tong_gio ? s.tong_gio+'h' : '—'}</td>
-    </tr>`).join('');
-
-  el.innerHTML = `
-    <table class="session-tbl">
-      <thead><tr><th></th><th>Vào</th><th>Ra</th><th>Giờ</th></tr></thead>
-      <tbody>${bangPhien}</tbody>
-      <tfoot><tr>
- <td colspan="3" style="padding:6px 10px;font-weight:700;text-align:right;color:var(--text-3);font-size:12px">Tổng hôm nay:</td>
- <td style="padding:6px 10px;font-weight:800;color:var(--brand)">${tongGio}h</td>
-      </tr></tfoot>
-    </table>
-    ${openSess
-      ? `<button class="btn-cham-ra" onclick="chamRa()">CHẤM RA</button>`
-      : `<div>
-           <div class="cc-done-msg">Tất cả phiên đã đóng — Tổng: ${tongGio}h</div>
-           <button class="btn-cham-vao" onclick="chamVao()" style="font-size:15px;padding:12px">CHẤM VÀO TIẾP</button>
-         </div>`
-    }
-  `;
 }
 
 // ── Lấy GPS (Promise, timeout 8s) ────────────────────────────────────────────
@@ -964,7 +1293,8 @@ function _getGPS(){
 // ── Chấm vào (WiFi IP HOẶC GPS) ──────────────────────────────────────────────
 async function chamVao(){
   const btn = document.querySelector('.btn-cham-vao');
-  if(btn){ btn.disabled = true; btn.innerHTML = 'Đang xác minh...'; }
+  const nhanCu = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.textContent = 'Đang xác minh...'; }
   try {
     const gps = await _getGPS();
     const body = gps ? { lat: gps.lat, lng: gps.lng } : {};
@@ -972,10 +1302,10 @@ async function chamVao(){
     const method = d.check_method === 'gps' ? ' (GPS)' : ' (WiFi)';
     showToast('Chấm vào thành công lúc ' + _ccFmtTime(d.gio_vao) + method, 'success');
     await loadTrangThaiHomNay();
-    loadLichSuChamCong(document.getElementById('cc-lich-su-thang')?.value);
+    loadLichSuChamCong();
   } catch(e){
     showToast('Lỗi: ' + e.message, 'error');
-    if(btn){ btn.disabled = false; btn.innerHTML = 'CHẤM VÀO'; }
+    if(btn){ btn.disabled = false; btn.innerHTML = nhanCu; }
   }
 }
 
@@ -983,15 +1313,16 @@ async function chamVao(){
 async function chamRa(){
   if(!confirm('Chấm ra? (Ra tạm hoặc kết thúc ngày)')) return;
   const btn = document.querySelector('.btn-cham-ra');
-  if(btn){ btn.disabled = true; btn.innerHTML = 'Đang xử lý...'; }
+  const nhanCu = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.textContent = 'Đang xử lý...'; }
   try {
     const d = await api('POST', '/api/cham-cong/ra', {});
     showToast('Đã chấm ra lúc ' + _ccFmtTime(d.gio_ra), 'success');
     await loadTrangThaiHomNay();
-    loadLichSuChamCong(document.getElementById('cc-lich-su-thang')?.value);
+    loadLichSuChamCong();
   } catch(e){
     showToast('Lỗi: ' + e.message, 'error');
-    if(btn){ btn.disabled = false; btn.innerHTML = 'CHẤM RA'; }
+    if(btn){ btn.disabled = false; btn.innerHTML = nhanCu; }
   }
 }
 
@@ -1026,30 +1357,6 @@ function _haversine(lat1, lon1, lat2, lon2){
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// ── Lịch sử chấm công ────────────────────────────────────────────────────────
-async function loadLichSuChamCong(thang){
-  if(!thang) thang = thisMonth();
-  const tbody = document.getElementById('cc-lich-su-tbody');
-  if(!tbody) return;
-  tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Đang tải...</td></tr>';
-  try {
-    const list = await api('GET', '/api/cham-cong/lich-su?thang=' + thang);
-    if(!list.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Không có dữ liệu tháng này</td></tr>';
-      return;
-    }
-    tbody.innerHTML = list.map(r=>`<tr>
-      <td>${_ccFmtDate(r.ngay)}</td>
-      <td>${_ccFmtTime(r.gio_vao)}</td>
-      <td>${_ccFmtTime(r.gio_ra)}</td>
-      <td><b>${r.tong_gio||'—'}</b>${r.tong_gio ? 'h' : ''}</td>
-      <td>${_ccLoaiBadge(r.loai||'van_phong')}</td>
-    </tr>`).join('');
-  } catch(e){
- tbody.innerHTML = `<tr class="empty-row"><td colspan="5" style="color:var(--danger-fg)">Lỗi: ${_ccEsc(e.message)}</td></tr>`;
-  }
-}
-
 // ── Lệnh đi ───────────────────────────────────────────────────────────────────
 async function loadLenhDiDoNv(thang){
   const tbody = document.getElementById('ldd-nv-tbody');
@@ -1067,17 +1374,15 @@ async function loadLenhDiDoNv(thang){
     const isAfter1730 = nowH > 17 || (nowH === 17 && nowM >= 30);
     const loaiLabels = {do_nha:'Thăm/Đo nhà',cong_trinh:'Kiểm tra CT',gap_ncc:'Gặp NCC',quay_chup:'Quay chụp',hop_tac:'Họp/Đối tác',khac:'Khác'};
     const _warnKhongDi = `<div style="line-height:1.6">
- <span class="st-badge" style="background:var(--warning-soft);color:var(--warning-fg);border:1px solid #f59e0b;display:inline-flex;gap:4px">
-        Không check-in
-      </span>
+ <span class="pill pill--warning">Không check-in</span>
  <div style="font-size:10px;color:var(--text-3);margin-top:3px">Đã thông báo HCNS</div>
     </div>`;
     tbody.innerHTML = list.map(r=>{
       const stBadge = {
-        cho_duyet: '<span class="st-badge st-cho">Chờ duyệt</span>',
- da_duyet: '<span class="st-badge st-duyet">Đã duyệt</span>',
- tu_choi: '<span class="st-badge st-tuchoi">Từ chối</span>',
-      }[r.status] || `<span class="st-badge">${_ccEsc(r.status)}</span>`;
+        cho_duyet: '<span class="pill pill--info">Chờ duyệt</span>',
+ da_duyet: '<span class="pill pill--success">Đã duyệt</span>',
+ tu_choi: '<span class="pill pill--danger">Từ chối</span>',
+      }[r.status] || `<span class="pill pill--neutral">${_ccEsc(r.status)}</span>`;
 
       let actions = '—';
       const isToday = r.ngay === today;
@@ -1110,14 +1415,14 @@ async function loadLenhDiDoNv(thang){
       const tongGio = r.tong_gio_ngoai ? r.tong_gio_ngoai+'h' : '—';
 
       return `<tr>
-        <td style="white-space:nowrap">${_ccFmtDate(r.ngay)}</td>
- <td><b>${_ccEsc(r.dia_diem||'—')}</b>${r.dia_chi ? `<div style="font-size:11px;color:var(--text-3)">${_ccEsc(r.dia_chi.split(',').slice(0,2).join(','))}</div>` : ''}</td>
-        <td style="white-space:nowrap">${loaiLabels[r.loai_di]||r.loai_di||'—'}</td>
- <td>${stBadge}${r.status==='tu_choi' && r.note_duyet ? `<div style="font-size:11px;color:var(--danger-fg);margin-top:2px">↳ ${_ccEsc(r.note_duyet)}</div>` : ''}</td>
-        <td style="white-space:nowrap">${r.gio_vao ? r.gio_vao.slice(0,5) : '—'}</td>
-        <td style="white-space:nowrap">${r.gio_ra ? r.gio_ra.slice(0,5) : '—'}</td>
-        <td style="white-space:nowrap">${tongGio}</td>
-        <td style="text-align:center;white-space:nowrap">${actions}</td>
+        <td data-label="Ngày" style="white-space:nowrap">${_ccFmtDate(r.ngay)}</td>
+ <td data-label="Địa điểm"><b>${_ccEsc(r.dia_diem||'—')}</b>${r.dia_chi ? `<div style="font-size:11px;color:var(--text-3)">${_ccEsc(r.dia_chi.split(',').slice(0,2).join(','))}</div>` : ''}</td>
+        <td data-label="Loại đi" style="white-space:nowrap">${loaiLabels[r.loai_di]||_ccEsc(r.loai_di||'—')}</td>
+ <td data-label="Trạng thái">${stBadge}${r.status==='tu_choi' && r.note_duyet ? `<div style="font-size:11px;color:var(--danger-fg);margin-top:2px">↳ ${_ccEsc(r.note_duyet)}</div>` : ''}</td>
+        <td data-label="Giờ tới" style="white-space:nowrap">${r.gio_vao ? r.gio_vao.slice(0,5) : '—'}</td>
+        <td data-label="Giờ về" style="white-space:nowrap">${r.gio_ra ? r.gio_ra.slice(0,5) : '—'}</td>
+        <td data-label="Tổng giờ" style="white-space:nowrap">${tongGio}</td>
+        <td class="act-cell" style="text-align:center;white-space:nowrap">${actions}</td>
       </tr>`;
     }).join('');
   } catch(e){
@@ -1570,27 +1875,27 @@ async function loadCongTrinhCuaToi(){
     const list = await api('GET', '/api/cong-trinh/cua-toi');
     if(!list.length){ tbody.innerHTML='<tr class="empty-row"><td colspan="6">Chưa có đăng ký nào</td></tr>'; return; }
     const stBadge = {
- cho_duyet:'<span style="background:var(--warning-soft);color:var(--warning-fg);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700"> Chờ duyệt</span>',
- da_duyet: '<span style="background:var(--success-soft);color:var(--success-fg);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700"> Đã duyệt</span>',
- tu_choi: '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700"> Từ chối</span>',
+      cho_duyet:'<span class="pill pill--info">Chờ duyệt</span>',
+      da_duyet: '<span class="pill pill--success">Đã duyệt</span>',
+      tu_choi:  '<span class="pill pill--danger">Từ chối</span>',
     };
     tbody.innerHTML = list.map(r => {
       const tuNgay = r.ngay_bat_dau ? r.ngay_bat_dau.slice(8,10)+'/'+r.ngay_bat_dau.slice(5,7) : '—';
       const denNgay = r.ngay_ket_thuc ? r.ngay_ket_thuc.slice(8,10)+'/'+r.ngay_ket_thuc.slice(5,7) : '—';
       const st = stBadge[r.status] || r.status;
-      const note = r.note_duyet ? `<div style="font-size:11px;color:#991b1b;margin-top:2px">↳ ${r.note_duyet}</div>` : '';
+      const note = r.note_duyet ? `<div style="font-size:var(--fs-eyebrow);color:var(--danger-fg);margin-top:2px">↳ ${_ccEsc(r.note_duyet)}</div>` : '';
       const canDelete = r.status === 'cho_duyet'
- ? `<button onclick="xoaCongTrinh(${r.id})" style="padding:3px 8px;background:#fff;border:1px solid var(--danger);color:var(--danger);border-radius:6px;font-size:11px;cursor:pointer">🗑</button>` : '—';
+ ? `<button onclick="xoaCongTrinh(${r.id})" style="padding:3px 8px;background:var(--bg-card);border:1px solid var(--danger);color:var(--danger);border-radius:6px;font-size:11px;cursor:pointer">🗑</button>` : '—';
       return `<tr>
-        <td>${tuNgay}</td><td>${denNgay}</td>
-        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.dia_diem||'—'}</td>
- <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-3);font-size:12px">${r.ly_do||'—'}</td>
-        <td>${st}${note}</td>
-        <td style="text-align:center">${canDelete}</td>
+        <td data-label="Từ ngày">${tuNgay}</td><td data-label="Đến ngày">${denNgay}</td>
+        <td data-label="Địa điểm" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_ccEsc(r.dia_diem||'—')}</td>
+ <td data-label="Lý do" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-3);font-size:12px">${_ccEsc(r.ly_do||'—')}</td>
+        <td data-label="Trạng thái">${st}${note}</td>
+        <td class="act-cell" style="text-align:center">${canDelete}</td>
       </tr>`;
     }).join('');
   } catch(e){
- tbody.innerHTML = `<tr class="empty-row"><td colspan="6" style="color:var(--danger)">Lỗi: ${e.message}</td></tr>`;
+ tbody.innerHTML = `<tr class="empty-row"><td colspan="6" style="color:var(--danger)">Lỗi: ${_ccEsc(e.message)}</td></tr>`;
   }
 }
 
@@ -1603,12 +1908,14 @@ async function xoaCongTrinh(id){
   } catch(e){ showToast('Lỗi: '+e.message,'error'); }
 }
 
+// ── Khởi động ─────────────────────────────────────────────────────────────────
 (async function(){
   _ccPopulateMonthSelect('ldd-nv-thang');
-  _ccPopulateMonthSelect('cc-lich-su-thang');
+  _ccVeDongHo();
+  setInterval(_ccVeDongHo, 20000);   // đồng hồ chỉ tới PHÚT — 20 giây một nhịp là đủ
   await loadTrangThaiHomNay();
+  await loadLichSuChamCong();        // dòng hôm nay + số tháng ở cột phụ, trước lệnh đi
   await loadLenhDiDoNv();
-  await loadLichSuChamCong();
   await loadCongTrinhCuaToi();
 })();
 </script>

@@ -1,605 +1,1072 @@
+{# SINH TỰ ĐỘNG — ĐỪNG sửa file này trong repo.
+   Sửa `claude-kit/core/shared/templates/ho_so_ca_nhan_core.html` rồi chạy:
+       cd d:\PapaSanIT\claude-kit && python sync.py
+   File này giống hệt nhau ở cả 8 repo. Muốn một app khác đi thì đặt
+   bản riêng trong templates/ của app đó (Jinja đọc templates/ trước). -#}
 <!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>Hồ sơ cá nhân — QLPPS</title>
+<link rel="stylesheet" href="/static/css/theme.css?v=xanh1">
+<title>Hồ sơ nhân sự — QLPPS</title>
 <link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
 <link rel="shortcut icon" href="/static/papasan.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   HỒ SƠ NHÂN SỰ — màn dùng chung cho cả 8 app (bố cục v2, 12/09/2026).
+
+   Theo ảnh mẫu người duyệt gửi 12/09/2026 ("Hồ sơ nhân sự đổi cho tôi"): thẻ hồ sơ
+   (ảnh · tên · trạng thái · mã, chức danh, phòng ban, ngày vào + thâm niên · liên hệ ·
+   quản lý trực tiếp) + thẻ số phép năm · thanh tab · lưới Thông tin cá nhân / Thông tin
+   công việc / Tác vụ nhanh / Người thân / Tài liệu / Lịch sử thay đổi.
+   Khung theo Chấm công v2 (`_khung_man.html`): đường dẫn lên thanh trên cùng, bỏ H1
+   trong thân, trải hết bề ngang, nền ảnh mẫu, thẻ viền + bóng nhẹ.
+
+   KHÁC ẢNH MẪU — người duyệt chốt 12/09/2026 "ẩn trường chưa có chỗ lưu, ghi danh
+   sách làm sau", "giao diện + API, không đổi DB":
+     · Ẩn vì hệ thống không có cột: Ngày cấp / Nơi cấp CCCD, Quê quán, tách địa chỉ
+       thường trú / hiện tại (chỉ có MỘT cột địa chỉ), Tình trạng hôn nhân, Vị trí công
+       việc, Hình thức làm việc, Cấp bậc, Mã chấm công, Mã số thuế TNCN.
+     · Ẩn tab Quá trình công tác, Khen thưởng – Kỷ luật (không có bảng); bỏ "Gửi yêu cầu
+       hỗ trợ HR" (chưa có luồng) và nút "+ Thêm" người thân (NV không tự thêm được).
+     · Người thân = người phụ thuộc giảm trừ gia cảnh (hcns.gia_canh) — không có số điện
+       thoại. Bằng cấp – Chứng chỉ = tài liệu hồ sơ loại `bang_cap`.
+     · "Chỉnh sửa" chỉ hiện khi hồ sơ CHƯA NỘP — router chỉ cho NV tự sửa lúc đó.
+     · Tab "Chấm công & Lương" của bản cũ chuyển sang trang Bảng lương tháng.
+     · Tải hồ sơ của tôi = in / lưu PDF bằng trình duyệt (chưa có API xuất hồ sơ).
+   API thêm 12/09/2026 (`/api/profile-workflow/me/hop-dong|nguoi-than|lich-su`, field
+   `quan_ly_truc_tiep`): máy chủ chưa có (404) thì ẩn đúng phần đó, trang vẫn chạy.
+
+   Màu/khoảng cách/cỡ chữ chỉ lấy token `theme.css` (ADR-012). MỌI selector nằm dưới
+   `.hs` — màn này chạy trong 8 khung app, có app nạp Bootstrap / components.css riêng.
+   ═══════════════════════════════════════════════════════════════════════════ */
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg-card);min-height:100vh;color:var(--text-1);overflow-x:hidden}
-.page{max-width:1100px;margin:0 auto;padding:18px 16px}
+body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:100vh;color:var(--text-1);
+     -webkit-font-smoothing:antialiased;overflow-x:hidden}
 
-.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;background:#fff;border-radius:10px;padding:6px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-.tab-btn{flex:0 0 auto;padding:9px 18px;border:0;background:transparent;font-size:14px;font-weight:700;color:var(--text-3);cursor:pointer;border-radius:7px;transition:all .15s}
-.tab-btn:hover{background:var(--brand-soft);color:var(--brand)}
-.tab-btn.active{background:var(--brand-soft);color:var(--brand-hover)}
+.hs{color:var(--text-2);font-size:var(--fs-body);line-height:var(--lh-body)}
+.hs [hidden]{display:none !important}
+.hs .hs-wrap{max-width:none;margin:0;padding:var(--sp-8) var(--sp-8) 40px}
+@media(min-width:768px){.hs .hs-wrap{padding:var(--sp-8) var(--sp-9) 40px}}
+@media(min-width:1600px){.hs .hs-wrap{padding:var(--sp-9) var(--sp-10) 48px}}
+.hs .hs-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.hs svg.hs-ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
-.banner{padding:12px 16px;border-radius:9px;margin-bottom:14px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px}
-.banner-info{background:var(--info-soft);color:var(--brand-hover);border-left:4px solid var(--brand)}
-.banner-warn{background:var(--warning-soft);color:var(--warning-fg);border-left:4px solid var(--warning)}
-.banner-success{background:var(--success-soft);color:var(--success-fg);border-left:4px solid var(--success)}
-.banner-locked{background:var(--bg-page);color:var(--text-2);border-left:4px solid var(--text-3)}
+/* ── Thẻ — viền + bóng nhẹ như Tổng quan HCNS (design-system.md mục "Thẻ") ── */
+.hs .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);
+     box-shadow:var(--shadow-sm);overflow:hidden;margin:0;min-width:0}
+.hs .card-header{display:flex;align-items:center;gap:var(--sp-5) var(--sp-6);flex-wrap:wrap;
+     padding:var(--sp-8) var(--sp-9) var(--sp-7);border:0;background:transparent}
+.hs .card-header h2{font-size:var(--fs-title);font-weight:700;color:var(--text-1);line-height:var(--lh-tight)}
+.hs .card-toolbar{display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;margin-left:auto}
+.hs .card-body{padding:0 var(--sp-9) var(--sp-9)}
 
-.card{background:#fff;border-radius:12px;padding:18px 22px;box-shadow:0 1px 5px rgba(0,0,0,.06);margin-bottom:14px}
-.card-h{font-size:14px;font-weight:800;color:var(--brand);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--bg-page);text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:8px}
+/* ── Nút ─────────────────────────────────────────────────────────────────── */
+.hs .btn-primary,.hs .btn-ghost,.hs .btn-soft{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);
+     min-height:40px;padding:0 var(--sp-9);border-radius:var(--r);font:inherit;font-size:var(--fs-body);font-weight:600;
+     cursor:pointer;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s}
+.hs .btn-primary{background:var(--brand);color:var(--text-on-brand);border:1px solid var(--brand)}
+.hs .btn-primary:hover{background:var(--brand-hover);border-color:var(--brand-hover)}
+.hs .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+.hs .btn-ghost{background:var(--bg-band);color:var(--text-1);border:1px solid var(--bg-band)}
+.hs .btn-ghost:hover{filter:brightness(.97)}
+.hs .btn-soft{min-height:32px;padding:0 var(--sp-6);background:var(--brand-soft);color:var(--brand-hover);border:1px solid var(--brand-border)}
+.hs .btn-soft:hover{filter:brightness(.97)}
+.hs .btn-soft svg.hs-ic{width:15px;height:15px}
+.hs .btn-link{display:inline-flex;align-items:center;gap:var(--sp-2);border:0;background:none;padding:0;font:inherit;
+     font-size:var(--fs-body);font-weight:600;color:var(--brand-hover);cursor:pointer;text-decoration:none}
+.hs .btn-link:hover{text-decoration:underline}
+.hs .btn-link svg.hs-ic{width:15px;height:15px}
+.hs .hs-nut-icon{display:inline-grid;place-items:center;flex:none;width:30px;height:30px;border:0;border-radius:var(--r-sm);
+     background:transparent;color:var(--text-2);cursor:pointer;text-decoration:none}
+.hs .hs-nut-icon:hover{background:var(--bg-page);color:var(--brand-hover)}
+.hs .hs-nut-icon.is-xoa:hover{background:var(--danger-soft);color:var(--danger-fg)}
+.hs .hs-nut-icon svg.hs-ic{width:16px;height:16px}
+.hs .btn-primary:focus-visible,.hs .btn-ghost:focus-visible,.hs .btn-soft:focus-visible,.hs .btn-link:focus-visible,
+.hs .hs-nut-icon:focus-visible,.hs .hs-tab:focus-visible,.hs .hs-tv-muc:focus-visible,.hs .hs-nut-anh:focus-visible,
+.hs .hs-tha:focus-visible{outline:0;box-shadow:var(--focus-ring)}
 
-.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px 22px}
-@media(max-width:700px){.form-grid{grid-template-columns:1fr}}
-.field{display:flex;flex-direction:column;gap:5px}
-.field label{font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.3px}
-.field label .req{color:var(--danger);margin-left:2px}
-.field input,.field select,.field textarea{padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:17px;color:var(--brand);background:#fff;font-family:inherit}
-.field input:focus,.field select:focus,.field textarea:focus{outline:0;border-color:var(--brand);box-shadow:var(--focus-ring)}
-.field input:disabled,.field select:disabled,.field textarea:disabled{background:var(--bg-page);color:var(--text-3);cursor:not-allowed}
-.field textarea{min-height:60px;resize:vertical}
+/* Ô icon nền đặc, nét trắng (ADR-009, ADR-011 — nhóm --tile-*) */
+.hs .ico-tile{display:inline-grid;place-items:center;flex:none;width:32px;height:32px;border-radius:var(--r-md);
+     background:var(--tile-blue);color:var(--text-on-brand)}
+.hs .ico-tile svg.hs-ic{width:16px;height:16px}
+.hs .ico-tile--success{background:var(--tile-green)}
+.hs .ico-tile--warning{background:var(--tile-orange)}
+.hs .ico-tile--danger{background:var(--tile-red)}
+.hs .ico-tile--tim{background:var(--tile-violet)}
+.hs .ico-tile--neutral{background:var(--tile-slate)}
 
-.btn{padding:8px 18px;border-radius:7px;border:0;cursor:pointer;font-size:14px;font-weight:700;transition:all .15s}
-.btn-primary{background:var(--brand-soft);color:var(--brand-hover)}
-.btn-primary:hover{filter:brightness(.95)}
-.btn-primary:disabled{background:var(--border);cursor:not-allowed}
-.btn-secondary{background:var(--brand-soft);color:var(--brand);border:1.5px solid var(--brand-soft)}
-.btn-danger{background:var(--danger-soft);color:var(--danger-fg);border:1.5px solid var(--danger-soft)}
-.btn-warning{background:var(--warning-soft);color:var(--warning-fg);border:1.5px solid var(--warning)}
-.btn-row{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+/* Pill trạng thái (ADR-002) */
+.hs .pill{display:inline-flex;align-items:center;gap:var(--sp-3);height:24px;padding:0 var(--sp-5);
+     border-radius:var(--r-full);font-size:var(--fs-eyebrow);font-weight:600;line-height:1;white-space:nowrap}
+.hs .pill::before{content:"";width:8px;height:8px;border-radius:var(--r-full);background:currentColor;flex:none}
+.hs .pill--success{background:var(--success-soft);color:var(--success-fg)}
+.hs .pill--danger{background:var(--danger-soft);color:var(--danger-fg)}
+.hs .pill--warning{background:var(--warning-soft);color:var(--warning-fg)}
+.hs .pill--neutral{background:var(--bg-band);color:var(--text-3)}
 
-.docs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
-.doc-card{background:var(--bg-page);border:1.5px solid var(--border);border-radius:9px;padding:12px;position:relative}
-.doc-card.has-file{background:var(--success-soft);border-color:var(--success-soft)}
-.doc-card .doc-type{font-size:13px;font-weight:700;color:var(--brand);margin-bottom:4px;display:flex;align-items:center;gap:6px}
-.doc-card .doc-type .badge-req{background:var(--danger);color:#fff;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:700}
-.doc-card .doc-file-info{font-size:12px;color:var(--text-3);margin:6px 0;line-height:1.5}
-.doc-card .doc-actions{display:flex;gap:6px;margin-top:8px}
-.doc-card .status-badge{font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.3px}
-.status-cho_duyet{background:var(--warning-soft);color:var(--warning-fg)}
-.status-da_duyet{background:var(--success-soft);color:var(--success-fg)}
-.status-tu_choi{background:var(--danger-soft);color:var(--danger-fg)}
-
-.upload-area{background:var(--brand-soft);border:2px dashed var(--brand-soft);border-radius:9px;padding:14px;text-align:center;cursor:pointer;transition:all .15s}
-.upload-area:hover{background:var(--info-soft);border-color:var(--brand)}
-.upload-area input[type=file]{display:none}
-
-.emp-table{width:100%;border-collapse:collapse;font-size:14px}
-.emp-table th,.emp-table td{padding:9px 11px;border-bottom:1px solid var(--bg-page);text-align:left}
-.emp-table th{background:var(--bg-page);color:var(--text-2);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.3px}
-.emp-table tbody tr:hover{background:var(--bg-page);cursor:pointer}
-.emp-table .ma-nv{font-family:'Courier New',monospace;font-weight:700;color:var(--brand)}
-
-.modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:flex-start;justify-content:center;z-index:200;padding:24px 12px;overflow-y:auto}
-.modal-bg.show{display:flex}
-.modal{background:#fff;border-radius:14px;max-width:900px;width:100%;padding:0;max-height:90vh;overflow-y:auto}
-.modal-h{padding:16px 22px;border-bottom:1px solid var(--bg-page);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1}
-.modal-h h2{font-size:17px;color:var(--brand)}
-.modal-body{padding:18px 22px}
-.modal-close{background:var(--danger-soft);color:var(--danger-fg);border:0;border-radius:6px;padding:5px 10px;font-weight:700;cursor:pointer;font-size:14px}
-
-.toast{position:fixed;bottom:24px;right:24px;background:var(--brand-soft);color:var(--brand-hover);padding:11px 18px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);z-index:300;font-weight:600;font-size:14px;display:none}
-.toast.error{background:var(--danger)}
-.toast.show{display:block;animation:slideIn .2s ease-out}
-@keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
-
-.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--brand);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
-@keyframes spin{to{transform:rotate(360deg)}}
-.empty{text-align:center;padding:40px 16px;color:var(--text-3);font-size:14px}
-
-/* ─── Mobile (điện thoại ~360–414px) ─── */
-@media(max-width:600px){
-  /* Lịch chấm công: giữ dạng 7 cột nhưng cho cuộn ngang để không vỡ ô */
-  #me-cham-cong-calendar{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  #me-cham-cong-calendar>div[style*="grid-template-columns"]{min-width:420px}
-  .tab-btn{padding:9px 12px;font-size:13px}
+/* ── Hàng đầu: thẻ hồ sơ + thẻ phép năm ─────────────────────────────────── */
+.hs .hs-dau{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-8);margin-bottom:var(--sp-8)}
+@media(min-width:1280px){.hs .hs-dau{grid-template-columns:minmax(0,1fr) 380px;align-items:stretch}}
+@media(min-width:1600px){.hs .hs-dau{grid-template-columns:minmax(0,1fr) 420px}}
+.hs .hs-the-trong{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--sp-8) var(--sp-10);align-items:center;
+     padding:var(--sp-9) var(--sp-10);height:100%}
+.hs .hs-anh-o{position:relative;align-self:start;width:120px;height:120px}
+.hs .hs-anh{display:grid;place-items:center;width:120px;height:120px;border-radius:var(--r-full);overflow:hidden;
+     background:var(--brand-soft);color:var(--brand-hover);font-size:var(--fs-kpi);font-weight:700}
+.hs .hs-anh img{width:100%;height:100%;object-fit:cover}
+.hs .hs-nut-anh{position:absolute;right:2px;bottom:4px;display:inline-grid;place-items:center;width:34px;height:34px;
+     border:2px solid var(--bg-card);border-radius:var(--r-full);background:var(--brand);color:var(--text-on-brand);cursor:pointer}
+.hs .hs-nut-anh:hover{background:var(--brand-hover)}
+.hs .hs-nut-anh svg.hs-ic{width:16px;height:16px}
+.hs .hs-chinh{min-width:0}
+.hs .hs-ten-dong{display:flex;align-items:center;gap:var(--sp-5) var(--sp-6);flex-wrap:wrap;margin-bottom:var(--sp-6)}
+.hs .hs-ten-dong h2{font-size:var(--fs-h);font-weight:800;color:var(--text-1);line-height:var(--lh-tight)}
+.hs .hs-dl-dau{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--sp-3) var(--sp-6)}
+.hs .hs-dl-dau dt{color:var(--text-3);white-space:nowrap}
+.hs .hs-dl-dau dd{color:var(--text-1);font-weight:500;min-width:0;overflow-wrap:anywhere}
+.hs .hs-dl-dau dd small{font-size:var(--fs-meta);font-weight:400;color:var(--text-3)}
+.hs .hs-lien-he{list-style:none;display:flex;flex-direction:column;gap:var(--sp-5);min-width:0;grid-column:1 / -1}
+.hs .hs-lien-he li{display:flex;align-items:center;gap:var(--sp-5);min-width:0;color:var(--text-1)}
+.hs .hs-lien-he li span{min-width:0;overflow-wrap:anywhere}
+.hs .hs-lien-he li.is-trong span{color:var(--text-3)}
+.hs .hs-quan-ly{display:flex;align-items:center;gap:var(--sp-6);min-width:0;grid-column:1 / -1}
+.hs .hs-quan-ly small{display:block;font-size:var(--fs-meta);color:var(--text-3)}
+.hs .hs-quan-ly b{display:block;font-weight:600;color:var(--text-1)}
+@media(min-width:1024px){
+  .hs .hs-the-trong{grid-template-columns:auto minmax(0,1.15fr) minmax(0,1fr) minmax(0,.8fr)}
+  .hs .hs-lien-he,.hs .hs-quan-ly{grid-column:auto;align-self:stretch;justify-content:center}
+  .hs .hs-lien-he{padding-left:var(--sp-10);border-left:1px solid var(--border)}
+  .hs .hs-quan-ly{flex-direction:column;align-items:flex-start;padding-left:var(--sp-9)}
 }
-@media(max-width:480px){
-  .page{padding:14px 10px}
-  .card{padding:12px 12px}
+
+/* Thẻ phép năm — cùng kiểu vòng tròn của Xin nghỉ v2 */
+.hs .hs-phep{display:grid;grid-template-columns:132px minmax(0,1fr);gap:var(--sp-8);align-items:center}
+.hs .hs-vong{position:relative;width:132px;height:132px}
+.hs .hs-vong svg{display:block;width:100%;height:100%;transform:rotate(-90deg)}
+.hs .hs-vong circle{fill:none;stroke-width:14}
+.hs .hs-vong .hs-vong-nen{stroke:var(--bg-band)}
+.hs .hs-vong .hs-vong-seg{transition:stroke-dasharray .3s}
+.hs .hs-vong .is-dung{stroke:var(--info)}
+.hs .hs-vong .is-con{stroke:var(--brand-graph)}
+.hs .hs-vong-chu{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.hs .hs-vong-so{font-size:var(--fs-h);font-weight:700;color:var(--text-1);line-height:var(--lh-tight);font-variant-numeric:tabular-nums}
+.hs .hs-vong-chu small{font-size:var(--fs-meta);color:var(--text-3)}
+.hs .hs-phep-ct{display:flex;flex-direction:column;gap:var(--sp-4)}
+.hs .hs-phep-ct div{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:var(--sp-4);align-items:center}
+.hs .hs-phep-ct i{width:10px;height:10px;border-radius:var(--r-full);background:var(--bg-band)}
+.hs .hs-phep-ct i.is-dung{background:var(--info)}
+.hs .hs-phep-ct i.is-con{background:var(--brand-graph)}
+.hs .hs-phep-ct i.is-han{background:var(--danger)}
+.hs .hs-phep-ct dt{color:var(--text-2)}
+.hs .hs-phep-ct dd{color:var(--text-1);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hs .hs-ghi{margin-top:var(--sp-6);font-size:var(--fs-meta);color:var(--text-3)}
+
+/* ── Thanh tab — Subnav dạng 2: chữ thuần + gạch chân, trên nền trang ───── */
+.hs .hs-tabs{display:flex;gap:var(--sp-10);margin:0 0 var(--sp-8);border-bottom:1px solid var(--border);
+     overflow-x:auto;scrollbar-width:none}
+.hs .hs-tabs::-webkit-scrollbar{display:none}
+.hs .hs-tab{display:inline-flex;align-items:center;gap:var(--sp-3);padding:var(--sp-6) 0 var(--sp-5);margin-bottom:-1px;border:0;
+     border-bottom:2px solid transparent;background:none;font:inherit;font-size:var(--fs-body-lg);font-weight:500;
+     color:var(--text-2);cursor:pointer;white-space:nowrap}
+.hs .hs-tab:hover{color:var(--brand-hover)}
+.hs .hs-tab.is-chon{color:var(--brand-hover);font-weight:600;border-bottom-color:var(--brand)}
+.hs .hs-tab small{font-size:var(--fs-meta);color:var(--text-3);font-variant-numeric:tabular-nums}
+
+/* Dải báo trạng thái hồ sơ (chưa nộp / chờ duyệt / bị trả lại) — nền nhạt theo nghĩa, phẳng */
+.hs .hs-bao{display:flex;align-items:center;gap:var(--sp-6) var(--sp-8);flex-wrap:wrap;margin-bottom:var(--sp-8);
+     padding:var(--sp-7) var(--sp-9);border:1px solid var(--border);border-radius:var(--r-lg)}
+.hs .hs-bao--warning{background:var(--warning-soft);border-color:var(--warning-soft);color:var(--warning-fg)}
+.hs .hs-bao--info{background:var(--info-soft);border-color:var(--info-soft);color:var(--info-fg)}
+.hs .hs-bao--danger{background:var(--danger-soft);border-color:var(--danger-soft);color:var(--danger-fg)}
+.hs .hs-bao-chu{flex:1 1 320px;min-width:0}
+.hs .hs-bao-chu b{font-weight:700}
+.hs .hs-bao-nut{display:flex;gap:var(--sp-4);flex-wrap:wrap}
+
+/* ── Lưới tab Thông tin chung: 3 cột như ảnh mẫu, hai hàng cao bằng nhau ─── */
+.hs .hs-luoi{display:grid;gap:var(--sp-8);grid-template-columns:minmax(0,1fr);
+     grid-template-areas:"canhan" "congviec" "tacvu" "nguoithan" "tailieu" "lichsu"}
+.hs .hs-o-canhan{grid-area:canhan}
+.hs .hs-o-congviec{grid-area:congviec}
+.hs .hs-o-tacvu{grid-area:tacvu}
+.hs .hs-o-nguoithan{grid-area:nguoithan}
+.hs .hs-o-tailieu{grid-area:tailieu}
+.hs .hs-o-lichsu{grid-area:lichsu}
+@media(min-width:768px){
+  .hs .hs-luoi{grid-template-columns:repeat(2,minmax(0,1fr));
+       grid-template-areas:"canhan congviec" "tacvu lichsu" "nguoithan tailieu"}
+}
+@media(min-width:1280px){
+  .hs .hs-luoi{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 320px;
+       grid-template-areas:"canhan congviec tacvu" "nguoithan tailieu lichsu"}
+}
+@media(min-width:1600px){.hs .hs-luoi{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 360px}}
+
+.hs .hs-tt{display:grid;grid-template-columns:minmax(120px,38%) minmax(0,1fr);gap:var(--sp-5) var(--sp-7)}
+.hs .hs-tt dt{color:var(--text-3)}
+.hs .hs-tt dd{display:flex;align-items:center;gap:var(--sp-3);min-width:0;color:var(--text-1);font-weight:500;overflow-wrap:anywhere}
+.hs .hs-tt dd.is-trong{color:var(--text-3);font-weight:400}
+
+/* Tác vụ nhanh — hàng nút viền, icon inline ăn currentColor (không có nền riêng) */
+.hs .hs-tv{display:flex;flex-direction:column;gap:var(--sp-4)}
+.hs .hs-tv-muc{display:flex;align-items:center;gap:var(--sp-6);min-height:42px;padding:0 var(--sp-7);border:1px solid var(--border);
+     border-radius:var(--r);background:var(--bg-card);color:var(--text-1);font:inherit;font-size:var(--fs-body);font-weight:500;
+     text-align:left;text-decoration:none;cursor:pointer;transition:background .15s,border-color .15s}
+.hs .hs-tv-muc svg.hs-ic{color:var(--brand)}
+.hs .hs-tv-muc:hover{border-color:var(--brand-border);background:var(--brand-soft);color:var(--brand-hover)}
+.hs .hs-tv-ngan{height:1px;margin:var(--sp-3) 0;background:var(--border-soft)}
+
+/* ── Bảng ────────────────────────────────────────────────────────────────────
+   `.tbl-wrap` + `th` khai TƯỜNG MINH: components.css của marketing khoét "lòng chìm"
+   cho mọi .tbl-wrap và vẽ vạch ở ô đầu khi rê chuột (thấy 11/09/2026). */
+/* position:relative: thẻ .hs-sr (absolute) đặt trong bảng không được thoát khỏi khung cuộn làm trang rộng ra. */
+.hs .tbl-wrap{position:relative;overflow-x:auto;padding:0 var(--sp-9) var(--sp-8);border:0;border-radius:0;background:transparent;box-shadow:none}
+.hs .data-table{width:100%;min-width:0;border-collapse:separate;border-spacing:0;font-size:var(--fs-body)}
+.hs .data-table thead th{padding:var(--sp-5) var(--sp-6);background:var(--bg-band);color:var(--text-2);font-size:var(--fs-meta);
+     font-weight:600;text-align:left;white-space:nowrap;text-transform:none;letter-spacing:normal;border:0;box-shadow:none}
+.hs .data-table thead th:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm)}
+.hs .data-table thead th:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
+.hs .data-table tbody td{padding:var(--sp-5) var(--sp-6);border-bottom:1px solid var(--border-soft);color:var(--text-2);vertical-align:middle}
+.hs .data-table tbody tr:last-child td{border-bottom:0}
+.hs .data-table tbody tr:hover td{background:var(--bg-page)}
+.hs .data-table tbody tr:hover > td:first-child{box-shadow:none}
+.hs .data-table tr.empty-row td{padding:32px var(--sp-5);text-align:center;color:var(--text-3);border-bottom:0}
+.hs .data-table tr.empty-row:hover td{background:transparent}
+.hs .hs-nowrap{white-space:nowrap;font-variant-numeric:tabular-nums}
+.hs .hs-c-ten{color:var(--text-1);font-weight:500}
+.hs .hs-c-nut{width:1%;white-space:nowrap;text-align:right}
+.hs .hs-tep{display:flex;align-items:center;gap:var(--sp-5);min-width:0}
+.hs .hs-tep .ico-tile{width:30px;height:30px;border-radius:var(--r-sm)}
+.hs .hs-tep .ico-tile svg.hs-ic{width:15px;height:15px}
+.hs .hs-tep-ten{min-width:0;color:var(--text-1);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hs .hs-tep-phu{display:block;font-size:var(--fs-meta);font-weight:400;color:var(--text-3)}
+.hs .hs-trong{padding:var(--sp-8) var(--sp-9) var(--sp-9);color:var(--text-3)}
+.hs .hs-trong b{color:var(--text-2)}
+
+/* Dòng thời gian — huy hiệu tròn trên vạch dọc */
+.hs .hs-tl{list-style:none;position:relative;display:flex;flex-direction:column;gap:var(--sp-8);padding-left:var(--sp-9)}
+.hs .hs-tl::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--border)}
+.hs .hs-tl li{position:relative;display:grid;grid-template-columns:86px minmax(0,1fr);gap:var(--sp-6)}
+.hs .hs-tl li::before{content:"";position:absolute;left:calc(-1 * var(--sp-9));top:4px;width:12px;height:12px;
+     border-radius:var(--r-full);background:var(--brand);box-shadow:0 0 0 3px var(--bg-card)}
+.hs .hs-tl-ngay{color:var(--text-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.hs .hs-tl b{display:block;font-weight:600;color:var(--text-1)}
+.hs .hs-tl small{display:block;margin-top:var(--sp-1);font-size:var(--fs-meta);color:var(--text-3)}
+
+/* Tab phụ: thẻ trải hết bề ngang */
+.hs .hs-pane > .card + .card{margin-top:var(--sp-8)}
+.hs .hs-bc{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:var(--sp-6);padding:0 var(--sp-9) var(--sp-9)}
+.hs .hs-bc-o{display:flex;align-items:center;gap:var(--sp-6);min-width:0;padding:var(--sp-6) var(--sp-7);
+     border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-card)}
+.hs .hs-bc-o > div{flex:1;min-width:0}
+
+/* ── Modal (sửa thông tin · tải tài liệu · đổi mật khẩu · xem tệp) ───────── */
+.hs .modal-overlay{position:fixed;inset:0;z-index:1060;display:none;align-items:center;justify-content:center;
+     padding:var(--sp-8);background:rgba(15,23,42,.45)}
+.hs .modal-overlay.show{display:flex}
+.hs .modal-box{width:560px;max-width:96vw;max-height:90vh;overflow-y:auto;background:var(--bg-card);
+     border-radius:var(--r-lg);box-shadow:var(--shadow-pop, var(--shadow-lg))}
+.hs .modal-box.is-rong{width:960px}
+.hs .modal-header{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:var(--sp-5);
+     padding:var(--sp-8) var(--sp-10);background:var(--bg-card);border-bottom:1px solid var(--border)}
+.hs .modal-header h2{font-size:var(--fs-title);font-weight:700;color:var(--text-1);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hs .modal-close{margin-left:auto;display:inline-grid;place-items:center;flex:none;width:32px;height:32px;border:0;
+     border-radius:var(--r);background:transparent;color:var(--text-3);cursor:pointer}
+.hs .modal-close:hover{background:var(--bg-page);color:var(--text-1)}
+.hs .modal-body{padding:var(--sp-9) var(--sp-10)}
+.hs .modal-footer{display:flex;justify-content:flex-end;gap:var(--sp-4);flex-wrap:wrap;padding:var(--sp-7) var(--sp-10);
+     border-top:1px solid var(--border);background:var(--bg-page)}
+.hs .form-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:0 var(--sp-8)}
+@media(min-width:640px){.hs .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.hs .form-field{margin-bottom:var(--sp-7);min-width:0}
+.hs .form-field.is-rong{grid-column:1 / -1}
+.hs .form-field > label,.hs .hs-nhan{display:block;margin-bottom:var(--sp-3);font-size:var(--fs-body);font-weight:500;color:var(--text-1)}
+.hs .hs-sao{color:var(--danger)}
+.hs .form-field input,.hs .form-field select,.hs .form-field textarea{width:100%;min-height:40px;padding:var(--sp-4) var(--sp-6);
+     border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card);color:var(--text-1);font:inherit;
+     font-size:var(--fs-body);outline:none}
+.hs .form-field textarea{min-height:80px;resize:vertical;line-height:var(--lh-body)}
+.hs .form-field input:focus,.hs .form-field select:focus,.hs .form-field textarea:focus{border-color:var(--brand);box-shadow:var(--focus-ring)}
+.hs .hs-goi-y{margin-top:var(--sp-2);font-size:var(--fs-meta);color:var(--text-3)}
+.hs .hs-tha{display:flex;align-items:center;justify-content:center;gap:var(--sp-6);min-height:96px;padding:var(--sp-7);
+     border:1px dashed var(--border);border-radius:var(--r-md);background:var(--bg-page);color:var(--text-2);text-align:left;cursor:pointer}
+.hs .hs-tha:hover,.hs .hs-tha.is-keo{border-color:var(--brand);background:var(--brand-soft)}
+.hs .form-field > label.hs-tha{display:flex;margin:0;font-size:var(--fs-body);font-weight:400;color:var(--text-2)}
+.hs .hs-tha svg.hs-ic{width:26px;height:26px;color:var(--brand-hover)}
+.hs .hs-tha b{font-weight:600;color:var(--brand-hover)}
+.hs .hs-tha small{display:block;margin-top:var(--sp-1);font-size:var(--fs-meta);color:var(--text-3)}
+.hs .hs-tha-ten{margin-top:var(--sp-4);font-size:var(--fs-meta);color:var(--text-1);overflow-wrap:anywhere}
+.hs .hs-xem{display:flex;align-items:center;justify-content:center;min-height:60vh;background:var(--bg-page)}
+.hs .hs-xem img{max-width:100%;max-height:78vh}
+.hs .hs-xem iframe{width:100%;height:78vh;border:0;background:var(--bg-card)}
+
+/* ── Toast ───────────────────────────────────────────────────────────────── */
+.hs .toast-wrap{position:fixed;right:24px;bottom:24px;z-index:9999;display:flex;flex-direction:column;gap:var(--sp-4);pointer-events:none}
+.hs .toast{max-width:340px;padding:var(--sp-6) var(--sp-9);border-radius:var(--r);font-size:var(--fs-body);font-weight:600;
+     color:var(--text-on-brand);box-shadow:var(--shadow-lg);opacity:0;transform:translateY(12px);transition:all .25s}
+.hs .toast.show{opacity:1;transform:none}
+.hs .toast.success{background:var(--success)}
+.hs .toast.error{background:var(--danger)}
+.hs .toast.info{background:var(--brand)}
+
+/* ── Điện thoại ─────────────────────────────────────────────────────────── */
+@media(max-width:767px){
+  .hs .card-header{padding:var(--sp-7) var(--sp-7) var(--sp-6)}
+  .hs .card-body{padding:0 var(--sp-7) var(--sp-7)}
+  .hs .tbl-wrap{padding:0 var(--sp-7) var(--sp-7)}
+  .hs .hs-the-trong{grid-template-columns:minmax(0,1fr);justify-items:start;padding:var(--sp-8)}
+  .hs .hs-anh-o,.hs .hs-anh{width:96px;height:96px}
+  .hs .hs-phep{grid-template-columns:112px minmax(0,1fr);gap:var(--sp-6)}
+  .hs .hs-vong{width:112px;height:112px}
+  .hs .hs-tabs{gap:var(--sp-8)}
+  .hs .hs-tt{grid-template-columns:minmax(100px,40%) minmax(0,1fr)}
+  .hs .hs-tl li{grid-template-columns:minmax(0,1fr)}
+  .hs .form-field input,.hs .form-field select,.hs .form-field textarea{font-size:16px}
+  .hs .modal-overlay{align-items:flex-start;overflow-y:auto;padding:var(--sp-3)}
+  .hs .modal-box{width:100%;max-height:none}
+  .hs .toast-wrap{left:8px;right:8px;bottom:12px}
+}
+@media(prefers-reduced-motion:reduce){.hs *{transition:none}}
+
+/* ── In / lưu PDF ("Tải hồ sơ của tôi"): chỉ còn hồ sơ, bỏ khung app + nút ── */
+@media print{
+  html body{padding:0 !important;margin:0 !important;background:var(--bg-card)}
+  body > *:not(.hs){display:none !important}
+  .hs .hs-wrap{padding:0}
+  .hs .hs-tabs,.hs .hs-o-tacvu,.hs .hs-bao,.hs .card-toolbar,.hs .hs-nut-anh,.hs .hs-c-nut,.hs .toast-wrap,
+  .hs .modal-overlay,.hs .hs-pane:not(#hs-pane-chung){display:none !important}
+  .hs .card{box-shadow:none;break-inside:avoid}
+  .hs .hs-luoi{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"canhan congviec" "nguoithan tailieu" "lichsu lichsu"}
 }
 </style>
 </head>
 <body>
-
 {% include "_header.html" %}
+{% set ten_man = "Hồ sơ nhân sự" %}{% include "_khung_man.html" %}
+{%- set _hs_routes = (request.app.routes | map(attribute='path') | list) if request else [] -%}
 
-<div class="page">
+{# Mọi thứ của màn nằm trong `.hs` — kể cả modal và toast. #}
+<div class="hs">
+<div class="hs-wrap">
+  <h1 class="hs-sr">Hồ sơ nhân sự</h1>
 
-  <!-- ─── 2 TAB: Chấm công Lương / Thông tin cá nhân ─── -->
-  <div class="tabs">
-    <button class="tab-btn active" id="tab-btn-cc" onclick="switchProfileTab('cc')">Chấm Công &amp; Lương</button>
-    <button class="tab-btn" id="tab-btn-me" onclick="switchProfileTab('me')">Thông tin cá nhân</button>
+  <!-- Hàng đầu: thẻ hồ sơ + số phép năm -->
+  <div class="hs-dau">
+    <section class="card" aria-labelledby="hs-ten">
+      <div class="hs-the-trong">
+        <div class="hs-anh-o">
+          <div class="hs-anh" id="hs-anh"><img id="hs-anh-img" alt="" hidden><span id="hs-anh-chu" aria-hidden="true"></span></div>
+          <button type="button" class="hs-nut-anh" onclick="document.getElementById('hs-anh-chon').click()" aria-label="Đổi ảnh đại diện" title="Đổi ảnh đại diện">
+            <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 8a2 2 0 0 1 2-2h2l2-3h6l2 3h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </button>
+          <input type="file" id="hs-anh-chon" accept="image/jpeg,image/png,image/webp" hidden onchange="hsDoiAnh(this)">
+        </div>
+        <div class="hs-chinh">
+          <div class="hs-ten-dong"><h2 id="hs-ten">Đang tải hồ sơ...</h2><span id="hs-tt-lam"></span></div>
+          <dl class="hs-dl-dau" id="hs-dl-dau"></dl>
+        </div>
+        <ul class="hs-lien-he" id="hs-lien-he" aria-label="Liên hệ"></ul>
+        <div class="hs-quan-ly" id="hs-quan-ly" hidden></div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="hs-phep-tieu-de">
+      <div class="card-header">
+        <span class="ico-tile" aria-hidden="true"><svg class="hs-ic" viewBox="0 0 24 24" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+        <h2 id="hs-phep-tieu-de">Số phép năm</h2>
+        {#- 17/09/2026: bỏ link "Xem chi tiết → /xin-nghi" theo người duyệt — thẻ chỉ báo số, không dẫn đi đâu. -#}
+      </div>
+      <div class="card-body">
+        <div class="hs-phep">
+          <div class="hs-vong" id="hs-vong" role="img" aria-label="Phép năm">
+            <svg viewBox="0 0 132 132" aria-hidden="true" focusable="false">
+              <circle class="hs-vong-nen" cx="66" cy="66" r="52"/>
+              <circle class="hs-vong-seg is-dung" id="hs-vong-a" cx="66" cy="66" r="52" stroke-dasharray="0 400"/>
+              <circle class="hs-vong-seg is-con" id="hs-vong-b" cx="66" cy="66" r="52" stroke-dasharray="0 400"/>
+            </svg>
+            <div class="hs-vong-chu"><span class="hs-vong-so" id="hs-vong-so">—</span><small id="hs-vong-nhan">ngày</small></div>
+          </div>
+          <dl class="hs-phep-ct" id="hs-phep-ct"></dl>
+        </div>
+        <p class="hs-ghi" id="hs-phep-ghi">Đang tải số phép năm...</p>
+      </div>
+    </section>
   </div>
 
-  <!-- ───────── TAB 1: Chấm Công + Lương (default active) ───────── -->
-  <div id="tab-pane-cc">
-    <!-- Toolbar -->
-    <div class="card" style="padding:12px 16px">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <label style="font-size:13px;font-weight:700;color:var(--text-2)">Tháng:</label>
-        <input type="month" id="me-cc-month" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px" onchange="loadMyPayroll()">
-        <button class="btn btn-secondary" onclick="loadMyPayroll()">Tải lại</button>
-        <div id="me-cc-info" style="margin-left:auto;font-size:13px;color:var(--text-3)"></div>
-      </div>
-    </div>
+  <nav class="hs-tabs" id="hs-tabs" role="tablist" aria-label="Mục hồ sơ"></nav>
 
-    <!-- Tổng quan lương — 4 stat cards -->
-    <div id="me-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px"></div>
+  <!-- TAB: Thông tin chung -->
+  <div class="hs-pane" id="hs-pane-chung" role="tabpanel" aria-label="Thông tin chung">
+    <div class="hs-bao" id="hs-bao" hidden></div>
+    <div class="hs-luoi">
+      <section class="card hs-o-canhan" aria-labelledby="hs-canhan-tieu-de">
+        <div class="card-header">
+          <h2 id="hs-canhan-tieu-de">Thông tin cá nhân</h2>
+          <div class="card-toolbar"><button type="button" class="btn-soft" id="hs-nut-sua" hidden onclick="hsMoSua()">
+            <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>Chỉnh sửa</button></div>
+        </div>
+        <div class="card-body"><dl class="hs-tt" id="hs-tt-canhan"></dl></div>
+      </section>
 
-    <!-- Chi tiết bảng lương -->
-    <div class="card">
-      <div class="card-h">Bảng Lương Tháng — Chi Tiết</div>
-      <div id="me-payroll-detail">
-        <div class="empty"><div class="spinner"></div> Đang tải...</div>
-      </div>
-    </div>
+      <section class="card hs-o-congviec" aria-labelledby="hs-cv-tieu-de">
+        <div class="card-header"><h2 id="hs-cv-tieu-de">Thông tin công việc</h2></div>
+        <div class="card-body"><dl class="hs-tt" id="hs-tt-congviec"></dl></div>
+      </section>
 
-    <!-- Lịch chấm công -->
-    <div class="card">
-      <div class="card-h">Lịch Chấm Công Trong Tháng</div>
-      <div id="me-cham-cong-calendar"><div class="empty"><div class="spinner"></div> Đang tải...</div></div>
+      <section class="card hs-o-tacvu" aria-labelledby="hs-tv-tieu-de">
+        <div class="card-header"><h2 id="hs-tv-tieu-de">Tác vụ nhanh</h2></div>
+        <div class="card-body">
+          <div class="hs-tv">
+            <button type="button" class="hs-tv-muc" onclick="hsMoDoiMatKhau()">
+              <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Đổi mật khẩu</button>
+            <button type="button" class="hs-tv-muc" id="hs-tv-sua" hidden onclick="hsMoSua()">
+              <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>Chỉnh sửa thông tin</button>
+            <button type="button" class="hs-tv-muc" onclick="hsIn()">
+              <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></svg>Tải hồ sơ của tôi</button>
+            <div class="hs-tv-ngan" role="separator"></div>
+            {% if '/xin-nghi' in _hs_routes %}
+            <a class="hs-tv-muc" href="/xin-nghi">
+              <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h8M8 18h5"/></svg>Đơn xin nghỉ</a>
+            {% endif %}
+            {% if '/de-xuat' in _hs_routes %}
+            <a class="hs-tv-muc" href="/de-xuat">
+              <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V16h8v-1.3A7 7 0 0 0 12 2Z"/></svg>Đề xuất</a>
+            {% endif %}
+            {% if '/bang-luong-thang' in _hs_routes %}
+            <a class="hs-tv-muc" href="/bang-luong-thang">
+              <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg>Bảng lương tháng</a>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="card hs-o-nguoithan" id="hs-o-nguoithan" aria-labelledby="hs-nt-tieu-de" hidden>
+        <div class="card-header"><h2 id="hs-nt-tieu-de">Thông tin người thân</h2></div>
+        <div id="hs-nt-gon"></div>
+      </section>
+
+      <section class="card hs-o-tailieu" aria-labelledby="hs-tl-tieu-de">
+        <div class="card-header">
+          <h2 id="hs-tl-tieu-de">Tài liệu cá nhân</h2>
+          <div class="card-toolbar"><button type="button" class="btn-soft" onclick="hsMoTaiLen()">
+            <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>Tải lên</button></div>
+        </div>
+        <div id="hs-tailieu-gon"></div>
+      </section>
+
+      <section class="card hs-o-lichsu" aria-labelledby="hs-ls-tieu-de">
+        <div class="card-header">
+          <h2 id="hs-ls-tieu-de">Lịch sử thay đổi</h2>
+          <div class="card-toolbar"><button type="button" class="btn-link" id="hs-ls-xem-het" hidden onclick="hsChonTab('lich-su')">Xem tất cả
+            <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button></div>
+        </div>
+        <div class="card-body" id="hs-ls-gon"></div>
+      </section>
     </div>
   </div>
 
-  <!-- ───────── TAB 2: Hồ sơ của tôi (cũ) ───────── -->
-  <div id="tab-pane-me" style="display:none">
-    <div id="me-banner"></div>
-    <div id="me-content">
-      <div class="card"><div class="empty"><div class="spinner"></div> Đang tải hồ sơ...</div></div>
-    </div>
-
-    <!-- ───────── Đổi mật khẩu ─────────────────────────────────────── -->
-    <div class="card">
-      <div class="card-h">Đổi mật khẩu</div>
-      <div class="form-grid">
-        <div class="field"><label>Mật khẩu hiện tại <span class="req">*</span></label>
-          <input id="pw-cur" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu hiện tại"></div>
-        <div class="field"><label>Mật khẩu mới <span class="req">*</span></label>
-          <input id="pw-new" type="password" autocomplete="new-password" placeholder="Ít nhất 6 ký tự"></div>
-        <div class="field"><label>Xác nhận mật khẩu mới <span class="req">*</span></label>
-          <input id="pw-cfm" type="password" autocomplete="new-password" placeholder="Nhập lại mật khẩu mới"></div>
-      </div>
-      <div id="pw-msg" style="display:none;margin-top:10px;padding:8px 11px;border-radius:6px;font-size:13px;font-weight:600"></div>
-      <div class="btn-row">
-        <button class="btn btn-primary" id="pw-submit" onclick="submitChangePwd()">Đổi mật khẩu</button>
-      </div>
-    </div>
+  <!-- Các tab phụ -->
+  <div class="hs-pane" id="hs-pane-hop-dong" role="tabpanel" aria-label="Hợp đồng" hidden>
+    <section class="card"><div class="card-header"><h2>Hợp đồng lao động</h2></div><div id="hs-hd-day"></div></section>
   </div>
-
+  <div class="hs-pane" id="hs-pane-bang-cap" role="tabpanel" aria-label="Bằng cấp - Chứng chỉ" hidden>
+    <section class="card">
+      <div class="card-header"><h2>Bằng cấp - Chứng chỉ</h2>
+        <div class="card-toolbar"><button type="button" class="btn-soft" onclick="hsMoTaiLen('bang_cap')">
+          <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>Tải lên</button></div>
+      </div>
+      <div id="hs-bc-day"></div>
+    </section>
+  </div>
+  <div class="hs-pane" id="hs-pane-nguoi-than" role="tabpanel" aria-label="Người thân" hidden>
+    <section class="card"><div class="card-header"><h2>Người thân</h2></div><div id="hs-nt-day"></div></section>
+  </div>
+  <div class="hs-pane" id="hs-pane-tai-lieu" role="tabpanel" aria-label="Tài liệu" hidden>
+    <section class="card">
+      <div class="card-header"><h2>Tài liệu cá nhân</h2>
+        <div class="card-toolbar"><button type="button" class="btn-soft" onclick="hsMoTaiLen()">
+          <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>Tải lên</button></div>
+      </div>
+      <div id="hs-tailieu-day"></div>
+    </section>
+  </div>
+  <div class="hs-pane" id="hs-pane-lich-su" role="tabpanel" aria-label="Lịch sử thay đổi" hidden>
+    <section class="card"><div class="card-header"><h2>Lịch sử thay đổi</h2></div><div class="card-body" id="hs-ls-day"></div></section>
+  </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<!-- Modal: sửa thông tin (chỉ khi hồ sơ chưa nộp) -->
+<div class="modal-overlay" id="hs-hop-sua" onclick="if(event.target===this)hsDong('hs-hop-sua')">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="hs-sua-tieu-de">
+    <div class="modal-header"><h2 id="hs-sua-tieu-de">Chỉnh sửa thông tin cá nhân</h2>
+      <button type="button" class="modal-close" onclick="hsDong('hs-hop-sua')" aria-label="Đóng"><svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-field is-rong"><label for="f-ho_ten">Họ và tên <span class="hs-sao">*</span></label><input id="f-ho_ten" autocomplete="name"></div>
+        <div class="form-field"><label for="f-ngay_sinh">Ngày sinh <span class="hs-sao">*</span></label><input id="f-ngay_sinh" type="date"></div>
+        <div class="form-field"><label for="f-gioi_tinh">Giới tính <span class="hs-sao">*</span></label>
+          <select id="f-gioi_tinh"><option value="">— Chọn —</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option><option value="Khác">Khác</option></select></div>
+        <div class="form-field"><label for="f-cccd">Số CCCD <span class="hs-sao">*</span></label><input id="f-cccd" inputmode="numeric"></div>
+        <div class="form-field"><label for="f-dien_thoai">Số điện thoại <span class="hs-sao">*</span></label><input id="f-dien_thoai" type="tel" autocomplete="tel"></div>
+        <div class="form-field is-rong"><label for="f-email">Email</label><input id="f-email" type="email" autocomplete="email"></div>
+        <div class="form-field is-rong"><label for="f-dia_chi">Địa chỉ <span class="hs-sao">*</span></label><textarea id="f-dia_chi"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-ghost" onclick="hsDong('hs-hop-sua')">Huỷ</button>
+      <button type="button" class="btn-primary" id="hs-nut-luu" onclick="hsLuuSua()">Lưu thông tin</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: tải tài liệu lên -->
+<div class="modal-overlay" id="hs-hop-tai" onclick="if(event.target===this)hsDong('hs-hop-tai')">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="hs-tai-tieu-de">
+    <div class="modal-header"><h2 id="hs-tai-tieu-de">Tải tài liệu lên</h2>
+      <button type="button" class="modal-close" onclick="hsDong('hs-hop-tai')" aria-label="Đóng"><svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-field"><label for="hs-tai-loai">Loại tài liệu <span class="hs-sao">*</span></label><select id="hs-tai-loai"></select></div>
+      <div class="form-field">
+        <span class="hs-nhan">Tệp <span class="hs-sao">*</span></span>
+        <label class="hs-tha" id="hs-tha" for="hs-tai-tep" tabindex="0">
+          <svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M16 16 12 12l-4 4M12 12v9"/><path d="M20.4 18.6A5 5 0 0 0 18 9h-1.3A8 8 0 1 0 3 16.3"/></svg>
+          <span><span>Kéo thả tệp hoặc <b>chọn tệp</b></span><small>PDF, JPG, PNG, WebP</small></span>
+        </label>
+        <input type="file" id="hs-tai-tep" accept=".pdf,.jpg,.jpeg,.png,.webp" hidden onchange="hsChonTep(this.files)">
+        <p class="hs-tha-ten" id="hs-tai-ten" hidden></p>
+      </div>
+      <p class="hs-goi-y" id="hs-tai-goi-y" hidden>Hồ sơ đã duyệt — tài liệu mới sẽ ở trạng thái "Chờ duyệt" cho tới khi phòng Nhân sự duyệt.</p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-ghost" onclick="hsDong('hs-hop-tai')">Huỷ</button>
+      <button type="button" class="btn-primary" id="hs-nut-tai" onclick="hsTaiLen()">Tải lên</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: đổi mật khẩu (header gọi window.openProfile) -->
+<div class="modal-overlay" id="hs-hop-mk" onclick="if(event.target===this)hsDong('hs-hop-mk')">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="hs-mk-tieu-de">
+    <div class="modal-header"><h2 id="hs-mk-tieu-de">Đổi mật khẩu</h2>
+      <button type="button" class="modal-close" onclick="hsDong('hs-hop-mk')" aria-label="Đóng"><svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body">
+      <div class="form-field"><label for="hs-mk-cu">Mật khẩu hiện tại <span class="hs-sao">*</span></label><input id="hs-mk-cu" type="password" autocomplete="current-password"></div>
+      <div class="form-field"><label for="hs-mk-moi">Mật khẩu mới <span class="hs-sao">*</span></label><input id="hs-mk-moi" type="password" autocomplete="new-password"><p class="hs-goi-y">Ít nhất 6 ký tự.</p></div>
+      <div class="form-field"><label for="hs-mk-lai">Nhập lại mật khẩu mới <span class="hs-sao">*</span></label><input id="hs-mk-lai" type="password" autocomplete="new-password"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-ghost" onclick="hsDong('hs-hop-mk')">Huỷ</button>
+      <button type="button" class="btn-primary" id="hs-nut-mk" onclick="hsDoiMatKhau()">Đổi mật khẩu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: xem tệp -->
+<div class="modal-overlay" id="hs-hop-xem" onclick="if(event.target===this)hsDong('hs-hop-xem')">
+  <div class="modal-box is-rong" role="dialog" aria-modal="true" aria-labelledby="hs-xem-tieu-de">
+    <div class="modal-header"><h2 id="hs-xem-tieu-de">Xem tài liệu</h2>
+      <a class="btn-link" id="hs-xem-tai" href="#" target="_blank" rel="noopener">Mở tab mới</a>
+      <button type="button" class="modal-close" onclick="hsDong('hs-hop-xem')" aria-label="Đóng"><svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="hs-xem" id="hs-xem-than"></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="hs-toast"></div>
+</div>
 
 <script>
-const $ = id => document.getElementById(id);
-const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
-const fmtSize = b => !b ? '' : b < 1024 ? b + 'B' : b < 1048576 ? (b/1024).toFixed(1) + 'KB' : (b/1048576).toFixed(1) + 'MB';
-const fmtDate = s => s ? new Date(s).toLocaleString('vi-VN') : '—';
-const fmtShortDate = s => s ? new Date(s).toLocaleDateString('vi-VN') : '—';
-let _currentUser = null;
-let _meProfile = null;
-let _loaiOptions = [];
+const HS_USERNAME = {{ (user.username if user else '')|tojson }};
 
-function toast(msg, isErr = false) {
-  const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (isErr ? ' error' : '');
-  setTimeout(() => t.classList.remove('show'), 2400);
+// ── Icon (24×24, nét viền, ăn currentColor) ──────────────────────────────────
+const _HS_IC = {
+  thu:    '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  dt:     '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>',
+  ghim:   '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  lich:   '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  nhom:   '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+  chep:   '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  xem:    '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  tai:    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/>',
+  xoa:    '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
+  pdf:    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
+  anh:    '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
+  gui:    '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>'
+};
+function _hsSvg(ten) { return '<svg class="hs-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + (_HS_IC[ten] || '') + '</svg>'; }
+function _hsE(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function _hsNgay(s) { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : String(s); }
+function _hsCo(n) { n = Number(n) || 0; if (!n) return ''; return n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1).replace('.', ',')} MB`; }
+function _hsSo(n) { return String(Number(n) || 0).replace('.', ','); }
+/* Chữ viết tắt: bỏ phần trong ngoặc ("(DEV)") và từ không bắt đầu bằng chữ cái, lấy 2 từ cuối. */
+function _hsChuDau(ten) { const w = String(ten || '').replace(/\(.*?\)/g, ' ').trim().split(/\s+/).filter(x => /^\p{L}/u.test(x)); return (w.length ? w.slice(-2).map(x => x[0]).join('') : '?').toUpperCase(); }
+function _hsToast(msg, loai = 'info') {
+  const w = document.getElementById('hs-toast'); if (!w) return;
+  const t = document.createElement('div');
+  t.className = `toast ${loai}`; t.setAttribute('role', loai === 'error' ? 'alert' : 'status'); t.textContent = msg;
+  w.appendChild(t); setTimeout(() => t.classList.add('show'), 30);
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, loai === 'error' ? 6000 : 3200);
 }
-async function api(method, url, body, isForm) {
-  const opts = { method, credentials: 'include', headers: {} };
-  if (body) {
-    if (isForm) { opts.body = body; }
-    else { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
-  }
-  const r = await fetch(url, opts);
-  if (r.status === 401) { window.location.href = '/login'; return null; }
+function hsMo(id) { document.getElementById(id).classList.add('show'); }
+function hsDong(id) { document.getElementById(id).classList.remove('show'); if (id === 'hs-hop-xem') document.getElementById('hs-xem-than').innerHTML = ''; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.hs .modal-overlay.show').forEach(m => hsDong(m.id)); });
+
+/* Gọi API: trả dữ liệu, ném Error có `.status`. 401 → về trang đăng nhập. */
+async function _hsApi(method, url, body, laForm) {
+  const o = { method, credentials: 'include', headers: {} };
+  if (body) { if (laForm) o.body = body; else { o.headers['Content-Type'] = 'application/json'; o.body = JSON.stringify(body); } }
+  const r = await fetch(url, o);
+  if (r.status === 401) { location.href = '/login'; throw Object.assign(new Error('Hết phiên đăng nhập'), { status: 401 }); }
   if (r.status === 204) return null;
-  const ct = r.headers.get('Content-Type') || '';
-  const d = ct.includes('application/json') ? await r.json() : await r.text();
-  if (!r.ok) { const err = (d && d.detail) || d || 'Lỗi'; throw new Error(typeof err === 'string' ? err : JSON.stringify(err)); }
+  const laJson = (r.headers.get('Content-Type') || '').includes('application/json');
+  const d = laJson ? await r.json().catch(() => null) : await r.text();
+  if (!r.ok) {
+    const ct = d && d.detail;
+    throw Object.assign(new Error(typeof ct === 'string' ? ct : (ct ? JSON.stringify(ct) : `Lỗi máy chủ (HTTP ${r.status})`)), { status: r.status });
+  }
   return d;
 }
+/* 404/405 = máy chủ chưa có API mới (production chưa đẩy, container chưa khởi động lại) */
+const _hsChuaCo = e => e && (e.status === 404 || e.status === 405);
 
-// ── Init ────────────────────────────────────────────────────────────────────
-// Anh Quang 2026-06-06: Tab 1 (Chấm công Lương) phải chạy ngay cả khi
-// /api/profile-workflow/meta/loai-giay-to (chỉ có HCNS) trả 404 ở baogia/...
-(async () => {
-  // Set default month input = current month
-  const now = new Date();
-  const mInput = $('me-cc-month');
-  if(mInput) mInput.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+// ── Trạng thái ──────────────────────────────────────────────────────────────
+const _hs = { p: null, loai: [], phep: null, phepLoi: false, hopDong: undefined, nguoiThan: undefined, lichSu: undefined, tab: 'chung', tep: null, loaiTai: '' };
+const _HS_TT_HS = { cho_duyet: ['warning', 'Chờ duyệt'], da_duyet: ['success', 'Đã duyệt'], tu_choi: ['danger', 'Từ chối'] };
 
-  // Tab 1 — quan trọng nhất, gọi NGAY và độc lập
-  loadMyPayroll().catch(e => console.warn('loadMyPayroll:', e));
-
-  // Phụ trợ: profile + meta cho Tab 2, fail-soft không block Tab 1
-  try { _currentUser = await api('GET', '/api/profile'); }
-  catch (e) { console.warn('profile:', e); }
-  try {
-    const meta = await api('GET', '/api/profile-workflow/meta/loai-giay-to');
-    _loaiOptions = meta.options || [];
-  } catch (e) { console.warn('meta loai-giay-to (chỉ HCNS):', e); }
-  loadMyProfile().catch(e => console.warn('loadMyProfile:', e));
-})();
-
-function switchProfileTab(name){
-  ['cc','me'].forEach(n => {
-    const pane = $('tab-pane-'+n), btn = $('tab-btn-'+n);
-    if(pane) pane.style.display = (n===name ? '' : 'none');
-    if(btn)  btn.classList.toggle('active', n===name);
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TAB 1 — Chấm Công + Lương cá nhân (data từ /api/payroll/me)
-// ═══════════════════════════════════════════════════════════════════════════
-const fmtVnd = n => Number(n||0).toLocaleString('vi-VN');
-
-async function loadMyPayroll(){
-  const thang = $('me-cc-month').value;
-  if(!thang) return;
-  $('me-summary').innerHTML = '';
-    $('me-payroll-detail').innerHTML = '<div class="empty"><div class="spinner"></div> Đang tải...</div>';
-  $('me-cham-cong-calendar').innerHTML = '<div class="empty"><div class="spinner"></div> Đang tải...</div>';
-  try {
-    const d = await api('GET', `/api/payroll/me?thang=${thang}`);
-    const e = d.employee || {};
-    const p = d.payroll;
-    const [y,m] = thang.split('-');
-    $('me-cc-info').textContent = `${e.ma_nv} • ${e.ho_ten} • ${e.phong_ban||'—'}`;
-    if(!p){
-      $('me-summary').innerHTML = `<div class="card" style="grid-column:1/-1"><div class="empty">Tháng ${m}/${y}: chưa có dữ liệu lương (NV chưa active hoặc nghỉ trước tháng này).</div></div>`;
-      $('me-payroll-detail').innerHTML = '';
-      renderMyChamCong(d.cham_cong || [], y, m);
-      return;
-    }
-    // 4 stat cards
-    $('me-summary').innerHTML = `
-      <div class="card" style="padding:14px;border-left:5px solid var(--brand)">
-        <div style="font-size:12px;color:var(--text-3);text-transform:uppercase;font-weight:700">Lương cơ bản</div>
-        <div style="font-size:20px;font-weight:800;color:var(--brand-hover);margin-top:4px">${fmtVnd(p.luong_co_ban)}đ</div>
-      </div>
-      <div class="card" style="padding:14px;border-left:5px solid var(--success)">
-        <div style="font-size:12px;color:var(--text-3);text-transform:uppercase;font-weight:700">Số ngày công</div>
-        <div style="font-size:20px;font-weight:800;color:var(--success-fg);margin-top:4px">${Number(p.so_ngay_cong||0).toFixed(2)} ngày</div>
-      </div>
-      <div class="card" style="padding:14px;border-left:5px solid var(--warning)">
-        <div style="font-size:12px;color:var(--text-3);text-transform:uppercase;font-weight:700">Tổng cộng</div>
-        <div style="font-size:20px;font-weight:800;color:var(--warning-fg);margin-top:4px">${fmtVnd(p.tong_cong)}đ</div>
-      </div>
-      <div class="card" style="padding:14px;border-left:5px solid var(--success);background:var(--success-soft)">
-        <div style="font-size:12px;color:var(--text-3);text-transform:uppercase;font-weight:700">Thực Nhận</div>
-        <div style="font-size:25px;font-weight:900;color:var(--success-fg);margin-top:4px">${fmtVnd(p.luong_thuc_nhan)}đ</div>
-      </div>
-    `;
-    // Detail breakdown
-    const rowKv = (lbl, val, color) => `<tr><td style="padding:8px 12px;color:var(--text-2)">${lbl}</td><td style="padding:8px 12px;text-align:right;font-weight:700;color:${color||'var(--text-1)'};font-variant-numeric:tabular-nums">${fmtVnd(val)}đ</td></tr>`;
-    const cong = [
-      ['+ Lương theo công', p.luong_theo_cong, 'var(--brand-hover)'],
-      ['+ Ăn trưa', p.an_trua, 'var(--success-fg)'],
-      ['+ Trách nhiệm', p.trach_nhiem, 'var(--warning-fg)'],
-      ['+ Công tác xưởng', p.cong_tac_xuong, 'var(--brand-hover)'],
-      ['+ Hoa hồng', p.hoa_hong, 'var(--brand-hover)'],
-      ['+ OT ca gãy', p.ot_ca_gay, 'var(--success-fg)'],
-      ['+ Trực tối', p.truc_toi, 'var(--brand-hover)'],
-      ['+ Tối ưu KD', p.toi_uu_kd, 'var(--brand-hover)'],
-    ];
-    const tru = [
-      ['− BHXH (10.5%)', p.bhxh_tru, 'var(--danger-fg)'],
-      ['− Đoàn phí công đoàn', p.doan_phi_tru, 'var(--danger)'],
-      ['− Ứng lương' + (p.ung_luong_so_lan?` (${p.ung_luong_so_lan} lần)`:''), p.ung_luong||0, 'var(--danger-fg)'],
-    ];
-    const _m5=(p.luong_theo_cong||0)+(p.an_trua||0)-(p.bhxh_tru||0)-(p.ung_luong||0)-(p.doan_phi_tru||0); const _m15=(p.luong_thuc_nhan||0)-_m5;
-    $('me-payroll-detail').innerHTML = `
-      <table style="width:100%;border-collapse:collapse;font-size:14px">
-        <tbody>
-          <tr><td colspan="2" style="padding:9px 12px;background:var(--info-soft);color:var(--brand-hover);font-weight:800;text-transform:uppercase;font-size:12px;letter-spacing:.3px">Khoản cộng (tổng: ${fmtVnd(p.tong_cong)}đ)</td></tr>
-          ${cong.map(([l,v,c]) => rowKv(l,v,c)).join('')}
-          <tr><td colspan="2" style="padding:9px 12px;background:var(--danger-soft);color:var(--danger-fg);font-weight:800;text-transform:uppercase;font-size:12px;letter-spacing:.3px">Khoản trừ (tổng: ${fmtVnd(p.tong_tru)}đ)</td></tr>
-          ${tru.map(([l,v,c]) => rowKv(l,v,c)).join('')}
-          <tr style="background:var(--success-soft)">
-            <td style="padding:14px 12px;font-weight:800;color:var(--success-fg);font-size:15px">Lương thực nhận</td>
-            <td style="padding:14px 12px;text-align:right;font-weight:900;color:var(--success-fg);font-size:18px;font-variant-numeric:tabular-nums">${fmtVnd(p.luong_thuc_nhan)}đ</td>
-          </tr>
-          <tr style="background:#eff6ff">
-            <td style="padding:12px;font-weight:800;color:#1e40af;font-size:13px">📅 Lương trả M5 <span style="font-weight:400;color:#64748b;font-size:10px">(cứng+ăn trưa−BHXH−ứng−CĐ)</span></td>
-            <td style="padding:12px;text-align:right;font-weight:900;color:#1e40af;font-size:16px;font-variant-numeric:tabular-nums">${fmtVnd(_m5)}đ</td>
-          </tr>
-          <tr style="background:#eff6ff">
-            <td style="padding:12px;font-weight:800;color:#0369a1;font-size:13px">📅 Lương trả M15 <span style="font-weight:400;color:#64748b;font-size:10px">(phần còn lại)</span></td>
-            <td style="padding:12px;text-align:right;font-weight:900;color:#0369a1;font-size:16px;font-variant-numeric:tabular-nums">${fmtVnd(_m15)}đ</td>
-          </tr>
-        </tbody>
-      </table>
-    `;
-    renderMyChamCong(d.cham_cong || [], y, m);
-  } catch(e){
-    $('me-summary').innerHTML = '';
-    $('me-payroll-detail').innerHTML = `<div class="empty" style="color:var(--danger)">${esc(e.message)}</div>`;
-    $('me-cham-cong-calendar').innerHTML = '';
+// ── Nạp dữ liệu ─────────────────────────────────────────────────────────────
+async function hsTai() {
+  const [p, meta, phep] = await Promise.allSettled([
+    _hsApi('GET', '/api/profile-workflow/me'),
+    _hsApi('GET', '/api/profile-workflow/meta/loai-giay-to'),
+    _hsApi('GET', '/api/xin-nghi/phep-nam')
+  ]);
+  if (meta.status === 'fulfilled') _hs.loai = (meta.value && meta.value.options) || [];
+  _hs.phep = phep.status === 'fulfilled' ? phep.value : null;
+  _hsVePhep();
+  if (p.status !== 'fulfilled') {
+    const e = p.reason;
+    document.getElementById('hs-ten').textContent = _hsChuaCo(e) && e.status === 404 && /hồ sơ|nhân viên|NV/i.test(e.message || '')
+      ? 'Tài khoản chưa gắn hồ sơ nhân viên' : 'Không tải được hồ sơ';
+    document.getElementById('hs-dl-dau').innerHTML = `<dt>Chi tiết</dt><dd>${_hsE(e.message || '')} <button type="button" class="btn-link" onclick="location.reload()">Thử lại</button></dd>`;
+    _hsVeTab();
+    return;
   }
+  _hs.p = p.value;
+  _hsVeTatCa();
+  _hsTaiAnh();
+  _hsTaiPhu();
 }
 
-function renderMyChamCong(items, y, m){
-  const wrap = $('me-cham-cong-calendar');
-  const ccMap = {};
-  for(const c of items){ ccMap[c.ngay] = c; }
-  const ndays = new Date(parseInt(y), parseInt(m), 0).getDate();
-  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;font-size:13px">';
-  const dayNames = ['T2','T3','T4','T5','T6','T7','CN'];
-  dayNames.forEach(d => html += `<div style="font-weight:800;color:var(--text-2);text-align:center;padding:6px;min-width:0;overflow:hidden">${d}</div>`);
-  const firstDay = new Date(parseInt(y), parseInt(m)-1, 1);
-  const firstWeekday = (firstDay.getDay() + 6) % 7;  // T2=0..CN=6
-  for(let i = 0; i < firstWeekday; i++) html += '<div></div>';
-  let totalHours = 0, daysWorked = 0;
-  for(let d = 1; d <= ndays; d++){
-    const date = `${y}-${m}-${String(d).padStart(2,'0')}`;
-    const cc = ccMap[date];
-    const dayOfWeek = (new Date(parseInt(y), parseInt(m)-1, d).getDay() + 6) % 7;
-    const isSunday = dayOfWeek === 6;
-    let bg = 'var(--bg-page)', col = 'var(--text-3)', content = '';
-    if(cc && cc.tong_gio > 0){
-      totalHours += cc.tong_gio;
-      daysWorked++;
-      const pct = Math.min(100, cc.tong_gio / 8 * 100);
-      bg = pct >= 100 ? 'var(--success-soft)' : (pct >= 50 ? 'var(--warning-soft)' : 'var(--danger-soft)');
-      col = pct >= 100 ? 'var(--success-fg)' : (pct >= 50 ? 'var(--warning-fg)' : 'var(--danger-fg)');
-      content = `<div style="font-size:11px;font-weight:700">${cc.tong_gio.toFixed(1)}h</div>` +
-                (cc.gio_vao ? `<div style="font-size:12px;opacity:.85">${cc.gio_vao}-${cc.gio_ra||'?'}</div>` : '');
-    } else if(isSunday){
-      bg = 'var(--brand-soft)'; col = 'var(--brand-hover)';
-    }
-    html += `<div style="background:${bg};color:${col};padding:7px 4px;border-radius:7px;min-height:50px;text-align:center;line-height:1.3;min-width:0;overflow:hidden">
-      <div style="font-weight:800;font-size:14px">${d}</div>
-      ${content}
-    </div>`;
-  }
-  html += '</div>';
-  html = `<div style="margin-bottom:10px;font-size:13px;color:var(--text-2)"><strong>${daysWorked} ngày làm việc</strong> • <strong>${totalHours.toFixed(1)}h</strong> tổng • TB ${daysWorked?(totalHours/daysWorked).toFixed(1):'0'}h/ngày</div>` + html;
-  wrap.innerHTML = html;
+/* Ba API thêm 12/09/2026 — tải song song, không chặn phần chính. `null` = máy chủ chưa có. */
+async function _hsTaiPhu() {
+  const lay = async url => { try { const d = await _hsApi('GET', url); return Array.isArray(d) ? d : ((d && (d.items || d.data)) || []); }
+                             catch (e) { return _hsChuaCo(e) ? null : { loi: e.message || 'Lỗi' }; } };
+  const [hd, nt, ls] = await Promise.all([
+    lay('/api/profile-workflow/me/hop-dong'),
+    lay('/api/profile-workflow/me/nguoi-than'),
+    lay('/api/profile-workflow/me/lich-su?limit=50')
+  ]);
+  _hs.hopDong = hd; _hs.nguoiThan = nt; _hs.lichSu = ls;
+  _hsVeTab();
+  _hsVeNguoiThan();
+  _hsVeHopDong();
+  _hsVeLichSu();
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Hồ sơ của tôi (NV view only)
-// ═══════════════════════════════════════════════════════════════════════════
-async function loadMyProfile() {
+async function _hsTaiAnh() {
+  const img = document.getElementById('hs-anh-img'), chu = document.getElementById('hs-anh-chu');
+  chu.textContent = _hsChuDau(_hs.p && _hs.p.ho_ten);
   try {
-    const p = await api('GET', '/api/profile-workflow/me');
-    _meProfile = p;
-    renderMyBanner(p);
-    renderMyContent(p);
-  } catch (e) {
-    $('me-content').innerHTML = `<div class="card"><div class="empty" style="color:var(--danger)">${esc(e.message)}</div></div>`;
-  }
+    const r = await fetch('/api/profile/avatar?t=' + Date.now(), { credentials: 'include' });
+    if (!r.ok || !(r.headers.get('Content-Type') || '').startsWith('image/')) throw new Error('không có ảnh');
+    const url = URL.createObjectURL(await r.blob());
+    img.src = url; img.hidden = false; chu.hidden = true;
+    ['ab-ava-img', 'ab-ava-img2'].forEach(id => { const el = document.getElementById(id); if (el) { el.src = url; el.style.display = 'block'; } });
+    ['ab-ava-init', 'ab-ava-init2'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  } catch (e) { img.hidden = true; chu.hidden = false; }
 }
 
-function renderMyBanner(p) {
-  const s = p.profile_status;
-  let html = '';
-  if (s === 'chua_nop') {
-    const haveLoai = new Set((p.documents || []).map(d => d.loai_giay_to));
-    const missing = _loaiOptions.filter(o => o.required && !haveLoai.has(o.value)).map(o => o.label);
-    const docTxt = missing.length ? `<br>Còn thiếu: <b>${missing.map(esc).join(', ')}</b>` : '';
-    html = `<div class="banner banner-info"><div>Hồ sơ <b>chưa hoàn thiện</b> — vui lòng điền đủ thông tin + upload tài liệu bắt buộc → nhấn <b>"Gửi xét duyệt"</b>.${docTxt}</div></div>`;
+// ── Vẽ ──────────────────────────────────────────────────────────────────────
+function _hsVeTatCa() {
+  _hsVeDau();
+  _hsVeBao();
+  _hsVeThongTin();
+  _hsVeTaiLieu();
+  _hsVeTab();
+  _hsVeNguoiThan();
+  _hsVeLichSu();
+}
+
+function _hsThamNien(iso) {
+  if (!iso) return '';
+  const a = new Date(String(iso).slice(0, 10) + 'T00:00:00'), b = new Date();
+  if (isNaN(a)) return '';
+  let m = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+  if (b.getDate() < a.getDate()) m--;
+  if (m < 0) return '';
+  const y = Math.floor(m / 12), r = m % 12;
+  return [y ? y + ' năm' : '', r ? r + ' tháng' : ''].filter(Boolean).join(' ') || 'dưới 1 tháng';
+}
+function _hsTrangThaiLam(tt) {
+  const s = String(tt || '').trim().toLowerCase();
+  if (!s) return '';
+  if (s.startsWith('đang')) return '<span class="pill pill--success">Đang làm việc</span>';
+  if (s.includes('nghỉ')) return '<span class="pill pill--neutral">Đã nghỉ việc</span>';
+  return `<span class="pill pill--neutral">${_hsE(tt)}</span>`;
+}
+
+function _hsVeDau() {
+  const p = _hs.p;
+  document.getElementById('hs-ten').textContent = p.ho_ten || '—';
+  document.getElementById('hs-tt-lam').innerHTML = _hsTrangThaiLam(p.trang_thai);
+  const tn = _hsThamNien(p.ngay_vao);
+  const dong = (dt, dd) => `<dt>${dt}:</dt><dd>${dd}</dd>`;
+  document.getElementById('hs-dl-dau').innerHTML =
+      dong('Mã nhân viên', _hsE(p.ma_nv || '—'))
+    + dong('Chức danh', _hsE(p.chuc_vu || '—'))
+    + dong('Phòng ban', _hsE(p.phong_ban || '—'))
+    + dong('Ngày vào làm', p.ngay_vao ? `${_hsNgay(p.ngay_vao)}${tn ? ` <small>(${tn})</small>` : ''}` : '—')
+    + dong('Loại nhân viên', _hsE(p.loai_hop_dong || '—'));
+  const lh = [['thu', p.email, 'Chưa có email'], ['dt', p.dien_thoai, 'Chưa có số điện thoại'],
+              ['ghim', p.dia_chi, 'Chưa có địa chỉ'], ['lich', p.ngay_sinh ? _hsNgay(p.ngay_sinh) : '', 'Chưa có ngày sinh']];
+  document.getElementById('hs-lien-he').innerHTML = lh.map(([ic, v, trong]) =>
+    `<li class="${v ? '' : 'is-trong'}"><span class="ico-tile" aria-hidden="true">${_hsSvg(ic)}</span><span>${_hsE(v || trong)}</span></li>`).join('');
+  const ql = p.quan_ly_truc_tiep, o = document.getElementById('hs-quan-ly');
+  o.hidden = !(ql && (ql.ho_ten || ql.username));
+  if (!o.hidden) o.innerHTML = `<span class="ico-tile ico-tile--tim" aria-hidden="true">${_hsSvg('nhom')}</span>`
+    + `<div><small>Quản lý trực tiếp</small><b>${_hsE(ql.ho_ten || ql.username)}</b>${ql.chuc_vu ? `<small>${_hsE(ql.chuc_vu)}</small>` : ''}</div>`;
+}
+
+function _hsVeBao() {
+  const p = _hs.p, o = document.getElementById('hs-bao'), s = p.profile_status;
+  const sua = p.profile_status === 'chua_nop';
+  document.getElementById('hs-nut-sua').hidden = !sua;
+  document.getElementById('hs-tv-sua').hidden = !sua;
+  if (s === 'chua_nop' || s === 'tu_choi') {
+    const thieu = (p.thieu_labels || []).filter(Boolean);
+    o.className = 'hs-bao ' + (s === 'tu_choi' ? 'hs-bao--danger' : 'hs-bao--warning');
+    o.innerHTML = `<div class="hs-bao-chu"><b>${s === 'tu_choi' ? 'Hồ sơ bị trả lại.' : 'Hồ sơ chưa nộp.'}</b> `
+      + (thieu.length ? `Còn thiếu: ${thieu.map(_hsE).join(', ')}. ` : '')
+      + 'Điền đủ thông tin và tải tài liệu bắt buộc rồi gửi phòng Nhân sự duyệt.</div>'
+      + `<div class="hs-bao-nut"><button type="button" class="btn-primary" onclick="hsGuiDuyet()">${_hsSvg('gui')}Gửi xét duyệt</button></div>`;
+    o.hidden = false;
   } else if (s === 'cho_duyet') {
-    html = `<div class="banner banner-warn"><div>Hồ sơ đã gửi <b>${fmtDate(p.profile_submitted_at)}</b> — đang chờ HCNS duyệt. Form đã khoá.</div></div>`;
-  } else if (s === 'da_duyet') {
-    html = `<div class="banner banner-success">✓ <div>Hồ sơ đã được HCNS <b>duyệt ${fmtDate(p.profile_approved_at)}</b> bởi <b>${esc(p.profile_approved_by || '—')}</b>. Liên hệ HCNS để cập nhật.</div></div>`;
-  }
-  $('me-banner').innerHTML = html;
+    o.className = 'hs-bao hs-bao--info';
+    o.innerHTML = `<div class="hs-bao-chu"><b>Hồ sơ đang chờ duyệt.</b> Đã gửi ${_hsE(_hsNgay(p.profile_submitted_at) || '')} — trong lúc chờ không tự sửa được thông tin.</div>`;
+    o.hidden = false;
+  } else { o.hidden = true; }
 }
 
-function renderMyContent(p) {
-  const editable = p.profile_status === 'chua_nop';
-  const ro = editable ? '' : 'disabled';
-  $('me-content').innerHTML = `
-    <div class="card">
-      <div class="card-h">Thông tin cá nhân</div>
-      <div class="form-grid">
-        <div class="field"><label>Mã NV</label><input value="${esc(p.ma_nv)}" disabled></div>
-        <div class="field"><label>Username</label><input value="${esc(p.username || '')}" disabled></div>
-        <div class="field"><label>Họ tên <span class="req">*</span></label><input id="f-ho_ten" value="${esc(p.ho_ten || '')}" ${ro}></div>
-        <div class="field"><label>Ngày sinh <span class="req">*</span></label><input id="f-ngay_sinh" type="date" value="${p.ngay_sinh || ''}" ${ro}></div>
-        <div class="field"><label>Giới tính <span class="req">*</span></label>
-          <select id="f-gioi_tinh" ${ro}>
-            <option value="">—</option>
-            <option value="Nam" ${p.gioi_tinh==='Nam'?'selected':''}>Nam</option>
-            <option value="Nữ" ${p.gioi_tinh==='Nữ'?'selected':''}>Nữ</option>
-            <option value="Khác" ${p.gioi_tinh==='Khác'?'selected':''}>Khác</option>
-          </select></div>
-        <div class="field"><label>CCCD/CMND <span class="req">*</span></label><input id="f-cccd" value="${esc(p.cccd || '')}" ${ro}></div>
-        <div class="field"><label>Điện thoại <span class="req">*</span></label><input id="f-dien_thoai" value="${esc(p.dien_thoai || '')}" ${ro}></div>
-        <div class="field"><label>Email</label><input id="f-email" type="email" value="${esc(p.email || '')}" ${ro}></div>
-        <div class="field" style="grid-column:span 2"><label>Địa chỉ <span class="req">*</span></label><textarea id="f-dia_chi" ${ro}>${esc(p.dia_chi || '')}</textarea></div>
-        <div class="field"><label>Phòng ban</label><input value="${esc(p.phong_ban || '')}" disabled></div>
-        <div class="field"><label>Chức vụ</label><input value="${esc(p.chuc_vu || '')}" disabled></div>
-      </div>
-      ${editable ? `<div class="btn-row"><button class="btn btn-primary" onclick="saveMyInfo()">Lưu thông tin</button></div>` : ''}
-    </div>
-
-    <div class="card">
-      <div class="card-h">Tài liệu cá nhân
-        <span style="margin-left:auto;font-weight:500;font-size:12px;color:var(--text-3);text-transform:none">
-          Tài liệu có dấu <span style="background:var(--danger);color:#fff;padding:1px 5px;border-radius:3px;font-size:10px">BẮT BUỘC</span> là cần thiết khi gửi xét duyệt
-        </span>
-      </div>
-      <div class="docs-grid" id="me-docs">${renderMyDocs(p)}</div>
-      ${renderUploadArea(p)}
-    </div>
-
-    ${p.profile_status === 'chua_nop' ? `
-      <div class="card" style="border:2px solid var(--success-fg);background:var(--success-soft)">
-        <div style="text-align:center;font-size:14px;color:var(--success-fg);margin-bottom:10px">
-          Sau khi điền đủ thông tin + upload đủ tài liệu bắt buộc → nhấn nút để gửi cho HCNS duyệt:
-        </div>
-        <div style="text-align:center">
-          <button class="btn btn-primary" style="padding:11px 28px;font-size:15px" onclick="submitMyProfile()">
-            Gửi xét duyệt
-          </button>
-        </div>
-      </div>
-    ` : ''}
-  `;
+function _hsVeThongTin() {
+  const p = _hs.p;
+  const dong = (nhan, gt, them) => gt
+    ? `<dt>${nhan}</dt><dd>${_hsE(gt)}${them || ''}</dd>`
+    : `<dt>${nhan}</dt><dd class="is-trong">Chưa cập nhật</dd>`;
+  const chep = p.cccd ? `<button type="button" class="hs-nut-icon" onclick="hsChep(${_hsE(JSON.stringify(String(p.cccd)))})" aria-label="Sao chép số CCCD" title="Sao chép">${_hsSvg('chep')}</button>` : '';
+  document.getElementById('hs-tt-canhan').innerHTML =
+      dong('Họ và tên', p.ho_ten) + dong('Ngày sinh', _hsNgay(p.ngay_sinh)) + dong('Giới tính', p.gioi_tinh)
+    + dong('Số CCCD', p.cccd, chep) + dong('Địa chỉ', p.dia_chi) + dong('Số điện thoại', p.dien_thoai) + dong('Email', p.email);
+  const hs = { chua_nop: 'Chưa nộp', cho_duyet: 'Đang chờ duyệt', da_duyet: 'Đã duyệt', tu_choi: 'Bị trả lại' }[p.profile_status];
+  document.getElementById('hs-tt-congviec').innerHTML =
+      dong('Mã nhân viên', p.ma_nv) + dong('Phòng ban', p.phong_ban) + dong('Chức danh', p.chuc_vu)
+    + dong('Ngày vào làm', _hsNgay(p.ngay_vao)) + dong('Loại nhân viên', p.loai_hop_dong)
+    + dong('Tài khoản', p.username || HS_USERNAME)
+    + dong('Hồ sơ', hs ? hs + (p.profile_status === 'da_duyet' && p.profile_approved_at ? ` ngày ${_hsNgay(p.profile_approved_at)}` : '') : '');
 }
 
-function renderMyDocs(p) {
-  const docs = p.documents || [];
-  if (!docs.length) return '<div class="empty">Chưa có tài liệu — upload bên dưới</div>';
-  return docs.map(d => {
-    // Chỉ xoá được doc CHƯA DUYỆT (đã duyệt → liên hệ HCNS)
-    const canDelete = d.trang_thai !== 'da_duyet';
-    return `<div class="doc-card has-file">
-      <div class="doc-type">${esc(d.loai_label)}</div>
-      <div class="doc-file-info">
-        <b>${esc(d.ten_file || '—')}</b><br>
-        ${fmtSize(d.file_size)} · ${fmtShortDate(d.ngay_upload)}<br>
-        <span class="status-badge status-${d.trang_thai}">${d.trang_thai === 'da_duyet' ? '✓ Đã duyệt' : d.trang_thai === 'tu_choi' ? '✗ Từ chối' : 'Chờ duyệt'}</span>
-      </div>
-      ${d.ghi_chu_hcns ? `<div style="font-size:11px;color:var(--warning-fg);background:var(--warning-soft);padding:4px 7px;border-radius:4px;margin-top:5px"><b>HCNS:</b> ${esc(d.ghi_chu_hcns)}</div>` : ''}
-      <div class="doc-actions">
-        <button type="button" class="btn btn-secondary" style="font-size:12px;padding:4px 10px" onclick="event.stopPropagation();previewFile('${esc(d.file_url)}','${esc(d.ten_file||'')}','${esc(d.mime_type||'')}')">Xem</button>
-        ${canDelete ? `<button class="btn btn-danger" style="font-size:12px;padding:4px 10px" onclick="deleteMyDoc(${d.id})">Xoá</button>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+// ── Tài liệu ────────────────────────────────────────────────────────────────
+function _hsUrlTep(d) { return d.url_tai || d.file_url || ''; }
+function _hsDongTep(d, gon) {
+  const la = /\.pdf$/i.test(d.ten_file || '') || (d.mime_type || '') === 'application/pdf';
+  const [ho, nhan] = _HS_TT_HS[d.trang_thai] || ['neutral', 'Chờ duyệt'];
+  const url = _hsUrlTep(d);
+  const nut = (url ? `<button type="button" class="hs-nut-icon" data-id="${d.id}" onclick="hsXemTep(this.dataset.id)" aria-label="Xem ${_hsE(d.ten_file)}" title="Xem">${_hsSvg('xem')}</button>`
+      + `<a class="hs-nut-icon" href="${_hsE(url)}" download="${_hsE(d.ten_file || '')}" aria-label="Tải ${_hsE(d.ten_file)}" title="Tải xuống">${_hsSvg('tai')}</a>` : '')
+    + (d.trang_thai !== 'da_duyet' ? `<button type="button" class="hs-nut-icon is-xoa" data-id="${d.id}" onclick="hsXoaTep(this.dataset.id)" aria-label="Xoá ${_hsE(d.ten_file)}" title="Xoá">${_hsSvg('xoa')}</button>` : '');
+  return `<tr><td><div class="hs-tep"><span class="ico-tile ${la ? 'ico-tile--danger' : 'ico-tile--neutral'}" aria-hidden="true">${_hsSvg(la ? 'pdf' : 'anh')}</span>`
+    + `<div style="min-width:0"><span class="hs-tep-ten" title="${_hsE(d.ten_file)}">${_hsE(d.ten_file || '—')}</span><span class="hs-tep-phu">${_hsE(d.loai_label || '')}</span></div></div></td>`
+    + `<td class="hs-nowrap">${_hsE(_hsNgay(d.ngay_upload))}</td>`
+    + (gon ? '' : `<td class="hs-nowrap">${_hsE(_hsCo(d.file_size))}</td><td><span class="pill pill--${ho}">${nhan}</span></td>`)
+    + `<td class="hs-c-nut">${nut}</td></tr>`;
+}
+function _hsBangTep(ds, gon, trong) {
+  const dau = gon ? '<th>Tên tài liệu</th><th>Ngày cập nhật</th><th><span class="hs-sr">Thao tác</span></th>'
+                  : '<th>Tên tài liệu</th><th>Ngày cập nhật</th><th>Dung lượng</th><th>Trạng thái</th><th><span class="hs-sr">Thao tác</span></th>';
+  const than = ds.length ? ds.map(d => _hsDongTep(d, gon)).join('')
+    : `<tr class="empty-row"><td colspan="${gon ? 3 : 5}">${trong}</td></tr>`;
+  return `<div class="tbl-wrap"><table class="data-table"><thead><tr>${dau}</tr></thead><tbody>${than}</tbody></table></div>`;
+}
+function _hsVeTaiLieu() {
+  const ds = (_hs.p.documents || []).slice().sort((a, b) => String(b.ngay_upload || '').localeCompare(String(a.ngay_upload || '')));
+  document.getElementById('hs-tailieu-gon').innerHTML = _hsBangTep(ds.slice(0, 5), true, 'Chưa có tài liệu — bấm "Tải lên" để thêm.')
+    + (ds.length > 5 ? `<p class="hs-trong" style="padding-top:0"><button type="button" class="btn-link" onclick="hsChonTab('tai-lieu')">Xem cả ${ds.length} tài liệu</button></p>` : '');
+  document.getElementById('hs-tailieu-day').innerHTML = _hsBangTep(ds, false, 'Chưa có tài liệu — bấm "Tải lên" để thêm.');
+  const bc = ds.filter(d => d.loai_giay_to === 'bang_cap');
+  document.getElementById('hs-bc-day').innerHTML = _hsBangTep(bc, false, 'Chưa có bằng cấp / chứng chỉ nào.');
 }
 
-function renderUploadArea(p) {
-  // KHÔNG filter "remaining" — cho phép upload nhiều bản cùng loại (bổ sung, sửa đổi)
-  const isApproved = p.profile_status === 'da_duyet';
-  const noticeHtml = isApproved
-    ? `<div style="background:var(--info-soft);color:var(--brand-hover);padding:8px 11px;border-radius:7px;font-size:12px;margin-bottom:8px;border-left:3px solid var(--brand)">
-         Hồ sơ đã duyệt — tài liệu mới upload sẽ ở trạng thái <b>"Chờ duyệt"</b> và HCNS sẽ duyệt riêng từng file.
-       </div>`
-    : '';
-  return `<div style="margin-top:14px">
-    <div style="font-weight:700;font-size:13px;color:var(--brand);margin-bottom:8px;text-transform:uppercase">Upload tài liệu mới</div>
-    ${noticeHtml}
-    <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
-      <div class="field" style="flex:1;min-width:140px">
-        <label>Loại tài liệu</label>
-        <select id="upload-loai">
-          ${_loaiOptions.map(o => `<option value="${esc(o.value)}">${esc(o.label)}${o.required ? ' *' : ''}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field" style="flex:2;min-width:160px">
-        <label>File (PDF/JPG/PNG, ≤20MB)</label>
-        <input id="upload-file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp">
-      </div>
-      <button class="btn btn-primary" onclick="uploadMyDoc()">Upload</button>
-    </div>
-  </div>`;
-}
-
-async function saveMyInfo() {
-  const body = {
-    ho_ten:     $('f-ho_ten').value.trim(),
-    ngay_sinh:  $('f-ngay_sinh').value || null,
-    gioi_tinh:  $('f-gioi_tinh').value || null,
-    cccd:       $('f-cccd').value.trim() || null,
-    dien_thoai: $('f-dien_thoai').value.trim() || null,
-    email:      $('f-email').value.trim() || null,
-    dia_chi:    $('f-dia_chi').value.trim() || null,
+// ── Người thân · hợp đồng · lịch sử ─────────────────────────────────────────
+function _hsLay(o, ...k) { for (const x of k) if (o && o[x] != null && o[x] !== '') return o[x]; return ''; }
+function _hsVeNguoiThan() {
+  const ds = _hs.nguoiThan, the = document.getElementById('hs-o-nguoithan');
+  the.hidden = ds === null || ds === undefined;
+  if (the.hidden) return;
+  const bang = (gon) => {
+    if (ds.loi) return `<p class="hs-trong">Không tải được người thân: ${_hsE(ds.loi)}</p>`;
+    const than = ds.length ? ds.slice(0, gon ? 5 : ds.length).map(n => {
+      const ns = _hsLay(n, 'ngay_sinh');
+      return `<tr><td class="hs-c-ten">${_hsE(_hsLay(n, 'ho_ten_nguoi_phu_thuoc', 'ho_ten', 'ten') || '—')}</td><td>${_hsE(_hsLay(n, 'quan_he_label', 'quan_he', 'moi_quan_he') || '—')}</td>`
+        + `<td class="hs-nowrap">${_hsE(ns ? _hsNgay(ns) : _hsLay(n, 'nam_sinh') || '—')}</td></tr>`; }).join('')
+      : '<tr class="empty-row"><td colspan="3">Chưa khai báo người thân / người phụ thuộc. Liên hệ phòng Nhân sự để bổ sung.</td></tr>';
+    return `<div class="tbl-wrap"><table class="data-table"><thead><tr><th>Họ và tên</th><th>Quan hệ</th><th>Ngày sinh</th></tr></thead><tbody>${than}</tbody></table></div>`;
   };
-  try {
-    await api('PUT', '/api/profile-workflow/me', body);
-    toast('✓ Đã lưu thông tin');
-    await loadMyProfile();
-  } catch (e) { toast('Lỗi: ' + e.message, true); }
+  document.getElementById('hs-nt-gon').innerHTML = bang(true);
+  document.getElementById('hs-nt-day').innerHTML = bang(false);
 }
-
-async function uploadMyDoc() {
-  const loai = $('upload-loai').value;
-  const file = $('upload-file').files[0];
-  if (!file) { toast('Chọn file trước', true); return; }
-  const fd = new FormData();
-  fd.append('loai_giay_to', loai);
-  fd.append('file', file);
-  try {
-    await api('POST', '/api/profile-workflow/me/documents', fd, true);
-    toast('✓ Upload thành công');
-    await loadMyProfile();
-  } catch (e) { toast('Lỗi: ' + e.message, true); }
-}
-
-async function deleteMyDoc(id) {
-  if (!confirm('Xoá tài liệu này?')) return;
-  try {
-    await api('DELETE', '/api/profile-workflow/me/documents/' + id);
-    toast('✓ Đã xoá');
-    await loadMyProfile();
-  } catch (e) { toast('Lỗi: ' + e.message, true); }
-}
-
-async function submitMyProfile() {
-  if (!confirm('Gửi hồ sơ để HCNS duyệt? Sau khi gửi, anh sẽ không tự sửa được nữa.')) return;
-  try {
-    await api('POST', '/api/profile-workflow/me/submit');
-    toast('✓ Đã gửi cho HCNS');
-    await loadMyProfile();
-  } catch (e) { toast('Lỗi: ' + e.message, true); }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Đổi mật khẩu
-// ═══════════════════════════════════════════════════════════════════════════
-function _pwShowMsg(text, ok) {
-  const el = $('pw-msg');
-  el.style.display = 'block';
-  el.style.background = ok ? 'var(--success-soft)' : 'var(--danger-soft)';
-  el.style.color = ok ? 'var(--success-fg)' : 'var(--danger-fg)';
-  el.textContent = text;
-}
-async function submitChangePwd() {
-  const cur = $('pw-cur').value;
-  const nw  = $('pw-new').value;
-  const cfm = $('pw-cfm').value;
-  if (!cur || !nw || !cfm) { _pwShowMsg('Vui lòng điền đầy đủ', false); return; }
-  if (nw !== cfm)          { _pwShowMsg('Mật khẩu mới và xác nhận không khớp', false); return; }
-  if (nw.length < 6)       { _pwShowMsg('Mật khẩu mới phải ít nhất 6 ký tự', false); return; }
-  const btn = $('pw-submit');
-  btn.disabled = true; btn.textContent = 'Đang xử lý...';
-  try {
-    const r = await fetch('/api/profile', {
-      method: 'PUT', headers: {'Content-Type':'application/json'}, credentials: 'same-origin',
-      body: JSON.stringify({ action: 'change_password', current_password: cur, new_password: nw, confirm_password: cfm }),
-    });
-    if (r.status === 401) { _pwShowMsg('Phiên đăng nhập hết — vui lòng login lại', false); return; }
-    const d = await r.json().catch(() => ({}));
-    if (r.ok && d.ok) {
-      _pwShowMsg('Đổi mật khẩu thành công', true);
-      $('pw-cur').value = ''; $('pw-new').value = ''; $('pw-cfm').value = '';
-      toast('✓ Đã đổi mật khẩu');
-    } else {
-      _pwShowMsg('' + (d.error || d.detail || ('HTTP ' + r.status)), false);
-    }
-  } catch (e) {
-    _pwShowMsg('Lỗi: ' + (e.message || e), false);
-  } finally {
-    btn.disabled = false; btn.textContent = 'Đổi mật khẩu';
+function _hsVeHopDong() {
+  const ds = _hs.hopDong;
+  if (ds === null || ds === undefined) return;
+  let html;
+  if (ds.loi) html = `<p class="hs-trong">Không tải được hợp đồng: ${_hsE(ds.loi)}</p>`;
+  else {
+    const than = ds.length ? ds.map(h => {
+      // Màu theo mã trạng thái gốc (hieu_luc…), chữ theo nhãn máy chủ đã dịch.
+      const tt = String(_hsLay(h, 'trang_thai_label', 'trang_thai') || ''), goc = String(h.trang_thai || '').toLowerCase();
+      const ho = goc === 'hieu_luc' ? 'success' : (/het|ket_thuc|cham_dut|thanh_ly|huy/.test(goc) ? 'neutral' : 'warning');
+      return `<tr><td class="hs-c-ten">${_hsE(_hsLay(h, 'so_hop_dong', 'so_hd', 'ma_hop_dong') || '—')}</td>`
+        + `<td>${_hsE(_hsLay(h, 'loai_label', 'loai_hop_dong', 'loai') || '—')}</td>`
+        + `<td class="hs-nowrap">${_hsE(_hsNgay(_hsLay(h, 'ngay_bd', 'ngay_bat_dau', 'ngay_ky')) || '—')}</td>`
+        + `<td class="hs-nowrap">${_hsE(_hsNgay(_hsLay(h, 'ngay_kt', 'ngay_ket_thuc', 'ngay_het_han')) || 'Không thời hạn')}</td>`
+        + `<td>${tt ? `<span class="pill pill--${ho}">${_hsE(tt)}</span>` : '—'}</td></tr>`; }).join('')
+      : '<tr class="empty-row"><td colspan="5">Chưa có hợp đồng nào trên hệ thống.</td></tr>';
+    html = `<div class="tbl-wrap"><table class="data-table"><thead><tr><th>Số hợp đồng</th><th>Loại</th><th>Ngày bắt đầu</th><th>Ngày kết thúc</th><th>Trạng thái</th></tr></thead><tbody>${than}</tbody></table></div>`;
   }
+  document.getElementById('hs-hd-day').innerHTML = html;
+}
+/* Máy chủ chưa có API lịch sử → dựng mốc từ chính hồ sơ (ngày vào, nộp, duyệt). */
+function _hsMocLichSu() {
+  const ds = _hs.lichSu;
+  if (Array.isArray(ds)) return ds.map(m => ({ ngay: _hsLay(m, 'ngay', 'thoi_gian'), tieu_de: _hsLay(m, 'tieu_de', 'nhan'), mo_ta: _hsLay(m, 'mo_ta') }));
+  const p = _hs.p || {}, moc = [];
+  if (p.profile_approved_at) moc.push({ ngay: p.profile_approved_at, tieu_de: 'Hồ sơ được duyệt', mo_ta: p.profile_approved_by ? 'Người duyệt: ' + p.profile_approved_by : '' });
+  if (p.profile_submitted_at) moc.push({ ngay: p.profile_submitted_at, tieu_de: 'Nộp hồ sơ', mo_ta: '' });
+  if (p.ngay_vao) moc.push({ ngay: p.ngay_vao, tieu_de: 'Bắt đầu làm việc', mo_ta: p.phong_ban ? 'Phòng ' + p.phong_ban : '' });
+  return moc.sort((a, b) => String(b.ngay).localeCompare(String(a.ngay)));
+}
+function _hsVeLichSu() {
+  if (!_hs.p) return;
+  const loi = _hs.lichSu && _hs.lichSu.loi;
+  const moc = loi ? [] : _hsMocLichSu();
+  const ve = gon => {
+    if (loi) return `<p class="hs-goi-y">Không tải được lịch sử: ${_hsE(loi)}</p>`;
+    const ds = gon ? moc.slice(0, 4) : moc;
+    return ds.length ? '<ol class="hs-tl">' + ds.map(m => `<li><span class="hs-tl-ngay">${_hsE(_hsNgay(m.ngay))}</span>`
+      + `<div><b>${_hsE(m.tieu_de || 'Cập nhật hồ sơ')}</b>${m.mo_ta ? `<small>${_hsE(m.mo_ta)}</small>` : ''}</div></li>`).join('') + '</ol>'
+      : '<p class="hs-goi-y">Chưa có thay đổi nào được ghi nhận.</p>';
+  };
+  document.getElementById('hs-ls-gon').innerHTML = ve(true);
+  document.getElementById('hs-ls-day').innerHTML = ve(false);
+  document.getElementById('hs-ls-xem-het').hidden = moc.length <= 4;
 }
 
-</script>
-<!-- Lightbox xem tài liệu (popup, không tải về) -->
-<div id="qlbx" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.85);align-items:center;justify-content:center;padding:20px" onclick="if(event.target.id==='qlbx')qlbxClose()">
-  <div style="position:absolute;top:14px;right:20px;display:flex;gap:10px;align-items:center;z-index:2">
-    <span id="qlbx-name" style="color:#fff;font-size:13px;max-width:55vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-    <button type="button" onclick="qlbxClose()" style="background:#fff;border:none;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer">✕ Đóng</button>
-  </div>
-  <div id="qlbx-body" style="max-width:94vw;max-height:90vh;display:flex;align-items:center;justify-content:center"></div>
-</div>
-<script>
-function previewFile(url,name,mime){
-  var b=document.getElementById('qlbx-body'), n=document.getElementById('qlbx-name');
-  n.textContent=name||'';
-  var ext=(url.split('?')[0].split('.').pop()||'').toLowerCase();
-  var isImg=(mime||'').indexOf('image/')===0 || ['jpg','jpeg','png','webp','gif','bmp'].indexOf(ext)>=0;
-  var isPdf=(mime||'')==='application/pdf' || ext==='pdf';
-  if(isImg) b.innerHTML='<img src="'+url+'" style="max-width:94vw;max-height:90vh;border-radius:6px;box-shadow:0 6px 40px rgba(0,0,0,.6)">';
-  else if(isPdf) b.innerHTML='<iframe src="'+url+'" style="width:92vw;height:88vh;border:none;background:#fff;border-radius:6px"></iframe>';
-  else b.innerHTML='<div style="background:#fff;padding:26px;border-radius:8px;font-size:14px">Không xem trước được. <a href="'+url+'" target="_blank">Mở file</a></div>';
-  document.getElementById('qlbx').style.display='flex';
+// ── Phép năm (cùng cách tính với Xin nghỉ v2) ────────────────────────────────
+function _hsVePhep() {
+  const p = _hs.phep, C = 2 * Math.PI * 52;
+  const dong = (lop, nhan, gt) => `<div><i${lop ? ` class="${lop}"` : ''} aria-hidden="true"></i><dt>${nhan}</dt><dd>${gt}</dd></div>`;
+  const a = document.getElementById('hs-vong-a'), b = document.getElementById('hs-vong-b');
+  if (!p || !p.co_quota) {
+    a.setAttribute('stroke-dasharray', `0 ${C}`); b.setAttribute('stroke-dasharray', `0 ${C}`);
+    document.getElementById('hs-vong-so').textContent = '—';
+    document.getElementById('hs-phep-ct').innerHTML = '';
+    document.getElementById('hs-phep-ghi').textContent = (p && p.ly_do ? p.ly_do + '. ' : '')
+      + 'Chưa có số phép năm trên hệ thống — xem ở phòng Nhân sự.';
+    return;
+  }
+  const nam = p.nam || new Date().getFullYear();
+  const tong = Math.max(Number(p.tong_ca_nam) || 0, 0), dung = Number(p.da_dung) || 0, con = Math.max(Number(p.con_lai) || 0, 0);
+  const lA = tong ? Math.min(dung, tong) / tong * C : 0, lB = tong ? Math.min(con, Math.max(0, tong - dung)) / tong * C : 0;
+  a.setAttribute('stroke-dasharray', `${lA} ${C}`);
+  b.setAttribute('stroke-dasharray', `${lB} ${C}`); b.setAttribute('stroke-dashoffset', String(-lA));
+  document.getElementById('hs-vong-so').textContent = `${_hsSo(con)} / ${_hsSo(tong)}`;
+  document.getElementById('hs-vong-nhan').textContent = 'ngày còn lại';
+  document.getElementById('hs-phep-ct').innerHTML = dong('', 'Tổng phép năm', _hsSo(tong) + ' ngày') + dong('is-dung', 'Đã sử dụng', _hsSo(dung) + ' ngày')
+    + dong('is-con', 'Còn lại', _hsSo(con) + ' ngày') + dong('is-han', 'Hết hạn', _hsNgay(p.het_han) || ('31/12/' + nam));
+  document.getElementById('hs-phep-ghi').textContent = `Đã cấp đến tháng ${p.thang_hien_tai || ''}: ${_hsSo(p.da_cap)} ngày.`
+    + (Number(p.cho_duyet) ? ` Đang chờ duyệt ${_hsSo(p.cho_duyet)} ngày.` : '');
+  document.getElementById('hs-vong').setAttribute('aria-label', `Còn lại ${_hsSo(con)} trên ${_hsSo(tong)} ngày phép năm ${nam}, đã dùng ${_hsSo(dung)} ngày`);
 }
-function qlbxClose(){ document.getElementById('qlbx').style.display='none'; document.getElementById('qlbx-body').innerHTML=''; }
-document.addEventListener('keydown',function(e){ if(e.key==='Escape') qlbxClose(); });
+
+// ── Tab ─────────────────────────────────────────────────────────────────────
+function _hsDsTab() {
+  const docs = (_hs.p && _hs.p.documents) || [];
+  const coBc = !_hs.loai.length || _hs.loai.some(o => o.value === 'bang_cap');
+  const t = [['chung', 'Thông tin chung', null]];
+  if (Array.isArray(_hs.hopDong) || (_hs.hopDong && _hs.hopDong.loi)) t.push(['hop-dong', 'Hợp đồng', Array.isArray(_hs.hopDong) ? _hs.hopDong.length : null]);
+  if (coBc) t.push(['bang-cap', 'Bằng cấp - Chứng chỉ', docs.filter(d => d.loai_giay_to === 'bang_cap').length]);
+  if (Array.isArray(_hs.nguoiThan) || (_hs.nguoiThan && _hs.nguoiThan.loi)) t.push(['nguoi-than', 'Người thân', Array.isArray(_hs.nguoiThan) ? _hs.nguoiThan.length : null]);
+  t.push(['tai-lieu', 'Tài liệu', docs.length]);
+  t.push(['lich-su', 'Lịch sử thay đổi', null]);
+  return t;
+}
+function _hsVeTab() {
+  const ds = _hsDsTab();
+  if (!ds.some(([k]) => k === _hs.tab)) _hs.tab = 'chung';
+  document.getElementById('hs-tabs').innerHTML = ds.map(([k, nhan, so]) =>
+    `<button type="button" class="hs-tab${k === _hs.tab ? ' is-chon' : ''}" role="tab" aria-selected="${k === _hs.tab}" aria-controls="hs-pane-${k}" data-tab="${k}" onclick="hsChonTab(this.dataset.tab)">`
+    + `${nhan}${so ? ` <small>${so}</small>` : ''}</button>`).join('');
+  document.querySelectorAll('.hs .hs-pane').forEach(el => { el.hidden = el.id !== 'hs-pane-' + _hs.tab; });
+}
+function hsChonTab(k) {
+  _hs.tab = k;
+  _hsVeTab();
+  try { history.replaceState(null, '', k === 'chung' ? location.pathname : '#' + k); } catch (e) {}
+  if (k !== 'chung') document.getElementById('hs-tabs').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+// ── Hành động ───────────────────────────────────────────────────────────────
+function hsChep(v) {
+  (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject())
+    .then(() => _hsToast('Đã sao chép số CCCD', 'success'))
+    .catch(() => _hsToast('Trình duyệt không cho sao chép — hãy bôi đen và sao chép tay', 'error'));
+}
+function hsIn() { window.print(); }
+
+function hsMoSua() {
+  const p = _hs.p; if (!p || p.profile_status !== 'chua_nop') return;
+  ['ho_ten', 'ngay_sinh', 'gioi_tinh', 'cccd', 'dien_thoai', 'email', 'dia_chi'].forEach(k => {
+    document.getElementById('f-' + k).value = k === 'ngay_sinh' ? String(p[k] || '').slice(0, 10) : (p[k] || '');
+  });
+  hsMo('hs-hop-sua');
+  setTimeout(() => document.getElementById('f-ho_ten').focus(), 30);
+}
+async function hsLuuSua() {
+  const v = k => document.getElementById('f-' + k).value.trim();
+  if (!v('ho_ten')) { _hsToast('Vui lòng nhập họ và tên', 'error'); document.getElementById('f-ho_ten').focus(); return; }
+  const body = { ho_ten: v('ho_ten'), ngay_sinh: v('ngay_sinh') || null, gioi_tinh: v('gioi_tinh') || null, cccd: v('cccd') || null,
+                 dien_thoai: v('dien_thoai') || null, email: v('email') || null, dia_chi: v('dia_chi') || null };
+  const nut = document.getElementById('hs-nut-luu'); nut.disabled = true;
+  try {
+    await _hsApi('PUT', '/api/profile-workflow/me', body);
+    _hsToast('Đã lưu thông tin', 'success');
+    hsDong('hs-hop-sua');
+    await hsTaiLai();
+  } catch (e) { _hsToast(e.message || 'Không lưu được thông tin', 'error'); }
+  finally { nut.disabled = false; }
+}
+async function hsGuiDuyet() {
+  if (!confirm('Gửi hồ sơ cho phòng Nhân sự duyệt? Sau khi gửi, bạn không tự sửa được thông tin nữa.')) return;
+  try { await _hsApi('POST', '/api/profile-workflow/me/submit'); _hsToast('Đã gửi hồ sơ cho phòng Nhân sự', 'success'); await hsTaiLai(); }
+  catch (e) { _hsToast(e.message || 'Không gửi được hồ sơ', 'error'); }
+}
+async function hsTaiLai() {
+  try { _hs.p = await _hsApi('GET', '/api/profile-workflow/me'); _hsVeTatCa(); }
+  catch (e) { _hsToast('Không tải lại được hồ sơ: ' + (e.message || ''), 'error'); }
+}
+
+// Tải tài liệu
+function hsMoTaiLen(loai) {
+  const sel = document.getElementById('hs-tai-loai');
+  sel.innerHTML = _hs.loai.map(o => `<option value="${_hsE(o.value)}">${_hsE(o.label)}${o.required ? ' (bắt buộc)' : ''}</option>`).join('')
+    || '<option value="">Không tải được danh sách loại tài liệu</option>';
+  if (loai) sel.value = loai;
+  _hs.tep = null;
+  document.getElementById('hs-tai-tep').value = '';
+  document.getElementById('hs-tai-ten').hidden = true;
+  document.getElementById('hs-tai-goi-y').hidden = !(_hs.p && _hs.p.profile_status === 'da_duyet');
+  hsMo('hs-hop-tai');
+}
+function hsChonTep(ds) {
+  const f = ds && ds[0]; if (!f) return;
+  if (!/\.(pdf|jpe?g|png|webp)$/i.test(f.name)) { _hsToast('Chỉ nhận PDF, JPG, PNG, WebP', 'error'); return; }
+  _hs.tep = f;
+  const o = document.getElementById('hs-tai-ten');
+  o.textContent = `${f.name} · ${_hsCo(f.size)}`; o.hidden = false;
+}
+(function _hsGanKeoTha() {
+  const z = document.getElementById('hs-tha'); if (!z) return;
+  ['dragenter', 'dragover'].forEach(ev => z.addEventListener(ev, e => { e.preventDefault(); z.classList.add('is-keo'); }));
+  ['dragleave', 'drop'].forEach(ev => z.addEventListener(ev, e => { e.preventDefault(); z.classList.remove('is-keo'); }));
+  z.addEventListener('drop', e => hsChonTep(e.dataTransfer && e.dataTransfer.files));
+  z.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.getElementById('hs-tai-tep').click(); } });
+})();
+async function hsTaiLen() {
+  const loai = document.getElementById('hs-tai-loai').value;
+  if (!loai) { _hsToast('Chọn loại tài liệu', 'error'); return; }
+  if (!_hs.tep) { _hsToast('Chọn tệp cần tải lên', 'error'); return; }
+  const fd = new FormData(); fd.append('loai_giay_to', loai); fd.append('file', _hs.tep);
+  const nut = document.getElementById('hs-nut-tai'); nut.disabled = true; nut.textContent = 'Đang tải lên...';
+  try {
+    await _hsApi('POST', '/api/profile-workflow/me/documents', fd, true);
+    _hsToast('Đã tải tài liệu lên', 'success');
+    hsDong('hs-hop-tai');
+    await hsTaiLai();
+  } catch (e) { _hsToast(e.message || 'Không tải lên được', 'error'); }
+  finally { nut.disabled = false; nut.textContent = 'Tải lên'; }
+}
+function _hsTimTep(id) { return ((_hs.p && _hs.p.documents) || []).find(d => String(d.id) === String(id)); }
+async function hsXoaTep(id) {
+  const d = _hsTimTep(id); if (!d) return;
+  if (!confirm(`Xoá tài liệu "${d.ten_file || ''}"? Tệp bị xoá hẳn, không khôi phục được.`)) return;
+  try { await _hsApi('DELETE', '/api/profile-workflow/me/documents/' + encodeURIComponent(id)); _hsToast('Đã xoá tài liệu', 'success'); await hsTaiLai(); }
+  catch (e) { _hsToast(e.message || 'Không xoá được tài liệu', 'error'); }
+}
+function hsXemTep(id) {
+  const d = _hsTimTep(id); if (!d) return;
+  const url = _hsUrlTep(d), than = document.getElementById('hs-xem-than');
+  document.getElementById('hs-xem-tieu-de').textContent = d.ten_file || 'Xem tài liệu';
+  document.getElementById('hs-xem-tai').href = url;
+  const pdf = /\.pdf$/i.test(d.ten_file || url) || (d.mime_type || '') === 'application/pdf';
+  const anh = /^image\//.test(d.mime_type || '') || /\.(jpe?g|png|webp|gif)$/i.test(d.ten_file || url);
+  than.innerHTML = '';
+  if (anh) { const i = document.createElement('img'); i.src = url; i.alt = d.ten_file || ''; than.appendChild(i); }
+  else if (pdf) { const f = document.createElement('iframe'); f.src = url; f.title = d.ten_file || 'Tài liệu'; than.appendChild(f); }
+  else than.innerHTML = '<p class="hs-trong">Không xem trước được loại tệp này — bấm "Mở tab mới".</p>';
+  hsMo('hs-hop-xem');
+}
+
+// Ảnh đại diện
+async function hsDoiAnh(inp) {
+  const f = inp.files && inp.files[0]; inp.value = '';
+  if (!f) return;
+  if (f.size > 3 * 1024 * 1024) { _hsToast('Ảnh quá lớn — tối đa 3MB', 'error'); return; }
+  const fd = new FormData(); fd.append('file', f);
+  try { await _hsApi('POST', '/api/profile/avatar', fd, true); _hsToast('Đã cập nhật ảnh đại diện', 'success'); _hsTaiAnh(); }
+  catch (e) { _hsToast(e.message || 'Không đổi được ảnh', 'error'); }
+}
+
+// Đổi mật khẩu — mục "Đổi mật khẩu" ở menu tài khoản gọi window.openProfile khi đang ở trang này
+function hsMoDoiMatKhau() {
+  ['hs-mk-cu', 'hs-mk-moi', 'hs-mk-lai'].forEach(id => { document.getElementById(id).value = ''; });
+  hsMo('hs-hop-mk');
+  setTimeout(() => document.getElementById('hs-mk-cu').focus(), 30);
+}
+window.openProfile = hsMoDoiMatKhau;
+async function hsDoiMatKhau() {
+  const cu = document.getElementById('hs-mk-cu').value, moi = document.getElementById('hs-mk-moi').value, lai = document.getElementById('hs-mk-lai').value;
+  if (!cu || !moi || !lai) { _hsToast('Vui lòng điền đủ ba ô', 'error'); return; }
+  if (moi.length < 6) { _hsToast('Mật khẩu mới phải có ít nhất 6 ký tự', 'error'); document.getElementById('hs-mk-moi').focus(); return; }
+  if (moi !== lai) { _hsToast('Hai lần nhập mật khẩu mới không khớp', 'error'); document.getElementById('hs-mk-lai').focus(); return; }
+  const nut = document.getElementById('hs-nut-mk'); nut.disabled = true;
+  try {
+    const r = await fetch('/api/profile', { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'change_password', current_password: cu, new_password: moi, confirm_password: lai }) });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.ok !== false) { _hsToast('Đã đổi mật khẩu', 'success'); hsDong('hs-hop-mk'); }
+    else _hsToast(d.error || d.detail || `Không đổi được mật khẩu (HTTP ${r.status})`, 'error');
+  } catch (e) { _hsToast('Lỗi kết nối — thử lại sau', 'error'); }
+  finally { nut.disabled = false; }
+}
+
+// ── Khởi động ───────────────────────────────────────────────────────────────
+(function () {
+  const h = (location.hash || '').replace('#', '');
+  if (['hop-dong', 'bang-cap', 'nguoi-than', 'tai-lieu', 'lich-su'].indexOf(h) >= 0) _hs.tab = h;
+  hsTai();
+})();
 </script>
 </body>
 </html>

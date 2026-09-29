@@ -20,7 +20,8 @@ from ..models import (
 from ..schemas import CoDinhCreate, CoDinhOut, CoDinhUpdate
 from ..schemas.co_dinh import VALID_PHUONG_PHAP_PHAN_BO
 from ..services.journal import post_journal
-from ._deps import require_ketoan_user
+from ..services.tai_khoan_tien import tk_tien_cua
+from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
 _NHOM_TO_ACCOUNT = {
@@ -33,6 +34,8 @@ _NHOM_TO_ACCOUNT = {
 
 router = APIRouter()
 _AUTH = Depends(require_ketoan_user)
+# Sửa/xoá định phí feed P&L (phân bổ định phí) → chỉ CEO/admin, đồng bộ chi_phi. (2026-08-31)
+_CEO_EDIT = Depends(require_ceo_thuchi)
 
 
 VALID_NHOM = {"ban_hang", "quan_ly", "tai_chinh", "khac"}
@@ -69,7 +72,7 @@ def list_co_dinh(
             "duong_thang|prorated_by_day|front_loaded|seasonal|by_revenue_pct|manual"
         ),
     ),
-    limit: int = 500,
+    limit: int = Query(500, ge=1, le=2000),
     offset: int = 0,
 ):
     stmt = select(ChiPhiCoDinh).order_by(
@@ -136,7 +139,7 @@ def create_co_dinh(
                 status.HTTP_400_BAD_REQUEST,
                 f"tai_khoan_id={tai_khoan_id} không tồn tại",
             )
-        cash_acc = "111" if (tk.loai or "").strip() == "tien_mat" else "112"
+        cash_acc = tk_tien_cua(tk)
         gd = TaiKhoanNHGiaoDich(
             ngay=obj.thang_bat_dau, tai_khoan_id=tk.id, loai="chi",
             so_tien=so_tien, ghi_chu=f"Chi phí cố định — {obj.mo_ta or ''}",
@@ -222,7 +225,7 @@ def update_co_dinh(
     body: CoDinhUpdate,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(ChiPhiCoDinh, rid)
     if not obj:
@@ -255,7 +258,7 @@ def delete_co_dinh(
     rid: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(ChiPhiCoDinh, rid)
     if not obj:

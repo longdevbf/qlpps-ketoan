@@ -257,7 +257,10 @@
       this._connectSSE();
       this._initPush();
       // Polling fallback (vẫn chạy phòng SSE drop)
-      s.pollTimer = setInterval(() => this._refreshCount(), s.pollMs);
+      s.pollTimer = setInterval(() => { if (!document.hidden) this._refreshCount(); }, s.pollMs);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) { try { this._refreshCount(); } catch (e) {} }
+      });
       // Click outside → close dropdown
       document.addEventListener('click', (e) => {
         if (!s.mountEl.contains(e.target)) this._closeDropdown();

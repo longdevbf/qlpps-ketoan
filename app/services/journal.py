@@ -17,7 +17,7 @@ Quy ước nợ/có:
 (loại trừ 5xx/6xx/7xx/8xx — đã reflect vào 421 LN giữ lại sau khi chốt kỳ).
 """
 from datetime import date as date_cls, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Iterable, Optional
 
 from fastapi import HTTPException, status
@@ -25,6 +25,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from ..models import JournalEntry, JournalLine
+from .tai_khoan_tien import tk_chi_tiet
 
 
 # ─── Chart of Accounts (TT200 — quy ước Papasan) ─────────────────────────────
@@ -33,12 +34,19 @@ ACCOUNTS: dict[str, str] = {
     "111": "Tiền mặt tại quỹ",
     "112": "Tiền gửi ngân hàng",
     "131": "Phải thu khách hàng",
+    # 2026-09-25: thêm 141 cho màn Tạm ứng (services/tam_ung.py) — trước đó
+    # hệ thống chưa hạch toán tạm ứng nhân viên nên CoA không có TK này.
+    "141": "Tạm ứng",
     "156": "Hàng tồn kho",
     "211": "Tài sản cố định hữu hình",
     "213": "Tài sản cố định vô hình",
     "214": "Hao mòn lũy kế TSCĐ",
+    # 242/3334/3335: bút toán của màn Chi phí chờ phân bổ + Thuế TNCN/TNDN (2026-09-25)
+    "242": "Chi phí chờ phân bổ",
     "311": "Vay & nợ thuê tài chính ngắn hạn",
     "331": "Phải trả người bán",
+    "3334": "Thuế thu nhập doanh nghiệp",
+    "3335": "Thuế thu nhập cá nhân",
     "334": "Phải trả người lao động",
     "341": "Vay & nợ thuê tài chính dài hạn",
     "353": "Quỹ khen thưởng phúc lợi",
@@ -59,18 +67,30 @@ ACCOUNTS: dict[str, str] = {
 # Số dư bên Nợ tăng (Tài sản + Chi phí)
 # 211/213 là TSCĐ HH/VH; 214 là contra-asset (hao mòn) — số dư bên CÓ
 # (xem LIABILITY_EQUITY_ACCOUNTS) → BS dùng (211+213) - 214 = TSCĐ ròng.
-ASSET_ACCOUNTS: set[str] = {"111", "112", "131", "156", "211", "213"}
+ASSET_ACCOUNTS: set[str] = {"111", "112", "131", "141", "156", "211", "213", "242"}
 EXPENSE_ACCOUNTS: set[str] = {"632", "635", "641", "642", "811", "821"}
 
 # Số dư bên Có tăng (Nguồn vốn + Doanh thu + Hao mòn lũy kế contra-asset)
 LIABILITY_EQUITY_ACCOUNTS: set[str] = {
     "214",  # contra-asset, normal balance = credit
-    "311", "331", "334", "341",
+    "311", "331", "3334", "3335", "334", "341",
     "353", "411", "414", "415", "421",
 }
 REVENUE_ACCOUNTS: set[str] = {"511", "711"}
 
 _TOL = Decimal("0.01")
+
+
+def danh_muc_tk(db: Session) -> dict[str, str]:
+    """ACCOUNTS + TK con của từng tài khoản tiền (1111, 1121… — ketoan.tai_khoan_nh.tk_ke_toan)."""
+    return {**ACCOUNTS, **tk_chi_tiet(db)}
+
+
+def tk_cha_cua(code: str) -> Optional[str]:
+    """TK cấp 1 chứa TK con `code` (1121 → 112); None nếu `code` là TK trong ACCOUNTS."""
+    if code in ACCOUNTS:
+        return None
+    return next((code[:n] for n in range(len(code) - 1, 2, -1) if code[:n] in ACCOUNTS), None)
 
 
 # ─── ID generator BT-YYYY-NNNN ───────────────────────────────────────────────
@@ -103,6 +123,26 @@ def _to_dec(x) -> Decimal:
     return x if isinstance(x, Decimal) else Decimal(str(x))
 
 
+_DONG = Decimal("1")  # VND là số nguyên — mọi dòng bút toán làm tròn về đồng khi ghi
+
+
+def _lam_tron_dong(x: Decimal) -> Decimal:
+    return x.quantize(_DONG, rounding=ROUND_HALF_UP)
+
+
+def _can_bang_sau_lam_tron(lines: list[dict]) -> None:
+    """Làm tròn từng dòng có thể làm lệch Nợ/Có vài đồng (vd 0,5 + 0,5 = 1 → 1 + 1 = 2).
+    Dồn phần lệch vào dòng lớn nhất của bên thừa để bút toán vẫn cân."""
+    no = sum((ln["so_tien"] for ln in lines if ln["loai"] == "no"), Decimal(0))
+    co = sum((ln["so_tien"] for ln in lines if ln["loai"] == "co"), Decimal(0))
+    lech = no - co
+    if not lech:
+        return
+    ben_thua = "no" if lech > 0 else "co"
+    dong = max((ln for ln in lines if ln["loai"] == ben_thua), key=lambda ln: ln["so_tien"])
+    dong["so_tien"] -= abs(lech)
+
+
 def post_journal(
     db: Session,
     *,
@@ -129,6 +169,7 @@ def post_journal(
 
     has_no = False
     has_co = False
+    tk_con: Optional[dict[str, str]] = None   # nạp khi gặp TK ngoài ACCOUNTS (TK con 111x/112x)
     sum_no = Decimal("0")
     sum_co = Decimal("0")
     norm_lines: list[dict] = []
@@ -140,7 +181,11 @@ def post_journal(
                 f"loai phải là 'no' hoặc 'co' (nhận {raw.get('loai')!r})",
             )
         code = str(raw.get("account_code") or "").strip()
-        if code not in ACCOUNTS:
+        ten_tk = ACCOUNTS.get(code)
+        if ten_tk is None:
+            tk_con = tk_chi_tiet(db) if tk_con is None else tk_con
+            ten_tk = tk_con.get(code)
+        if ten_tk is None:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 f"account_code {code!r} không thuộc Chart of Accounts",
@@ -160,7 +205,7 @@ def post_journal(
         norm_lines.append({
             "loai": loai,
             "account_code": code,
-            "account_name": raw.get("account_name") or ACCOUNTS[code],
+            "account_name": raw.get("account_name") or ten_tk,
             "ref_table": raw.get("ref_table"),
             "ref_id": raw.get("ref_id"),
             "so_tien": amount,
@@ -177,6 +222,13 @@ def post_journal(
             status.HTTP_400_BAD_REQUEST,
             f"Bút toán mất cân: SUM(no)={sum_no}, SUM(co)={sum_co}",
         )
+    # Kiểm cân trên số gốc (như cũ), rồi mới làm tròn về đồng + cân lại phần lẻ.
+    for ln in norm_lines:
+        ln["so_tien"] = _lam_tron_dong(ln["so_tien"])
+    _can_bang_sau_lam_tron(norm_lines)
+    if any(ln["so_tien"] <= 0 for ln in norm_lines):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "so_tien sau làm tròn về đồng phải > 0")
+    sum_no = sum((ln["so_tien"] for ln in norm_lines if ln["loai"] == "no"), Decimal(0))
 
     je = JournalEntry(
         ma_but_toan=next_ma_but_toan(db),
@@ -242,6 +294,12 @@ def void_journal(
         }
         for ln in orig_lines
     ]
+    # Bút toán đảo lưu trạng thái 'da_huy' giống bút toán gốc: mọi tổng hợp
+    # (get_balance_sheet_aggregates, chốt kỳ, P&L) chỉ đếm 'da_post', nên nếu
+    # bút toán đảo là 'da_post' còn gốc là 'da_huy' thì số dư bị ĐỔI DẤU (−X)
+    # thay vì về 0. Cặp gốc + đảo cùng 'da_huy' = triệt tiêu, vẫn giữ vết
+    # kiểm toán (sửa 2026-09-25 khi làm màn Tạm ứng — trước đó DB chưa có
+    # bút toán nào bị đảo nên không ảnh hưởng số liệu cũ).
     rev = post_journal(
         db,
         ngay=date_cls.today(),
@@ -250,6 +308,7 @@ def void_journal(
         source_id=str(je.id),
         lines=reversal_lines,
         by_user=by_user,
+        trang_thai="da_huy",
     )
 
     je.trang_thai = "da_huy"
@@ -311,6 +370,204 @@ def get_balance_sheet_aggregates(
             # Lạ — vẫn trả về theo nợ-có thô để debug
             out[code] = sn - sc
     return out
+
+
+# ─── Cân đối phát sinh + Sổ cái theo TK (màn /ketoan/can-doi, /ketoan/so-cai) ─
+
+def tinh_chat_tk(code: str) -> str:
+    """Chiều số dư tự nhiên: 'no' (Tài sản, Chi phí) hoặc 'co' (Nguồn vốn, Doanh thu, 214)."""
+    if code in LIABILITY_EQUITY_ACCOUNTS or code in REVENUE_ACCOUNTS:
+        return "co"
+    return "no"
+
+
+def _chia_du(no: Decimal, co: Decimal) -> tuple[Decimal, Decimal]:
+    """Luỹ kế Nợ/Có → (dư Nợ, dư Có) — chỉ một bên khác 0."""
+    net = no - co
+    return (net, Decimal("0")) if net >= 0 else (Decimal("0"), -net)
+
+
+def _khop_tk(tk: str):
+    """Điều kiện dòng thuộc TK `tk` hoặc TK chi tiết bắt đầu bằng `tk`."""
+    return JournalLine.account_code.like(f"{tk}%")
+
+
+def trial_balance(db: Session, tu: date_cls, den: date_cls) -> list[dict]:
+    """Bảng cân đối phát sinh THẬT từ journal_line (chỉ bút toán 'da_post'):
+    dư đầu kỳ (< tu), phát sinh Nợ/Có trong [tu, den], dư cuối kỳ — cho MỌI TK
+    trong ACCOUNTS (kể cả 5xx-8xx chưa kết chuyển). `so_dong` = số dòng định
+    khoản từ trước tới `den` (dùng làm cờ "đã phát sinh").
+    TK con của tài khoản tiền (1121…) trả thêm dòng `cap`=2 kèm `tk_cha`; dòng TK cha đã gồm
+    số của TK con → cộng tổng chỉ lấy `cap`=1.
+    """
+    truoc = JournalEntry.ngay < tu
+    trong = (JournalEntry.ngay >= tu) & (JournalEntry.ngay <= den)
+
+    def _sum(cond, loai):
+        return func.coalesce(func.sum(case(
+            (cond & (JournalLine.loai == loai), JournalLine.so_tien), else_=0,
+        )), 0)
+
+    rows = db.execute(
+        select(
+            JournalLine.account_code,
+            _sum(truoc, "no"), _sum(truoc, "co"),
+            _sum(trong, "no"), _sum(trong, "co"),
+            func.count(JournalLine.id),
+        )
+        .join(JournalEntry, JournalEntry.id == JournalLine.journal_id)
+        .where(JournalEntry.trang_thai == "da_post")
+        .where(JournalEntry.ngay <= den)
+        .group_by(JournalLine.account_code)
+    ).all()
+    ten = danh_muc_tk(db)
+    zero = (Decimal("0"),) * 4 + (0,)
+    so = {code: [_to_dec(v) if i < 4 else int(v) for i, v in enumerate(zero)] for code in set(ten)}
+    for r in rows:
+        so[r[0]] = [_to_dec(v) if i < 4 else int(v) for i, v in enumerate(r[1:])]
+    # TK con (1121…) cộng dồn lên TK cha (112) — dòng cha = tổng cả nhóm, dòng con cap=2 chỉ để xem chi tiết.
+    for code, v in list(so.items()):
+        cha = tk_cha_cua(code)
+        if cha:
+            so.setdefault(cha, list(zero))
+            so[cha] = [a + b for a, b in zip(so[cha], v)]
+
+    out: list[dict] = []
+    for code in sorted(so):
+        dau_no_lk, dau_co_lk, ps_no, ps_co, so_dong = so[code]
+        dau_no, dau_co = _chia_du(dau_no_lk, dau_co_lk)
+        cuoi_no, cuoi_co = _chia_du(dau_no_lk + ps_no, dau_co_lk + ps_co)
+        cha = tk_cha_cua(code)
+        out.append({
+            "ma": code, "ten": ten.get(code, code), "tinh_chat": tinh_chat_tk(cha or code),
+            "cap": 2 if cha else 1, "tk_cha": cha,
+            "dau_no": dau_no, "dau_co": dau_co, "ps_no": ps_no, "ps_co": ps_co,
+            "cuoi_no": cuoi_no, "cuoi_co": cuoi_co, "so_dong": so_dong,
+        })
+    return out
+
+
+def ledger(db: Session, tk: str, tu: date_cls, den: date_cls) -> dict:
+    """Sổ cái TK `tk` (gồm TK chi tiết cùng đầu số) trong [tu, den], chỉ 'da_post'.
+    Dư luỹ kế tính theo thời gian (ngày, id bút toán) ở máy chủ; TK đối ứng = các
+    TK khác trong cùng bút toán.
+    """
+    base = (
+        select(JournalLine.loai, func.coalesce(func.sum(JournalLine.so_tien), 0))
+        .join(JournalEntry, JournalEntry.id == JournalLine.journal_id)
+        .where(JournalEntry.trang_thai == "da_post", JournalEntry.ngay < tu, _khop_tk(tk))
+        .group_by(JournalLine.loai)
+    )
+    dau = {loai: _to_dec(v) for loai, v in db.execute(base).all()}
+    lk_no, lk_co = dau.get("no", Decimal("0")), dau.get("co", Decimal("0"))
+    so_du_dau = _chia_du(lk_no, lk_co)
+
+    rows = db.execute(
+        select(JournalEntry, JournalLine)
+        .join(JournalLine, JournalEntry.id == JournalLine.journal_id)
+        .where(JournalEntry.trang_thai == "da_post")
+        .where(JournalEntry.ngay >= tu, JournalEntry.ngay <= den, _khop_tk(tk))
+        .order_by(JournalEntry.ngay, JournalEntry.id, JournalLine.id)
+    ).all()
+
+    je_ids = {je.id for je, _ in rows}
+    doi_ung: dict[int, list[str]] = {}
+    if je_ids:
+        for jid, code in db.execute(
+            select(JournalLine.journal_id, JournalLine.account_code)
+            .where(JournalLine.journal_id.in_(je_ids), ~_khop_tk(tk))
+            .order_by(JournalLine.id)
+        ).all():
+            ds = doi_ung.setdefault(jid, [])
+            if code not in ds:
+                ds.append(code)
+
+    dong: list[dict] = []
+    ps_no = ps_co = Decimal("0")
+    for je, ln in rows:
+        no = ln.so_tien if ln.loai == "no" else Decimal("0")
+        co = ln.so_tien if ln.loai == "co" else Decimal("0")
+        ps_no += no
+        ps_co += co
+        du_no, du_co = _chia_du(lk_no + ps_no, lk_co + ps_co)
+        dong.append({
+            "entry_id": je.id, "ngay": je.ngay, "so_ct": je.ma_but_toan,
+            "dien_giai": ln.ghi_chu or je.mo_ta, "source_type": je.source_type,
+            "tk": ln.account_code, "tk_doi_ung": ", ".join(doi_ung.get(je.id, [])),
+            "nghiep_vu": tom_tat_dinh_khoan(je)["nghiep_vu"],
+            "ref_table": ln.ref_table, "ref_id": ln.ref_id,
+            "no": no, "co": co, "du_no": du_no, "du_co": du_co,
+        })
+    so_du_cuoi = _chia_du(lk_no + ps_no, lk_co + ps_co)
+    return {
+        "tk": tk, "ten": danh_muc_tk(db).get(tk, tk), "tinh_chat": tinh_chat_tk(tk_cha_cua(tk) or tk),
+        "tu_ngay": tu, "den_ngay": den,
+        "so_du_dau": {"no": so_du_dau[0], "co": so_du_dau[1]},
+        "phat_sinh": {"no": ps_no, "co": ps_co},
+        "so_du_cuoi": {"no": so_du_cuoi[0], "co": so_du_cuoi[1]},
+        "dong": dong,
+    }
+
+
+# ─── Loại nghiệp vụ của bút toán (cột "Loại" + lọc Thu / Chi trên Sổ kế toán) ─
+
+_TK_TIEN = ("111", "112")
+_TK_DOANH_THU = ("511", "711")
+_TK_THUE = ("333", "821")
+_TK_CONG_NO = ("131", "141", "331")
+
+# Thứ tự = thứ tự hiện trong ô lọc.
+NGHIEP_VU: dict[str, str] = {
+    "thu": "Thu tiền",
+    "chi": "Chi tiền",
+    "chuyen_tien": "Chuyển tiền nội bộ",
+    "doanh_thu": "Ghi nhận doanh thu",
+    "gia_von": "Giá vốn",
+    "khau_hao": "Khấu hao",
+    "phan_bo": "Phân bổ chi phí",
+    "thue": "Thuế",
+    "cong_no": "Công nợ",
+    "dao": "Đảo bút toán",
+    "khac": "Khác",
+}
+
+
+def _co_dau(ds: set[str], dau: tuple[str, ...]) -> bool:
+    return any(tk.startswith(dau) for tk in ds)
+
+
+def phan_loai_nghiep_vu(tk_no: Iterable[str], tk_co: Iterable[str], source_type: Optional[str] = None) -> str:
+    """Suy loại nghiệp vụ từ định khoản (không phụ thuộc source_type, trừ bút toán đảo):
+    tiền (111x/112x) ghi Nợ → Thu, ghi Có → Chi, cả hai → Chuyển tiền; không qua tiền thì theo TK đặc trưng."""
+    if (source_type or "").startswith("reversal_of_"):
+        return "dao"
+    no, co = set(tk_no), set(tk_co)
+    if _co_dau(no, _TK_TIEN) and _co_dau(co, _TK_TIEN):
+        return "chuyen_tien"
+    if _co_dau(no, _TK_TIEN):
+        return "thu"
+    if _co_dau(co, _TK_TIEN):
+        return "chi"
+    if _co_dau(co, _TK_DOANH_THU):
+        return "doanh_thu"
+    if _co_dau(no, ("632",)):
+        return "gia_von"
+    if _co_dau(co, ("214",)):
+        return "khau_hao"
+    if _co_dau(co, ("242",)):
+        return "phan_bo"
+    if _co_dau(no | co, _TK_THUE):
+        return "thue"
+    if _co_dau(no | co, _TK_CONG_NO):
+        return "cong_no"
+    return "khac"
+
+
+def tom_tat_dinh_khoan(je: JournalEntry) -> dict:
+    """{nghiep_vu, tk_no, tk_co} của một bút toán (je.lines nạp sẵn kiểu selectin — không thêm truy vấn)."""
+    tk_no = sorted({ln.account_code for ln in je.lines if ln.loai == "no"})
+    tk_co = sorted({ln.account_code for ln in je.lines if ln.loai == "co"})
+    return {"nghiep_vu": phan_loai_nghiep_vu(tk_no, tk_co, je.source_type), "tk_no": tk_no, "tk_co": tk_co}
 
 
 # ─── Helper map quỹ DN → account_code ────────────────────────────────────────

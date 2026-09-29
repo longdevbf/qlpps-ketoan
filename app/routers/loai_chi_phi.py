@@ -2,14 +2,14 @@
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
 
-from ..models import LoaiChiPhi
+from ..models import ChiPhiCoDinh, ChiPhiPhatSinh, LoaiChiPhi
 from ..schemas import LoaiChiPhiCreate, LoaiChiPhiUpdate, LoaiChiPhiOut
 from ._deps import require_ketoan_user
 
@@ -19,6 +19,14 @@ _AUTH = Depends(require_ketoan_user)
 
 
 VALID_NHOM = {"ban_hang", "quan_ly", "tai_chinh", "khac"}
+
+
+def _so_phieu_dung(db: Session, ten: str) -> int:
+    """Số phiếu chi phí (phát sinh + cố định) đang gắn loại này — liên kết lỏng theo tên."""
+    return sum(
+        db.execute(select(func.count()).select_from(m).where(m.loai_chi_phi == ten)).scalar_one()
+        for m in (ChiPhiPhatSinh, ChiPhiCoDinh)
+    )
 
 
 @router.get("", response_model=list[LoaiChiPhiOut])
@@ -76,6 +84,14 @@ def update_loai_chi_phi(
     if not obj:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "LoaiChiPhi không tồn tại")
     fields = body.model_dump(exclude_unset=True)
+    if "ten" in fields:
+        fields["ten"] = (fields["ten"] or "").strip()
+        if not fields["ten"]:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tên loại chi phí không được để trống")
+        if fields["ten"] != obj.ten and db.execute(
+            select(LoaiChiPhi.id).where(LoaiChiPhi.ten == fields["ten"], LoaiChiPhi.id != rid)
+        ).first():
+            raise HTTPException(status.HTTP_409_CONFLICT, f"Loại chi phí {fields['ten']!r} đã tồn tại")
     if "nhom_default" in fields and fields["nhom_default"] not in VALID_NHOM:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, f"nhom_default phải thuộc {sorted(VALID_NHOM)}"
@@ -101,6 +117,12 @@ def delete_loai_chi_phi(
     obj = db.get(LoaiChiPhi, rid)
     if not obj:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "LoaiChiPhi không tồn tại")
+    so_phieu = _so_phieu_dung(db, obj.ten)
+    if so_phieu:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Loại {obj.ten!r} đang có {so_phieu} phiếu chi phí dùng — hãy Tạm dừng thay vì xoá.",
+        )
     db.delete(obj)
     db.commit()
     log_action(

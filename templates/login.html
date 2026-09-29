@@ -16,7 +16,7 @@
 <!-- theme.css chỉ để lấy 6 token trạng thái (--danger-*/--success-*) cho hộp
      báo lỗi — phần còn lại của trang này cố ý KHÔNG phụ thuộc token, xem khối
      "MÀU RIÊNG CỦA TRANG" bên dưới. Cả 8 app đều có file này. -->
-<link rel="stylesheet" href="/static/css/theme.css">
+<link rel="stylesheet" href="/static/css/theme.css?v=cam11">
 
 <!-- PWA — bắt buộc cho iOS "Add to Home Screen" mở fullscreen (ẩn URL bar) -->
 
@@ -33,8 +33,8 @@
      bản desktop 130 KB nó KHÔNG BAO GIỜ dùng, cộng thêm 90 KB bản mobile —
      tốn gần gấp ba trên đúng loại kết nối yếu nhất. Ngưỡng 900px phải khớp
      media query ở cuối khối CSS. -->
-<link rel="preload" as="image" href="/static/login_bg.webp?v=e48fda5b" media="(min-width:901px)">
-<link rel="preload" as="image" href="/static/login_bg_mobile.webp?v=ca08e5bb" media="(max-width:900px)">
+<link rel="preload" as="image" href="/static/login_bg.webp?v=06767700" media="(min-width:901px)">
+<link rel="preload" as="image" href="/static/login_bg_mobile.webp?v=9d721bbd" media="(max-width:900px)">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
@@ -110,7 +110,7 @@ body{
 .lg-stage{
   display:flex;align-items:center;justify-content:space-evenly;
   min-height:100vh;min-height:100dvh;
-  background:var(--lg-page) url('/static/login_bg.webp?v=e48fda5b') 32% center/cover no-repeat;
+  background:var(--lg-page) url('/static/login_bg.webp?v=06767700') 32% center/cover no-repeat;
 }
 
 /* Bề ngang thẻ và lề phải LÀ số đo của bản thiết kế:
@@ -325,7 +325,7 @@ form .lg-group:first-of-type{margin-top:var(--lg-gap-group)}
      khối tròn ở đáy. */
   .lg-stage{
     align-items:flex-start;justify-content:center;
-    background:var(--lg-page) url('/static/login_bg_mobile.webp?v=ca08e5bb') center bottom/cover no-repeat;
+    background:var(--lg-page) url('/static/login_bg_mobile.webp?v=9d721bbd') center bottom/cover no-repeat;
   }
   /* NEO LÊN TRÊN, không canh giữa dọc. Canh giữa thì thẻ tụt xuống đè kín khối
      tròn: đo ở 390×844 thẻ chạm đáy còn cách 108px, mà 108px đó là mép dưới

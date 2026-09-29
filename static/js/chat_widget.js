@@ -1802,7 +1802,19 @@ window.zV2_handlePresenceUpdate = async function () {
 window.zV2_startPresencePolling = function () {
   if (window._zV2 && window._zV2._presenceTimer) return;
   window.zV2_handlePresenceUpdate();
-  const t = setInterval(window.zV2_handlePresenceUpdate, 30000);
+  // HIEU NANG (anh Quang 2026-08-28): TAM DUNG khi tab an. Truoc day moi tab goi
+  // /api/chat/presence/all 30s/lan ke ca tab nen -> mo 8 tab = 8x tai vo ich.
+  // Khi tab hien lai thi cap nhat NGAY.
+  const t = setInterval(function () {
+    if (document.hidden) return;
+    window.zV2_handlePresenceUpdate();
+  }, 30000);
+  if (!window.__zV2PresVisBound) {
+    window.__zV2PresVisBound = true;
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) { try { window.zV2_handlePresenceUpdate(); } catch (e) {} }
+    });
+  }
   if (window._zV2) window._zV2._presenceTimer = t;
 };
 
@@ -2413,6 +2425,13 @@ window.zV2_buildMessageRow = function (msg, prev, next, currentUser) {
   var bubbleCls = ['zV2_bubble'];
   if (isOwn) bubbleCls.push('zV2_bubble--own');
   if (msg.msg_type === 'image') bubbleCls.push('zV2_bubble--image');
+  // Ảnh CÓ chú thích thì đánh dấu riêng: .zV2_bubble--image ép nền trong suốt,
+  // hợp lý cho ảnh trần nhưng khi có chữ thì chú thích rơi ra ngoài bong bóng —
+  // chữ trắng của tin mình gửi nằm trên nền trang #F0F2F5, đo được 1,12:1,
+  // gần như vô hình. CSS dựa vào lớp này để trả lại nền.
+  if (msg.msg_type === 'image' && msg.content && !msg.is_deleted) {
+    bubbleCls.push('zV2_bubble--cap');
+  }
 
   if (msg.is_deleted) {
     bubbleCls.push('zV2_bubble_deleted');
@@ -2669,13 +2688,23 @@ window.zV2_sendMessage = async function (forceContent) {
   var input = document.getElementById('zV2_compose_input');
   var content = forceContent !== undefined ? forceContent : (input ? input.value.trim() : '');
 
-  // Nếu có ảnh đang pending (paste preview) → upload ảnh thay vì gửi text
-  if (_zV2._pendingPasteFile) {
+  // Có ảnh/tệp đang chờ → gửi KÈM chú thích trong CÙNG một tin nhắn.
+  // Trước đây nhánh này vứt thẳng nội dung vừa gõ rồi chỉ tải tệp lên: ai gõ
+  // chú thích xong bấm gửi là mất chữ, không một cảnh báo nào.
+  // Bỏ qua khi đang sửa tin cũ — lúc đó Enter là "lưu bản sửa", tệp đính kèm
+  // vẫn nằm chờ ở khay và gửi được ngay sau khi sửa xong.
+  if (_zV2._pendingPasteFile && !_zV2.editingMsgId) {
     var pendingFile = _zV2._pendingPasteFile;
+    var caption = content;                       // đã trim ở trên
+    var replyId = (_zV2.replyTo && _zV2.replyTo.id) || null;
     window.zV2_clearPastePreview();
     if (input) input.value = '';
-    _zV2._sending = false; // release lock trước khi upload
-    await zV2_uploadFile(pendingFile);
+    _zV2.replyTo = null;
+    var rs0 = document.getElementById('zV2_reply_strip');
+    if (rs0) rs0.style.display = 'none';
+    zV2_updateComposerButtons();
+    _zV2._sending = false; // nhả khoá trước khi tải lên
+    await zV2_uploadFile(pendingFile, { content: caption, reply_to_id: replyId });
     return;
   }
 
@@ -2771,12 +2800,20 @@ window.zV2_sendMessage = async function (forceContent) {
 };
 
 // ---------- File / Image upload ----------
-window.zV2_uploadFile = async function (file) {
+window.zV2_uploadFile = async function (file, opts) {
   var rid = _zV2.currentRoomId;
   if (!rid || !file) return;
   if (file.size > 25 * 1024 * 1024) { zV2_toast('File quá lớn (>25MB)', 'error'); return; }
+  opts = opts || {};
   var fd = new FormData();
   fd.append('file', file);
+  // Chú thích đi CÙNG tệp trong một request → server ghi MỘT dòng tin nhắn.
+  // Gửi thành hai request rời sẽ ra hai bong bóng, và vì chạy song song nên
+  // thứ tự hiện lên còn có thể đảo ngược.
+  // Không gửi kèm danh sách @nhắc: server tự tách từ chú thích, y như khi gửi
+  // chữ thuần — để một chỗ duy nhất quyết định ai được nhắc.
+  if (opts.content) fd.append('content', opts.content);
+  if (opts.reply_to_id) fd.append('reply_to_id', String(opts.reply_to_id));
   var t = zV2_toast('Đang tải ' + file.name + '...', 'info', 60000);
   try {
     var res = await fetch('/api/chat/rooms/' + encodeURIComponent(rid) + '/upload', {
@@ -2819,17 +2856,19 @@ window.zV2_wireUpload = function () {
     btnFile._zV2Bound = true;
     btnFile.addEventListener('click', function(){ if (fileInput) fileInput.click(); });
   }
+  // Chọn xong KHÔNG gửi ngay: đưa vào khay chờ để còn kịp gõ chú thích.
+  // Trước đây bấm nút là ảnh bay đi luôn, muốn nói gì phải gửi thêm tin riêng.
   if (imgInput && !imgInput._zV2Bound) {
     imgInput._zV2Bound = true;
     imgInput.addEventListener('change', function(){
-      if (imgInput.files && imgInput.files[0]) zV2_uploadFile(imgInput.files[0]);
+      if (imgInput.files && imgInput.files[0]) zV2_showPastePreview(imgInput.files[0]);
       imgInput.value = '';
     });
   }
   if (fileInput && !fileInput._zV2Bound) {
     fileInput._zV2Bound = true;
     fileInput.addEventListener('change', function(){
-      if (fileInput.files && fileInput.files[0]) zV2_uploadFile(fileInput.files[0]);
+      if (fileInput.files && fileInput.files[0]) zV2_showPastePreview(fileInput.files[0]);
       fileInput.value = '';
     });
   }
@@ -2856,22 +2895,41 @@ window.zV2_wireUpload = function () {
 };
 
 // ---------- Paste image preview ----------
+// Khay chờ đính kèm. Tên hàm giữ nguyên "Paste" cho khỏi vỡ chỗ gọi cũ, nhưng
+// nay dùng cho CẢ ba đường vào: dán ảnh, nút Ảnh, nút Tệp.
 window.zV2_showPastePreview = function (file) {
   if (!file) return;
   _zV2._pendingPasteFile = file;
   var preview = document.getElementById('zV2_paste_preview');
   var thumb   = document.getElementById('zV2_paste_thumb');
   var name    = document.getElementById('zV2_paste_name');
+  var hint    = document.getElementById('zV2_paste_hint');
   if (!preview || !thumb) return;
-  // Hiện thumbnail bằng object URL
-  if (thumb._objUrl) URL.revokeObjectURL(thumb._objUrl);
-  thumb._objUrl = URL.createObjectURL(file);
-  thumb.src = thumb._objUrl;
-  if (name) name.textContent = file.name || 'Ảnh đã dán';
+  if (thumb._objUrl) { URL.revokeObjectURL(thumb._objUrl); thumb._objUrl = null; }
+  var isImg = !!(file.type && file.type.indexOf('image/') === 0);
+  if (isImg) {
+    // Ảnh: xem trước thật bằng object URL
+    thumb._objUrl = URL.createObjectURL(file);
+    thumb.src = thumb._objUrl;
+    thumb.style.display = '';
+  } else {
+    // Tệp thường không xem trước được — ẩn hẳn ô ảnh thay vì để một ô vỡ ảnh.
+    // Tên tệp ngay bên cạnh đã đủ cho biết đang đính kèm cái gì.
+    thumb.src = '';
+    thumb.style.display = 'none';
+  }
+  if (name) name.textContent = file.name || (isImg ? 'Ảnh đã dán' : 'Tệp đính kèm');
+  if (hint) {
+    hint.textContent = (isImg ? 'Ảnh' : 'Tệp') + ' · '
+      + zV2_formatFileSize(file.size || 0) + ' — gõ chú thích rồi Enter để gửi kèm';
+  }
   preview.classList.add('visible');
-  // Focus vào input để có thể gõ caption và Enter ngay
+  // Focus vào ô nhập để gõ chú thích rồi Enter là gửi được ngay
   var input = document.getElementById('zV2_compose_input');
   if (input) { input.placeholder = 'Thêm chú thích (tuỳ chọn)...'; input.focus(); }
+  // Đổi nút 👍 thành nút Gửi — nếu không, đính kèm mà chưa gõ chữ thì không
+  // có nút nào để gửi cả.
+  zV2_updateComposerButtons();
 };
 
 window.zV2_clearPastePreview = function () {
@@ -2880,8 +2938,13 @@ window.zV2_clearPastePreview = function () {
   var thumb   = document.getElementById('zV2_paste_thumb');
   var input   = document.getElementById('zV2_compose_input');
   if (preview) preview.classList.remove('visible');
-  if (thumb && thumb._objUrl) { URL.revokeObjectURL(thumb._objUrl); thumb._objUrl = null; thumb.src = ''; }
+  if (thumb) {
+    if (thumb._objUrl) { URL.revokeObjectURL(thumb._objUrl); thumb._objUrl = null; }
+    thumb.src = '';
+    thumb.style.display = '';   // trả lại mặc định cho lần đính kèm sau
+  }
   if (input) input.placeholder = 'Nhập tin nhắn...';
+  zV2_updateComposerButtons();
 };
 
 window.zV2_wirePastePreview = function () {
@@ -3185,9 +3248,12 @@ window.zV2_updateComposerButtons = function () {
   var send = document.getElementById('zV2_send_btn');
   if (!input) return;
   var hasText = input.value.trim().length > 0;
+  // Có tệp đang chờ thì cũng phải hiện nút Gửi dù chưa gõ chữ nào — nếu không
+  // người dùng chỉ thấy nút 👍 và không có cách nào gửi tấm ảnh vừa chọn.
+  var coTheGui = hasText || !!_zV2._pendingPasteFile;
   // Phải dùng 'flex' explicit (không phải '') vì CSS default cho #zV2_send_btn là display:none
-  if (thumbs) thumbs.style.display = hasText ? 'none' : 'flex';
-  if (send)   send.style.display   = hasText ? 'flex' : 'none';
+  if (thumbs) thumbs.style.display = coTheGui ? 'none' : 'flex';
+  if (send)   send.style.display   = coTheGui ? 'flex' : 'none';
 };
 
 window.zV2_composeBind = function () {
@@ -5515,4 +5581,44 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(checkPending, 1200);
 
   window.zCall={_onSignal:onSignal,_setContext:setContext,startAudio:function(){start('audio');},startVideo:function(){start('video');}};
+})();
+
+
+// ---------------------------------------------------------------------------
+// CHỐT HẠ: gắn lại các nút soạn tin sau khi CẢ file đã chạy xong
+//
+// Vì sao cần: `zV2_init()` được gọi ở khoảng dòng 1160, nhưng các hàm nó gọi
+// lại nằm MÃI phía dưới — zV2_wireUpload ở ~2824. File này nạp bằng
+// <script defer>, nên lúc chạy tới dòng 1160 thì document.readyState đã là
+// 'interactive' (không còn 'loading'), zV2_init() chạy NGAY tại chỗ. Khi đó
+// window.zV2_wireUpload vẫn undefined, câu
+//     if (typeof window.zV2_wireUpload === 'function') zV2_wireUpload();
+// lặng lẽ bỏ qua, rồi zV2_init đặt _initDone = true nên không bao giờ chạy lại.
+// Hậu quả đo được: nút Ảnh và nút Tệp KHÔNG gắn được trình xử lý — bấm không
+// ra gì. Chỉ còn dán ảnh chạy được, vì phần dán do zV2_composeBind() gắn, mà
+// hàm đó được zV2_messagesModuleInit() gọi qua setTimeout nên rơi vào lượt sau.
+//
+// Bản nội tuyến trong templates/chat_widget.html KHÔNG dính lỗi này: script
+// nội tuyến chạy trong lúc trình duyệt còn đang phân tích trang, readyState
+// vẫn là 'loading', nên zV2_init() được hoãn tới DOMContentLoaded — lúc đó cả
+// file đã chạy xong và mọi hàm đều có mặt.
+//
+// Không sửa thứ tự trong zV2_init vì đụng vào đó là đụng cả chuỗi khởi động.
+// Gọi lại ở đây an toàn hơn: mọi hàm wire đều idempotent (guard _zV2Bound /
+// _initDone) nên gọi thừa không gây tác dụng phụ.
+// ---------------------------------------------------------------------------
+(function () {
+  function _zV2_ganLai() {
+    try { if (typeof window.zV2_wireUpload === 'function') window.zV2_wireUpload(); } catch (_) {}
+    try { if (typeof window.zV2_wirePastePreview === 'function') window.zV2_wirePastePreview(); } catch (_) {}
+    try { if (typeof window.zV2_composeBind === 'function') window.zV2_composeBind(); } catch (_) {}
+  }
+  _zV2_ganLai();
+  // Gọi thêm một lượt sau khi DOM sẵn sàng, phòng khi khối soạn tin được dựng
+  // muộn hơn file này (một số trang nhúng widget qua include lồng nhau).
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _zV2_ganLai);
+  } else {
+    setTimeout(_zV2_ganLai, 0);
+  }
 })();

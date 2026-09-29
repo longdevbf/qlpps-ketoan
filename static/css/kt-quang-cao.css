@@ -1,0 +1,28 @@
+/* kt-quang-cao.css — Chi phí quảng cáo (theo ngày + phân bổ CPA). Tiền tố kt-qc. Chỉ var(--token). */
+/* Chi tiết kênh trong ô bảng: chip tên kênh + số tiền gọn, xếp hàng ngang, xuống dòng khi hẹp */
+.kt-qc-kenh { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5); margin: 0; padding: 0; list-style: none; white-space: normal; }
+.kt-qc-kenh li { display: inline-flex; align-items: center; gap: var(--sp-3); font-size: var(--fs-meta); color: var(--text-2); }
+.kt-qc-ngay { font-weight: 600; }
+
+/* Hộp "Theo kênh" bên phải */
+.kt-qc-ak { display: grid; row-gap: var(--sp-6); margin: 0; padding: 0; list-style: none; }
+.kt-qc-ak li { display: grid; row-gap: var(--sp-2); padding-bottom: var(--sp-6); border-bottom: 1px solid var(--border-soft); }
+.kt-qc-ak li:last-child { padding-bottom: 0; border-bottom: 0; }
+.kt-qc-ak__dong { display: flex; justify-content: space-between; gap: var(--sp-5); }
+.kt-qc-ak__phu { margin: 0; }
+.kt-qc-ak-rong { margin: 0; }
+
+
+/* Khối "ads tháng nào ra đơn tháng nào" gập mở */
+.kt-qc-cohort { position: relative; }
+.kt-qc-cohort__dau { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-6); padding: var(--sp-8); cursor: pointer; list-style: none; font-size: var(--fs-body); color: var(--text-1); }
+.kt-qc-cohort__dau::-webkit-details-marker { display: none; }
+.kt-qc-cohort__dau:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: var(--r-sm); }
+.kt-qc-cohort__dau > .bi { flex: none; color: var(--text-3); transition: transform .15s; }
+.kt-qc-cohort[open] .kt-qc-cohort__dau > .bi { transform: rotate(180deg); }
+.kt-qc-cohort[open] .kt-qc-cohort__dau { border-bottom: 1px solid var(--border-soft); }
+.kt-qc-kenh .kd-meta { margin: 0; }
+.kt-qc-cohort__dau .kd-box__title { display: inline-flex; align-items: center; gap: var(--sp-3); margin: 0; }
+.kt-qc-cohort__dau { min-height: 56px; }
+/* ⓘ cạnh nhãn thẻ số: nút 22px cao hơn dòng chữ → kéo lề để thẻ có/không có ⓘ thẳng hàng nhau */
+.kd-kpi__label .kd-tip { margin-block: -4px; }

@@ -1,0 +1,100 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   kt-tong-quan.css — riêng màn Tổng quan kế toán (#kd-kt-tong-quan)
+   Nạp SAU kd-man-hinh.css + kt-chung.css. Chỉ var(--token).
+   Bố cục lưới dùng nguyên .kd-dash__* của Dashboard Báo Giá; ở đây chỉ phần riêng.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Tuổi nợ: nhãn pill | thanh | số — một hàng mỗi nhóm. Thanh tô theo NGHĨA của nhóm (cùng sắc với pill bên trái). */
+.kt-tuoi { display: grid; align-content: start; gap: var(--sp-6); padding: var(--sp-6) var(--sp-8) var(--sp-8); min-width: 0; }
+.kt-tuoi__o { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-5); min-width: 0; }
+.kt-tuoi__thanh { height: 6px; border-radius: var(--r-xs); background: var(--bg-page); }
+.kt-tuoi__thanh > span { display: block; height: 100%; border-radius: var(--r-xs); background: var(--brand-graph); }
+.kt-tuoi__thanh--success > span { background: var(--success); }
+.kt-tuoi__thanh--warning > span { background: var(--warning); }
+.kt-tuoi__thanh--danger > span { background: var(--danger); }
+.kt-tuoi__so { font-size: var(--fs-meta); font-weight: 600; color: var(--text-1); white-space: nowrap; text-align: right; }
+.kt-tuoi__tong { display: flex; justify-content: space-between; gap: var(--sp-5); padding-top: var(--sp-5); border-top: 1px solid var(--border-soft); font-size: var(--fs-body); color: var(--text-2); }
+.kt-tuoi__tong b { color: var(--text-1); }
+
+/* Danh sách trong thẻ (.kd-card không đệm): tự mang đệm như .kd-rank. */
+.kt-khoi-dem { padding: var(--sp-6) var(--sp-8) var(--sp-8); min-width: 0; }
+.kt-cat--dong { max-width: 100%; }
+.kt-ten-link { color: var(--text-1); text-decoration: none; }
+.kt-ten-link:hover { color: var(--brand-hover); text-decoration: underline; }
+.kt-ten-link:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+
+/* Đầu thẻ có link bên phải: đẩy link ra mép (kd-box__head đã flex, căn chân chữ). */
+#kd-kt-tong-quan .kd-box__head { justify-content: space-between; flex-wrap: wrap; }
+
+/* Thẻ trong một hàng lưới bị kéo cao bằng nhau → hàng con bám mép trên (10-bo-cuc.md, lỗi 12/09/2026). */
+#kd-kt-tong-quan .kd-card { align-content: start; }
+
+/* Ô số âm (lỗ) trong thẻ KPI lợi nhuận. */
+#kd-kt-tong-quan .kd-kpi__value.kt-so--xau { color: var(--danger-fg); }
+
+/* Màn này chỉ có 2 thẻ ở hàng cuối → giữ 2 cột ở mọi khổ rộng (luật gốc .kd-dash__ba lên 3 cột từ 1560px). */
+@media (min-width: 1560px) {
+  #kd-kt-tong-quan .kd-dash__ba { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Chi phí theo loại: tên + TK | thanh | số | % — dùng lại thanh của tuổi nợ (một màu brand-graph). */
+.kt-loai { display: grid; align-content: start; gap: var(--sp-5); padding: var(--sp-6) var(--sp-8) var(--sp-8); min-width: 0; }
+.kt-loai__o { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(40px, 1fr) auto 48px; align-items: center; gap: var(--sp-5); min-width: 0; }
+.kt-loai__ten { display: grid; min-width: 0; font-size: var(--fs-body); color: var(--text-1); line-height: var(--lh-tight); }
+.kt-loai__ten > span { overflow-wrap: anywhere; }
+.kt-loai__ten small { font-size: var(--fs-eyebrow); color: var(--text-3); }
+.kt-loai__pct { font-size: var(--fs-meta); color: var(--text-3); text-align: right; }
+#kd-kt-tong-quan .kd-rank .kt-tuoi__tong { margin: var(--sp-3) 0 0; }
+
+.kt-loai__ten small { font-size: var(--fs-meta); }
+
+/* Dòng phụ dưới "Khách nợ nhiều nhất": 8 khách đầu / khách khác (mờ) + Tổng (đậm); dòng liền nhau không kẻ lại. */
+.kt-tuoi__tong--phu, .kt-tuoi__tong--phu b { color: var(--text-2); font-weight: 500; }
+.kt-tuoi__tong--lien { border-top: 0; padding-top: 0; margin-top: calc(-1 * var(--sp-3)) !important; }
+.kt-tuoi__tong > span { display: inline-flex; align-items: center; }
+
+/* ── Thẻ KPI (đợt 4 — gọn cho người lớn tuổi): nhãn cỡ nội dung, 1 dòng phụ ngắn, ⓘ cạnh nhãn ── */
+#kd-kt-tong-quan .kd-dash__kpi6 .kd-kpi__label { font-size: var(--fs-body); font-weight: 600; color: var(--text-2); }
+#kd-kt-tong-quan .kd-kpi__head [data-tip-o] { display: inline-flex; margin-left: calc(-1 * var(--sp-3)); }
+#kd-kt-tong-quan .kd-kpi__phu { margin-top: var(--sp-3); font-size: var(--fs-meta); color: var(--text-2); }
+#kd-kt-tong-quan .kd-kpi__delta { font-size: var(--fs-meta); }
+#kd-kt-tong-quan .kd-sub--ky { display: inline-flex; align-items: center; font-size: var(--fs-body); color: var(--text-2); }
+
+/* ── "Chỉ số khác trong kỳ": 10 chỉ số phụ, hai cột danh sách nhãn | số ── */
+.kt-chiso__luoi { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: var(--sp-10, 40px); padding: var(--sp-3) var(--sp-8) var(--sp-6); }
+@media (min-width: 900px) { .kt-chiso__luoi { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kt-chiso__ds { margin: 0; padding: 0; list-style: none; min-width: 0; }
+.kt-chiso__o { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-5);
+               min-height: 52px; padding: var(--sp-3) 0; border-bottom: 1px solid var(--border-soft); }
+.kt-chiso__ds:last-child .kt-chiso__o:last-child { border-bottom: 0; }
+@media (min-width: 900px) { .kt-chiso__ds .kt-chiso__o:last-child { border-bottom: 0; } }
+.kt-chiso__nhan { display: inline-flex; align-items: center; min-width: 0; font-size: var(--fs-body); color: var(--text-1); }
+.kt-chiso__so { display: inline-flex; align-items: baseline; gap: var(--sp-2); font-size: var(--fs-title); font-weight: 700; color: var(--text-1); white-space: nowrap; }
+.kt-chiso__so .kd-kpi__don-vi { font-size: var(--fs-meta); font-weight: 600; color: var(--text-2); }
+.kt-chiso__so.kt-so--xau { color: var(--danger-fg); }
+.kt-chiso__so .kd-skel--kpi { width: 90px; height: 20px; }
+
+/* ── Việc cần xử lý / Chờ tôi duyệt (cột phải): mỗi dòng = tiêu đề | số tiền, dưới là 1 nhãn trạng thái ── */
+.kt-viec .kd-box__title, .kt-duyet .kd-box__title { display: inline-flex; align-items: center; gap: var(--sp-3); }
+.kt-duyet .kd-box__head { flex-wrap: wrap; }
+.kt-dong { align-items: start; }
+.kt-dong__ten { min-width: 0; font-size: var(--fs-body); line-height: 1.35; color: var(--text-1);
+                display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.kt-dong__tien { font-size: var(--fs-body); white-space: nowrap; text-align: right; }
+.kt-dong__tt { grid-column: 1 / -1; }
+.kt-duyet__tong { display: flex; justify-content: space-between; gap: var(--sp-5); margin: calc(-1 * var(--sp-4)) 0 var(--sp-6);
+                  padding: var(--sp-4) var(--sp-5); border-radius: var(--r); background: var(--bg-page); font-size: var(--fs-body); color: var(--text-2); }
+.kt-duyet__tong b { color: var(--text-1); }
+.kt-duyet__them, .kt-viec__them { display: block !important; padding-top: var(--sp-2); }
+/* 8 thẻ KPI: 2 hàng × 4 — hàng 1 dòng tiền & công nợ, hàng 2 số báo cáo KQKD. Luật gốc .kd-dash__kpi6
+   (kd-man-hinh.css) lên 3 cột từ 768px và 6 cột từ 1560px → 8 thẻ vỡ nhóm (3+3+2 / 6+2); ở đây 2 cột, đủ rộng thì 4.
+   Đo 28/09/2026: khổ 1280 cột chính ~690px → 4 thẻ chỉ ~160px, "−315,4 triệu" và nhãn rớt dòng → 4 cột từ 1560px. */
+#kd-kt-tong-quan .kt-kpi8 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 1560px) { #kd-kt-tong-quan .kt-kpi8 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* Nhãn KPI dài ("Lợi nhuận trước thuế") có thể xuống 2 dòng ở thẻ hẹp → đầu thẻ cao cố định để số các thẻ thẳng hàng. */
+#kd-kt-tong-quan .kd-dash__kpi6 .kd-kpi__head { min-height: 40px; }
+/* Điện thoại: bong bóng ⓘ canh giữa quanh nút sẽ tràn mép màn → hiện cố định dưới thanh trên cùng, rộng đủ khung. */
+@media (max-width: 767px) {
+  #kd-kt-tong-quan .kd-tip::after { position: fixed; top: calc(var(--ab-h, 56px) + var(--sp-8)); bottom: auto; left: var(--sp-8); right: var(--sp-8);
+    transform: none; width: auto; max-width: none; }
+}

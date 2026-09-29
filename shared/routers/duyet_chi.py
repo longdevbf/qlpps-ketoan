@@ -191,6 +191,22 @@ def _approver_dept_scope(user: JWTPayload, db: Session) -> Optional[set[str]]:
     return {pb} if pb else set()
 
 
+def _duoc_dung_chung_tu(user: JWTPayload, rec: ExpenseRequest, db: Session) -> bool:
+    """Người gửi đơn, hoặc người duyệt CÓ đơn này trong phạm vi phòng ban của mình.
+
+    Siết 12/09/2026: trước đó ba chỗ (đính kèm / xoá / tải chứng từ) chỉ hỏi
+    `_is_any_approver`, nghĩa là mọi manager, leader hay kế toán của BẤT KỲ phòng nào
+    cũng sửa được chứng từ đơn người khác — xoá không kèm tên tệp còn xoá sạch cả list.
+    Nay dùng đúng phạm vi xem của `GET /api/duyet-chi` (:361-370).
+    """
+    if rec.username == user.username:
+        return True
+    if not _is_any_approver(user):
+        return False
+    pham_vi = _approver_dept_scope(user, db)
+    return pham_vi is None or (rec.phong_ban or "") in pham_vi
+
+
 # ── Schemas ───────────────────────────────────────────────────────────────────
 class ExpenseCreate(BaseModel):
     tieu_de: str
@@ -602,7 +618,7 @@ async def upload_chung_tu(
     rec = db.get(ExpenseRequest, rid)
     if not rec:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đề xuất")
-    if rec.username != user.username and not _is_any_approver(user):
+    if not _duoc_dung_chung_tu(user, rec, db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Không có quyền upload chứng từ")
 
     ext = _safe_ext(file.filename)
@@ -656,7 +672,7 @@ def delete_chung_tu(
     rec = db.get(ExpenseRequest, rid)
     if not rec:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đề xuất")
-    if rec.username != user.username and not _is_any_approver(user):
+    if not _duoc_dung_chung_tu(user, rec, db):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Không có quyền")
 
     def _unlink_url(u: str) -> None:
@@ -703,15 +719,35 @@ def delete_chung_tu(
 @router.get("/chung-tu/{filename}")
 def serve_chung_tu(
     filename: str,
-    _user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _AUTH],
+    db: Annotated[Session, Depends(get_db)],
 ):
-    """Serve file chứng từ — auth required (cookie hoặc bearer)."""
-    if not re.fullmatch(r"[0-9]+_[a-f0-9]{6,32}\.[a-z0-9]{2,5}", filename):
+    """Serve file chứng từ — chỉ người gửi đơn, hoặc người duyệt trong phạm vi phòng ban.
+
+    Siết 12/09/2026: trước đó hàm chỉ hỏi "đã đăng nhập chưa", nên một nhân viên bất kỳ
+    tải được chứng từ thanh toán của đơn người khác chỉ cần biết tên tệp — đã thử thật ở
+    dev, nv26018 (Nhân Sự) lấy được tệp của đơn #168 phòng Mua Hàng. Tên tệp có dạng
+    `<id đơn>_<12hex>.<ext>` (xem upload :623) nên tra ngược id rồi áp ĐÚNG luật xem của
+    `GET /api/duyet-chi` (:361-370) thay vì nghĩ ra luật mới.
+    """
+    khop = re.fullmatch(r"([0-9]+)_[a-f0-9]{6,32}\.[a-z0-9]{2,5}", filename)
+    if not khop:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tên file không hợp lệ")
+    rec = db.get(ExpenseRequest, int(khop.group(1)))
+    if not rec:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File không tồn tại")
+    if rec.username != user.username:
+        # `_approver_dept_scope` trả None = xem được tất cả (admin/ceo/kt), set rỗng = không
+        # phòng nào. Người không duyệt được cấp nào thì chặn thẳng.
+        pham_vi = _approver_dept_scope(user, db) if _is_any_approver(user) else set()
+        if pham_vi is not None and (rec.phong_ban or "") not in pham_vi:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN, "Không có quyền xem chứng từ của đơn này"
+            )
     fpath = _chung_tu_dir() / filename
     if not fpath.exists() or not fpath.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File không tồn tại")
-    return FileResponse(str(fpath))
+    return FileResponse(str(fpath), headers={"X-Content-Type-Options": "nosniff"})
 
 
 @router.get("/stats")
@@ -854,9 +890,17 @@ class ChiBody(BaseModel):
 
 
 def _can_chi(user: JWTPayload, db: Session) -> bool:
-    """Được bấm Chi: CEO/admin HOẶC người có app 'ketoan' (đội kế toán)."""
+    """Được bấm Chi: CEO/admin, HOẶC người duyệt cấp Kế toán (manager/leader/kt CÓ app 'ketoan').
+
+    Vá 16/09/2026: trước chỉ cần có app 'ketoan' là chi được — nhân viên thường được cấp app
+    Kế toán để xem cũng bấm chi được tiền (lỗ tái hiện 12/09). Nay đúng cổng cấp Kế toán của
+    `_can_approve_at` (role + app). Kiểm prod 14/09: người có app ketoan chỉ là ceo/manager/admin,
+    120 ngày qua người tạo phiếu chi = manager 199, ceo 1 → không chặn nhầm ai.
+    """
     role = (user.role or "").lower()
-    return role in _CEO_ROLES or "ketoan" in _user_apps(db, user.username)
+    if role in _CEO_ROLES:
+        return True
+    return role in {"manager", "leader", "kt"} and "ketoan" in _user_apps(db, user.username)
 
 
 @router.post("/{rid}/chi", response_model=ExpenseOut)
@@ -883,10 +927,12 @@ def chi_expense(
 
     try:
         from ketoan.app.models import ChiPhiPhatSinh
-        from ketoan.app.services.so_quy_auto import sync_so_quy_from_chi_phi
+        from ketoan.app.services.so_quy_auto import sync_so_quy_from_chi_phi, assert_du_chi
     except Exception as e:  # pragma: no cover
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR,
                             f"Không nạp được module Kế Toán: {e}")
+    # CHẶN chi làm số dư TK âm (anh Quang 2026-08-27)
+    assert_du_chi(db, tk, rec.so_tien)
 
     loai_ten, nhom = _LOAI_CHI_MAP.get((rec.loai_chi or "").strip(),
                                        ("Chi phí khác", "khac"))

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Chi phí chờ phân bổ (TK 242) — L3 + panel. API thật (app/routers/phan_bo.py → services/phan_bo_242.py):
+   GET/POST /api/phan-bo · GET /api/phan-bo/<id> · POST /api/phan-bo/thang. Khoản = chi_phi_co_dinh phân bổ nhiều tháng (cùng nguồn báo cáo KQKD). #}
+{% block title %}Chi phí chờ phân bổ{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}{{ ui.css('') }}{% endblock %}
+
+{% block content %}
+<main class="kd-page kt-l3-rong" id="kd-kt-phan-bo">
+  {% call ui.dau_trang('Chi phí chờ phân bổ', 'Chi phí trả trước, công cụ dụng cụ (TK 242)') %}
+    {{ ui.nut_loc('pb') }}
+    <button type="button" class="kd-btn" id="pb-chay" disabled><i class="bi bi-calculator" aria-hidden="true"></i><span id="pb-chay-chu">Phân bổ tháng</span></button>
+    <button type="button" class="kd-btn kd-btn--primary" id="pb-them"><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm khoản phân bổ</button>
+  {% endcall %}
+
+  {{ ui.the_so('pb', [('con_lai', 'Còn chờ phân bổ', '', 'bi-hourglass-split'), ('muc_thang', 'Phân bổ tháng này', 'warning', 'bi-calendar3'),
+                       ('so_khoan', 'Khoản đang phân bổ', 'info', 'bi-list-ol'), ('thang', 'Ghi sổ cái', 'success', 'bi-check2-circle')]) }}
+
+  {% call ui.the_bang('pb', 'Danh sách khoản chi phí chờ phân bổ', panel='Chi tiết khoản phân bổ', phan_trang=False) %}
+    {{ ui.o_tim('pb', 'tim', 'Tìm', 'Mã, tên khoản, bộ phận…') }}
+    {{ ui.o_chon('pb', 'loai', 'Loại', [('', 'Tất cả'), ('tra_truoc', 'Chi phí trả trước'), ('ccdc', 'Công cụ dụng cụ')]) }}
+    {{ ui.o_chon('pb', 'trang_thai', 'Trạng thái', [('', 'Tất cả'), ('dang', 'Đang phân bổ'), ('xong', 'Đã phân bổ hết')]) }}
+  {% endcall %}
+</main>
+
+<dialog class="kd-dialog" id="pb-dlg" role="alertdialog" aria-labelledby="pb-dlg-td" aria-describedby="pb-dlg-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="pb-dlg-td">Phân bổ chi phí tháng?</h2></header>
+    <div class="kd-dialog__body">
+      <p id="pb-dlg-nd"></p>
+      <table class="kt-dk"><caption class="visually-hidden">Bút toán sẽ ghi</caption><thead><tr><th scope="col">Tài khoản</th><th scope="col" class="num">Nợ (VND)</th><th scope="col" class="num">Có (VND)</th></tr></thead><tbody id="pb-dlg-dk"></tbody></table>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="button" class="kd-btn kd-btn--primary" id="pb-dlg-ok"><i class="bi bi-check2" aria-hidden="true"></i>Ghi sổ phân bổ</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="pb-dlg-them" aria-labelledby="pb-them-td">
+  <form method="dialog" novalidate id="pb-form">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="pb-them-td">Thêm khoản chi phí chờ phân bổ</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <div class="kd-field"><label class="kd-field__label" for="pb-ten">Tên khoản <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="pb-ten" maxlength="160" autocomplete="off" placeholder="Vd: Tiền thuê văn phòng trả trước 6 tháng"></div>
+      <div class="kd-field">
+        <span class="kd-field__label" id="pb-loai-nhan">Loại</span>
+        {# id riêng 'pb-f-loai': 'pb-loai' đã là ô lọc Loại của bảng (macro o_chon) — trùng id làm nút loại trong hộp thoại không bấm được. #}
+        <div class="kd-seg" role="group" aria-labelledby="pb-loai-nhan" id="pb-f-loai">
+          <button type="button" data-loai="tra_truoc" aria-pressed="true">Chi phí trả trước</button>
+          <button type="button" data-loai="ccdc" aria-pressed="false">Công cụ dụng cụ xuất dùng</button>
+        </div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="pb-tong">Tổng số tiền (VND) <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input num" id="pb-tong" inputmode="numeric" autocomplete="off" placeholder="0"></div>
+        <div class="kd-field"><label class="kd-field__label" for="pb-so-ky">Phân bổ trong (tháng) <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input num" id="pb-so-ky" type="number" min="2" max="36" step="1" value="12"></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field kt-o-tk"><label class="kd-field__label" for="pb-tk-cp">Phân bổ vào TK chi phí <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" type="search" id="pb-tk-cp" placeholder="641 hoặc 642"></div>
+        <div class="kd-field kt-o-tk"><label class="kd-field__label" for="pb-doi">Nguồn (TK Có) <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" type="search" id="pb-doi" placeholder="111, 112 (hoặc TK con) hoặc 331"></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="pb-ngay">Ngày ghi nhận</label><input class="kd-input" type="date" id="pb-ngay"></div>
+        <div class="kd-field"><label class="kd-field__label" for="pb-bp">Bộ phận sử dụng</label><input class="kd-input" id="pb-bp" maxlength="60" autocomplete="off" placeholder="Vd: Xưởng"></div>
+      </div>
+      <p class="kd-note" id="pb-goi-y"></p>
+      <table class="kt-dk"><caption class="visually-hidden">Bút toán ghi nhận</caption><thead><tr><th scope="col">Tài khoản</th><th scope="col" class="num">Nợ (VND)</th><th scope="col" class="num">Có (VND)</th></tr></thead><tbody id="pb-them-dk"></tbody></table>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="pb-them-ok"><i class="bi bi-check2" aria-hidden="true"></i>Ghi sổ và lập lịch</button></footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}{{ ui.js('kt-phan-bo', v='tk0928c') }}{% endblock %}

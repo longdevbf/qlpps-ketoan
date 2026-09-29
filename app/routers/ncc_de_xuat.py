@@ -171,6 +171,165 @@ def summary_ncc_de_xuat(
     return out
 
 
+# ── Công nợ NCC còn phải trả — nguồn cho màn mới /ketoan/de-xuat-ncc ─────────
+# Cùng công thức với muahang GET /api/congno/summary (màn Công nợ NCC của Mua Hàng):
+#   nợ = SUM(no_phai_tra) ; đã trả = SUM(de_xuat_tra ĐÃ CHI) ; còn nợ = max(0, nợ − đã trả) — tính THEO NCC.
+# Khác một chỗ có chủ đích: "đang đề xuất" CHỈ tính đề xuất còn sống (cho_duyet / kt_duyet / duyet chưa chi);
+# muahang cộng cả đề xuất đã bị TỪ CHỐI (không da_chi) vào dang_de_xuat → số "còn đề xuất được" bị thấp sai.
+# Thực tế 100% đề xuất trả NCC hiện có đều KHÔNG gắn đơn (ref_order_id NULL — trả theo tổng NCC), nên "còn nợ
+# từng đơn" chỉ tính được bằng cách trừ dần tiền đã trả / đang đề xuất vào đơn CŨ NHẤT trước (FIFO) — chỉ để
+# gợi ý chọn; kiểm tra chặn vượt là theo TỔNG NCC.
+_DX_SONG = ("cho_duyet", "kt_duyet", "duyet")
+_SO = ("no_phai_tra", "da_tra", "dang_de_xuat", "con_no", "co_the_de_xuat")
+
+
+def _tong_ncc(db: Session, ncc_id: Optional[str] = None) -> tuple[dict, list]:
+    from decimal import Decimal
+    from muahang.app.models import CongNo  # lazy
+    stmt = select(CongNo)
+    if ncc_id:
+        stmt = stmt.where(CongNo.ncc_id == ncc_id)
+    zero = Decimal("0")
+    by: dict[str, dict] = {}
+    no_rows = []
+    for e in db.execute(stmt).scalars():
+        if not e.ncc_id:
+            continue
+        v = by.setdefault(e.ncc_id, {"id": e.ncc_id, "ten": e.ncc_name or e.ncc_id,
+                                     "no_phai_tra": zero, "da_tra": zero, "dang_de_xuat": zero})
+        if e.ncc_name:
+            v["ten"] = e.ncc_name
+        st = e.so_tien or zero
+        if e.loai == "no_phai_tra":
+            v["no_phai_tra"] += st
+            no_rows.append(e)
+        elif e.loai == "de_xuat_tra":
+            if getattr(e, "da_chi", False):
+                v["da_tra"] += st
+            elif (e.trang_thai or "") in _DX_SONG:
+                v["dang_de_xuat"] += st
+    for v in by.values():
+        v["con_no"] = max(zero, v["no_phai_tra"] - v["da_tra"])
+        v["co_the_de_xuat"] = max(zero, v["con_no"] - v["dang_de_xuat"])
+    return by, no_rows
+
+
+@router.get("/api/ncc-de-xuat/cong-no")
+def cong_no_theo_ncc(
+    user: Annotated[JWTPayload, Depends(_REQ)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Danh sách NCC còn nợ (còn_nợ > 0), nợ nhiều nhất trước."""
+    by, _ = _tong_ncc(db)
+    rows = sorted((v for v in by.values() if v["con_no"] > 0), key=lambda v: v["con_no"], reverse=True)
+    return [{**v, **{k: float(v[k]) for k in _SO}} for v in rows]
+
+
+@router.get("/api/ncc-de-xuat/cong-no/{ncc_id}")
+def cong_no_mot_ncc(
+    ncc_id: str,
+    user: Annotated[JWTPayload, Depends(_REQ)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """1 NCC: tổng công nợ + các đơn mua còn nợ (FIFO — xem ghi chú đầu khối)."""
+    from decimal import Decimal
+    from muahang.app.models import PurchaseOrder, Supplier  # lazy
+    sup = db.get(Supplier, ncc_id)
+    if not sup:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy nhà cung cấp")
+    by, no_rows = _tong_ncc(db, ncc_id)
+    zero = Decimal("0")
+    v = by.get(ncc_id) or {k: zero for k in _SO}
+    don: dict[str, dict] = {}
+    for e in no_rows:
+        k = e.ref_order_id or ""
+        d = don.setdefault(k, {"id": k, "ngay": e.ngay, "no_phai_tra": zero})
+        d["no_phai_tra"] += e.so_tien or zero
+        if e.ngay and (d["ngay"] is None or e.ngay < d["ngay"]):
+            d["ngay"] = e.ngay
+    ds = sorted(don.values(), key=lambda d: (d["ngay"] is None, d["ngay"] or ""))
+    tra, dang = v["da_tra"], v["dang_de_xuat"]
+    for d in ds:  # FIFO: trừ đã trả rồi đang đề xuất vào đơn cũ nhất trước
+        t = min(tra, d["no_phai_tra"])
+        tra -= t
+        d["con_no"] = d["no_phai_tra"] - t
+        g = min(dang, d["con_no"])
+        dang -= g
+        d["dang_de_xuat"] = g
+        d["co_the_de_xuat"] = d["con_no"] - g
+    ids = [d["id"] for d in ds if d["id"]]
+    ten = {}
+    if ids:
+        ten = dict(db.execute(select(PurchaseOrder.id, PurchaseOrder.ten_don).where(PurchaseOrder.id.in_(ids))).all())
+    return {
+        "ncc": {"id": sup.id, "ten": sup.name, "ma": sup.short_code or sup.id},
+        "tong": {k: float(v[k]) for k in _SO},
+        "don": [{"id": d["id"], "ma": d["id"] or "(Không gắn đơn)", "ten_don": ten.get(d["id"]),
+                 "ngay": d["ngay"].isoformat() if d["ngay"] else None,
+                 **{k: float(d[k]) for k in ("no_phai_tra", "con_no", "dang_de_xuat", "co_the_de_xuat")}}
+                for d in ds if d["con_no"] > 0],
+    }
+
+
+class DeXuatDong(BaseModel):
+    ref_order_id: Optional[str] = None
+    so_tien: float = Field(..., gt=0)
+
+
+class DeXuatTaoBody(BaseModel):
+    ncc_id: str = Field(..., min_length=1)
+    ngay: Optional[str] = None
+    mo_ta: Optional[str] = None
+    dong: list[DeXuatDong] = Field(..., min_length=1)
+
+
+@router.post("/api/ncc-de-xuat", status_code=status.HTTP_201_CREATED)
+def tao_de_xuat_ncc(
+    body: DeXuatTaoBody,
+    request: Request,
+    user: Annotated[JWTPayload, Depends(_REQ)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Tạo 1 đề xuất trả NCC (muahang.congno loai='de_xuat_tra', trang_thai='cho_duyet') — đúng khuôn
+    muahang POST /api/congno/de-xuat. Chọn 1 đơn → gắn ref_order_id; nhiều đơn → không gắn (như cách Mua
+    Hàng đang làm), liệt kê đơn + số tiền vào mo_ta. Chặn tổng vượt số còn đề xuất được của NCC."""
+    from datetime import date as _date
+    from decimal import Decimal
+    from muahang.app.models import CongNo, Supplier  # lazy
+    from muahang.app.services import next_congno_id
+    sup = db.get(Supplier, body.ncc_id)
+    if not sup:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy nhà cung cấp")
+    try:
+        ngay = _date.fromisoformat(body.ngay) if body.ngay else _date.today()
+    except ValueError:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Ngày không hợp lệ")
+    tong = sum(Decimal(str(round(d.so_tien))) for d in body.dong)
+    by, _ = _tong_ncc(db, body.ncc_id)
+    toi_da = by[body.ncc_id]["co_the_de_xuat"] if body.ncc_id in by else Decimal("0")
+    if tong > toi_da:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            f"Tổng đề xuất {int(tong):,}đ vượt số còn đề xuất được của {sup.name}: {int(toi_da):,}đ")
+    ds_don = "; ".join(f"{d.ref_order_id or 'Không gắn đơn'}: {int(round(d.so_tien)):,}đ" for d in body.dong)
+    phan = [(body.mo_ta or "").strip(), f"Đơn: {ds_don}" if len(body.dong) > 1 else ""]
+    mo_ta = "\n".join(x for x in phan if x) or None
+    cid = next_congno_id(db)
+    e = CongNo(
+        id=cid, ncc_id=sup.id, ncc_name=sup.name, loai="de_xuat_tra",
+        nguyen_gia=Decimal("0"), so_tien_giam=Decimal("0"), so_tien=tong,
+        thang=ngay.strftime("%Y-%m"), ngay=ngay,
+        ref_order_id=body.dong[0].ref_order_id if len(body.dong) == 1 else None,
+        nv_mua_hang=user.username, mo_ta=mo_ta, nguoi_tao=user.username, trang_thai="cho_duyet",
+    )
+    e.lich_su = [{"action": "gui", "by": user.username,
+                  "time": datetime.now(tz=timezone.utc).isoformat(), "note": None}]
+    db.add(e)
+    db.commit()
+    log_action(db, app="ketoan", action="tao_de_xuat_ncc", user=user, request=request,
+               resource=f"congno:{cid}", payload={"ncc_id": sup.id, "so_tien": str(tong)})
+    return {"id": cid, "ncc": sup.name, "so_tien": float(tong)}
+
+
 @router.get("/api/ncc-de-xuat/{cid}/detail")
 def detail_ncc_de_xuat(
     cid: str,

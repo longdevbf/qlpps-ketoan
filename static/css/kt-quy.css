@@ -1,0 +1,17 @@
+/* kt-quy.css — Quản lý quỹ nội bộ. Tiền tố kt-quy. Chỉ var(--token). */
+/* Cây quỹ: thụt lề theo cấp + nét nhánh */
+.kt-quy-ten { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.kt-quy-cap1 .kt-quy-ten { padding-left: var(--sp-8); }
+.kt-quy-cap2 .kt-quy-ten { padding-left: calc(2 * var(--sp-8)); }
+.kt-quy-cap3 .kt-quy-ten { padding-left: calc(3 * var(--sp-8)); }
+.kt-quy-nhanh { flex: none; width: var(--sp-6); height: var(--sp-5); margin-top: var(--sp-1); border-left: 1px solid var(--border); border-bottom: 1px solid var(--border); border-bottom-left-radius: var(--r-sm); }
+.kt-quy-bang tbody tr:not(.kt-quy-cap0) td { background: var(--bg-page); }
+.kt-quy-bang td .pill + .pill { margin-left: var(--sp-2); }
+.kt-quy-am { font-weight: 700; color: var(--danger); }
+.kt-quy-canh { color: var(--danger); }
+/* Đợt 4: dòng giải thích dưới hàng thẻ đã chuyển vào ⓘ ở cột "Trích tháng" → ẩn khi trống. */
+#kd-kt-quy-nb .kt-pham-vi:empty { display: none; }
+
+/* Hộp lịch sử giao dịch rộng hơn hộp chuẩn */
+.kd-dialog.kt-quy-dlg-rong { width: min(760px, calc(100vw - 2 * var(--sp-8))); max-width: none; }
+.kt-quy-ls-loc { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-5) var(--sp-7); margin-bottom: var(--sp-6); }

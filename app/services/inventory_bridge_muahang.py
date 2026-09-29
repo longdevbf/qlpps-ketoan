@@ -17,6 +17,7 @@ from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import select
+from .ma_san_pham import ma_kieu_cu, ma_moi_cho
 from sqlalchemy.orm import Session
 
 from ..models import (
@@ -51,18 +52,6 @@ def _ensure_default_category(db: Session) -> InvProductCategory:
     return cat
 
 
-def _slugify_ma_sp(name: str, fallback: str) -> str:
-    s = (name or "").strip().upper()
-    out = []
-    for ch in s:
-        if ch.isalnum():
-            out.append(ch)
-        elif ch in (" ", "-", "_"):
-            out.append("-")
-    slug = "".join(out)[:48].strip("-")
-    return slug or fallback
-
-
 def _resolve_or_create_product(
     db: Session,
     *,
@@ -79,14 +68,15 @@ def _resolve_or_create_product(
         ).scalar_one_or_none()
         if p:
             return p
-    # Slug fallback
-    candidate_ma = (ma_sp or _slugify_ma_sp(ten_sp, fallback=f"SP-{int(date_cls.today().toordinal())}"))[:64]
-    # Tránh collision: nếu mã đã có cho ten khác → append suffix
-    p = db.execute(
-        select(InvProduct).where(InvProduct.ma_sp == candidate_ma)
-    ).scalar_one_or_none()
-    if p:
-        return p
+    # Mã tự sinh: không dấu, viết hoa, nối "_" như danh mục chung (28/09/2026) — ưu tiên mã shared.products cùng tên.
+    candidate_ma = (ma_sp or ma_moi_cho(db, ten_sp) or f"SP_{int(date_cls.today().toordinal())}")[:64]
+    # Sản phẩm đã có: theo mã mới, hoặc theo mã tự sinh kiểu cũ (còn dấu, nối "-") nếu chưa chạy chuẩn hoá mã.
+    for ma_tim in {candidate_ma, ma_kieu_cu(ten_sp)} - {""}:
+        p = db.execute(
+            select(InvProduct).where(InvProduct.ma_sp == ma_tim)
+        ).scalar_one_or_none()
+        if p:
+            return p
 
     cat = _ensure_default_category(db)
     p = InvProduct(

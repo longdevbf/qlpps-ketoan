@@ -7,7 +7,9 @@ Sử dụng:
     db.commit()  # caller phải commit; helper chỉ db.add (idempotent với rollback)
 
 Manager (admin/ceo/assistant_ceo/manager) luôn nhận noti cho mọi event
-business-level (theo quyết định 2026-05-07 của anh).
+business-level (theo quyết định 2026-05-07 của anh). NGOẠI LỆ từ 17/09/2026:
+noti LEAD (`_notify_lead_both`) chỉ tới manager có `marketing` hoặc `baogia`
+trong `shared.users.apps` — kế toán (apps={ketoan}) không còn nhận noti đẩy số.
 """
 from __future__ import annotations
 
@@ -15,7 +17,7 @@ import json
 import logging
 from typing import Iterable, Optional
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from shared.models import Notification, User
@@ -26,36 +28,21 @@ MANAGER_ROLES = ("admin", "ceo", "assistant_ceo", "manager")
 
 
 def _uname_to_name(db: Session, val: Optional[str]) -> str:
-    """Resolve username → full_name. Fallback shared.users.full_name >
-    hcns.employees.ho_ten > raw val.
+    """Resolve username → tên hiển thị, uỷ quyền cho `employees.ten_nv`.
 
     Dùng để hiển thị tên người trong noti thay vì mã NV (vd nv26015).
-    Fail-soft: nếu lookup lỗi → trả val gốc để noti không bị mất content.
+    Từ 18/09/2026: bỏ regex `nv\\d{3,}` (bỏ sót username dạng `nv26007_3` —
+    103 lead đang hiện mã) và ưu tiên hcns.employees.ho_ten trước
+    shared.users.full_name như `calendar._tra_ho_ten`. Giá trị đã là tên
+    (legacy) hoặc lookup lỗi → `ten_nv` trả về nguyên `val`, noti không mất nội dung.
     """
     if not val:
         return ""
     v = str(val).strip()
     if not v:
         return ""
-    # Nếu không có pattern nv\d+ → giả sử đã là tên (legacy data)
-    import re as _re
-    if not _re.fullmatch(r"nv\d{3,}", v.lower()):
-        return v
-    try:
-        from sqlalchemy import text as _text
-        row = db.execute(_text(
-            "SELECT full_name FROM shared.users WHERE username = :u LIMIT 1"
-        ), {"u": v}).first()
-        if row and row[0]:
-            return row[0]
-        row = db.execute(_text(
-            "SELECT ho_ten FROM hcns.employees WHERE username = :u LIMIT 1"
-        ), {"u": v}).first()
-        if row and row[0]:
-            return row[0]
-    except Exception as e:
-        log.debug("_uname_to_name lookup failed for %s: %s", v, e)
-    return v
+    from shared.services.employees import ten_nv  # lazy: tránh import vòng khi shared khởi động
+    return ten_nv(db, [v]).get(v, v)
 
 
 def _redis_publish(channel: str, payload: dict) -> None:
@@ -154,13 +141,25 @@ def _webpush_send(db: Session, target_username: str, *, title: str,
         log.debug("webpush dispatch skip: %s", e)
 
 
-def get_managers(db: Session) -> list[str]:
-    """Tất cả admin/ceo/assistant_ceo/manager còn active."""
-    rows = db.execute(
+def get_managers(
+    db: Session, apps: Optional[Iterable[str]] = None
+) -> list[str]:
+    """Tất cả admin/ceo/assistant_ceo/manager còn active.
+
+    apps: nếu truyền (vd ``("marketing", "baogia")``) thì chỉ lấy người có ít
+    nhất một app đó trong ``shared.users.apps``; không truyền → y cũ, mọi
+    manager. Cột apps là ``ARRAY`` generic của SQLAlchemy nên dùng ``.any()``
+    (như ``User.apps.any("saleadmin")`` ở dưới) — ``.overlap()`` không tồn tại.
+    """
+    q = (
         select(User.username)
         .where(User.role.in_(MANAGER_ROLES))
         .where(User.active.is_(True))
-    ).scalars().all()
+    )
+    app_list = [a for a in (apps or ()) if a]
+    if app_list:
+        q = q.where(or_(*[User.apps.any(a) for a in app_list]))
+    rows = db.execute(q).scalars().all()
     return [u for u in rows if u]
 
 
@@ -339,7 +338,9 @@ def _notify_lead_both(
     common_targets = [
         getattr(lead, "mkt_phu_trach", None),
         getattr(lead, "kd_nhan", None),
-        *get_managers(db),
+        # Chỉ manager có app marketing/baogia. Trước 17/09/2026 lấy mọi manager
+        # theo role → kế toán (apps={ketoan}) nhận ~2.400 noti lead/tháng.
+        *get_managers(db, apps=("marketing", "baogia")),
     ]
     bg_exclude = exclude_baogia if exclude_baogia is not None else exclude
     n = 0

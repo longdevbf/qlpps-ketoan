@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Tạm ứng nhân viên (TK 141) — L3 + panel. API thật: app/routers/tam_ung.py
+   GET/POST /api/tam-ung · GET/PUT/DELETE /api/tam-ung/<id> · GET /api/tam-ung/nhan-vien
+   POST /api/tam-ung/quyet-toan · POST /api/tam-ung/quyet-toan/<id>/huy #}
+{% block title %}Tạm ứng{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}{{ ui.css('kt-tam-ung', v='r4a') }}{% endblock %}
+
+{% block content %}
+<main class="kd-page kt-l3-rong" id="kd-kt-tam-ung">
+  {% call ui.dau_trang('Tạm ứng', 'Tạm ứng nhân viên, hoàn ứng và quyết toán') %}
+    {{ ui.nut_loc('tu') }}
+    <button type="button" class="kd-btn kd-btn--primary" id="tu-them"><i class="bi bi-plus-lg" aria-hidden="true"></i>Lập tạm ứng</button>
+  {% endcall %}
+
+  {{ ui.the_so('tu', [('con_lai', 'Chưa quyết toán', '', 'bi-wallet2'), ('qua_han', 'Quá hạn hoàn ứng', 'danger', 'bi-alarm'),
+                       ('so_nv', 'Người đang giữ ứng', 'info', 'bi-people'), ('thang', 'Tạm ứng tháng này', 'warning', 'bi-calendar3')], nhan_vung='Tình hình tạm ứng') }}
+
+  {% call ui.the_bang('tu', 'Danh sách khoản tạm ứng', panel='Chi tiết tạm ứng', phan_trang=False) %}
+    {{ ui.o_tim('tu', 'tim', 'Tìm', 'Nhân viên, số phiếu, nội dung…') }}
+    {# 'tat_ca' thay giá trị rỗng: URL bỏ giá trị rỗng → F5 sẽ quay về mặc định "Còn phải quyết toán". JS đổi 'tat_ca' → '' khi gọi API. #}
+    {{ ui.o_chon('tu', 'trang_thai', 'Trạng thái', [('tat_ca', 'Tất cả'), ('con_no', 'Còn phải quyết toán'), ('qua_han', 'Quá hạn'), ('mot_phan', 'Quyết toán một phần'), ('chua_quyet_toan', 'Chưa quyết toán'), ('da_quyet_toan', 'Đã quyết toán')]) }}
+  {% endcall %}
+</main>
+
+<dialog class="kd-dialog" id="tu-dlg" aria-labelledby="tu-dlg-td">
+  <form method="dialog" novalidate id="tu-form">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="tu-dlg-td">Quyết toán tạm ứng</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <dl class="kt-tq" id="tu-dlg-tt"></dl>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tu-cp">Chi phí thực tế có chứng từ (VND)</label><input class="kd-input num" id="tu-cp" inputmode="numeric" autocomplete="off" placeholder="0"></div>
+        <div class="kd-field kt-o-tk"><label class="kd-field__label" for="tu-tk">TK chi phí</label><input class="kd-input" type="search" id="tu-tk" placeholder="641, 642, 635, 811"></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tu-ngay">Ngày quyết toán</label><input class="kd-input" type="date" id="tu-ngay"></div>
+        <div class="kd-field"><label class="kd-field__label" for="tu-gc">Ghi chú</label><input class="kd-input" id="tu-gc" maxlength="120" autocomplete="off" placeholder="Vd: theo bảng kê số 03"></div>
+      </div>
+      <label class="kt-check" id="tu-het-o"><input type="checkbox" id="tu-het" checked> <span>Kết thúc khoản, xử lý tiền thừa</span></label>
+      <div class="kd-field" id="tu-xl-o">
+        <span class="kd-field__label" id="tu-xl-nhan">Tiền thừa nhân viên hoàn lại bằng</span>
+        <div class="kd-seg" role="group" aria-labelledby="tu-xl-nhan" id="tu-xl">
+          <button type="button" data-xl="thu_tien" aria-pressed="true" id="tu-xl-tien">Nộp lại quỹ</button>
+          <button type="button" data-xl="tru_luong" aria-pressed="false">Trừ vào lương (334)</button>
+        </div>
+      </div>
+      <p class="kd-note" id="tu-ket-luan"></p>
+      <table class="kt-dk"><caption class="visually-hidden">Bút toán sẽ ghi</caption><thead><tr><th scope="col">Tài khoản</th><th scope="col" class="num">Nợ (VND)</th><th scope="col" class="num">Có (VND)</th></tr></thead><tbody id="tu-dk"></tbody></table>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="tu-ok"><i class="bi bi-check2-circle" aria-hidden="true"></i>Ghi sổ quyết toán</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="tu-dlg-ung" aria-labelledby="tu-ung-td">
+  <form method="dialog" novalidate id="tu-form-ung">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="tu-ung-td">Lập phiếu chi tạm ứng</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <div class="kd-field"><label class="kd-field__label" for="tu-u-nv">Nhân viên nhận tạm ứng <span class="kd-field__req" aria-hidden="true">*</span></label><select class="kd-input" id="tu-u-nv" required><option value="">— Chọn nhân viên —</option></select></div>
+      <div class="kd-field"><label class="kd-field__label" for="tu-u-nd">Nội dung tạm ứng <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="tu-u-nd" maxlength="500" autocomplete="off" placeholder="Vd: Tạm ứng công tác phí lắp đặt tại Hải Phòng" required></div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tu-u-tien">Số tiền (VND) <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input num" id="tu-u-tien" inputmode="numeric" autocomplete="off" placeholder="0" required></div>
+        <div class="kd-field"><label class="kd-field__label" for="tu-u-tk">Chi từ tài khoản <span class="kd-field__req" aria-hidden="true">*</span></label><select class="kd-input" id="tu-u-tk" required><option value="">— Chọn tài khoản —</option></select></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tu-u-ngay">Ngày ứng</label><input class="kd-input" type="date" id="tu-u-ngay" required></div>
+        <div class="kd-field"><label class="kd-field__label" for="tu-u-han">Hạn hoàn ứng</label><input class="kd-input" type="date" id="tu-u-han" required></div>
+      </div>
+      <p class="kd-note" id="tu-u-note">Lưu là ghi sổ ngay: phiếu chi + bút toán Nợ 141.</p>
+      <table class="kt-dk"><caption class="visually-hidden">Bút toán sẽ ghi</caption><thead><tr><th scope="col">Tài khoản</th><th scope="col" class="num">Nợ (VND)</th><th scope="col" class="num">Có (VND)</th></tr></thead><tbody id="tu-u-dk"></tbody></table>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="tu-u-ok"><i class="bi bi-check2" aria-hidden="true"></i>Chi và ghi sổ</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="tu-dlg-xoa" role="alertdialog" aria-labelledby="tu-xoa-td" aria-describedby="tu-xoa-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="tu-xoa-td">Xoá khoản tạm ứng?</h2></header>
+    <div class="kd-dialog__body"><p id="tu-xoa-nd"></p><p class="kd-form-err" role="alert" hidden></p></div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Không</button><button type="button" class="kd-btn kd-btn--danger" id="tu-xoa-ok"><i class="bi bi-trash" aria-hidden="true"></i>Xoá</button></footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}{{ ui.js('kt-tam-ung', v='tk0928c') }}{% endblock %}

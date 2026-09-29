@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Doanh thu · Chi phí · Chi phí cố định — 3 tab. Dữ liệu thật:
+     GET /api/doanh-thu?tu_ngay&den_ngay&loai&nv_kinh_doanh&limit&offset  (KHÔNG tách VAT,
+       KHÔNG có số chứng từ/khách hàng — model chỉ là "phiếu thu doanh số")
+     GET /api/chi-phi?tu_ngay&den_ngay&loai_chi_phi&quy&nhom&limit&offset
+     GET /api/co-dinh?tu_thang&den_thang&loai_chi_phi&lap_lai&nhom&limit&offset (danh mục
+       khoản chi lặp — KHÔNG có trạng thái "đã ghi sổ tháng này" như bản thiết kế)
+   Cả 3 đều trả MẢNG PHẲNG, không có "tong" tổng hợp sẵn — kt-thu-chi.js (dot3b) tự gộp KPI
+   ở trình duyệt trên tối đa 2000 dòng/kỳ (giới hạn limit của API thật). #}
+{% block title %}Doanh thu và chi phí{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-thu-chi.css?v=f1a">
+{% endblock %}
+
+{% block content %}
+{% macro tip(t, lop='') -%}
+<button type="button" class="kd-tip{% if lop %} {{ lop }}{% endif %}" data-tip="{{ t }}" aria-label="{{ t }}"><i class="bi bi-info-circle" aria-hidden="true"></i></button>
+{%- endmacro %}
+{% macro sao() -%}<span class="kd-field__req" aria-hidden="true">*</span>{%- endmacro %}
+<main class="kd-page" id="kd-kt-thu-chi">
+  {% call ui.dau_trang('Doanh thu và chi phí', 'Doanh thu, chi phí và chi phí cố định') %}
+    {{ ui.chon_ky('tc') }}
+    {# Nút ghi tay đổi theo tab (kt-thu-chi.js): Ghi nhận doanh thu / Ghi nhận chi phí / Thêm chi phí cố định —
+       cùng API POST của màn cũ /app (doanh thu, chi phí phát sinh, chi phí cố định). Kế toán được tạo mới. #}
+    <button type="button" class="kd-btn kd-btn--primary" id="tc-them"><i class="bi bi-plus-lg" aria-hidden="true"></i><span id="tc-them-nhan">Ghi nhận doanh thu</span></button>
+  {% endcall %}
+
+  <div class="kd-tabs kd-tabs--lon kt-tabs-trang" role="tablist" aria-label="Nội dung" id="tc-tabs">
+    <button type="button" role="tab" id="tc-tab-dt" data-tab="doanh_thu" aria-controls="tc-pane-dt" aria-selected="true">Doanh thu</button>
+    <button type="button" role="tab" id="tc-tab-cp" data-tab="chi_phi" aria-controls="tc-pane-cp" aria-selected="false" tabindex="-1">Chi phí</button>
+    <button type="button" role="tab" id="tc-tab-cd" data-tab="co_dinh" aria-controls="tc-pane-cd" aria-selected="false" tabindex="-1">Chi phí cố định <span class="kd-muted" id="tc-dem-tre"></span></button>
+  </div>
+
+  <div class="kt-tab-pane" role="tabpanel" id="tc-pane-dt" aria-labelledby="tc-tab-dt">
+    {{ ui.the_so('dt', [('tong', 'Tiền thu từ khách', 'success', 'bi-graph-up-arrow'), ('so_dong', 'Số phiếu', 'info', 'bi-receipt'),
+                         ('dat_coc', 'Đặt cọc', '', 'bi-piggy-bank'), ('thanh_toan', 'Thanh toán', 'tim', 'bi-cash-stack')], kieu='strip') }}
+    {% call ui.the_bang('dt', 'Tiền thu từ khách') %}
+      {{ ui.o_tim('dt', 'tim', 'Tìm', 'Mã đơn, nhân viên, tài khoản…') }}
+      {{ ui.o_chon('dt', 'loai', 'Loại doanh thu', [('', 'Tất cả')]) }}
+      {{ ui.o_chon('dt', 'ht', 'Hình thức TT', [('', 'Tất cả'), ('coc', 'Đặt cọc'), ('tt', 'Thanh toán'), ('khac', 'Khác')]) }}
+    {% endcall %}
+
+    <section class="kd-card kt-tc-thang" aria-labelledby="dt-thang-td">
+      <div class="kd-box__head kt-the-dau">
+        <div>
+          <h2 class="kd-box__title" id="dt-thang-td">Doanh thu theo tháng<button type="button" class="kd-tip" data-tip="Toàn bộ lịch sử. Bấm một tháng để xem chi tiết tháng đó ở bảng trên." aria-label="Toàn bộ lịch sử. Bấm một tháng để xem chi tiết tháng đó ở bảng trên."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2>
+          <p class="kd-meta" id="dt-thang-phu"></p>
+        </div>
+      </div>
+      <div class="kt-tc-thang__than">
+        <div class="kt-tc-bieu" id="dt-thang-bieu" aria-hidden="true"></div>
+        <div class="kd-table-scroll kt-tc-thang__bang">
+          <table class="kd-table kd-table--click kt-bang">
+            <caption class="visually-hidden">Tiền thu từ khách theo tháng: số phiếu, đặt cọc, thanh toán, hình thức khác, tổng</caption>
+            <thead><tr><th scope="col">Tháng</th><th scope="col" class="num">Số phiếu</th><th scope="col" class="num">Đặt cọc</th><th scope="col" class="num">Thanh toán</th><th scope="col" class="num">Khác</th><th scope="col" class="num">Tổng (VND)</th></tr></thead>
+            <tbody id="dt-thang-ds"></tbody>
+            <tfoot id="dt-thang-tong"></tfoot>
+          </table>
+        </div>
+      </div>
+      <div id="dt-thang-tt"></div>
+    </section>
+  </div>
+
+  <div class="kt-tab-pane" role="tabpanel" id="tc-pane-cp" aria-labelledby="tc-tab-cp" hidden>
+    {{ ui.the_so('cp', [('tong', 'Tổng chi phí', 'danger', 'bi-wallet2'), ('lon_nhat', 'Loại chi lớn nhất', 'warning', 'bi-bar-chart'),
+                         ('so_dong', 'Số dòng chi phí', '', 'bi-list-ul')], kieu='strip') }}
+    {% call ui.the_bang('cp', 'Chi phí đã ghi sổ') %}
+      {{ ui.o_tim('cp', 'tim', 'Tìm', 'Diễn giải, người chi, mã đơn…') }}
+      {{ ui.o_chon('cp', 'loai', 'Loại chi phí', [('', 'Tất cả')]) }}
+    {% endcall %}
+  </div>
+
+  <div class="kt-tab-pane" role="tabpanel" id="tc-pane-cd" aria-labelledby="tc-tab-cd" hidden>
+    {{ ui.the_so('cd', [('tong', 'Chi cố định tháng', '', 'bi-calendar3'), ('so_khoan', 'Số khoản áp dụng', 'info', 'bi-list-check'),
+                         ('lap_lai', 'Khoản lặp hằng tháng', 'success', 'bi-arrow-repeat'), ('moi', 'Khai báo mới', 'warning', 'bi-plus-square')], kieu='strip', nhan_vung='Chi phí cố định của tháng') }}
+    {% call ui.the_bang('cd', 'Các khoản chi phí cố định', phan_trang=False) %}{% endcall %}
+  </div>
+</main>
+
+{# ── Form ghi tay — đúng API + trường của màn cũ /app (modal-dt · modal-cp · modal-cd). Kế toán (manager/kt) được
+   TẠO MỚI; Sửa/Xoá chỉ CEO (require_ceo_thuchi trong 3 router) nên mục Sửa/Xoá chỉ hiện khi KD.coQuyen('ceo'). ── #}
+<dialog class="kd-dialog kt-tc-dlg" id="tc-dt-dlg" aria-labelledby="tc-dt-td">
+  <form method="dialog" novalidate id="tc-dt-form">
+    <header class="kd-dialog__head">
+      <h2 class="kd-dialog__title"><span id="tc-dt-td">Ghi nhận doanh thu</span>{{ tip('Lưu xong tự ghi phiếu thu vào Sổ quỹ của tài khoản nhận. Có mã đơn thì cộng vào số đã thu của công nợ đơn đó.') }}</h2>
+      <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div class="kd-dialog__body">
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-dt-ngay">Ngày {{ sao() }}</label><input class="kd-input" type="date" id="tc-dt-ngay"></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-dt-loai">Loại doanh thu {{ sao() }}</label><select class="kd-input" id="tc-dt-loai"></select></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-dt-tien">Số tiền (VND) {{ sao() }}</label><input class="kd-input num kt-tc-tien" id="tc-dt-tien" inputmode="numeric" placeholder="0" autocomplete="off"></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-dt-ht">Hình thức thanh toán {{ sao() }}</label><select class="kd-input" id="tc-dt-ht"></select></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-dt-tk">Tài khoản nhận {{ sao() }}</label><select class="kd-input" id="tc-dt-tk"></select></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-dt-nv">NV kinh doanh</label><select class="kd-input" id="tc-dt-nv"></select></div>
+      </div>
+      <div class="kd-field"><label class="kd-field__label" for="tc-dt-ma">Mã đơn</label><input class="kd-input" id="tc-dt-ma" maxlength="64" placeholder="VD: 10221" autocomplete="off"></div>
+      <div class="kd-field"><label class="kd-field__label" for="tc-dt-gc">Ghi chú</label><textarea class="kd-input" id="tc-dt-gc" rows="2" placeholder="Ghi chú thêm…"></textarea></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="submit" class="kd-btn kd-btn--primary" id="tc-dt-luu"><i class="bi bi-check2" aria-hidden="true"></i>Lưu doanh thu</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog kt-tc-dlg" id="tc-cp-dlg" aria-labelledby="tc-cp-td">
+  <form method="dialog" novalidate id="tc-cp-form">
+    <header class="kd-dialog__head">
+      <h2 class="kd-dialog__title"><span id="tc-cp-td">Ghi nhận chi phí</span>{{ tip('Lưu xong tự ghi phiếu chi vào Sổ quỹ của tài khoản chi; bị chặn nếu tài khoản không đủ số dư. Loại "Ứng Lương" được HCNS trừ vào lương của người chi.') }}</h2>
+      <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div class="kd-dialog__body">
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-cp-ngay">Ngày {{ sao() }}</label><input class="kd-input" type="date" id="tc-cp-ngay"></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-cp-tien">Số tiền (VND) {{ sao() }}</label><input class="kd-input num kt-tc-tien" id="tc-cp-tien" inputmode="numeric" placeholder="0" autocomplete="off"></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-cp-nhom">Nhóm chi phí{{ tip('Chỉ để lọc danh sách loại chi phí. Tài khoản hạch toán theo nhóm mặc định của loại đã chọn.') }}</label>
+          <select class="kd-input" id="tc-cp-nhom"><option value="">Tất cả nhóm</option><option value="ban_hang">Bán hàng · TK 641</option><option value="quan_ly">Quản lý DN · TK 642</option><option value="tai_chinh">Tài chính · TK 635</option><option value="khac">Khác · TK 811</option></select></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-cp-loai">Loại chi phí {{ sao() }}</label><select class="kd-input" id="tc-cp-loai"></select><p class="kt-tc-goi-y" id="tc-cp-tk" aria-live="polite"></p></div>
+      </div>
+      <div class="kd-field" id="tc-cp-ky-o" hidden><label class="kd-field__label" for="tc-cp-ky">Kỳ lương bị trừ{{ tip('Tháng lương sẽ trừ khoản ứng này, vd ứng đầu tháng 8 cho lương tháng 7 → chọn tháng 7. Bỏ trống = trừ vào lương của tháng có ngày ghi nhận.') }}</label><input class="kd-input" type="month" id="tc-cp-ky"></div>
+      <div class="kd-field"><label class="kd-field__label" for="tc-cp-ten">Tên khoản chi</label><input class="kd-input" id="tc-cp-ten" maxlength="255" placeholder="VD: Mua văn phòng phẩm tháng 10" autocomplete="off"></div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-cp-tk-chi">Tài khoản chi {{ sao() }}</label><select class="kd-input" id="tc-cp-tk-chi"></select></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-cp-quy">Quỹ sử dụng {{ sao() }}</label><select class="kd-input" id="tc-cp-quy"></select></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-cp-pb">Phòng ban</label><select class="kd-input" id="tc-cp-pb"></select></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-cp-nc">Người chi <span class="kd-field__req" id="tc-cp-nc-sao" aria-hidden="true" hidden>*</span><span id="tc-cp-nc-tip" hidden>{{ tip('Ứng Lương: chọn đúng nhân viên nhận ứng — HCNS trừ lương theo tên người chi.', 'kd-tip--trai') }}</span></label><select class="kd-input" id="tc-cp-nc"></select></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-cp-ma">Mã đơn</label><input class="kd-input" id="tc-cp-ma" maxlength="64" placeholder="VD: 10221" autocomplete="off"></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-cp-vc">Đơn vị vận chuyển</label><input class="kd-input" id="tc-cp-vc" maxlength="128" autocomplete="off"></div>
+      </div>
+      <div class="kd-field"><label class="kd-field__label" for="tc-cp-gc">Ghi chú</label><textarea class="kd-input" id="tc-cp-gc" rows="2" placeholder="Mô tả chi tiết…"></textarea></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="submit" class="kd-btn kd-btn--primary" id="tc-cp-luu"><i class="bi bi-check2" aria-hidden="true"></i>Lưu chi phí</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog kt-tc-dlg" id="tc-cd-dlg" aria-labelledby="tc-cd-td">
+  <form method="dialog" novalidate id="tc-cd-form">
+    <header class="kd-dialog__head">
+      <h2 class="kd-dialog__title"><span id="tc-cd-td">Thêm chi phí cố định</span>{{ tip('Khoản chi lặp như thuê mặt bằng, internet… Báo cáo Kết quả kinh doanh tự phân bổ theo tháng. Không ghi Sổ quỹ — tiền chi thực tế ghi ở tab Chi phí hoặc Sổ quỹ.') }}</h2>
+      <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div class="kd-dialog__body">
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-cd-thang">Tháng bắt đầu {{ sao() }}</label><input class="kd-input" type="month" id="tc-cd-thang"></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-cd-nhom">Nhóm chi phí{{ tip('Dòng chi phí trên báo cáo Kết quả kinh doanh. Danh sách loại chi phí lọc theo nhóm này.', 'kd-tip--trai') }}</label>
+          <select class="kd-input" id="tc-cd-nhom"><option value="ban_hang">Bán hàng · TK 641</option><option value="quan_ly" selected>Quản lý DN · TK 642</option><option value="tai_chinh">Tài chính · TK 635</option><option value="khac">Khác · TK 811</option></select></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-cd-loai">Loại chi phí {{ sao() }}</label><select class="kd-input" id="tc-cd-loai"></select></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-cd-ten">Tên khoản chi</label><input class="kd-input" id="tc-cd-ten" maxlength="255" placeholder="VD: Thuê showroom tháng 10" autocomplete="off"></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-cd-tien"><span id="tc-cd-tien-nhan">Thành tiền (VND)</span> {{ sao() }}</label><input class="kd-input num kt-tc-tien" id="tc-cd-tien" inputmode="numeric" placeholder="0" autocomplete="off"></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-cd-so-thang">Số tháng phân bổ{{ tip('1 = chỉ tháng đó (hoặc mỗi tháng nếu lặp lại). Trả một lần cho nhiều tháng thì nhập số tháng, vd thuê 12 tháng → 12: mỗi tháng ghi 1/12 rồi dừng.', 'kd-tip--trai') }}</label><input class="kd-input num" type="number" id="tc-cd-so-thang" min="1" step="1" value="1"></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-cd-tu">Từ ngày{{ tip('Bỏ trống = ngày 1 của tháng bắt đầu. Dùng khi phân bổ theo số ngày thực tế.') }}</label><input class="kd-input" type="date" id="tc-cd-tu"></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-cd-den">Đến ngày{{ tip('Bỏ trống = không thời hạn. Vd hợp đồng thuê 1 năm → nhập ngày hết hạn.', 'kd-tip--trai') }}</label><input class="kd-input" type="date" id="tc-cd-den"></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-cd-pp">Phương pháp phân bổ{{ tip('Mặc định chia đều theo tháng. Theo % doanh thu: ô Thành tiền nhập tỷ lệ %, vd hoa hồng 5% → 5.') }}</label>
+          <select class="kd-input" id="tc-cd-pp">
+            <option value="duong_thang" selected>Chia đều theo tháng</option>
+            <option value="prorated_by_day">Theo số ngày thực tế</option>
+            <option value="front_loaded">Tháng đầu 50%, còn lại chia đều</option>
+            <option value="seasonal">Theo mùa Tết (T11–T2 chiếm 60%)</option>
+            <option value="by_revenue_pct">Theo % doanh thu tháng</option>
+            <option value="manual">Nhập tay % từng tháng</option>
+          </select></div>
+        <div class="kd-field"><span class="kd-field__label">Lặp lại{{ tip('Bật: tính mỗi tháng từ tháng bắt đầu. Tắt: chỉ tính ở tháng bắt đầu. Khoản phân bổ nhiều tháng luôn dừng sau số tháng đã nhập.', 'kd-tip--trai') }}</span>
+          <label class="kt-check"><input type="checkbox" id="tc-cd-lap" checked> <span>Hằng tháng</span></label></div>
+      </div>
+      <fieldset class="kt-tc-12" id="tc-cd-tc" hidden>
+        <legend class="kd-field__label">Tỷ lệ % từng tháng {{ sao() }}{{ tip('Tháng để trống = 0%. Số tiền tháng = Thành tiền × % / 100.') }}</legend>
+        <div class="kt-tc-12__luoi">{% for m in range(1, 13) %}<label class="kd-field"><span class="kd-field__label">T{{ m }}</span><input class="kd-input num" data-mm="{{ '%02d' % m }}" inputmode="decimal" placeholder="0" autocomplete="off"></label>{% endfor %}</div>
+      </fieldset>
+      <div class="kd-field"><label class="kd-field__label" for="tc-cd-gc">Ghi chú</label><textarea class="kd-input" id="tc-cd-gc" rows="2" placeholder="Ghi chú…"></textarea></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="submit" class="kd-btn kd-btn--primary" id="tc-cd-luu"><i class="bi bi-check2" aria-hidden="true"></i>Lưu khoản cố định</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="tc-xoa-dlg" role="alertdialog" aria-labelledby="tc-xoa-td" aria-describedby="tc-xoa-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="tc-xoa-td">Xoá?</h2></header>
+    <div class="kd-dialog__body"><p id="tc-xoa-nd"></p><p class="kd-form-err" role="alert" hidden></p></div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Không</button><button type="button" class="kd-btn kd-btn--danger" id="tc-xoa-ok"><i class="bi bi-trash" aria-hidden="true"></i>Xoá</button></footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-thu-chi.js?v=tk0928a"></script>
+{% endblock %}

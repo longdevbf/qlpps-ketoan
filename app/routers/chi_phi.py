@@ -23,6 +23,7 @@ from ..models import (
 )
 from ..schemas import ChiPhiCreate, ChiPhiOut, ChiPhiUpdate
 from ..services.journal import post_journal
+from ..services.tai_khoan_tien import tk_tien_cua
 from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
@@ -41,6 +42,15 @@ _CEO_EDIT = Depends(require_ceo_thuchi)  # sửa/xoá chi phí → chỉ CEO
 
 
 VALID_NHOM = {"ban_hang", "quan_ly", "tai_chinh", "khac"}
+
+
+def _bust_pl_cache() -> None:
+    """Xoá cache P&L khi chi phí đổi (PERF-05)."""
+    try:
+        from .bao_cao_pnl import invalidate_pl_cache
+        invalidate_pl_cache()
+    except Exception:
+        pass
 
 
 def _resolve_nhom(db: Session, loai: Optional[str], nhom: Optional[str]) -> str:
@@ -71,7 +81,10 @@ def _nguon_chi_phi(obj) -> str:
         return "Vận chuyển (auto)"
     if getattr(obj, "ref_ads_thang_kenh", None):
         return "Ads (auto)"
-    if getattr(obj, "ref_payroll_thang_pb", None):
+    # 'YYYY-MM' = kỳ lương KT chọn cho khoản Ứng Lương nhập tay (xem create_chi_phi), KHÔNG phải cầu nối
+    # lương tự sinh 'PAYROLL-…' — trước 28/09/2026 bị gắn nhầm nhãn "Lương (auto)".
+    _ref_luong = getattr(obj, "ref_payroll_thang_pb", None) or ""
+    if _ref_luong and not re.match(r"^\d{4}-\d{2}$", _ref_luong):
         return "Lương (auto)"
     if getattr(obj, "ref_phatsinh", None):
         return "Phát sinh (auto)"
@@ -87,7 +100,7 @@ def list_chi_phi(
     loai_chi_phi: Optional[str] = None,
     quy: Optional[str] = None,
     nhom: Optional[str] = Query(None, description="Filter nhom_chi_phi: ban_hang|quan_ly|tai_chinh|khac"),
-    limit: int = 500,
+    limit: int = Query(500, ge=1, le=2000),
     offset: int = 0,
 ):
     stmt = select(ChiPhiPhatSinh).order_by(
@@ -314,7 +327,7 @@ def create_chi_phi(
                 status.HTTP_400_BAD_REQUEST,
                 f"tai_khoan_id={tai_khoan_id} không tồn tại",
             )
-        cash_acc = "111" if (tk.loai or "").strip() == "tien_mat" else "112"
+        cash_acc = tk_tien_cua(tk)
         gd = TaiKhoanNHGiaoDich(
             ngay=obj.ngay, tai_khoan_id=tk.id, loai="chi",
             so_tien=obj.so_tien, doi_tac=obj.nguoi_chi,
@@ -366,12 +379,19 @@ def create_chi_phi(
 
     db.commit()
     db.refresh(obj)
-    # Auto-create SoQuy chi (giữ logic cũ)
-    try:
-        from ..services.so_quy_auto import sync_so_quy_from_chi_phi
-        sync_so_quy_from_chi_phi(db, obj)
-    except Exception:
-        pass
+    # Auto-create SoQuy chi — CHỈ khi chi bằng TIỀN THẬT.
+    # Mua chịu (cong_no_ncc_id): Có 331, CHƯA xuất tiền → KHÔNG ghi sổ quỹ ở đây
+    # (nếu ghi sẽ trừ tiền ngay + trừ lần 2 khi trả NCC → double). Sổ quỹ chỉ lên
+    # khi trả công nợ thật (tra_cong_no). (anh Quang 2026-08-28, LOG-01)
+    if not cong_no_ncc_id:
+        try:
+            from ..services.so_quy_auto import sync_so_quy_from_chi_phi
+            sync_so_quy_from_chi_phi(db, obj)
+        except Exception:
+            import logging
+            logging.getLogger("ketoan.chi_phi").error(
+                "sync_so_quy_from_chi_phi failed for chi_phi %s", obj.id, exc_info=True)
+    _bust_pl_cache()
     log_action(
         db, app="ketoan", action="create_chi_phi", user=user, request=request,
         resource=f"chi_phi:{obj.id}",
@@ -427,14 +447,23 @@ def update_chi_phi(
         setattr(obj, k, v)
     db.commit()
     db.refresh(obj)
-    # Sync SoQuy nếu so_tien / ngay / ngan_hang / mo_ta thay đổi (idempotent
-    # qua (lien_quan, ref_id)). Trước fix này UPDATE chỉ ghi chi_phi mà SoQuy
-    # giữ giá trị cũ → tổng quỹ lệch.
+    # Sync SoQuy — CHỈ khi chi phí này ĐÃ có dòng sổ quỹ (tức chi bằng tiền thật).
+    # Chi phí MUA CHỊU (Có 331) lúc tạo KHÔNG ghi sổ quỹ (LOG-01); nếu ở đây gọi
+    # sync vô điều kiện sẽ TẠO MỚI dòng chi → trừ tiền + trừ lần 2 khi trả NCC.
+    # ChiPhiPhatSinh không có cột cong_no_ncc_id nên nhận diện bằng: đã tồn tại
+    # SoQuy CP-{id} chưa. (L1, anh Quang 2026-08-31)
     try:
         from ..services.so_quy_auto import sync_so_quy_from_chi_phi
-        sync_so_quy_from_chi_phi(db, obj)
+        from ..models import SoQuy as _SoQuy
+        _existed = db.execute(
+            select(_SoQuy.id).where(_SoQuy.lien_quan == "chi_phi", _SoQuy.ref_id == f"CP-{obj.id}")
+        ).first()
+        if _existed:
+            sync_so_quy_from_chi_phi(db, obj)
     except Exception:
-        pass
+        import logging
+        logging.getLogger("ketoan.chi_phi").warning("update sync so_quy failed cp=%s", obj.id, exc_info=True)
+    _bust_pl_cache()
     log_action(
         db, app="ketoan", action="update_chi_phi", user=user, request=request,
         resource=f"chi_phi:{rid}", payload=fields,
@@ -511,6 +540,7 @@ def delete_chi_phi(
     except Exception:
         db.rollback()
 
+    _bust_pl_cache()
     log_action(
         db, app="ketoan", action="delete_chi_phi", user=user, request=request,
         resource=f"chi_phi:{rid}",

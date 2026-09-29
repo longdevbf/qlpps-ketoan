@@ -27,6 +27,7 @@ from ..models import (
     JournalEntry, KhauHaoLog, SoQuy, TaiKhoanNH, TaiKhoanNHGiaoDich,
     TaiSanCoDinh,
 )
+from .tai_khoan_tien import tk_tien_cua
 from .journal import post_journal
 
 
@@ -52,9 +53,7 @@ def _to_dec(x) -> Decimal:
 
 
 def _cash_account(tk: Optional[TaiKhoanNH]) -> str:
-    if tk is None:
-        return "112"
-    return "111" if (tk.loai or "").strip() == "tien_mat" else "112"
+    return tk_tien_cua(tk)
 
 
 def _kh_expense_account(bo_phan: str) -> str:

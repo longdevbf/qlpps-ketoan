@@ -43,4 +43,6 @@ class DoanhThuOut(DoanhThuBase):
     created_by: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    # Phân loại nguồn: nhãn luồng tự động (vd 'Đối chiếu giao hàng') hoặc None = KT tự nhập.
+    nguon_hien: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)

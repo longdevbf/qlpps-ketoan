@@ -1,0 +1,47 @@
+/* kt-thu-chi.css — riêng màn Doanh thu & Chi phí (tiền tố kt-tc). Chỉ var(--token). */
+
+/* Thẻ "Doanh thu theo tháng" (thay khối tổng hợp mọi tháng của màn cũ /app#doanh-thu):
+   biểu đồ thanh ngang bên trái + bảng số bên phải; xếp chồng ở màn hẹp. */
+.kt-tc-thang { margin-top: var(--sp-8); }
+.kt-tc-thang__than { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); padding: 0 var(--sp-8) var(--sp-8); }
+@media (min-width: 1100px) { .kt-tc-thang__than { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.5fr); align-items: start; } }
+.kt-tc-thang__bang { max-height: 360px; overflow: auto; border: 1px solid var(--border); border-radius: var(--r-md, 8px); }
+
+.kt-tc-bieu { display: grid; gap: var(--sp-4); align-content: start; }
+.kt-tc-bieu__hang { display: grid; grid-template-columns: 64px minmax(0, 1fr) 84px; align-items: center; gap: var(--sp-4); padding: 2px 0;
+  background: none; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: 4px; }
+.kt-tc-bieu__hang:hover .kt-tc-bieu__thanh, .kt-tc-bieu__hang.is-chon .kt-tc-bieu__thanh { background: var(--brand); }
+.kt-tc-bieu__hang:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.kt-tc-bieu__nhan { font-size: var(--fs-meta, 12px); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.kt-tc-bieu__ray { display: block; height: 14px; background: var(--bg-page); border-radius: 7px; overflow: hidden; }
+.kt-tc-bieu__thanh { display: block; height: 100%; background: var(--success, var(--success-fg)); border-radius: 7px; min-width: 2px; }
+.kt-tc-bieu__so { font-size: var(--fs-meta, 12px); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.kt-tc-thang tbody tr.is-chon td { background: var(--brand-soft); }
+
+/* Dòng phụ dài (diễn giải đề xuất chi nhiều câu) — tối đa 2 dòng, đủ nội dung ở title. */
+#kd-kt-thu-chi .kt-tc-phu { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 42ch; }
+/* Đợt 4: diễn giải doanh thu xuống tối đa 2 dòng thay vì cắt "…" sau vài chữ. */
+#kd-kt-thu-chi .kt-tc-dg { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-width: 200px; max-width: 42ch; white-space: normal; }
+#kd-kt-thu-chi .kt-khach__ma .bi { font-size: var(--fs-meta); }
+#kd-kt-thu-chi .kd-box__title .kd-tip { vertical-align: middle; }
+
+/* F1 — hộp ghi tay Doanh thu / Chi phí / Chi phí cố định (#tc-dt-dlg, #tc-cp-dlg, #tc-cd-dlg): rộng hơn mặc định 520px
+   cho bố cục 2 cột, chữ và ô nhập to (cùng cỡ hộp "Ghi nhận thu / trả công nợ"). */
+.kt-tc-dlg { width: min(680px, calc(100vw - 2 * var(--sp-8))); }
+.kt-tc-dlg .kd-dialog__title { display: inline-flex; align-items: center; }
+.kt-tc-dlg .kd-row2 { align-items: start; }
+.kt-tc-dlg .kd-field__label { font-size: var(--fs-body); }
+.kt-tc-dlg .kd-input { min-height: 44px; font-size: var(--fs-body-lg); }
+.kt-tc-dlg .kt-tc-tien { font-weight: 600; text-align: right; }
+.kt-tc-dlg .kt-check { min-height: 44px; font-size: var(--fs-body-lg); }
+.kt-tc-dlg .kt-check input { width: 20px; height: 20px; }
+.kt-tc-dlg .kd-dialog__foot .kd-btn { min-height: 44px; padding-inline: var(--sp-8); font-size: var(--fs-body-lg); }
+.kt-tc-goi-y { margin: 0; font-size: var(--fs-meta); color: var(--text-3); }
+.kt-tc-goi-y:empty { display: none; }
+/* Tỷ lệ % 12 tháng (phương pháp "Nhập tay % từng tháng"). */
+.kt-tc-12 { margin: 0; padding: var(--sp-5) var(--sp-6) var(--sp-6); border: 1px dashed var(--border); border-radius: var(--r); }
+.kt-tc-12 legend { padding: 0 var(--sp-3); }
+.kt-tc-12__luoi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-5); }
+@media (min-width: 600px) { .kt-tc-12__luoi { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.kt-tc-12 .kd-input { text-align: right; }

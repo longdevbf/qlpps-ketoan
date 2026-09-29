@@ -1,0 +1,7 @@
+/* kt-de-xuat-ncc.css — riêng màn Đề xuất thanh toán NCC (#kd-kt-de-xuat). */
+#kd-kt-de-xuat .kd-dhead__meta { flex-wrap: wrap; gap: var(--sp-2) var(--sp-8); }
+#kd-kt-de-xuat .kt-ct-bang td, #kd-kt-de-xuat .kt-ct-bang th { vertical-align: middle; }
+#kd-kt-de-xuat .kt-ct-bang th { white-space: nowrap; }
+#kd-kt-de-xuat tr.kt-dx-het td { color: var(--text-3); }
+#kd-kt-de-xuat .kt-ct-o-so .kd-input { min-width: 140px; }
+#kd-kt-de-xuat .kd-side .kt-tq { grid-template-columns: max-content minmax(0, 1fr); }

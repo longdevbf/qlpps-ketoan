@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{# Công nợ nhà cung cấp — Tổng hợp. Đợt 2. Khung chung ở _kt_cong_no.html (đã có sẵn, dùng chung
+   với Công nợ khách hàng — KHÔNG sửa file include này).
+   Dữ liệu thật: GET /api/cong-no/ncc-module (app/routers/cong_no_ncc.py, prefix /api/cong-no) —
+   KHÔNG PHẢI /api/bao-cao/cong-no-ncc như README mục 4.6 đề xuất (endpoint đó chưa tồn tại).
+   kt-cong-no.js (dùng chung với KH) tự chuyển hình dạng dữ liệu thật sang đúng khung màn qua
+   CFG.ncc.chuyen() — xem chú thích đầu file JS đó để biết đầy đủ giới hạn dữ liệu thật. #}
+{% block title %}Công nợ nhà cung cấp{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-cong-no.css?v=popup0928">
+<link rel="stylesheet" href="/static/css/kt-ghi-nhan-tra.css?v=r4a">
+{% endblock %}
+
+{% block content %}
+{% with ben='ncc', h1='Công nợ nhà cung cấp', sub='Số còn phải trả theo từng nhà cung cấp',
+        tim_ph='Tên nhà cung cấp hoặc mã đơn…', api='/api/cong-no/ncc-module', lap='Ghi nhận trả',
+        dt_day='Nhà cung cấp', dt_ngan='NCC', nv_nhan='NV Mua Hàng', hd='hoá đơn mua hàng', thu='trả', da_thu='Đã trả',
+        kpis=[('tong_no', 'Tổng phải trả', '', 'bi-receipt'),
+              ('da_thu', 'Đã trả', '--success', 'bi-box-arrow-up'),
+              ('con_lai', 'Còn phải trả', '--tim', 'bi-cash-stack'),
+              ('qua_han', 'Đã quá hạn', '--danger', 'bi-exclamation-triangle')] %}
+{% include "_kt_cong_no.html" %}
+{% endwith %}
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-ghi-nhan-tra.js?v=r4a"></script>
+<script src="/static/js/kt-cong-no.js?v=tk0928a"></script>
+{% endblock %}

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{# Hợp đồng vay — L4: /ketoan/khoan-vay/phieu (thêm) · ?id=<id> (sửa).
+   API thật: app/routers/khoan_vay.py (prefix /api/khoan-vay) — CHỈ hỗ trợ "đi vay",
+   không có khái niệm "cho vay" ở backend thật (xem đầu static/js/kt-khoan-vay-phieu.js). #}
+{% block title %}Hợp đồng vay{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-chung-tu.css?v=dot4">
+<link rel="stylesheet" href="/static/css/kt-khoan-vay.css?v=g4b">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-khoan-vay-phieu">
+  <nav aria-label="Đường dẫn">
+    <ol class="kd-crumb">
+      <li><a href="/ketoan/khoan-vay"><i class="bi bi-arrow-left" aria-hidden="true"></i>Khoản vay</a></li>
+      <li aria-current="page" id="vp-crumb">Thêm hợp đồng</li>
+    </ol>
+  </nav>
+  <header class="kd-dhead">
+    <div class="kd-dhead__id">
+      <span class="ico-tile ico-tile--lg ico-tile--danger" id="vp-ico" aria-hidden="true"><i class="bi bi-bank"></i></span>
+      <div class="kd-dhead__main">
+        <div class="kd-dhead__title"><h1 class="kd-h1" id="vp-h1">Thêm hợp đồng vay</h1><span id="vp-pill"></span></div>
+        <p class="kd-dhead__code num" id="vp-ma"><span class="kd-skel kd-skel--ngan"></span></p>
+        <p class="kd-dhead__meta" id="vp-meta"></p>
+      </div>
+    </div>
+    <div class="kd-dhead__tools">
+      <div class="kd-seg" role="group" aria-label="Loại hợp đồng" id="vp-loai">
+        <button type="button" data-loai="di_vay" aria-pressed="true">Đi vay</button>
+        <button type="button" data-loai="cho_vay" aria-pressed="false" disabled title="Chưa hỗ trợ cho vay — chỉ theo dõi đi vay (TK 311/341).">Cho vay</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="vp-tt"></div>
+
+  <div class="kd-detail" id="vp-than" hidden>
+    <div class="kt-ct-cot">
+      <section class="kd-card kt-ct-the" aria-labelledby="vp-h-hd">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="vp-h-hd">Thông tin hợp đồng</h2></div>
+        <div class="kt-ct-luoi">
+          <div class="kd-field">
+            <label class="kd-field__label" for="vp-so">Số hợp đồng / mã khoản vay <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input" id="vp-so" maxlength="64" autocomplete="off" placeholder="VD: HĐTD-BIDV-2026-015">
+          </div>
+          <div class="kd-field kt-ct-rong2">
+            <label class="kd-field__label" for="vp-ben" id="vp-ben-nhan">Bên cho vay <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input" id="vp-ben" maxlength="128" autocomplete="off" placeholder="VD: BIDV — CN Đống Đa">
+          </div>
+          <div class="kd-field kt-ct-rong">
+            <label class="kd-field__label" for="vp-md">Mục đích / ghi chú</label>
+            <input class="kd-input" id="vp-md" maxlength="200" autocomplete="off" placeholder="VD: Bổ sung vốn lưu động mùa cao điểm">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="vp-goc">Số tiền gốc (VND) <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input num" id="vp-goc" inputmode="numeric" autocomplete="off" placeholder="0">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="vp-ls">Lãi suất (%/năm) <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input num" id="vp-ls" type="number" min="0" max="100" step="0.01" placeholder="VD: 8,5">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="vp-tsdb">Tài sản đảm bảo</label>
+            <input class="kd-input" id="vp-tsdb" maxlength="150" autocomplete="off" placeholder="Không có thì để trống">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="vp-loai-vay">Hình thức vay <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <select class="kd-input" id="vp-loai-vay"><option value="tin_chap">Tín chấp</option><option value="the_chap">Thế chấp</option><option value="tra_gop_xe">Trả góp xe</option><option value="tra_gop_nha">Trả góp nhà</option><option value="khac">Khác</option></select>
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="vp-ngay">Ngày giải ngân <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input" type="date" id="vp-ngay">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="vp-dh">Ngày đáo hạn <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input" type="date" id="vp-dh" aria-describedby="vp-dh-gy">
+            <p class="kd-meta" id="vp-dh-gy"></p>
+          </div>
+          <div class="kd-field" id="vp-tra-lai-o">
+            <label class="kd-field__label" for="vp-tra-lai">Cách trả nợ</label>
+            <select class="kd-input" id="vp-tra-lai"></select>
+          </div>
+          <div class="kd-field" id="vp-tra-goc-o" hidden>
+            <label class="kd-field__label" for="vp-tra-goc">Trả gốc</label>
+            <select class="kd-input" id="vp-tra-goc"><option>Một lần khi đáo hạn</option><option>Đều hằng tháng</option><option>Đều hằng quý</option></select>
+          </div>
+          <div class="kd-field kt-o-tk">
+            <label class="kd-field__label" for="vp-tk-goc" id="vp-tk-goc-nhan">TK theo dõi khoản vay<button type="button" class="kd-tip" data-tip="Tự chọn theo kỳ hạn: 311 nếu ≤ 12 tháng (ngắn hạn), 341 nếu dài hơn." aria-label="Tự chọn theo kỳ hạn: 311 nếu ≤ 12 tháng (ngắn hạn), 341 nếu dài hơn."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+            <input class="kd-input" id="vp-tk-goc" readonly>
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="vp-tk-tien" id="vp-tk-tien-nhan">TK nhận tiền giải ngân <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <select class="kd-input" id="vp-tk-tien"><option value="">— Chọn tài khoản —</option></select>
+          </div>
+          <label class="kt-check kt-ct-rong" id="vp-ghi-o"><input type="checkbox" id="vp-ghi" checked> Ghi luôn bút toán giải ngân vào sổ (quỹ + kế toán)</label>
+        </div>
+      </section>
+      <section class="kd-card kt-ct-the" aria-labelledby="vp-h-dk">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="vp-h-dk">Định khoản giải ngân</h2><p class="kd-meta" id="vp-dk-gy"></p></div>
+        <div class="kd-table-scroll"><table class="kd-table kt-bang"><caption class="visually-hidden">Định khoản giải ngân</caption>
+          <thead><tr><th scope="col">Tài khoản</th><th scope="col">Nội dung</th><th scope="col" class="num">Nợ (VND)</th><th scope="col" class="num">Có (VND)</th></tr></thead>
+          <tbody id="vp-dk"></tbody></table></div>
+      </section>
+    </div>
+    <aside class="kd-side">
+      <section class="kd-box" aria-labelledby="vp-h-lich">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="vp-h-lich">Lịch trả dự kiến<button type="button" class="kd-tip kd-tip--trai" data-tip="Lãi = dư nợ × lãi suất năm ÷ 12. Số chính xác theo thông báo lãi của ngân hàng." aria-label="Lãi = dư nợ × lãi suất năm ÷ 12. Số chính xác theo thông báo lãi của ngân hàng."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+        <div id="vp-lich"></div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="kd-stickybar" role="group" aria-label="Thao tác với hợp đồng vay" id="vp-thanh" hidden>
+    <a class="kd-btn" href="/ketoan/khoan-vay"><i class="bi bi-arrow-left" aria-hidden="true"></i>Quay lại</a>
+    <span class="kd-stickybar__grow"></span>
+    <p class="kd-form-err" id="vp-loi" role="alert" hidden></p>
+    <button type="button" class="kd-btn kd-btn--primary" id="vp-luu"><i class="bi bi-check2-circle" aria-hidden="true"></i><span id="vp-luu-chu">Lưu hợp đồng</span></button>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-khoan-vay-phieu.js?v=g4"></script>
+{% endblock %}

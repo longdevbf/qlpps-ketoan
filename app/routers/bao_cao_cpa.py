@@ -271,12 +271,22 @@ def bao_cao_cpa_thang(
         WHERE thang_chi_ads = :thang
     """, thang=thang), 2)
 
+    # recalc_luc — lần tính phân bổ gần nhất cho tháng này (NULL nếu chưa
+    # tính lần nào) để FE phân biệt "chưa tính" với "đã tính nhưng = 0".
+    recalc_luc_row = _safe_rows(db, """
+        SELECT MAX(updated_at)
+        FROM ketoan.ads_phan_bo_don
+        WHERE thang_chi_ads = :thang
+    """, thang=thang)
+    recalc_luc = recalc_luc_row[0][0].isoformat() if recalc_luc_row and recalc_luc_row[0][0] else None
+
     out = {
         "thang": thang,
         "ads_total_chi": ads_total_chi,
         "by_nhom": by_nhom,
         "no_match": no_match,
         "tong_phan_bo": tong_phan_bo,
+        "recalc_luc": recalc_luc,
     }
     _cache_set(cache_key, out)
     return out

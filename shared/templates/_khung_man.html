@@ -1,0 +1,79 @@
+{# SINH TỰ ĐỘNG — ĐỪNG sửa file này trong repo.
+   Sửa `claude-kit/core/shared/templates/_khung_man.html` rồi chạy:
+       cd d:\PapaSanIT\claude-kit && python sync.py
+   File này giống hệt nhau ở cả 8 repo. Muốn một app khác đi thì đặt
+   bản riêng trong templates/ của app đó (Jinja đọc templates/ trước). -#}
+{# ═══════════════════════════════════════════════════════════════════════════
+   KHUNG CHUNG của các màn dùng chung `*_core.html` — người duyệt chốt 11/09/2026,
+   mẫu đầu tiên là Chấm công (luật design-system.md mục "Thẻ" + ngoại lệ Header):
+     · nền trang như ảnh mẫu `#EDF4FC` ở cả 8 app;
+     · đường dẫn "Trang chủ › <tên màn>" nằm ở ô tiêu đề của thanh trên cùng —
+       thân trang KHÔNG lặp lại H1 + dòng phụ nữa (giữ một H1 ẩn cho trình đọc màn hình).
+
+   Dùng — đặt NGAY SAU `{% include "_header.html" %}` của màn:
+       {% set ten_man = "Duyệt chi" %}{% include "_khung_man.html" %}
+
+   `cham_cong_core.html` còn giữ bản chép riêng của đúng phần này (lớp `.cc-duong-dan`)
+   — làm trước khi có file này; chuyển sang include là một dòng.
+   ═══════════════════════════════════════════════════════════════════════════ #}
+<style>
+/* NỀN TRANG như ảnh mẫu: #EDF4FC — đúng giá trị --bg-app của theme.css (ADR-012).
+   Khai CỨNG chứ không var(--bg-app): HCNS đè --bg-app thành #f6faf9 (xám ngả lục) trong
+   `_he_mau.html`. `html body` (0,0,2) thắng `body{background:…}` của `_header.html`. */
+html body{background:#EDF4FC}
+@media print{html body{background:var(--bg-card)}}
+
+/* Đường dẫn trên thanh trên cùng. Header nằm NGOÀI lớp bọc của màn nên selector bắt đầu
+   bằng `.appbar`; (0,2,0) đủ thắng `.ab-ptitle{font-size…}` riêng của từng header. */
+.appbar .man-duong-dan{display:flex;align-items:center;gap:var(--sp-3);flex:0 1 auto;min-width:0;
+     padding-left:var(--sp-8);margin-right:var(--sp-8);overflow:hidden;white-space:nowrap;
+     font-size:var(--fs-body);font-weight:500;color:var(--text-3)}
+.appbar .man-duong-dan[hidden]{display:none}
+.appbar .man-duong-dan a{flex:none;color:var(--text-3);text-decoration:none}
+.appbar .man-duong-dan a:hover{color:var(--brand-hover)}
+.appbar .man-duong-dan svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2;
+     stroke-linecap:round;stroke-linejoin:round}
+.appbar .man-duong-dan [aria-current]{min-width:0;overflow:hidden;text-overflow:ellipsis;
+     font-size:var(--fs-h);font-weight:800;color:var(--text-1)}
+@media(max-width:768px){.appbar .man-duong-dan{display:none}}
+</style>
+<script>
+/* Ghi đường dẫn vào ô `.ab-ptitle` có sẵn (hcns · baogia · ketoan); app chưa có ô thì chèn
+   một ô ngay sau nút ☰. Đăng ký SAU listener DOMContentLoaded của `_header.html` (header
+   include trước) nên chạy sau `abInit()` — HCNS tự điền tiêu đề từ <title> trong đó.
+   Thanh có menu ngang (ceo · congnghe · muahang · saleadmin): menu cách khối chuông +
+   avatar dưới 16px thì ẩn đường dẫn — đo ở saleadmin 1180px, 11/09/2026. */
+(function () {
+  var TEN = {{ (ten_man or '')|tojson }};
+  function dat() {
+    var bar = document.querySelector('.appbar');
+    if (!bar || !TEN) return;
+    var o = bar.querySelector('.ab-ptitle');
+    if (!o) {
+      o = document.createElement('div');
+      o.className = 'ab-ptitle';
+      var moc = bar.querySelector('.ab-burger') || bar.querySelector('.ab-logo');
+      if (moc) moc.after(o); else bar.prepend(o);
+    }
+    o.classList.add('man-duong-dan');
+    o.setAttribute('role', 'navigation');
+    o.setAttribute('aria-label', 'Đường dẫn');
+    o.innerHTML = '<a href="/">Trang chủ</a>'
+      + '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg>'
+      + '<span aria-current="page"></span>';
+    o.lastChild.textContent = TEN;
+    function vua() {
+      o.hidden = false;
+      var phai = bar.querySelector('.ab-right'), nav = bar.querySelector('.ab-nav');
+      var tran = bar.scrollWidth > bar.clientWidth + 1;
+      var de = !!(phai && nav && nav.offsetWidth
+        && nav.getBoundingClientRect().right > phai.getBoundingClientRect().left - 16);
+      if (tran || de) o.hidden = true;
+    }
+    vua();
+    window.addEventListener('resize', vua);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', dat);
+  else dat();
+})();
+</script>

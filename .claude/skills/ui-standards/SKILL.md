@@ -10,18 +10,24 @@ description: Chuẩn kỹ thuật UI PAPASAN ERP — design token, màu ngữ ng
 
 Bổ trợ cho `.claude/rules/frontend-ui.md` (10 luật) và
 `.claude/rules/design-system.md` (giới hạn hệ màu). Xung đột → design-system thắng.
-Nguồn sự thật về màu: `HE-MAU-ERP.md` ở gốc repo.
+Nguồn sự thật về màu: `static/css/theme.css` (giá trị + tương phản đã tính, ghi ngay
+trong comment) và ADR-012 trong `QLPPS-UI-DOC/01-ADR.md` — hệ TRẮNG + XANH `--brand`
+`#2563EB`, người duyệt chốt 11/09/2026, cấp cao nhất: bản nào (kể cả design-system)
+lệch hai nguồn này thì hai nguồn này thắng.
 
 ## 1. Design tokens — nguồn duy nhất: `static/css/theme.css`
 
-Gọi `var(--token)`, không hex tự chế. Tóm tắt (chi tiết + tương phản đã đo:
-`design-system.md`):
+Gọi `var(--token)`, không hex tự chế. Tóm tắt (giá trị + tương phản đã tính: comment
+trong `theme.css`; giới hạn dùng: `design-system.md`):
 
 | Việc | Token |
 |---|---|
-| Nút chính / tab chọn / avatar / chip | nền `--brand-soft` + chữ `--brand-hover`, hover `filter:brightness(.95)` |
-| Tiêu đề, chữ nhấn, dải neo mỏng | `--brand` |
-| Nền trang / nền thẻ / viền | `--bg-page` / `--bg-card` / `--border` |
+| Nút chính · avatar | khối đặc: nền `--brand` + chữ trắng `--text-on-brand` (5.17) · hover nền `--brand-hover` · lúc bấm `--brand-active` |
+| Mục/hàng đang chọn · chip · tab dạng khối | nền `--brand-soft` + chữ `--brand-hover` (5.95) · viền 1px (nếu có) `--brand-border` |
+| Chữ nhấn, icon, viền nhấn | `--brand` (5.17 trên thẻ) — trên `--bg-band` chỉ 4.31 ✗, dùng `--brand-hover` |
+| Số ≥24px đậm, icon lớn · thanh biểu đồ | `--brand-bright` · `--brand-graph` — KHÔNG cho chữ nhỏ (3.68 trên thẻ) |
+| Nền | `--bg-app` CHỈ cho `body` · `--bg-card` thẻ/bảng/modal · `--bg-page` mặt lõm trong thẻ · `--bg-band` dải nhấn |
+| Viền | `--border` · kẻ ngang giữa các dòng bảng `--border-soft` |
 | Chữ 3 mức | `--text-1` (tiêu đề, số liệu) · `--text-2` (nội dung) · `--text-3` (chú thích) |
 | Focus | `box-shadow: var(--focus-ring)` — không viền đậm |
 | Bóng | `--shadow-sm/md/lg` — cấm bóng có màu |
@@ -35,10 +41,16 @@ Gọi `var(--token)`, không hex tự chế. Tóm tắt (chi tiết + tương ph
 | Cần chú ý / chờ | `--warning-soft` | `--warning-fg` | "Chờ duyệt" |
 | Thông tin / đang xử lý | `--info-soft` | `--info-fg` | "Đang xử lý" |
 
+Trạng thái KHÔNG nhuộm theo thương hiệu. `--info` cố ý giữ XÁM slate (ADR-012):
+info mà xanh thì pill "Đang xử lý" trông y như mục đang chọn. Badge đặt trên nền
+`--brand-soft`/`--bg-band` dùng chữ `-fg` — bản đặc `--success`/`--warning` trượt
+4.5:1 trên hai nền đó (4.45/4.46 trên soft, 4.18/4.19 trên band).
+
 ### Luật áp màu (quan trọng hơn cả bảng token)
 
-- Tỷ lệ **60-30-10**: ~60% diện tích là nền trung tính, ~30% màu thương hiệu ở
-  vùng nhận diện (header, tiêu đề), ~10% màu nhấn CHỈ cho hành động chính.
+- Tỷ lệ **60-30-10**: ~60% diện tích là nền trắng/ám xanh, ~30% màu thương hiệu
+  ở vùng nhận diện (mục đang chọn `--brand-soft`, chữ nhấn, icon — header vẫn nền
+  trắng, tiêu đề là navy `--text-1`), ~10% khối đặc `--brand` CHỈ cho hành động chính.
 - Số liệu bình thường (doanh thu, chi phí, số đơn…) → `--text-1`. KHÔNG tô màu
   số "cho đẹp". Chỉ tô semantic khi con số **mang phán xét**: LN dương → lục,
   âm → đỏ; delta so kỳ trước → lục/đỏ; quá hạn → warning.
@@ -46,7 +58,8 @@ Gọi `var(--token)`, không hex tự chế. Tóm tắt (chi tiết + tương ph
   tính, chỉ đỏ khi vượt ngân sách).
 - Viền màu trên card (nếu dùng) phải mang MỘT nghĩa nhất quán cho mọi card —
   không dùng làm trang trí ngẫu nhiên.
-- Màu đặc (`--danger`…) chỉ cho nút hành động nguy hiểm.
+- Màu TRẠNG THÁI đặc (`--danger`…) làm nền chỉ cho nút hành động nguy hiểm
+  (khối đặc `--brand` là nút chính — xem mục 1).
 
 ## 3. Thang chữ & khối (theo design-system, KHÔNG nội suy)
 

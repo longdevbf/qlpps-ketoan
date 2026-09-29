@@ -1,0 +1,13 @@
+/* kt-tscd.css — riêng màn Tài sản cố định (/ketoan/tscd). */
+.kt-ts-kh__dau { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--sp-6); }
+.kt-ts-kh__dau .kd-meta { margin-top: var(--sp-2); }
+.kt-ts-kh__thang { min-width: 180px; max-width: 220px; }
+.kt-ts-kh #ts-kh-tt { padding: 0 var(--sp-8) var(--sp-8); }
+/* Đợt 4: dòng giải thích dưới hàng thẻ đã chuyển vào ⓘ → ẩn khi trống để không chừa khoảng. */
+#kd-kt-tscd .kt-pham-vi:empty { display: none; }
+/* Phiếu TSCĐ: cột phụ "Khấu hao dự kiến" hẹp → nhãn tự xuống dòng, số tiền giữ trọn một dòng. */
+#kd-kt-tscd-phieu .kd-side .kt-tq { grid-template-columns: minmax(0, 1fr) auto; }
+#kd-kt-tscd-phieu .kd-side .kt-tq dd { white-space: nowrap; overflow-wrap: normal; }
+@media (max-width: 480px) {
+  .kt-ts-kh__thang { max-width: none; flex: 1 1 100%; }
+}

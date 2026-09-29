@@ -1,0 +1,860 @@
+{# SINH TỰ ĐỘNG — ĐỪNG sửa file này trong repo.
+   Sửa `claude-kit/core/shared/templates/de_xuat_core.html` rồi chạy:
+       cd d:\PapaSanIT\claude-kit && python sync.py
+   File này giống hệt nhau ở cả 8 repo. Muốn một app khác đi thì đặt
+   bản riêng trong templates/ của app đó (Jinja đọc templates/ trước). -#}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="stylesheet" href="/static/css/theme.css?v=xanh1">
+<title>Đề xuất — QLPPS</title>
+<link rel="icon" type="image/png" href="/static/papasan_icon_1024.png">
+<link rel="shortcut icon" href="/static/papasan.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   ĐỀ XUẤT — màn dùng chung cho cả 8 app (bố cục v2, 12/09/2026).
+
+   Theo ảnh mẫu người dùng gửi 12/09/2026: hàng tab 5 LOẠI đề xuất · form 3 phần
+   (Thông tin nhân viên · Thông tin đề xuất · Tài liệu đính kèm) · cột phải là
+   "Quy trình phê duyệt" + "Lưu ý" · dưới cùng là "Danh sách đề xuất" có tab
+   Của tôi / Phòng ban / Tất cả, bộ lọc, bảng và phân trang.
+
+   KHÁC ẢNH MẪU — có chủ ý:
+     · Ảnh vẽ 3 người duyệt cố định. Hệ thật chạy 2 cấp (quản lý phòng → CEO, CEO
+       chỉ vào cuộc khi có ngân sách / liên phòng ban / xin ý kiến CEO), nên khối
+       này gọi `/api/de-xuat/nguoi-duyet` và vẽ ĐÚNG số người sẽ duyệt thật.
+     · Phòng ban + nhân viên chỉ hiện với loại cần (lên chính thức, tăng lương).
+     · Nhân viên thường chỉ chọn được chính mình; quản lý chọn trong phòng mình —
+       theo `/api/de-xuat/nhan-vien`, không phải giới hạn ở giao diện.
+     · Tệp đính kèm gửi SAU khi đề xuất đã tạo (API cần id), nên chọn tệp lúc soạn
+       thì màn tự tải lên ngay sau khi gửi và báo nếu tệp nào hỏng.
+     · Cột "Ngày hiệu lực" lấy từ bảng phụ `shared.de_xuat_chi_tiet` (thêm 12/09,
+       không sửa bảng cũ). Đề xuất tạo trước ngày đó không có mã và ngày hiệu lực —
+       màn hiện "—" chứ không bịa.
+
+   Màu/khoảng cách/cỡ chữ chỉ lấy token `theme.css` (ADR-012). MỌI selector nằm dưới
+   `.dx` — màn này chạy trong 8 khung app, có app nạp Bootstrap / components.css riêng.
+   ═══════════════════════════════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:100vh;color:var(--text-1);
+     -webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+.dx{color:var(--text-2);font-size:var(--fs-body);line-height:var(--lh-body)}
+.dx [hidden]{display:none !important}
+.dx .dx-wrap{max-width:none;margin:0;padding:var(--sp-8) var(--sp-8) 40px}
+@media(min-width:768px){.dx .dx-wrap{padding:var(--sp-8) var(--sp-9) 40px}}
+@media(min-width:1600px){.dx .dx-wrap{padding:var(--sp-9) var(--sp-10) 48px}}
+.dx .dx-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
+     clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.dx svg.dx-ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── Nút ─────────────────────────────────────────────────────────────────── */
+.dx .btn-primary,.dx .btn-ghost,.dx .btn-soft{display:inline-flex;align-items:center;justify-content:center;
+     gap:var(--sp-3);min-height:40px;padding:0 var(--sp-9);border-radius:var(--r);font:inherit;
+     font-size:var(--fs-body);font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
+.dx .btn-primary{background:var(--brand);color:var(--text-on-brand);border:1px solid var(--brand)}
+.dx .btn-primary:hover{background:var(--brand-hover);border-color:var(--brand-hover)}
+.dx .btn-ghost{background:var(--bg-band);color:var(--text-1);border:1px solid var(--bg-band)}
+.dx .btn-ghost:hover{filter:brightness(.97)}
+.dx .btn-soft{background:var(--brand-soft);color:var(--brand-hover);border:1px solid var(--brand-border)}
+.dx .btn-primary:disabled,.dx .btn-ghost:disabled{opacity:.6;cursor:not-allowed}
+.dx .btn-link{display:inline-flex;align-items:center;gap:var(--sp-2);border:0;background:none;padding:0;font:inherit;
+     font-size:var(--fs-meta);font-weight:600;color:var(--brand-hover);cursor:pointer}
+.dx .btn-link:hover{text-decoration:underline}
+.dx .dx-nut-icon{display:inline-grid;place-items:center;flex:none;width:32px;height:32px;border:0;border-radius:var(--r);
+     background:transparent;color:var(--text-2);cursor:pointer}
+.dx .dx-nut-icon:hover{background:var(--bg-page);color:var(--text-1)}
+.dx .btn-primary:focus-visible,.dx .btn-ghost:focus-visible,.dx .btn-soft:focus-visible,.dx .btn-link:focus-visible,
+.dx .dx-tab:focus-visible,.dx .dx-tab-nho:focus-visible,.dx .dx-pg button:focus-visible,.dx .dx-nut-icon:focus-visible,
+.dx input:focus-visible,.dx select:focus-visible,.dx textarea:focus-visible{outline:0;box-shadow:var(--focus-ring)}
+
+/* ── Hàng tab loại đề xuất (thẻ trắng, viền, như ảnh mẫu) ────────────────── */
+.dx .dx-loai-bar{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-8);padding:var(--sp-3);border:1px solid var(--border);
+     border-radius:var(--r-lg);background:var(--bg-card);box-shadow:var(--shadow-sm);overflow-x:auto;scrollbar-width:none}
+.dx .dx-loai-bar::-webkit-scrollbar{display:none}
+.dx .dx-tab{display:inline-flex;align-items:center;gap:var(--sp-4);padding:var(--sp-5) var(--sp-9);border:0;
+     border-radius:var(--r);background:transparent;font:inherit;font-size:var(--fs-body);font-weight:600;
+     color:var(--text-2);cursor:pointer;white-space:nowrap}
+.dx .dx-tab:hover{background:var(--bg-page);color:var(--brand-hover)}
+.dx .dx-tab.is-chon{background:var(--brand);color:var(--text-on-brand)}
+.dx .dx-tab svg.dx-ic{width:16px;height:16px}
+
+/* ── Bố cục: form trái + cột phải ────────────────────────────────────────── */
+.dx .dx-tren{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-8);align-items:start;margin-bottom:var(--sp-8)}
+@media(min-width:1280px){.dx .dx-tren{grid-template-columns:minmax(0,1fr) 340px}}
+@media(min-width:1600px){.dx .dx-tren{grid-template-columns:minmax(0,1fr) 380px}}
+.dx .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);
+     box-shadow:var(--shadow-sm);overflow:hidden;min-width:0}
+.dx .card-header{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-6);
+     padding:var(--sp-8) var(--sp-9) 0}
+.dx .card-header h2{font-size:var(--fs-h);font-weight:700;color:var(--text-1)}
+.dx .card-header p{margin-top:var(--sp-2);font-size:var(--fs-meta);color:var(--text-3)}
+.dx .dx-than{padding:var(--sp-8) var(--sp-9) var(--sp-9)}
+
+.dx .dx-muc{margin-top:var(--sp-9)}
+.dx .dx-muc:first-child{margin-top:0}
+.dx .dx-muc-ten{display:flex;align-items:center;gap:var(--sp-4);margin-bottom:var(--sp-6);
+     font-size:var(--fs-body);font-weight:700;color:var(--text-1)}
+.dx .dx-muc-so{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:var(--r-full);
+     background:var(--brand-soft);color:var(--brand-hover);font-size:var(--fs-eyebrow);font-weight:700}
+
+/* ── Ô nhập ──────────────────────────────────────────────────────────────── */
+.dx .dx-luoi{display:grid;grid-template-columns:minmax(0,1fr);gap:0 var(--sp-8)}
+@media(min-width:900px){.dx .dx-luoi--2{grid-template-columns:repeat(2,minmax(0,1fr))}
+                        .dx .dx-luoi--3{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.dx .truong{margin-bottom:var(--sp-7);min-width:0}
+.dx .truong > label{display:block;margin-bottom:var(--sp-3);font-size:var(--fs-meta);font-weight:600;color:var(--text-2)}
+.dx .truong .bat-buoc{color:var(--danger-fg)}
+.dx .truong input[type=text],.dx .truong input[type=date],.dx .truong input[type=number],
+.dx .truong select,.dx .truong textarea{width:100%;min-width:0;min-height:40px;padding:var(--sp-4) var(--sp-6);
+     border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card);color:var(--text-1);
+     font:inherit;font-size:var(--fs-body);outline:none}
+.dx .truong textarea{min-height:96px;resize:vertical;line-height:var(--lh-body)}
+.dx .truong input:focus,.dx .truong select:focus,.dx .truong textarea:focus{border-color:var(--brand);box-shadow:var(--focus-ring)}
+.dx .truong .dx-dem{display:block;margin-top:var(--sp-2);font-size:var(--fs-meta);color:var(--text-3);text-align:right}
+.dx .truong .dx-goi-y{display:block;margin-top:var(--sp-2);font-size:var(--fs-meta);color:var(--text-3)}
+.dx .dx-tick{display:flex;align-items:center;gap:var(--sp-4);margin-bottom:var(--sp-5);font-size:var(--fs-body);color:var(--text-1)}
+.dx .dx-tick input{width:16px;height:16px;accent-color:var(--brand)}
+
+/* Thẻ thông tin nhân viên đã chọn */
+.dx .dx-nv-the{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--sp-5) var(--sp-7);
+     padding:var(--sp-7) var(--sp-8);border:1px solid var(--brand-border);border-radius:var(--r-md);
+     background:var(--brand-soft);margin-bottom:var(--sp-7)}
+.dx .dx-nv-the .ico-tile{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:var(--r-full);
+     background:var(--brand);color:var(--text-on-brand)}
+.dx .dx-nv-the .ico-tile svg.dx-ic{width:17px;height:17px}
+.dx .dx-nv-ds{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-3) var(--sp-8);min-width:0}
+@media(min-width:640px){.dx .dx-nv-ds{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.dx .dx-nv-ds div{display:flex;gap:var(--sp-4);min-width:0}
+.dx .dx-nv-ds dt{flex:none;color:var(--text-2)}
+.dx .dx-nv-ds dd{min-width:0;font-weight:600;color:var(--text-1);overflow-wrap:anywhere}
+
+/* Vùng kéo thả tệp */
+.dx .dx-tha{display:grid;place-items:center;gap:var(--sp-3);padding:var(--sp-10) var(--sp-8);border:1px dashed var(--border);
+     border-radius:var(--r-md);background:var(--bg-page);text-align:center;color:var(--text-2);cursor:pointer}
+.dx .dx-tha:hover,.dx .dx-tha.is-keo{border-color:var(--brand);background:var(--brand-soft);color:var(--brand-hover)}
+.dx .dx-tha svg.dx-ic{width:26px;height:26px;color:var(--brand)}
+.dx .dx-tha small{font-size:var(--fs-meta);color:var(--text-3)}
+.dx .dx-tep{display:flex;align-items:center;gap:var(--sp-5);min-width:0;margin-top:var(--sp-4);padding:var(--sp-4) var(--sp-6);
+     border:1px solid var(--border);border-radius:var(--r);background:var(--bg-card)}
+.dx .dx-tep-ten{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-1)}
+.dx .dx-tep small{font-size:var(--fs-meta);color:var(--text-3)}
+.dx .dx-chan{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-5);margin-top:var(--sp-9)}
+
+/* ── Cột phải ────────────────────────────────────────────────────────────── */
+.dx .dx-phai{display:flex;flex-direction:column;gap:var(--sp-8);min-width:0}
+.dx .dx-hop-dau{display:flex;align-items:center;gap:var(--sp-5);padding:var(--sp-8) var(--sp-9) 0}
+.dx .dx-hop-dau .ico-tile{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:var(--r-full);
+     background:var(--tile-orange);color:var(--text-on-brand)}
+.dx .dx-hop-dau .ico-tile svg.dx-ic{width:18px;height:18px}
+.dx .dx-hop-dau b{font-size:var(--fs-body);font-weight:700;color:var(--text-1)}
+.dx .dx-quy-trinh{list-style:none;display:flex;flex-direction:column;gap:var(--sp-5);padding:var(--sp-7) var(--sp-9) var(--sp-9)}
+.dx .dx-quy-trinh li{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:var(--sp-5);align-items:center}
+.dx .dx-buoc-so{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:var(--r-full);
+     background:var(--warning-soft);color:var(--warning-fg);font-size:var(--fs-meta);font-weight:700}
+.dx .dx-buoc-ten{min-width:0}
+.dx .dx-buoc-ten b{display:block;font-weight:600;color:var(--text-1);overflow-wrap:anywhere}
+.dx .dx-buoc-ten small{display:block;font-size:var(--fs-meta);color:var(--text-3)}
+.dx .dx-luu-y{background:linear-gradient(180deg, var(--bg-card) 0%, var(--brand-soft) 100%)}
+.dx .dx-luu-y ul{list-style:none;display:flex;flex-direction:column;gap:var(--sp-4);padding:var(--sp-7) var(--sp-9) var(--sp-9)}
+.dx .dx-luu-y li{position:relative;padding-left:var(--sp-7);color:var(--text-2)}
+.dx .dx-luu-y li::before{content:"";position:absolute;left:var(--sp-3);top:9px;width:5px;height:5px;
+     border-radius:var(--r-full);background:var(--brand)}
+
+/* ── Danh sách đề xuất ───────────────────────────────────────────────────── */
+.dx .dx-ds-cong-cu{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-5) var(--sp-8);
+     flex-wrap:wrap;padding:var(--sp-6) var(--sp-9) 0}
+.dx .dx-tabs-nho{display:flex;gap:var(--sp-3)}
+.dx .dx-tab-nho{padding:var(--sp-4) var(--sp-7);border:1px solid var(--border);border-radius:var(--r-full);
+     background:var(--bg-card);font:inherit;font-size:var(--fs-meta);font-weight:600;color:var(--text-2);cursor:pointer}
+.dx .dx-tab-nho:hover{border-color:var(--brand-border);color:var(--brand-hover)}
+.dx .dx-tab-nho.is-chon{background:var(--brand-soft);border-color:var(--brand-border);color:var(--brand-hover)}
+.dx .dx-loc{display:flex;align-items:center;gap:var(--sp-5);flex-wrap:wrap}
+.dx .dx-loc select,.dx .dx-loc input[type=date]{height:36px;min-width:0;padding:0 var(--sp-5);border:1px solid var(--border);
+     border-radius:var(--r);background:var(--bg-card);color:var(--text-1);font:inherit;font-size:var(--fs-meta);cursor:pointer}
+.dx .tbl-wrap{position:relative;overflow-x:auto;padding:var(--sp-6) var(--sp-9) 0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.dx .data-table{width:100%;min-width:0;border-collapse:separate;border-spacing:0;font-size:var(--fs-body)}
+.dx .data-table thead th{padding:var(--sp-5);background:var(--bg-band);color:var(--text-2);font-size:var(--fs-meta);
+     font-weight:600;text-align:left;white-space:nowrap;border:0;box-shadow:none}
+.dx .data-table thead th:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm)}
+.dx .data-table thead th:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
+.dx .data-table tbody td{padding:var(--sp-5);border-bottom:1px solid var(--border-soft);color:var(--text-2);vertical-align:middle}
+.dx .data-table tbody tr{cursor:pointer}
+.dx .data-table tbody tr:last-child td{border-bottom:0}
+.dx .data-table tbody tr:hover td{background:var(--bg-page)}
+.dx .data-table tbody tr:hover > td:first-child{box-shadow:none}
+.dx .data-table tr.empty-row{cursor:default}
+.dx .data-table tr.empty-row td{padding:36px var(--sp-5);text-align:center;color:var(--text-3);border-bottom:0}
+.dx .data-table tr.empty-row:hover td{background:transparent}
+.dx .c-stt{width:36px;color:var(--text-3);font-variant-numeric:tabular-nums}
+.dx .dx-ma{font-weight:600;color:var(--text-1);white-space:nowrap;font-variant-numeric:tabular-nums}
+.dx .dx-loai-chip{display:inline-flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-5);
+     border-radius:var(--r-full);background:var(--bg-band);color:var(--text-2);font-size:var(--fs-meta);
+     font-weight:600;white-space:nowrap}
+.dx .dx-loai-chip svg.dx-ic{width:14px;height:14px}
+.dx .dx-loai-chip--len_chinh_thuc{background:var(--brand-soft);color:var(--brand-hover)}
+.dx .dx-loai-chip--tuyen_dung{background:var(--info-soft);color:var(--info-fg, var(--text-2))}
+.dx .dx-loai-chip--tang_luong{background:var(--success-soft);color:var(--success-fg)}
+.dx .dx-loai-chip--mua_thiet_bi{background:var(--warning-soft);color:var(--warning-fg)}
+.dx .dx-loai-chip--thay_doi_quy_trinh{background:var(--danger-soft);color:var(--danger-fg)}
+.dx .nv-cell{display:flex;align-items:center;gap:var(--sp-4);min-width:0}
+.dx .nv-ava{display:inline-grid;place-items:center;flex:none;width:28px;height:28px;border-radius:var(--r-full);
+     background:var(--brand-soft);color:var(--brand-hover);font-size:var(--fs-eyebrow);font-weight:700}
+.dx .nv-ten{min-width:0;color:var(--text-1);white-space:nowrap}
+.dx .pill{display:inline-flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-5);border-radius:var(--r-full);
+     font-size:var(--fs-meta);font-weight:600;white-space:nowrap}
+.dx .pill::before{content:"";width:6px;height:6px;border-radius:var(--r-full);background:currentColor}
+.dx .pill--warning{background:var(--warning-soft);color:var(--warning-fg)}
+.dx .pill--success{background:var(--success-soft);color:var(--success-fg)}
+.dx .pill--danger{background:var(--danger-soft);color:var(--danger-fg)}
+.dx .pill--neutral{background:var(--bg-band);color:var(--text-3)}
+.dx .pill--brand{background:var(--brand-soft);color:var(--brand-hover)}
+.dx .dx-pg{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-5) var(--sp-7);flex-wrap:wrap;
+     padding:var(--sp-6) var(--sp-9) var(--sp-7)}
+.dx .dx-pg-chu{font-size:var(--fs-meta);color:var(--text-3)}
+.dx .dx-pg-nut{display:flex;align-items:center;gap:var(--sp-3)}
+.dx .dx-pg button{min-width:32px;height:32px;padding:0 var(--sp-4);border:1px solid var(--border);border-radius:var(--r-sm);
+     background:var(--bg-card);color:var(--text-2);font:inherit;font-size:var(--fs-meta);font-weight:600;cursor:pointer}
+.dx .dx-pg button:hover:not(:disabled){border-color:var(--brand-border);color:var(--brand-hover)}
+.dx .dx-pg button.is-chon{background:var(--brand);border-color:var(--brand);color:var(--text-on-brand)}
+.dx .dx-pg button:disabled{opacity:.45;cursor:default}
+.dx .dx-pg select{height:32px;padding:0 var(--sp-4);border:1px solid var(--border);border-radius:var(--r-sm);
+     background:var(--bg-card);color:var(--text-2);font:inherit;font-size:var(--fs-meta);cursor:pointer}
+@container (max-width:1000px){.dx .dx-bang .c-stt{display:none}}
+@container (max-width:880px){.dx .dx-bang .c-pb{display:none}}
+@container (max-width:720px){.dx .dx-bang .c-hl{display:none}}
+.dx .dx-bang{container-type:inline-size}
+
+/* ── Hộp chi tiết ────────────────────────────────────────────────────────── */
+.dx .modal{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:var(--sp-8);
+     background:rgba(15,23,42,.45)}
+.dx .modal-box{width:min(680px,100%);max-height:calc(100vh - 64px);display:flex;flex-direction:column;
+     background:var(--bg-card);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);overflow:hidden}
+.dx .modal-header{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-6);
+     padding:var(--sp-8) var(--sp-9);border-bottom:1px solid var(--border-soft)}
+.dx .modal-header h2{font-size:var(--fs-title);font-weight:700;color:var(--text-1);min-width:0;overflow-wrap:anywhere}
+.dx .modal-than{flex:1;overflow-y:auto;padding:var(--sp-8) var(--sp-9)}
+.dx .modal-chan{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-5);
+     padding:var(--sp-7) var(--sp-9);border-top:1px solid var(--border-soft)}
+.dx .dx-ct{display:grid;grid-template-columns:150px minmax(0,1fr);gap:var(--sp-5) var(--sp-6)}
+.dx .dx-ct dt{font-size:var(--fs-meta);color:var(--text-3)}
+.dx .dx-ct dd{min-width:0;color:var(--text-1);overflow-wrap:anywhere;white-space:pre-wrap}
+.dx .dx-ls{list-style:none;display:flex;flex-direction:column;gap:var(--sp-5);margin-top:var(--sp-6)}
+.dx .dx-ls li{padding:var(--sp-5) var(--sp-6);border:1px solid var(--border-soft);border-radius:var(--r)}
+.dx .dx-ls b{display:block;color:var(--text-1)}
+.dx .dx-ls small{display:block;font-size:var(--fs-meta);color:var(--text-3)}
+
+/* ── Toast ───────────────────────────────────────────────────────────────── */
+.dx .toast-wrap{position:fixed;right:24px;bottom:24px;z-index:9999;display:flex;flex-direction:column;gap:var(--sp-4);pointer-events:none}
+.dx .toast{max-width:340px;padding:var(--sp-6) var(--sp-9);border-radius:var(--r);font-size:var(--fs-body);font-weight:600;
+     color:var(--text-on-brand);box-shadow:var(--shadow-lg);opacity:0;transform:translateY(12px);transition:all .25s}
+.dx .toast.show{opacity:1;transform:none}
+.dx .toast.error{background:var(--danger)}
+.dx .toast.info{background:var(--brand)}
+.dx .toast.ok{background:var(--success)}
+
+@media(max-width:767px){
+  .dx .dx-wrap{padding:var(--sp-7) var(--sp-7) 32px}
+  .dx .dx-than{padding:var(--sp-7)}
+  .dx .tbl-wrap{padding:var(--sp-5) var(--sp-6) 0}
+  .dx .dx-ct{grid-template-columns:112px minmax(0,1fr)}
+  .dx .toast-wrap{left:8px;right:8px;bottom:12px}
+}
+@media(prefers-reduced-motion:reduce){.dx *{transition:none}}
+</style>
+</head>
+<body>
+{% include "_header.html" %}
+{% set ten_man = "Đề xuất" %}{% include "_khung_man.html" %}
+
+{%- set _dx_role = ((user.role if user else '') or '')|lower -%}
+<div class="dx">
+<div class="dx-wrap">
+  <h1 class="dx-sr">Đề xuất</h1>
+
+  <!-- Tab loại đề xuất -->
+  <div class="dx-loai-bar" role="tablist" aria-label="Loại đề xuất" id="dx-loai-bar"></div>
+
+  <div class="dx-tren">
+    <!-- Form tạo -->
+    <section class="card" aria-labelledby="dx-form-ten">
+      <div class="card-header">
+        <div><h2 id="dx-form-ten">Tạo đề xuất</h2><p id="dx-form-phu">Chọn loại đề xuất ở trên để bắt đầu</p></div>
+      </div>
+      <form class="dx-than" id="dx-form" onsubmit="return dxGui(event)">
+        <!-- 1. Thông tin nhân viên (chỉ loại cần) -->
+        <div class="dx-muc" id="dx-muc-nv" hidden>
+          <div class="dx-muc-ten"><span class="dx-muc-so">1</span> Thông tin nhân viên</div>
+          <div class="dx-luoi dx-luoi--2">
+            <div class="truong">
+              <label for="dx-pb">Phòng ban <span class="bat-buoc">*</span></label>
+              <select id="dx-pb" onchange="dxDoiPhongBan()"><option value="">— Chọn phòng ban —</option></select>
+            </div>
+            <div class="truong">
+              <label for="dx-nv">Nhân viên <span class="bat-buoc">*</span></label>
+              <select id="dx-nv" onchange="dxChonNhanVien()"><option value="">— Chọn nhân viên —</option></select>
+            </div>
+          </div>
+          <div class="dx-nv-the" id="dx-nv-the" hidden>
+            <span class="ico-tile"><svg class="dx-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></span>
+            <dl class="dx-nv-ds" id="dx-nv-ds"></dl>
+          </div>
+        </div>
+
+        <!-- 2. Thông tin đề xuất -->
+        <div class="dx-muc">
+          <div class="dx-muc-ten"><span class="dx-muc-so" id="dx-so-2">2</span> Thông tin đề xuất</div>
+
+          <div class="truong" id="dx-o-tieu-de">
+            <label for="dx-tieu-de">Tiêu đề đề xuất <span class="bat-buoc">*</span></label>
+            <input type="text" id="dx-tieu-de" maxlength="200" placeholder="VD: Đề nghị mua 2 màn hình cho phòng thiết kế">
+          </div>
+
+          <div class="dx-luoi dx-luoi--3">
+            <div class="truong" id="dx-o-ktv" hidden>
+              <label for="dx-ktv">Ngày kết thúc thử việc <span class="bat-buoc">*</span></label>
+              <input type="date" id="dx-ktv">
+            </div>
+            <div class="truong">
+              <label for="dx-ngay-dx">Ngày đề xuất <span class="bat-buoc">*</span></label>
+              <input type="date" id="dx-ngay-dx">
+            </div>
+            <div class="truong" id="dx-o-hl">
+              <label for="dx-hl" id="dx-hl-nhan">Ngày hiệu lực dự kiến <span class="bat-buoc">*</span></label>
+              <input type="date" id="dx-hl">
+            </div>
+          </div>
+
+          <div class="truong">
+            <label for="dx-ly-do" id="dx-ly-do-nhan">Lý do đề xuất <span class="bat-buoc">*</span></label>
+            <textarea id="dx-ly-do" maxlength="1000" oninput="dxDem()"
+                      placeholder="Nêu rõ lý do và căn cứ để người duyệt quyết định được ngay"></textarea>
+            <span class="dx-dem" id="dx-dem">0/1000</span>
+          </div>
+
+          <div class="truong">
+            <label for="dx-kq">Kết quả kỳ vọng <span class="bat-buoc">*</span></label>
+            <input type="text" id="dx-kq" maxlength="255" placeholder="Duyệt xong thì đạt được gì">
+          </div>
+
+          <div class="dx-luoi dx-luoi--2">
+            <div class="truong" id="dx-o-ngan-sach">
+              <label for="dx-ngan-sach">Ngân sách dự kiến (đ)</label>
+              <input type="number" id="dx-ngan-sach" min="0" step="1000" placeholder="Bỏ trống nếu không tốn tiền">
+              <span class="dx-goi-y">Có ngân sách thì đề xuất sẽ đi thêm một cấp lên Giám đốc.</span>
+            </div>
+            <div class="truong">
+              <label>Cấp duyệt thêm</label>
+              <label class="dx-tick"><input type="checkbox" id="dx-lien-pb" onchange="dxTaiNguoiDuyet()"> Liên quan nhiều phòng ban</label>
+              <label class="dx-tick"><input type="checkbox" id="dx-xin-ceo" onchange="dxTaiNguoiDuyet()"> Xin ý kiến Giám đốc</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Tài liệu đính kèm -->
+        <div class="dx-muc">
+          <div class="dx-muc-ten"><span class="dx-muc-so" id="dx-so-3">3</span> Tài liệu đính kèm (nếu có)</div>
+          <div class="dx-tha" id="dx-tha" tabindex="0" role="button"
+               onclick="document.getElementById('dx-file').click()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('dx-file').click()}">
+            <svg class="dx-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg>
+            <span>Kéo thả file hoặc <b>chọn file</b></span>
+            <small>Hỗ trợ: PDF, DOC, DOCX, XLS, JPG, PNG (tối đa 10MB mỗi tệp)</small>
+          </div>
+          <input type="file" id="dx-file" multiple hidden
+                 accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onchange="dxChonTep(this)">
+          <div id="dx-tep-ds"></div>
+        </div>
+
+        <div class="dx-chan">
+          <button type="button" class="btn-ghost" onclick="dxXoaForm()">Huỷ</button>
+          <button type="submit" class="btn-primary" id="dx-nut-gui">
+            <svg class="dx-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m22 2-7 20-4-9-9-4 20-7z"/></svg>Gửi đề xuất</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Cột phải -->
+    <aside class="dx-phai">
+      <section class="card" aria-labelledby="dx-qt-ten">
+        <div class="dx-hop-dau">
+          <span class="ico-tile"><svg class="dx-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m20 6-11 11-5-5"/></svg></span>
+          <b id="dx-qt-ten">Quy trình phê duyệt</b>
+        </div>
+        <ol class="dx-quy-trinh" id="dx-quy-trinh"><li><span class="dx-buoc-so">–</span>
+          <span class="dx-buoc-ten"><b>Chọn phòng ban để xem</b><small>Người duyệt hiện theo phòng của đề xuất</small></span><span></span></li></ol>
+      </section>
+
+      <section class="card dx-luu-y" aria-label="Lưu ý">
+        <div class="dx-hop-dau">
+          <span class="ico-tile" style="background:var(--tile-blue)"><svg class="dx-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></span>
+          <b>Lưu ý</b>
+        </div>
+        <ul id="dx-luu-y"></ul>
+      </section>
+    </aside>
+  </div>
+
+  <!-- Danh sách -->
+  <section class="card dx-bang" aria-labelledby="dx-ds-ten">
+    <div class="card-header"><h2 id="dx-ds-ten">Danh sách đề xuất</h2></div>
+    <div class="dx-ds-cong-cu">
+      <div class="dx-tabs-nho" role="tablist" aria-label="Phạm vi">
+        <button type="button" class="dx-tab-nho is-chon" data-pv="toi" onclick="dxChonPhamVi('toi')">Của tôi</button>
+        <button type="button" class="dx-tab-nho" data-pv="phong_ban" id="dx-pv-pb" hidden onclick="dxChonPhamVi('phong_ban')">Phòng ban</button>
+        <button type="button" class="dx-tab-nho" data-pv="tat_ca" id="dx-pv-all" hidden onclick="dxChonPhamVi('tat_ca')">Tất cả</button>
+      </div>
+      <div class="dx-loc">
+        <select id="dx-l-loai" aria-label="Loại đề xuất" onchange="dxTaiDs(1)"><option value="">Tất cả loại đề xuất</option></select>
+        <select id="dx-l-tt" aria-label="Trạng thái" onchange="dxTaiDs(1)">
+          <option value="">Tất cả trạng thái</option>
+          <option value="cho_duyet">Chờ duyệt</option>
+          <option value="da_duyet">Đã duyệt</option>
+          <option value="tu_choi">Từ chối</option>
+          <option value="huy">Đã huỷ</option>
+        </select>
+        <input type="date" id="dx-l-tu" aria-label="Từ ngày" onchange="dxTaiDs(1)">
+        <input type="date" id="dx-l-den" aria-label="Đến ngày" onchange="dxTaiDs(1)">
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="data-table">
+        <thead><tr>
+          <th class="c-stt">#</th>
+          <th>Mã đề xuất</th>
+          <th>Loại đề xuất</th>
+          <th>Nhân viên</th>
+          <th class="c-pb">Phòng ban</th>
+          <th>Ngày đề xuất</th>
+          <th class="c-hl">Ngày hiệu lực</th>
+          <th>Trạng thái</th>
+          <th>Thao tác</th>
+        </tr></thead>
+        <tbody id="dx-ds-than"><tr class="empty-row"><td colspan="9">Đang tải...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="dx-pg">
+      <span class="dx-pg-chu" id="dx-pg-chu">—</span>
+      <div class="dx-pg-nut" id="dx-pg-nut"></div>
+      <span class="dx-pg-chu">Hiển thị
+        <select id="dx-pg-co" onchange="dxTaiDs(1)"><option>5</option><option selected>10</option><option>20</option><option>50</option></select>
+        dòng/trang</span>
+    </div>
+  </section>
+</div>
+
+<!-- Hộp chi tiết -->
+<div class="modal" id="dx-modal" hidden role="dialog" aria-modal="true" aria-labelledby="dx-m-ten">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="dx-m-ten">Chi tiết đề xuất</h2>
+      <button type="button" class="dx-nut-icon" onclick="dxDongModal()" aria-label="Đóng">
+        <svg class="dx-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m18 6-12 12M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-than" id="dx-m-than"></div>
+    <div class="modal-chan" id="dx-m-chan"></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="dx-toast"></div>
+</div>
+
+<script>
+const DX_ME = {{ (user.username if user else '')|tojson }};
+const DX_ROLE = {{ _dx_role|tojson }};
+const DX_SUPER = ['admin', 'ceo', 'assistant_ceo'].indexOf(DX_ROLE) >= 0;
+const DX_QUAN_LY = DX_SUPER || ['manager', 'leader'].indexOf(DX_ROLE) >= 0;
+
+/* Cấu hình từng loại: tiêu đề form, phần nào hiện, nhãn nào đổi. Thêm loại mới chỉ cần
+   thêm một dòng ở đây + một dòng nhãn ở router (`_LOAI_LABELS`). */
+const _DX_LOAI = {
+  len_chinh_thuc: {
+    ten: 'Tạo đề xuất lên chính thức', phu: 'Đề xuất ký HĐLĐ chính thức cho nhân viên sau thời gian thử việc',
+    can_nv: true, co_ktv: true, nhan_hl: 'Ngày lên chính thức dự kiến', nhan_ly_do: 'Lý do đề xuất',
+    co_ngan_sach: false, tieu_de_mau: 'Đề nghị lên chính thức cho {nv}', bieu_tuong: 'nguoi',
+  },
+  tuyen_dung: {
+    ten: 'Tạo đề xuất tuyển dụng', phu: 'Đề nghị bổ sung nhân sự cho phòng ban',
+    can_nv: false, co_ktv: false, nhan_hl: 'Thời điểm cần người', nhan_ly_do: 'Mô tả nhu cầu tuyển dụng',
+    co_ngan_sach: true, bieu_tuong: 'nguoi-them',
+  },
+  tang_luong: {
+    ten: 'Tạo đề xuất tăng lương', phu: 'Đề nghị điều chỉnh lương cho nhân viên',
+    can_nv: true, co_ktv: false, nhan_hl: 'Ngày áp dụng dự kiến', nhan_ly_do: 'Lý do đề nghị tăng lương',
+    co_ngan_sach: true, tieu_de_mau: 'Đề nghị tăng lương cho {nv}', bieu_tuong: 'tien',
+  },
+  mua_thiet_bi: {
+    ten: 'Tạo đề xuất mua thiết bị', phu: 'Đề nghị mua sắm thiết bị, công cụ phục vụ công việc',
+    can_nv: false, co_ktv: false, nhan_hl: 'Thời điểm cần có', nhan_ly_do: 'Mô tả thiết bị và lý do cần',
+    co_ngan_sach: true, bieu_tuong: 'hop',
+  },
+  thay_doi_quy_trinh: {
+    ten: 'Tạo đề xuất thay đổi quy trình', phu: 'Đề nghị sửa cách làm việc đang áp dụng',
+    can_nv: false, co_ktv: false, nhan_hl: 'Thời điểm mong muốn áp dụng', nhan_ly_do: 'Quy trình hiện tại và đề nghị sửa',
+    co_ngan_sach: true, bieu_tuong: 'quy-trinh',
+  },
+};
+const _DX_TT = {
+  cho_duyet: ['warning', 'Đang phê duyệt'], da_duyet: ['success', 'Đã duyệt'],
+  tu_choi: ['danger', 'Từ chối'], huy: ['neutral', 'Đã huỷ'],
+};
+const _DX_SVG = {
+  'nguoi': '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a7 7 0 0 1 14 0v1"/>',
+  'nguoi-them': '<circle cx="9" cy="8" r="4"/><path d="M2 21v-1a7 7 0 0 1 12-5"/><path d="M17 11v6M14 14h6"/>',
+  'tien': '<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.8 1.8 0 0 1 0 3.6h-3a1.8 1.8 0 0 0 0 3.6h4"/>',
+  'hop': '<path d="M3 7h18v12H3z"/><path d="M3 7 6 3h12l3 4M12 7v12"/>',
+  'quy-trinh': '<path d="M4 6h6M4 12h10M4 18h6"/><path d="m16 9 3 3-3 3"/>',
+};
+const _dx = { loai: 'len_chinh_thuc', pv: 'toi', trang: 1, tep: [], nv: null, nguoiDuyet: [], dangGui: false };
+
+function _dxE(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function _dxNgay(v) { if (!v) return ''; const s = String(v).slice(0, 10).split('-'); return s.length === 3 ? `${s[2]}/${s[1]}/${s[0]}` : String(v); }
+function _dxISO(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function _dxTien(v) { const n = Number(v); return isFinite(n) && n ? n.toLocaleString('vi-VN') + ' đ' : ''; }
+function _dxChuDau(t) {
+  const tu = String(t || '').replace(/\(.*?\)/g, ' ').split(/\s+/).filter(x => /[^\W\d_]/u.test(x));
+  return (tu.slice(-2).map(x => x[0]).join('') || '?').toUpperCase();
+}
+function _dxPill(tt) { const [ho, nhan] = _DX_TT[tt] || ['neutral', tt || '—']; return `<span class="pill pill--${ho}">${_dxE(nhan)}</span>`; }
+function _dxSvg(k) { return `<svg class="dx-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${_DX_SVG[k] || _DX_SVG['quy-trinh']}</svg>`; }
+function _dxToast(chu, kieu) {
+  const w = document.getElementById('dx-toast'), el = document.createElement('div');
+  el.className = 'toast ' + (kieu || 'info'); el.textContent = chu; w.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3800);
+}
+async function _dxApi(url, opts) {
+  const o = Object.assign({ credentials: 'same-origin' }, opts || {});
+  if (o.body && !(o.body instanceof FormData)) o.headers = Object.assign({ 'Content-Type': 'application/json' }, o.headers || {});
+  const r = await fetch(url, o);
+  const chu = await r.text();
+  let d = null; try { d = chu ? JSON.parse(chu) : null; } catch (e) { d = null; }
+  if (!r.ok) { const e = new Error((d && (d.error || d.detail)) || `HTTP ${r.status}`); e.status = r.status; throw e; }
+  return d;
+}
+
+/* ── Tab loại ────────────────────────────────────────────────────────────── */
+function dxVeTabs() {
+  document.getElementById('dx-loai-bar').innerHTML = Object.entries(_DX_LOAI).map(([k, c]) =>
+    `<button type="button" role="tab" class="dx-tab${_dx.loai === k ? ' is-chon' : ''}" aria-selected="${_dx.loai === k}"
+       onclick="dxChonLoai('${k}')">${_dxSvg(c.bieu_tuong)}${_dxE(c.ten.replace('Tạo đề xuất ', '').replace(/^./, m => m.toUpperCase()))}</button>`).join('');
+}
+function dxChonLoai(k) {
+  _dx.loai = k; const c = _DX_LOAI[k];
+  dxVeTabs();
+  document.getElementById('dx-form-ten').textContent = c.ten;
+  document.getElementById('dx-form-phu').textContent = c.phu;
+  document.getElementById('dx-muc-nv').hidden = !c.can_nv;
+  document.getElementById('dx-so-2').textContent = c.can_nv ? '2' : '1';
+  document.getElementById('dx-so-3').textContent = c.can_nv ? '3' : '2';
+  document.getElementById('dx-o-ktv').hidden = !c.co_ktv;
+  document.getElementById('dx-o-ngan-sach').hidden = !c.co_ngan_sach;
+  document.getElementById('dx-hl-nhan').innerHTML = _dxE(c.nhan_hl) + ' <span class="bat-buoc">*</span>';
+  document.getElementById('dx-ly-do-nhan').innerHTML = _dxE(c.nhan_ly_do) + ' <span class="bat-buoc">*</span>';
+  document.getElementById('dx-o-tieu-de').hidden = false;
+  dxVeLuuY(); dxTaiNguoiDuyet();
+}
+function dxVeLuuY() {
+  const c = _DX_LOAI[_dx.loai], ds = [];
+  if (c.can_nv) ds.push('Chỉ đề xuất khi nhân viên đã hoàn thành thời gian thử việc.');
+  ds.push('Đính kèm tài liệu chứng minh nếu có — người duyệt quyết định nhanh hơn.');
+  ds.push('Có ngân sách, liên quan nhiều phòng ban hoặc xin ý kiến Giám đốc thì đề xuất đi thêm một cấp.');
+  ds.push('Duyệt xong hệ thống tự tạo một việc trong Giao việc để theo tới lúc hoàn thành.');
+  ds.push('Người gửi nhận thông báo ngay khi có kết quả.');
+  document.getElementById('dx-luu-y').innerHTML = ds.map(x => `<li>${_dxE(x)}</li>`).join('');
+}
+
+/* ── Nguồn cho form ──────────────────────────────────────────────────────── */
+async function dxTaiPhongBan() {
+  try {
+    const ds = await _dxApi('/api/de-xuat/phong-ban');
+    const sel = document.getElementById('dx-pb');
+    sel.innerHTML = '<option value="">— Chọn phòng ban —</option>' +
+      (ds || []).map(p => `<option value="${_dxE(p.ten)}">${_dxE(p.ten)} (${p.so_nv})</option>`).join('');
+  } catch (e) { /* không có schema hcns → để trống, người dùng vẫn gửi được loại không cần NV */ }
+}
+async function dxDoiPhongBan() {
+  const pb = document.getElementById('dx-pb').value, sel = document.getElementById('dx-nv');
+  _dx.nv = null; document.getElementById('dx-nv-the').hidden = true;
+  sel.innerHTML = '<option value="">— Chọn nhân viên —</option>';
+  if (pb) {
+    try {
+      const ds = await _dxApi('/api/de-xuat/nhan-vien?phong_ban=' + encodeURIComponent(pb));
+      _dx.dsNv = ds || [];
+      sel.innerHTML += (ds || []).map(n =>
+        `<option value="${_dxE(n.username || '')}">${_dxE(n.ho_ten || n.username)}${n.ma_nv ? ' - ' + _dxE(n.ma_nv) : ''}</option>`).join('');
+      if (!(ds || []).length) _dxToast('Phòng này chưa có nhân viên nào bạn được chọn', 'info');
+    } catch (e) { _dxToast('Không tải được danh sách nhân viên: ' + e.message, 'error'); }
+  }
+  dxTaiNguoiDuyet();
+}
+function dxChonNhanVien() {
+  const u = document.getElementById('dx-nv').value;
+  const n = (_dx.dsNv || []).find(x => x.username === u);
+  _dx.nv = n || null;
+  const the = document.getElementById('dx-nv-the');
+  if (!n) { the.hidden = true; return; }
+  document.getElementById('dx-nv-ds').innerHTML = [
+    ['Họ tên', n.ho_ten], ['Ngày vào làm', _dxNgay(n.ngay_vao)],
+    ['Mã nhân viên', n.ma_nv], ['Loại hợp đồng', n.loai_hop_dong],
+    ['Phòng ban', n.phong_ban], ['Vị trí hiện tại', n.chuc_vu],
+  ].filter(([, v]) => v).map(([k, v]) => `<div><dt>${_dxE(k)}:</dt><dd>${_dxE(v)}</dd></div>`).join('');
+  the.hidden = false;
+  const c = _DX_LOAI[_dx.loai];
+  if (c.tieu_de_mau && !document.getElementById('dx-tieu-de').value)
+    document.getElementById('dx-tieu-de').value = c.tieu_de_mau.replace('{nv}', n.ho_ten || n.username);
+  if (n.ngay_len_chinh_thuc && !document.getElementById('dx-hl').value)
+    document.getElementById('dx-hl').value = String(n.ngay_len_chinh_thuc).slice(0, 10);
+}
+async function dxTaiNguoiDuyet() {
+  const pb = document.getElementById('dx-pb').value || '';
+  const canCeo = !!document.getElementById('dx-lien-pb').checked || !!document.getElementById('dx-xin-ceo').checked
+                 || Number(document.getElementById('dx-ngan-sach').value || 0) > 0;
+  const el = document.getElementById('dx-quy-trinh');
+  try {
+    const d = await _dxApi(`/api/de-xuat/nguoi-duyet?phong_ban=${encodeURIComponent(pb)}&can_ceo=${canCeo}`);
+    _dx.nguoiDuyet = (d && d.items) || [];
+    if (!_dx.nguoiDuyet.length) {
+      el.innerHTML = `<li><span class="dx-buoc-so">–</span><span class="dx-buoc-ten"><b>${_dxE((d && d.ghi_chu) || 'Chưa xác định được người duyệt')}</b>
+        <small>Gửi xong hệ thống vẫn định tuyến theo phòng ban của bạn</small></span><span></span></li>`;
+      return;
+    }
+    el.innerHTML = _dx.nguoiDuyet.map((n, i) => `<li>
+        <span class="dx-buoc-so">${i + 1}</span>
+        <span class="dx-buoc-ten"><b>${_dxE(n.ho_ten)}</b><small>${_dxE(n.chuc_vu || n.nhan_cap)}</small></span>
+        <span class="pill pill--neutral">Chưa duyệt</span></li>`).join('');
+  } catch (e) { /* fail-soft: khối này chỉ để xem trước */ }
+}
+
+/* ── Tệp ─────────────────────────────────────────────────────────────────── */
+function dxChonTep(inp) { dxThemTep([...inp.files]); inp.value = ''; }
+function dxThemTep(ds) {
+  for (const f of ds) {
+    if (f.size > 10 * 1024 * 1024) { _dxToast(`Tệp "${f.name}" quá 10MB`, 'error'); continue; }
+    _dx.tep.push(f);
+  }
+  dxVeTep();
+}
+function dxVeTep() {
+  document.getElementById('dx-tep-ds').innerHTML = _dx.tep.map((f, i) => `<div class="dx-tep">
+      <svg class="dx-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      <span class="dx-tep-ten">${_dxE(f.name)}</span><small>${Math.max(1, Math.round(f.size / 1024))} KB</small>
+      <button type="button" class="dx-nut-icon" onclick="dxBoTep(${i})" aria-label="Bỏ tệp">
+        <svg class="dx-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div>`).join('');
+}
+function dxBoTep(i) { _dx.tep.splice(i, 1); dxVeTep(); }
+(function () {
+  const z = document.getElementById('dx-tha');
+  ['dragenter', 'dragover'].forEach(k => z.addEventListener(k, e => { e.preventDefault(); z.classList.add('is-keo'); }));
+  ['dragleave', 'drop'].forEach(k => z.addEventListener(k, e => { e.preventDefault(); z.classList.remove('is-keo'); }));
+  z.addEventListener('drop', e => dxThemTep([...(e.dataTransfer.files || [])]));
+})();
+
+function dxDem() {
+  const t = document.getElementById('dx-ly-do');
+  document.getElementById('dx-dem').textContent = `${t.value.length}/1000`;
+}
+function dxXoaForm() {
+  ['dx-tieu-de', 'dx-ktv', 'dx-hl', 'dx-ly-do', 'dx-kq', 'dx-ngan-sach'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('dx-lien-pb').checked = false;
+  document.getElementById('dx-xin-ceo').checked = false;
+  document.getElementById('dx-nv').value = ''; document.getElementById('dx-nv-the').hidden = true;
+  _dx.nv = null; _dx.tep = []; dxVeTep(); dxDem();
+  document.getElementById('dx-ngay-dx').value = _dxISO(new Date());
+  dxTaiNguoiDuyet();
+}
+
+/* ── Gửi ─────────────────────────────────────────────────────────────────── */
+async function dxGui(ev) {
+  ev.preventDefault();
+  if (_dx.dangGui) return false;
+  const c = _DX_LOAI[_dx.loai];
+  const tieu_de = document.getElementById('dx-tieu-de').value.trim();
+  const ly_do = document.getElementById('dx-ly-do').value.trim();
+  const kq = document.getElementById('dx-kq').value.trim();
+  const hl = document.getElementById('dx-hl').value;
+  const ktv = document.getElementById('dx-ktv').value;
+  const ns = document.getElementById('dx-ngan-sach').value;
+  if (c.can_nv && !_dx.nv) { _dxToast('Chọn nhân viên được đề xuất', 'error'); return false; }
+  if (!tieu_de) { _dxToast('Nhập tiêu đề đề xuất', 'error'); return false; }
+  if (!ly_do) { _dxToast('Nhập lý do đề xuất', 'error'); return false; }
+  if (!kq) { _dxToast('Nhập kết quả kỳ vọng', 'error'); return false; }
+  if (c.co_ktv && !ktv) { _dxToast('Nhập ngày kết thúc thử việc', 'error'); return false; }
+  if (!hl) { _dxToast(`Nhập ${c.nhan_hl.toLowerCase()}`, 'error'); return false; }
+
+  const nut = document.getElementById('dx-nut-gui');
+  _dx.dangGui = true; nut.disabled = true;
+  try {
+    const d = await _dxApi('/api/de-xuat', {
+      method: 'POST',
+      body: JSON.stringify({
+        tieu_de, loai: _dx.loai, noi_dung: ly_do, ket_qua_ky_vong: kq, muc_do: 'trung',
+        han_mong_muon: hl || null,
+        ngan_sach_du_kien: (c.co_ngan_sach && ns) ? Number(ns) : null,
+        lien_phong_ban: !!document.getElementById('dx-lien-pb').checked,
+        xin_y_kien_ceo: !!document.getElementById('dx-xin-ceo').checked,
+        chi_tiet: {
+          nv_username: _dx.nv ? _dx.nv.username : null,
+          nv_ma_nv: _dx.nv ? _dx.nv.ma_nv : null,
+          ngay_ket_thuc_thu_viec: ktv || null,
+          ngay_hieu_luc: hl || null,
+          du_lieu: null,
+        },
+      }),
+    });
+    // Tệp chỉ gửi được sau khi có id (API `/{id}/tep`), nên tải lên ngay tại đây.
+    let loi = 0;
+    for (const f of _dx.tep) {
+      const fd = new FormData(); fd.append('file', f);
+      try { await _dxApi(`/api/de-xuat/${d.id}/tep`, { method: 'POST', body: fd }); } catch (e) { loi++; }
+    }
+    _dxToast(loi ? `Đã gửi đề xuất, ${loi} tệp không tải lên được` : 'Đã gửi đề xuất', loi ? 'info' : 'ok');
+    dxXoaForm(); dxTaiDs(1);
+  } catch (e) {
+    _dxToast('Không gửi được: ' + (e.message || ''), 'error');
+  } finally { _dx.dangGui = false; nut.disabled = false; }
+  return false;
+}
+
+/* ── Danh sách ───────────────────────────────────────────────────────────── */
+function dxChonPhamVi(pv) {
+  _dx.pv = pv;
+  document.querySelectorAll('.dx-tab-nho[data-pv]').forEach(b => b.classList.toggle('is-chon', b.dataset.pv === pv));
+  dxTaiDs(1);
+}
+async function dxTaiDs(trang) {
+  if (trang) _dx.trang = trang;
+  const than = document.getElementById('dx-ds-than');
+  const co = Number(document.getElementById('dx-pg-co').value) || 10;
+  const p = new URLSearchParams({ pham_vi: _dx.pv, trang: String(_dx.trang), so_dong: String(co) });
+  const loai = document.getElementById('dx-l-loai').value, tt = document.getElementById('dx-l-tt').value;
+  const tu = document.getElementById('dx-l-tu').value, den = document.getElementById('dx-l-den').value;
+  if (loai) p.set('loai', loai);
+  if (tt) p.set('trang_thai', tt);
+  if (tu) p.set('tu', tu);
+  if (den) p.set('den', den);
+  than.innerHTML = '<tr class="empty-row"><td colspan="9">Đang tải...</td></tr>';
+  let d;
+  try { d = await _dxApi('/api/de-xuat?' + p.toString()); }
+  catch (e) {
+    than.innerHTML = `<tr class="empty-row"><td colspan="9">Không tải được danh sách: ${_dxE(e.message)}</td></tr>`;
+    return;
+  }
+  const ds = (d && d.items) || [], tong = (d && d.total) || 0;
+  _dx.ds = ds;
+  if (!ds.length) {
+    than.innerHTML = '<tr class="empty-row"><td colspan="9">Chưa có đề xuất nào khớp bộ lọc.</td></tr>';
+  } else {
+    const dau = (_dx.trang - 1) * co;
+    than.innerHTML = ds.map((x, i) => {
+      const ct = x.chi_tiet || {};
+      const nv = ct.nv_ho_ten || '';
+      return `<tr onclick="dxXem(${x.id})">
+        <td class="c-stt">${dau + i + 1}</td>
+        <td><span class="dx-ma">${_dxE(ct.ma || ('#' + x.id))}</span></td>
+        <td><span class="dx-loai-chip dx-loai-chip--${_dxE(x.loai)}">${_dxSvg((_DX_LOAI[x.loai] || {}).bieu_tuong)}${_dxE(_dx.nhanLoai[x.loai] || x.loai)}</span></td>
+        <td>${nv ? `<span class="nv-cell"><span class="nv-ava">${_dxE(_dxChuDau(nv))}</span><span class="nv-ten">${_dxE(nv)}</span></span>` : '—'}</td>
+        <td class="c-pb">${_dxE(ct.nv_phong_ban || x.phong_ban || '—')}</td>
+        <td>${_dxNgay(x.created_at)}</td>
+        <td class="c-hl">${ct.ngay_hieu_luc ? _dxNgay(ct.ngay_hieu_luc) : '—'}</td>
+        <td>${_dxPill(x.trang_thai)}</td>
+        <td><button type="button" class="btn-link" onclick="event.stopPropagation();dxXem(${x.id})">
+          <svg class="dx-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>Xem</button></td>
+      </tr>`;
+    }).join('');
+  }
+  const sotrang = Math.max(1, Math.ceil(tong / co));
+  document.getElementById('dx-pg-chu').textContent = tong
+    ? `Hiển thị ${(_dx.trang - 1) * co + 1} - ${Math.min(_dx.trang * co, tong)} / ${tong}` : 'Không có dòng nào';
+  const nut = [`<button type="button" onclick="dxTaiDs(${_dx.trang - 1})" ${_dx.trang <= 1 ? 'disabled' : ''} aria-label="Trang trước">‹</button>`];
+  for (let i = 1; i <= sotrang && i <= 5; i++)
+    nut.push(`<button type="button" class="${i === _dx.trang ? 'is-chon' : ''}" onclick="dxTaiDs(${i})">${i}</button>`);
+  nut.push(`<button type="button" onclick="dxTaiDs(${_dx.trang + 1})" ${_dx.trang >= sotrang ? 'disabled' : ''} aria-label="Trang sau">›</button>`);
+  document.getElementById('dx-pg-nut').innerHTML = nut.join('');
+}
+
+/* ── Chi tiết ────────────────────────────────────────────────────────────── */
+async function dxXem(id) {
+  let x;
+  try { x = await _dxApi('/api/de-xuat/' + id); }
+  catch (e) { _dxToast('Không mở được: ' + e.message, 'error'); return; }
+  const ct = x.chi_tiet || {};
+  const dong = [
+    ['Mã đề xuất', ct.ma || ('#' + x.id)],
+    ['Loại', _dx.nhanLoai[x.loai] || x.loai],
+    ['Người gửi', x.ho_ten], ['Phòng ban', x.phong_ban],
+    ['Nhân viên được đề xuất', ct.nv_ho_ten], ['Mã nhân viên', ct.nv_ma_nv],
+    ['Vị trí', ct.nv_chuc_vu], ['Ngày vào làm', _dxNgay(ct.nv_ngay_vao)],
+    ['Ngày kết thúc thử việc', _dxNgay(ct.ngay_ket_thuc_thu_viec)],
+    ['Ngày hiệu lực', _dxNgay(ct.ngay_hieu_luc)],
+    ['Ngày đề xuất', _dxNgay(x.created_at)],
+    ['Ngân sách dự kiến', _dxTien(x.ngan_sach_du_kien)],
+    ['Lý do', x.noi_dung], ['Kết quả kỳ vọng', x.ket_qua_ky_vong],
+    ['Cấp đang duyệt', x.approval_level], ['Nhận xét', x.nhan_xet_duyet],
+  ].filter(([, v]) => v !== null && v !== undefined && v !== '');
+  const tep = (x.tep_dinh_kem || []).map(u =>
+    `<div class="dx-tep"><span class="dx-tep-ten">${_dxE(String(u).split('/').pop())}</span>
+     <a class="btn-link" href="${_dxE(u)}" target="_blank" rel="noopener">Mở</a></div>`).join('');
+  const ls = (x.approval_history || []).map(h =>
+    `<li><b>${_dxE(h.action || h.level)}</b><small>${_dxE(h.ho_ten || h.username || '')}${h.at ? ' · ' + _dxNgay(h.at) : ''}</small>
+     ${h.comment ? `<div>${_dxE(h.comment)}</div>` : ''}</li>`).join('');
+  document.getElementById('dx-m-ten').textContent = (ct.ma || ('Đề xuất #' + x.id));
+  document.getElementById('dx-m-than').innerHTML =
+    `<dl class="dx-ct">${dong.map(([k, v]) => `<dt>${_dxE(k)}</dt><dd>${_dxE(v)}</dd>`).join('')}</dl>
+     ${tep ? `<p class="dx-muc-ten" style="margin-top:var(--sp-8)">Tài liệu đính kèm</p>${tep}` : ''}
+     ${ls ? `<p class="dx-muc-ten" style="margin-top:var(--sp-8)">Lịch sử phê duyệt</p><ul class="dx-ls">${ls}</ul>` : ''}`;
+  const chan = document.getElementById('dx-m-chan');
+  const cho = x.trang_thai === 'cho_duyet';
+  chan.innerHTML = `<span style="flex:1"></span>
+    ${cho && x.username === DX_ME ? `<button type="button" class="btn-ghost" onclick="dxHuy(${x.id})">Huỷ đề xuất</button>` : ''}
+    ${cho && DX_QUAN_LY && x.username !== DX_ME ? `
+      <button type="button" class="btn-ghost" onclick="dxDuyet(${x.id}, 'tu_choi')">Từ chối</button>
+      <button type="button" class="btn-primary" onclick="dxDuyet(${x.id}, 'da_duyet')">Phê duyệt</button>` : ''}
+    <button type="button" class="btn-soft" onclick="dxDongModal()">Đóng</button>`;
+  document.getElementById('dx-modal').hidden = false;
+}
+function dxDongModal() { document.getElementById('dx-modal').hidden = true; }
+async function dxDuyet(id, quyet) {
+  const nx = prompt(quyet === 'tu_choi' ? 'Lý do từ chối:' : 'Nhận xét khi duyệt (có thể bỏ trống):', '');
+  if (quyet === 'tu_choi' && !(nx || '').trim()) { _dxToast('Từ chối phải ghi lý do', 'error'); return; }
+  try {
+    await _dxApi(`/api/de-xuat/${id}/duyet`, { method: 'PUT', body: JSON.stringify({ trang_thai: quyet, nhan_xet_duyet: nx || '' }) });
+    _dxToast(quyet === 'da_duyet' ? 'Đã phê duyệt' : 'Đã từ chối', 'ok');
+    dxDongModal(); dxTaiDs();
+  } catch (e) { _dxToast('Không gửi được: ' + e.message, 'error'); }
+}
+async function dxHuy(id) {
+  if (!confirm('Huỷ đề xuất này?')) return;
+  try {
+    await _dxApi('/api/de-xuat/' + id, { method: 'DELETE' });
+    _dxToast('Đã huỷ đề xuất', 'ok'); dxDongModal(); dxTaiDs();
+  } catch (e) { _dxToast('Không huỷ được: ' + e.message, 'error'); }
+}
+document.getElementById('dx-modal').addEventListener('click', e => { if (e.target.id === 'dx-modal') dxDongModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') dxDongModal(); });
+
+/* ── Khởi động ───────────────────────────────────────────────────────────── */
+(async function () {
+  _dx.nhanLoai = {};
+  try {
+    const meta = await _dxApi('/api/de-xuat/meta');
+    (meta.loai || []).forEach(l => { _dx.nhanLoai[l.ma] = l.ten; });
+    document.getElementById('dx-l-loai').innerHTML = '<option value="">Tất cả loại đề xuất</option>' +
+      (meta.loai || []).map(l => `<option value="${_dxE(l.ma)}">${_dxE(l.ten)}</option>`).join('');
+  } catch (e) { /* fail-soft: nhãn loại lấy từ cấu hình trong màn */ }
+  Object.entries(_DX_LOAI).forEach(([k, c]) => { if (!_dx.nhanLoai[k]) _dx.nhanLoai[k] = c.ten.replace('Tạo đề xuất ', ''); });
+  document.getElementById('dx-pv-pb').hidden = !DX_QUAN_LY;
+  document.getElementById('dx-pv-all').hidden = !DX_SUPER;
+  document.getElementById('dx-ngay-dx').value = _dxISO(new Date());
+  dxChonLoai('len_chinh_thuc');
+  await dxTaiPhongBan();
+  dxTaiDs(1);
+})();
+</script>
+</body>
+</html>

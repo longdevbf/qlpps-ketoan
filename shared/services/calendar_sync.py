@@ -177,6 +177,10 @@ def upsert_event_from_leave(db: Session, leave_req: Any) -> Optional[int]:
         return None
 
 
+# Task còn phải làm thì mới chiếm chỗ trên lịch; xong hoặc huỷ thì gỡ ra.
+_CON_PHAI_LAM = ("assigned", "in_progress", "blocked")
+
+
 def upsert_event_from_directive(db: Session, directive: Any) -> Optional[int]:
     """Directive có due_date → event deadline cho directive.to_user.
 
@@ -192,7 +196,13 @@ def upsert_event_from_directive(db: Session, directive: Any) -> Optional[int]:
     try:
         status = getattr(directive, "status", None)
         due_date = getattr(directive, "due_date", None)
-        if status != "open" or not due_date:
+        # Trước đây so với "open" — giá trị của enum CŨ. Migration
+        # 0032_directive_status_v2 đã thay bằng assigned/in_progress/blocked/
+        # done/cancelled, nên "status != 'open'" LUÔN đúng và mọi task đều bị
+        # xoá khỏi lịch thay vì được tạo. Hậu quả đo được: bảng calendar_events
+        # có 0 dòng source='directive' trong khi leave_request/dao_tao_session
+        # vẫn bình thường. Tập dưới đây khớp nhóm "open" ở giao_viec.py:78.
+        if status not in _CON_PHAI_LAM or not due_date:
             delete_event_by_source(db, "directive", ref_id)
             return None
 
@@ -206,7 +216,14 @@ def upsert_event_from_directive(db: Session, directive: Any) -> Optional[int]:
         from_user = getattr(directive, "from_user", "") or ""
         priority = (getattr(directive, "priority", "med") or "med").lower()
         color = _PRIORITY_COLOR.get(priority, "#f59e0b")
-        desc = f"Người giao: {from_user} | Ưu tiên: {priority}\n{body}".strip()
+        # Mô tả sự kiện hiện cho NV đọc → ghi TÊN người giao; `from_user` (username)
+        # vẫn giữ ở directive làm khoá. Lazy import như `_CE()` để tránh vòng import.
+        try:
+            from shared.services.employees import ten_nv
+            from_user_ten = ten_nv(db, [from_user]).get(from_user, from_user)
+        except Exception:
+            from_user_ten = from_user
+        desc = f"Người giao: {from_user_ten} | Ưu tiên: {priority}\n{body}".strip()
 
         # Treat due_date as end-of-business-day 17:00 VN
         end_dt = _to_vn_dt(due_date, time(17, 0, 0))

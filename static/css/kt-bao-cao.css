@@ -1,0 +1,99 @@
+/* kt-bao-cao.css — riêng 3 màn báo cáo tài chính (KQKD B02 · CĐKT B01 · LCTT B03) + khung kt-bao-cao.js.
+   Chỉ var(--token). Không sửa kt-chung.css (file dùng chung) — các chỗ chỉnh bảng .kt-bc để ở đây. */
+
+/* Ô "Chỉ tiêu" là <th scope=row> nên ăn nền xám + chữ 12px của .kd-table th → cả cột bị xám, lệch với
+   các ô số nền trắng bên cạnh. Trả về đúng như ô thường; dòng nhóm/dòng đậm giữ nền riêng. */
+.kt-bc tbody th[scope="row"] {
+  padding: var(--sp-4) var(--sp-7); background: var(--bg-card); border-bottom: 1px solid var(--border-soft);
+  font-size: var(--fs-body); vertical-align: middle;
+}
+.kt-bc tbody tr.kt-bc--dam > th[scope="row"] { background: var(--brand-soft); }
+.kt-bc tbody tr.kt-bc--nhom > th { background: var(--bg-page); font-size: var(--fs-eyebrow); }
+.kt-bc tbody tr:last-child > th { border-bottom: 0; }
+.kt-bc .kt-bc__ma { width: 72px; }
+.kt-bc td.num { width: 1%; min-width: 150px; }
+.kt-bc--con2 th[scope="row"] { font-size: var(--fs-meta); }
+.kt-bc--con2 td { font-size: var(--fs-meta); color: var(--text-2); height: 36px; }
+
+/* Nút gập/mở nhóm chi tiết + ghi chú nhỏ dưới tên chỉ tiêu */
+.kt-bc__mo {
+  display: inline-grid; place-items: center; width: 22px; height: 22px; margin: 0 var(--sp-3) 0 calc(-1 * var(--sp-2));
+  padding: 0; border: 0; border-radius: var(--r-xs); background: none; color: var(--text-3); cursor: pointer; vertical-align: middle;
+}
+.kt-bc__mo:hover { background: var(--bg-page); color: var(--text-1); }
+.kt-bc__mo:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.kt-bc__mo .bi { transition: transform .15s; }
+.kt-bc__mo[aria-expanded="false"] .bi { transform: rotate(-90deg); }
+.kt-bc th[scope="row"] .kd-tip { margin-left: var(--sp-3); }
+.kt-the-dau .kd-box__title .kd-tip { margin-left: var(--sp-3); }
+
+/* Khối gập mở (details) dùng chung các màn báo cáo */
+.kt-gap { position: relative; }
+.kt-gap__dau {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-6);
+  padding: var(--sp-8); cursor: pointer; list-style: none; font-size: var(--fs-body); color: var(--text-1);
+}
+.kt-gap__dau::-webkit-details-marker { display: none; }
+.kt-gap__dau:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: var(--r-sm); }
+.kt-gap__dau .bi { flex: none; color: var(--text-3); transition: transform .15s; }
+.kt-gap__dau { min-height: 56px; padding-top: var(--sp-6); padding-bottom: var(--sp-6); }
+.kt-gap__ten { display: inline-flex; align-items: center; gap: var(--sp-4); min-width: 0; font-size: var(--fs-body); }
+.kt-gap__ten > .bi { color: var(--brand); }
+.kt-gap__mo { margin-left: auto; font-size: var(--fs-meta); font-weight: 600; color: var(--brand); white-space: nowrap; }
+.kt-gap__mo::after { content: 'Mở xem'; }
+.kt-gap[open] .kt-gap__mo::after { content: 'Thu gọn'; }
+.kt-gap__dau:hover .kt-gap__mo { text-decoration: underline; }
+.kt-gap[open] > .kt-gap__dau { border-bottom: 1px solid var(--border-soft); }
+.kt-gap[open] > .kt-gap__dau .bi-chevron-down { transform: rotate(180deg); }
+.kt-gap__than { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--sp-8); min-width: 0; padding-bottom: var(--sp-8); }
+.kt-gap__than > .kt-pham-vi { padding: var(--sp-7) var(--sp-8) 0; }
+.kt-gap__than > .kt-dc-luoi { padding: 0 var(--sp-8); }
+.kt-gap__luoi { padding: var(--sp-8); }
+
+/* KQKD — đối chiếu theo tiền thu: waterfall + cơ cấu chi phí */
+.kt-dc-luoi { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); min-width: 0; }
+@media (min-width: 1024px) { .kt-dc-luoi { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); } }
+.kt-wf { display: grid; row-gap: var(--sp-4); }
+.kt-wf__o { display: grid; grid-template-columns: minmax(96px, 170px) minmax(40px, 1fr) minmax(72px, auto); align-items: center; gap: var(--sp-5); }
+.kt-wf__ten { font-size: var(--fs-meta); color: var(--text-2); }
+.kt-wf__thanh { height: 18px; border-radius: var(--r-xs); background: var(--bg-page); overflow: hidden; }
+.kt-wf__thanh > span { display: block; height: 100%; border-radius: var(--r-xs); }
+.kt-wf--tong { background: var(--brand); }
+.kt-wf--con { background: var(--success); }
+.kt-wf--tru, .kt-wf--am { background: var(--danger); opacity: .85; }
+.kt-wf__so { font-size: var(--fs-meta); text-align: right; white-space: nowrap; }
+.kt-cc__thanh { display: flex; height: 16px; border-radius: var(--r-xs); overflow: hidden; background: var(--bg-page); margin-bottom: var(--sp-7); }
+.kt-cc__thanh > span { display: block; height: 100%; }
+.kt-cc__chu li { gap: var(--sp-5); }
+.kt-cc__chu .kd-meta { margin: 0; min-width: 48px; text-align: right; }
+.kt-cc__chu b { min-width: 72px; text-align: right; }
+.kt-cc__tong { padding-top: var(--sp-4); border-top: 1px solid var(--border-soft); font-weight: 600; }
+
+/* Hai cột thẻ (CĐKT cơ cấu, LCTT biểu đồ) */
+.kt-bc-doi { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); min-width: 0; }
+@media (min-width: 1024px) { .kt-bc-doi { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kt-bc-doi > .kd-card { align-content: start; }
+.kt-bc-doi .kd-card > .kd-box__head { padding-bottom: var(--sp-6); margin: 0; }
+.kt-bc-than { padding: 0 var(--sp-8) var(--sp-8); min-width: 0; }
+
+@media print {
+  .appbar, .ab-sb, .ab-drawer, .ab-backdrop, .kd-head__tools, .kt-bc__mo, [class*="chat"], #chat-widget { display: none !important; }
+  body { padding: 0 !important; margin: 0 !important; background: #fff !important; }
+  main.page { margin: 0 !important; padding: 0 !important; max-width: none !important; }
+  .kd-table-scroll { overflow: visible !important; }
+  .kd-card, .kd-kpi { break-inside: avoid; box-shadow: none !important; }
+  details.kt-gap:not([open]) { display: none !important; }
+}
+
+/* Thụt lề dòng con — đặt SAU luật padding ở đầu file (luật đó ghi đè padding-left của kt-chung.css) */
+.kt-bc tbody tr.kt-bc--con > th[scope="row"] { padding-left: calc(var(--sp-7) + var(--sp-8)); }
+.kt-bc tbody tr.kt-bc--con2 > th[scope="row"] { padding-left: calc(var(--sp-7) + var(--sp-8) * 2); color: var(--text-2); }
+
+/* CĐKT — dòng "Chênh lệch chưa cân" (hiện khi Tài sản ≠ Nguồn vốn) */
+.kt-bc tbody tr.kt-bc--lech > th[scope="row"], .kt-bc tbody tr.kt-bc--lech > td { background: var(--danger-soft); color: var(--danger-fg); font-weight: 600; }
+
+/* Điện thoại: bảng vẫn cuộn ngang trong thẻ nhưng cột chỉ tiêu/số hẹp lại để thấy được nhiều hơn */
+@media (max-width: 640px) {
+  .kt-bc tbody th[scope="row"] { min-width: 190px; }
+  .kt-bc td.num { min-width: 112px; }
+}

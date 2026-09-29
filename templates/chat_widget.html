@@ -1517,6 +1517,28 @@ window.currentUserDisplayName = {{ (user.ho_ten or user.ten_dang_nhap or 'Tôi')
   border: none !important;
 }
 .zV2_bubble.zV2_bubble--image .zV2_msg_text { padding: 6px 12px 0; }
+
+/* ── Ảnh KÈM chú thích ──────────────────────────────────────────────────
+   Luật ngay trên ép nền trong suốt cho MỌI bong bóng ảnh. Đúng khi ảnh gửi
+   trần: không ai muốn một khung màu bọc quanh tấm ảnh. Nhưng khi ảnh có chú
+   thích thì dòng chữ rơi ra ngoài, và với tin MÌNH gửi (color:#fff) nó thành
+   chữ trắng trên nền trang #F0F2F5 — đo được 1,12:1, gần như không đọc được.
+   Có chữ thì trả lại nền + đệm để chú thích nằm TRONG tin nhắn. */
+.zV2_bubble.zV2_bubble--image.zV2_bubble--cap {
+  background: var(--z-white) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .06) !important;
+  padding: 3px !important;
+}
+.zV2_msg_row--own .zV2_bubble.zV2_bubble--image.zV2_bubble--cap {
+  background: var(--z-blue) !important;
+}
+/* Bo góc trên theo bong bóng, góc dưới vuông hơn vì còn dòng chữ đỡ bên dưới */
+.zV2_bubble.zV2_bubble--image.zV2_bubble--cap .zV2_msg_img {
+  border-radius: 15px 15px 4px 4px;
+}
+.zV2_bubble.zV2_bubble--image.zV2_bubble--cap .zV2_msg_text {
+  padding: 5px 10px 5px;
+}
 /* Khi nằm trong bubble — bo viền theo bubble */
 .zV2_bubble > .zV2_msg_img,
 .zV2_bubble .zV2_msg_text + .zV2_msg_img {
@@ -4736,6 +4758,13 @@ window.zV2_buildMessageRow = function (msg, prev, next, currentUser) {
   var bubbleCls = ['zV2_bubble'];
   if (isOwn) bubbleCls.push('zV2_bubble--own');
   if (msg.msg_type === 'image') bubbleCls.push('zV2_bubble--image');
+  // Ảnh CÓ chú thích thì đánh dấu riêng: .zV2_bubble--image ép nền trong suốt,
+  // hợp lý cho ảnh trần nhưng khi có chữ thì chú thích rơi ra ngoài bong bóng —
+  // chữ trắng của tin mình gửi nằm trên nền trang #F0F2F5, đo được 1,12:1,
+  // gần như vô hình. CSS dựa vào lớp này để trả lại nền.
+  if (msg.msg_type === 'image' && msg.content && !msg.is_deleted) {
+    bubbleCls.push('zV2_bubble--cap');
+  }
 
   if (msg.is_deleted) {
     bubbleCls.push('zV2_bubble_deleted');
@@ -4977,13 +5006,23 @@ window.zV2_sendMessage = async function (forceContent) {
   var input = document.getElementById('zV2_compose_input');
   var content = forceContent !== undefined ? forceContent : (input ? input.value.trim() : '');
 
-  // Nếu có ảnh đang pending (paste preview) → upload ảnh thay vì gửi text
-  if (_zV2._pendingPasteFile) {
+  // Có ảnh/tệp đang chờ → gửi KÈM chú thích trong CÙNG một tin nhắn.
+  // Trước đây nhánh này vứt thẳng nội dung vừa gõ rồi chỉ tải tệp lên: ai gõ
+  // chú thích xong bấm gửi là mất chữ, không một cảnh báo nào.
+  // Bỏ qua khi đang sửa tin cũ — lúc đó Enter là "lưu bản sửa", tệp đính kèm
+  // vẫn nằm chờ ở khay và gửi được ngay sau khi sửa xong.
+  if (_zV2._pendingPasteFile && !_zV2.editingMsgId) {
     var pendingFile = _zV2._pendingPasteFile;
+    var caption = content;                       // đã trim ở trên
+    var replyId = (_zV2.replyTo && _zV2.replyTo.id) || null;
     window.zV2_clearPastePreview();
     if (input) input.value = '';
-    _zV2._sending = false; // release lock trước khi upload
-    await zV2_uploadFile(pendingFile);
+    _zV2.replyTo = null;
+    var rs0 = document.getElementById('zV2_reply_strip');
+    if (rs0) rs0.style.display = 'none';
+    zV2_updateComposerButtons();
+    _zV2._sending = false; // nhả khoá trước khi tải lên
+    await zV2_uploadFile(pendingFile, { content: caption, reply_to_id: replyId });
     return;
   }
 
@@ -5079,12 +5118,20 @@ window.zV2_sendMessage = async function (forceContent) {
 };
 
 // ---------- File / Image upload ----------
-window.zV2_uploadFile = async function (file) {
+window.zV2_uploadFile = async function (file, opts) {
   var rid = _zV2.currentRoomId;
   if (!rid || !file) return;
   if (file.size > 25 * 1024 * 1024) { zV2_toast('File quá lớn (>25MB)', 'error'); return; }
+  opts = opts || {};
   var fd = new FormData();
   fd.append('file', file);
+  // Chú thích đi CÙNG tệp trong một request → server ghi MỘT dòng tin nhắn.
+  // Gửi thành hai request rời sẽ ra hai bong bóng, và vì chạy song song nên
+  // thứ tự hiện lên còn có thể đảo ngược.
+  // Không gửi kèm danh sách @nhắc: server tự tách từ chú thích, y như khi gửi
+  // chữ thuần — để một chỗ duy nhất quyết định ai được nhắc.
+  if (opts.content) fd.append('content', opts.content);
+  if (opts.reply_to_id) fd.append('reply_to_id', String(opts.reply_to_id));
   var t = zV2_toast('Đang tải ' + file.name + '...', 'info', 60000);
   try {
     var res = await fetch('/api/chat/rooms/' + encodeURIComponent(rid) + '/upload', {
@@ -5127,17 +5174,19 @@ window.zV2_wireUpload = function () {
     btnFile._zV2Bound = true;
     btnFile.addEventListener('click', function(){ if (fileInput) fileInput.click(); });
   }
+  // Chọn xong KHÔNG gửi ngay: đưa vào khay chờ để còn kịp gõ chú thích.
+  // Trước đây bấm nút là ảnh bay đi luôn, muốn nói gì phải gửi thêm tin riêng.
   if (imgInput && !imgInput._zV2Bound) {
     imgInput._zV2Bound = true;
     imgInput.addEventListener('change', function(){
-      if (imgInput.files && imgInput.files[0]) zV2_uploadFile(imgInput.files[0]);
+      if (imgInput.files && imgInput.files[0]) zV2_showPastePreview(imgInput.files[0]);
       imgInput.value = '';
     });
   }
   if (fileInput && !fileInput._zV2Bound) {
     fileInput._zV2Bound = true;
     fileInput.addEventListener('change', function(){
-      if (fileInput.files && fileInput.files[0]) zV2_uploadFile(fileInput.files[0]);
+      if (fileInput.files && fileInput.files[0]) zV2_showPastePreview(fileInput.files[0]);
       fileInput.value = '';
     });
   }
@@ -5164,22 +5213,41 @@ window.zV2_wireUpload = function () {
 };
 
 // ---------- Paste image preview ----------
+// Khay chờ đính kèm. Tên hàm giữ nguyên "Paste" cho khỏi vỡ chỗ gọi cũ, nhưng
+// nay dùng cho CẢ ba đường vào: dán ảnh, nút Ảnh, nút Tệp.
 window.zV2_showPastePreview = function (file) {
   if (!file) return;
   _zV2._pendingPasteFile = file;
   var preview = document.getElementById('zV2_paste_preview');
   var thumb   = document.getElementById('zV2_paste_thumb');
   var name    = document.getElementById('zV2_paste_name');
+  var hint    = document.getElementById('zV2_paste_hint');
   if (!preview || !thumb) return;
-  // Hiện thumbnail bằng object URL
-  if (thumb._objUrl) URL.revokeObjectURL(thumb._objUrl);
-  thumb._objUrl = URL.createObjectURL(file);
-  thumb.src = thumb._objUrl;
-  if (name) name.textContent = file.name || 'Ảnh đã dán';
+  if (thumb._objUrl) { URL.revokeObjectURL(thumb._objUrl); thumb._objUrl = null; }
+  var isImg = !!(file.type && file.type.indexOf('image/') === 0);
+  if (isImg) {
+    // Ảnh: xem trước thật bằng object URL
+    thumb._objUrl = URL.createObjectURL(file);
+    thumb.src = thumb._objUrl;
+    thumb.style.display = '';
+  } else {
+    // Tệp thường không xem trước được — ẩn hẳn ô ảnh thay vì để một ô vỡ ảnh.
+    // Tên tệp ngay bên cạnh đã đủ cho biết đang đính kèm cái gì.
+    thumb.src = '';
+    thumb.style.display = 'none';
+  }
+  if (name) name.textContent = file.name || (isImg ? 'Ảnh đã dán' : 'Tệp đính kèm');
+  if (hint) {
+    hint.textContent = (isImg ? 'Ảnh' : 'Tệp') + ' · '
+      + zV2_formatFileSize(file.size || 0) + ' — gõ chú thích rồi Enter để gửi kèm';
+  }
   preview.classList.add('visible');
-  // Focus vào input để có thể gõ caption và Enter ngay
+  // Focus vào ô nhập để gõ chú thích rồi Enter là gửi được ngay
   var input = document.getElementById('zV2_compose_input');
   if (input) { input.placeholder = 'Thêm chú thích (tuỳ chọn)...'; input.focus(); }
+  // Đổi nút 👍 thành nút Gửi — nếu không, đính kèm mà chưa gõ chữ thì không
+  // có nút nào để gửi cả.
+  zV2_updateComposerButtons();
 };
 
 window.zV2_clearPastePreview = function () {
@@ -5188,8 +5256,13 @@ window.zV2_clearPastePreview = function () {
   var thumb   = document.getElementById('zV2_paste_thumb');
   var input   = document.getElementById('zV2_compose_input');
   if (preview) preview.classList.remove('visible');
-  if (thumb && thumb._objUrl) { URL.revokeObjectURL(thumb._objUrl); thumb._objUrl = null; thumb.src = ''; }
+  if (thumb) {
+    if (thumb._objUrl) { URL.revokeObjectURL(thumb._objUrl); thumb._objUrl = null; }
+    thumb.src = '';
+    thumb.style.display = '';   // trả lại mặc định cho lần đính kèm sau
+  }
   if (input) input.placeholder = 'Nhập tin nhắn...';
+  zV2_updateComposerButtons();
 };
 
 window.zV2_wirePastePreview = function () {
@@ -5493,9 +5566,12 @@ window.zV2_updateComposerButtons = function () {
   var send = document.getElementById('zV2_send_btn');
   if (!input) return;
   var hasText = input.value.trim().length > 0;
+  // Có tệp đang chờ thì cũng phải hiện nút Gửi dù chưa gõ chữ nào — nếu không
+  // người dùng chỉ thấy nút 👍 và không có cách nào gửi tấm ảnh vừa chọn.
+  var coTheGui = hasText || !!_zV2._pendingPasteFile;
   // Phải dùng 'flex' explicit (không phải '') vì CSS default cho #zV2_send_btn là display:none
-  if (thumbs) thumbs.style.display = hasText ? 'none' : 'flex';
-  if (send)   send.style.display   = hasText ? 'flex' : 'none';
+  if (thumbs) thumbs.style.display = coTheGui ? 'none' : 'flex';
+  if (send)   send.style.display   = coTheGui ? 'flex' : 'none';
 };
 
 window.zV2_composeBind = function () {
@@ -6424,7 +6500,7 @@ window.zV2_renderTabThongTin = function (room, pinned) {
         '<span class="zV2_pinned_icon"></span>' +
         '<div class="zV2_pinned_body">' +
           '<div class="zV2_pinned_text">' + zV2_escapeHtml(preview) + '</div>' +
-          '<div class="zV2_pinned_meta">Ghim bởi ' + zV2_escapeHtml(p.pinned_by || p.sender_name || '') + '</div>' +
+          '<div class="zV2_pinned_meta">Ghim bởi ' + zV2_escapeHtml(p.pinned_by_ten || p.pinned_by || p.sender_name || '') + '</div>' +
         '</div>' +
       '</div>';
     }).join('');

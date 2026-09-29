@@ -2,24 +2,36 @@
 
 Mounted at /api/xin-nghi in: marketing, muahang, ketoan, saleadmin, ceo
 Read-only mount (GET only) in: hcns
+
+11/09/2026: thêm tệp đính kèm cho đơn (`/{rid}/tep`, không đổi bảng DB) và phép năm
+của chính người đang đăng nhập (`/phep-nam`) cho màn Xin nghỉ dùng chung 8 app.
 """
 import calendar
+import logging
+import re
+import shutil
+import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from pathlib import Path
 from typing import Annotated, List, Optional
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import func as sqlfunc, select
+from sqlalchemy import func as sqlfunc, or_, select, text
 from sqlalchemy.orm import Session
 
 from shared.auth import JWTPayload, current_user
+from shared.config import settings
 from shared.db import get_db
 from shared.models.leave_request import LeaveRequest
 from shared.templates import _lookup_user_info
 
 router = APIRouter()
 _AUTH = Depends(current_user)
+log = logging.getLogger(__name__)
 
 _APPROVER_ROLES = {"admin", "ceo", "assistant_ceo", "manager", "leader"}
 _SUPER_ROLES = {"admin", "ceo", "assistant_ceo"}
@@ -47,14 +59,62 @@ def _is_approver(user: JWTPayload) -> bool:
 
 
 def _approver_app_scope(user: JWTPayload) -> Optional[set[str]]:
-    """Trả set app_name approver được xem/duyệt.
-
-    - admin/ceo/assistant_ceo → `None` (cross-app, không giới hạn)
-    - manager/leader → set apps trong JWT (apps user được phép truy cập)
-    """
+    """(Deprecated — thay bằng _approver_depts) Trả set app_name theo JWT.apps."""
     if (user.role or "").lower() in _SUPER_ROLES:
         return None
     return {(a or "").lower() for a in (user.apps or []) if a}
+
+
+_TRANG_THAI_NHAN = {"da_duyet": "đã duyệt", "duyet": "đã duyệt", "tu_choi": "đã từ chối", "huy": "đã huỷ"}
+
+
+def _kiem_pham_vi_duyet(db: Session, user: JWTPayload, rec: "LeaveRequest", viec: str) -> None:
+    """403 nếu manager/leader đụng đơn NGOÀI phòng mình quản lý. Một hàm cho cả duyệt lẫn huỷ,
+    để hai nhánh không bao giờ lệch luật nhau (16/09/2026)."""
+    depts = _approver_depts(db, user)
+    if depts is None:
+        return
+    rp = (rec.phong_ban or "").strip().lower()
+    if not any(rp.startswith(d) for d in depts):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"Bạn không có quyền {viec} đơn của phòng '{rec.phong_ban}' — khác phòng bạn quản lý.",
+        )
+
+
+def _approver_depts(db: Session, user: JWTPayload) -> Optional[list[str]]:
+    """Danh sách PHÒNG BAN (lowercase) mà manager/leader được xem/duyệt đơn nghỉ.
+
+    - admin/ceo/assistant_ceo → None (không giới hạn, thấy hết).
+    - manager/leader → phòng ban chính + phụ (phong_ban_phu, CSV) của HỌ, tra từ
+      hcns.employees. Dùng KHỚP TIỀN TỐ để gồm cả sub-team (vd "Kinh Doanh" bao
+      "Kinh Doanh Bán Lẻ Nhóm 1/2"). [] = không xác định → fail-closed (không thấy).
+
+    Sửa 2026-08-26 (anh Quang): TRƯỚC lọc theo app_name → SAI: KD manager thấy đơn
+    phòng khác cùng app (vd Vy KD thấy đơn Huy Mua Hàng). Giờ lọc theo PHÒNG BAN.
+    """
+    if (user.role or "").lower() in _SUPER_ROLES:
+        return None
+    row = db.execute(text(
+        "SELECT phong_ban, phong_ban_phu FROM hcns.employees "
+        "WHERE LOWER(username) = LOWER(:u) LIMIT 1"
+    ), {"u": user.username or ""}).mappings().first()
+    depts: list[str] = []
+    if row:
+        main = (row.get("phong_ban") or "").strip().lower()
+        if main:
+            depts.append(main)
+        for d in str(row.get("phong_ban_phu") or "").split(","):
+            d = d.strip().lower()
+            if d and d not in depts:
+                depts.append(d)
+    return depts
+
+
+def _dept_where(depts: list[str]):
+    """Điều kiện SQL: phong_ban của đơn khớp TIỀN TỐ bất kỳ phòng nào approver quản lý."""
+    return or_(*[sqlfunc.lower(sqlfunc.coalesce(LeaveRequest.phong_ban, "")).like(d + "%")
+                 for d in depts])
 
 
 def _calc_so_ngay(ngay_bat_dau: date, ngay_ket_thuc: date, buoi: str) -> Decimal:
@@ -64,6 +124,59 @@ def _calc_so_ngay(ngay_bat_dau: date, ngay_ket_thuc: date, buoi: str) -> Decimal
     if buoi in ("sang", "chieu"):
         return Decimal("0.5")
     return Decimal(str(total_days))
+
+
+# ── Tệp đính kèm (11/09/2026) ────────────────────────────────────────────────
+# KHÔNG thêm cột DB: tệp của đơn #N nằm trong `<upload_dir>/xin_nghi/N/`, danh sách tệp
+# = danh sách file trong thư mục đó. Tên trên đĩa `<12 hex>__<tên gốc đã lọc>` — giữ
+# được tên gốc để hiện mà không cần bảng phụ. Thư mục uploads dùng chung mọi app (dev:
+# `./_storage` gắn vào cả 8 container) nên nộp ở app nào, người duyệt ở app khác vẫn mở.
+_TEP_SUBDIR = "xin_nghi"
+_TEP_EXT = {".pdf", ".jpg", ".jpeg", ".png"}
+_TEP_MAX = 5 * 1024 * 1024   # 5 MB — đúng dòng "tối đa 5MB" trên form
+_TEP_TOI_DA = 10             # số tệp tối đa mỗi đơn
+_TEP_MA_RE = re.compile(r"^[a-f0-9]{12}__[^/\\]{1,120}$")
+
+
+def _tep_dir(rid: int) -> Path:
+    return Path(settings.upload_dir).expanduser().resolve() / _TEP_SUBDIR / str(int(rid))
+
+
+def _ds_tep(rid: int) -> list[dict]:
+    """Tệp của đơn, cũ trước mới sau. Thư mục chưa có → []."""
+    d = _tep_dir(rid)
+    if not d.is_dir():
+        return []
+    files = [f for f in d.iterdir() if f.is_file() and _TEP_MA_RE.match(f.name)]
+    files.sort(key=lambda f: f.stat().st_mtime)
+    return [{"ma": f.name, "ten": f.name.split("__", 1)[1],
+             "url": f"/api/xin-nghi/{int(rid)}/tep/{quote(f.name)}",
+             "kich_thuoc": f.stat().st_size} for f in files]
+
+
+def _ten_goc_an_toan(filename: Optional[str], ext: str) -> str:
+    """Tên gốc để hiện lại: bỏ thư mục, ký tự lạ; giữ chữ có dấu. Rỗng → 'tep'."""
+    stem = Path((filename or "").replace("\\", "/")).stem
+    stem = re.sub(r"[^\w\-. ()]+", "_", stem).strip(" ._") or "tep"
+    return stem[:80] + ext
+
+
+def _la_chu_don(rec: "LeaveRequest", user: JWTPayload) -> bool:
+    return (rec.username or "").lower() == (user.username or "").lower()
+
+
+def _xem_duoc_don(db: Session, user: JWTPayload, rec: "LeaveRequest") -> bool:
+    """Người gửi, admin/CEO, hoặc manager/leader của đúng phòng ban đơn — cùng phạm vi
+    với danh sách `GET ""` (ai thấy đơn trong danh sách thì mở được tệp của đơn)."""
+    if _la_chu_don(rec, user):
+        return True
+    if not _is_approver(user):
+        return False
+    depts = _approver_depts(db, user)
+    if depts is None:
+        return True
+    rp = (rec.phong_ban or "").strip().lower()
+    return any(rp.startswith(d) for d in depts)
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -79,6 +192,13 @@ class LeaveCreate(BaseModel):
 class LeaveReview(BaseModel):
     trang_thai: str  # da_duyet | tu_choi
     nhan_xet_duyet: str = ""
+
+
+class TepOut(BaseModel):
+    ma: str          # tên trên đĩa — dùng để mở / xoá
+    ten: str         # tên gốc để hiện
+    url: str
+    kich_thuoc: int
 
 
 class LeaveOut(BaseModel):
@@ -102,6 +222,8 @@ class LeaveOut(BaseModel):
     ngay_duyet: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+    # Không phải cột DB — gắn tay từ thư mục tệp (`_ds_tep`) trước khi trả về.
+    tep_dinh_kem: List[TepOut] = []
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -118,18 +240,23 @@ def list_leave_requests(
     if not _is_approver(user):
         stmt = stmt.where(LeaveRequest.username == user.username)
     else:
-        # Manager/leader chỉ thấy đơn của app trong scope JWT.apps. Admin/CEO thấy hết.
-        scope = _approver_app_scope(user)
-        if scope is not None:
-            if not scope:
-                return []  # apps trống → không thấy đơn nào
-            stmt = stmt.where(LeaveRequest.app_name.in_(scope))
+        # Manager/leader chỉ thấy đơn của PHÒNG BAN mình (chính + phụ). Admin/CEO thấy hết.
+        depts = _approver_depts(db, user)
+        if depts is not None:
+            if not depts:
+                return []  # không xác định phòng ban → không thấy đơn nào
+            stmt = stmt.where(_dept_where(depts))
         if username:
             stmt = stmt.where(LeaveRequest.username == username)
         if phong_ban:
             stmt = stmt.where(LeaveRequest.phong_ban == phong_ban)
     if trang_thai:
-        stmt = stmt.where(LeaveRequest.trang_thai == trang_thai)
+        # `da_duyet` gồm CẢ trạng thái cũ `duyet` (28 đơn legacy) — nếu không
+        # gộp, tab "Đã duyệt" sẽ thiếu đơn. Vá 2026-08-31.
+        if trang_thai == "da_duyet":
+            stmt = stmt.where(LeaveRequest.trang_thai.in_(("da_duyet", "duyet")))
+        else:
+            stmt = stmt.where(LeaveRequest.trang_thai == trang_thai)
     if thang:
         try:
             y, m = thang.split("-")
@@ -141,7 +268,10 @@ def list_leave_requests(
             )
         except Exception:
             pass
-    return db.execute(stmt).scalars().all()
+    recs = db.execute(stmt).scalars().all()
+    for r in recs:
+        r.tep_dinh_kem = _ds_tep(r.id)
+    return recs
 
 
 @router.post("", response_model=LeaveOut, status_code=status.HTTP_201_CREATED)
@@ -227,12 +357,18 @@ def cancel_leave_request(
     rec = db.get(LeaveRequest, rid)
     if not rec:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đơn")
-    if rec.username != user.username and not _is_approver(user):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Không có quyền hủy đơn này")
+    if rec.username != user.username:
+        if not _is_approver(user):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Không có quyền hủy đơn này")
+        # Người duyệt chỉ huỷ được đơn TRONG PHẠM VI PHÒNG mình duyệt — cùng luật với nhánh duyệt.
+        # Vá 16/09/2026 (lỗ B đã tái hiện 12/09: QL Marketing xoá cứng đơn phòng Kinh Doanh).
+        _kiem_pham_vi_duyet(db, user, rec, "hủy")
     if rec.trang_thai != "cho_duyet":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Chỉ có thể hủy đơn đang chờ duyệt")
     db.delete(rec)
     db.commit()
+    # Đơn đã xoá khỏi DB thì tệp của nó không còn đường nào mở được — dọn luôn.
+    shutil.rmtree(_tep_dir(rid), ignore_errors=True)
 
 
 @router.put("/{rid}/duyet", response_model=LeaveOut)
@@ -252,6 +388,14 @@ def duyet_leave_request(
     rec = db.get(LeaveRequest, rid)
     if not rec:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đơn")
+    # Đơn đã duyệt / từ chối / huỷ thì KHÔNG lật lại được (vá 16/09/2026 — lỗ C tái hiện 12/09:
+    # duyệt lần 2 lật "đã duyệt" thành "từ chối" mà lịch + chấm công đã sinh theo lần 1).
+    # 409 như duyet_chi.py và de_xuat.py. Muốn đổi kết quả: người duyệt liên hệ Nhân sự sửa tay.
+    if rec.trang_thai != "cho_duyet":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Đơn đã được xử lý ({_TRANG_THAI_NHAN.get(rec.trang_thai, rec.trang_thai)}) — không duyệt lại được.",
+        )
     # KHÔNG tự duyệt đơn của CHÍNH MÌNH (anh Quang 2026-08-05): manager/leader duyệt
     # đơn của chính họ = xung đột lợi ích → chặn, để Mai hoặc cấp trên duyệt. Super-role
     # (admin/ceo/assistant_ceo) vẫn được (không có cấp trên). VD: NV26006 nv26006 (manager
@@ -262,13 +406,8 @@ def duyet_leave_request(
             status.HTTP_403_FORBIDDEN,
             "Không được tự duyệt đơn nghỉ của chính mình — để Mai hoặc cấp trên duyệt.",
         )
-    # Manager/leader chỉ duyệt được đơn của app trong scope. Admin/CEO bypass.
-    scope = _approver_app_scope(user)
-    if scope is not None and (rec.app_name or "").lower() not in scope:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            f"Bạn không có quyền duyệt đơn của app '{rec.app_name}'",
-        )
+    # Manager/leader chỉ duyệt được đơn của PHÒNG BAN mình (chính + phụ). Admin/CEO bypass.
+    _kiem_pham_vi_duyet(db, user, rec, "duyệt")
 
     ho_ten_duyet, _, _, _, _ = _lookup_user_info(user.username)
     rec.trang_thai = body.trang_thai
@@ -302,6 +441,7 @@ def duyet_leave_request(
     # không tạo record. Idempotent: re-duyệt cùng đơn không nhân đôi.
     _sync_cham_cong_from_leave(db, rec)
 
+    rec.tep_dinh_kem = _ds_tep(rec.id)
     return rec
 
 
@@ -380,11 +520,166 @@ def _sync_cham_cong_from_leave(db: Session, rec: "LeaveRequest") -> None:
             pass
 
 
+# ── Tệp đính kèm: tải lên · mở · xoá ────────────────────────────────────────
+@router.post("/{rid}/tep", response_model=LeaveOut)
+async def upload_tep(
+    rid: int,
+    user: Annotated[JWTPayload, _AUTH],
+    db: Annotated[Session, Depends(get_db)],
+    file: UploadFile = File(...),
+):
+    """Tải một tệp lên đơn. Người gửi đơn (hoặc admin/CEO) mới được."""
+    rec = db.get(LeaveRequest, rid)
+    if not rec:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đơn")
+    if not _la_chu_don(rec, user) and (user.role or "").lower() not in _SUPER_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Chỉ người gửi đơn mới tải tài liệu lên được")
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in _TEP_EXT:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Chỉ nhận tệp PDF, JPG, PNG")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Tệp trống")
+    if len(data) > _TEP_MAX:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Tệp quá lớn — tối đa 5MB")
+    if len(_ds_tep(rid)) >= _TEP_TOI_DA:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Mỗi đơn tối đa {_TEP_TOI_DA} tệp")
+    d = _tep_dir(rid)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{uuid.uuid4().hex[:12]}__{_ten_goc_an_toan(file.filename, ext)}").write_bytes(data)
+    rec.tep_dinh_kem = _ds_tep(rid)
+    return rec
+
+
+@router.get("/{rid}/tep/{ma}")
+def xem_tep(
+    rid: int,
+    ma: str,
+    user: Annotated[JWTPayload, _AUTH],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Mở tệp — ai thấy đơn trong danh sách thì mở được (`_xem_duoc_don`)."""
+    if not _TEP_MA_RE.match(ma):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tên tệp không hợp lệ")
+    rec = db.get(LeaveRequest, rid)
+    if not rec:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đơn")
+    if not _xem_duoc_don(db, user, rec):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Không có quyền xem tài liệu của đơn này")
+    d = _tep_dir(rid)
+    f = (d / ma).resolve()
+    if f.parent != d or not f.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Tệp không tồn tại")
+    # nosniff: đơn nghỉ nhận .pdf/.jpg/.png, không có nó thì tệp lạ được trình duyệt tự
+    # đoán kiểu và có thể chạy như trang web trên chính tên miền app (giao_viec.py đã có).
+    return FileResponse(str(f), filename=ma.split("__", 1)[1], content_disposition_type="inline",
+                        headers={"X-Content-Type-Options": "nosniff"})
+
+
+@router.delete("/{rid}/tep", response_model=LeaveOut)
+def xoa_tep(
+    rid: int,
+    ma: str,
+    user: Annotated[JWTPayload, _AUTH],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Xoá một tệp. Người gửi khi đơn còn chờ duyệt, hoặc admin/CEO."""
+    if not _TEP_MA_RE.match(ma or ""):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tên tệp không hợp lệ")
+    rec = db.get(LeaveRequest, rid)
+    if not rec:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy đơn")
+    la_super = (user.role or "").lower() in _SUPER_ROLES
+    if not ((_la_chu_don(rec, user) and rec.trang_thai == "cho_duyet") or la_super):
+        raise HTTPException(status.HTTP_403_FORBIDDEN,
+                            "Chỉ xoá được tài liệu của đơn đang chờ duyệt do chính bạn gửi")
+    d = _tep_dir(rid)
+    f = (d / ma).resolve()
+    if f.parent == d and f.is_file():
+        f.unlink()
+    rec.tep_dinh_kem = _ds_tep(rid)
+    return rec
+
+
+# ── Phép năm của CHÍNH người đang đăng nhập ──────────────────────────────────
+@router.get("/phep-nam")
+def phep_nam_cua_toi(
+    user: Annotated[JWTPayload, _AUTH],
+    db: Annotated[Session, Depends(get_db)],
+    nam: Optional[int] = None,
+):
+    """Phép năm của người đang đăng nhập — CÙNG con số màn Quota phép năm của HCNS.
+
+    Gọi thẳng `quota_phep_summary` của HCNS rồi lấy đúng dòng của người này, KHÔNG chép
+    lại công thức (1 ngày cho mỗi tháng chính thức, chốt sổ khi thôi việc). Endpoint gốc
+    `/api/quota-phep` chỉ mount ở HCNS, đòi quyền app hcns và trả cả công ty — không dùng
+    được cho màn Xin nghỉ ở 8 app.
+
+    - tong_ca_nam: số ngày được cấp cả năm (tháng chính thức trong năm, trừ sau thôi việc)
+    - da_cap: cấp đến tháng hiện tại · da_dung: đã duyệt · con_lai = da_cap - da_dung
+    """
+    nam = nam if (nam and 2020 <= nam <= 2099) else date.today().year
+    kq = {"nam": nam, "co_quota": False, "ly_do": "", "tong_ca_nam": 0, "da_cap": 0,
+          "da_dung": 0, "con_lai": 0, "cho_duyet": 0.0, "thang_hien_tai": None,
+          "het_han": f"{nam}-12-31"}
+    cho = db.execute(text(
+        "SELECT COALESCE(SUM(so_ngay), 0) FROM shared.leave_requests "
+        "WHERE LOWER(username) = LOWER(:u) AND loai_nghi = 'nghi_phep' "
+        "AND trang_thai = 'cho_duyet' AND EXTRACT(YEAR FROM ngay_bat_dau) = :nam"
+    ), {"u": user.username or "", "nam": nam}).scalar()
+    kq["cho_duyet"] = float(cho or 0)
+
+    emp = db.execute(text(
+        "SELECT ma_nv, trang_thai, loai_hop_dong FROM hcns.employees "
+        "WHERE LOWER(username) = LOWER(:u) LIMIT 1"
+    ), {"u": user.username or ""}).mappings().first()
+    if not emp:
+        kq["ly_do"] = "Tài khoản chưa gắn hồ sơ nhân viên"
+        return kq
+    # Cùng điều kiện lọc với quota_phep_summary: chỉ NV CHÍNH THỨC đang làm.
+    if emp["trang_thai"] != "Đang làm" or emp["loai_hop_dong"] != "Chính thức":
+        kq["ly_do"] = "Phép năm chỉ cấp cho nhân viên chính thức đang làm"
+        return kq
+    try:
+        from hcns.app.routers.quota_phep import quota_phep_summary  # lazy — shared không phụ thuộc hcns lúc import
+        tong = quota_phep_summary(user=user, db=db, nam=nam)
+    except Exception:
+        log.exception("phep-nam: không tính được quota cho %s", user.username)
+        kq["ly_do"] = "Máy chủ chưa tính được phép năm"
+        return kq
+    ma = (emp["ma_nv"] or "").upper()
+    row = next((r for r in tong.get("rows", []) if (r.get("ma_nv") or "").upper() == ma), None)
+    if not row:
+        kq["ly_do"] = "Không tìm thấy dòng phép năm của nhân viên"
+        return kq
+    moi_thang = tong.get("phep_cap_per_month", 1)
+    kq.update({
+        "co_quota": True,
+        "tong_ca_nam": sum(moi_thang for m in (row.get("monthly") or [])
+                           if not m.get("before_official") and not m.get("after_resign")),
+        "da_cap": row.get("tong_cap_nam", 0),
+        "da_dung": row.get("tong_dung_nam", 0),
+        "con_lai": row.get("tong_con_nam", 0),
+        "thang_hien_tai": tong.get("current_month"),
+    })
+    return kq
+
+
 @router.get("/stats")
 def leave_stats(
     user: Annotated[JWTPayload, _AUTH],
     db: Annotated[Session, Depends(get_db)],
 ):
+    """Số liệu đơn nghỉ.
+
+    - NV thường: đếm đơn CỦA CHÍNH MÌNH (cho_duyet / da_duyet / tu_choi).
+    - Người DUYỆT (manager/leader/CEO): trả thêm `all_*` = đếm TOÀN PHẠM VI
+      họ quản (lọc theo phòng ban; CEO/admin thấy tất cả).
+
+    Vá 2026-08-31 (anh Quang): trước đây 3 thẻ số liệu chỉ đếm đơn của chính
+    mình, nên CEO (không tự nộp đơn) luôn thấy 0/0/0 và tưởng hệ thống trống
+    dù đang có 215 đơn đã xử lý.
+    """
     own = db.execute(
         select(LeaveRequest.trang_thai, sqlfunc.count().label("cnt"))
         .where(LeaveRequest.username == user.username)
@@ -392,16 +687,29 @@ def leave_stats(
     ).all()
     result: dict = {"cho_duyet": 0, "da_duyet": 0, "tu_choi": 0}
     for row in own:
-        result[row.trang_thai] = row.cnt
-    if _is_approver(user):
-        scope = _approver_app_scope(user)
-        q = select(sqlfunc.count()).where(LeaveRequest.trang_thai == "cho_duyet")
-        if scope is not None:
-            if not scope:
-                pending_all = 0
-                result["pending_all"] = pending_all
-                return result
-            q = q.where(LeaveRequest.app_name.in_(scope))
-        pending_all = db.execute(q).scalar() or 0
-        result["pending_all"] = pending_all
+        if row.trang_thai in result:
+            result[row.trang_thai] = row.cnt
+    if not _is_approver(user):
+        return result
+
+    depts = _approver_depts(db, user)
+    if depts is not None and not depts:
+        result.update({"pending_all": 0, "all_cho_duyet": 0,
+                       "all_da_duyet": 0, "all_tu_choi": 0})
+        return result
+
+    q = select(LeaveRequest.trang_thai, sqlfunc.count().label("cnt"))
+    if depts is not None:
+        q = q.where(_dept_where(depts))
+    rows = db.execute(q.group_by(LeaveRequest.trang_thai)).all()
+    # Gộp trạng thái cũ `duyet` vào `da_duyet` cho khớp bộ lọc trên giao diện.
+    agg = {"cho_duyet": 0, "da_duyet": 0, "tu_choi": 0}
+    for r in rows:
+        k = "da_duyet" if r.trang_thai in ("da_duyet", "duyet") else r.trang_thai
+        if k in agg:
+            agg[k] += r.cnt
+    result["all_cho_duyet"] = agg["cho_duyet"]
+    result["all_da_duyet"] = agg["da_duyet"]
+    result["all_tu_choi"] = agg["tu_choi"]
+    result["pending_all"] = agg["cho_duyet"]
     return result

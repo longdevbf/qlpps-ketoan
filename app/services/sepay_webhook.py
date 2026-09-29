@@ -50,7 +50,9 @@ def verify_api_key(auth_header: Optional[str]) -> bool:
     parts = auth_header.strip().split(None, 1)
     if len(parts) != 2 or parts[0].lower() != "apikey":
         return False
-    return parts[1].strip() == secret
+    # constant-time (chống timing side-channel dò secret) — SEC-04, 2026-08-28
+    import hmac
+    return hmac.compare_digest(parts[1].strip(), secret)
 
 
 def _normalize_qn(raw: str) -> str:

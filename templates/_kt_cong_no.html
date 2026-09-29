@@ -1,0 +1,208 @@
+{# ─────────────────────────────────────────────────────────────────────────────
+   Khung chung cho Công nợ KHÁCH HÀNG và Công nợ NHÀ CUNG CẤP (bố cục L3, dòng mở rộng + panel xem nhanh).
+   Được include từ kt_cong_no_kh.html / kt_cong_no_ncc.html với các biến: ben, h1, sub, tim_ph, api, lap, lap_href,
+   kpis, dt_day, dt_ngan, nv_nhan, hd, thu, da_thu. JS dùng chung: kt-cong-no.js (đọc data-ben).
+   ───────────────────────────────────────────────────────────────────────────── #}
+<main class="kd-page kt-cong-no" id="kd-kt-cong-no-{{ ben }}" data-ben="{{ ben }}">
+  <header class="kd-head">
+    <div class="kd-head__title">
+      <h1 class="kd-h1">{{ h1 }}</h1>
+      <p class="kd-sub">{{ sub }}</p>
+    </div>
+    <div class="kd-head__tools">
+      <label class="kd-search kt-search">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" id="cnk-tim" placeholder="{{ tim_ph }}" aria-label="Tìm {{ dt_day | lower }}" autocomplete="off">
+      </label>
+      <button type="button" class="kd-btn" id="cnk-nut-loc" aria-expanded="false" aria-controls="cnk-loc">
+        <i class="bi bi-funnel" aria-hidden="true"></i>Bộ lọc<span class="kt-dem-loc num" id="cnk-dem-loc" hidden></span>
+      </button>
+      <a class="kd-btn" id="cnk-xuat" href="{{ api }}/xuat"><i class="bi bi-download" aria-hidden="true"></i>Xuất Excel</a>
+      {# Anh Quang 2026-09-25: thao tác theo cơ chế cũ — "Ghi nhận thu/trả" (POST /api/cong-no/{id}/tra:
+         trừ công nợ + tự ghi Sổ quỹ), KHÔNG dẫn sang Chứng từ (chỉ ghi nhật ký). Xem kt-ghi-nhan-tra.js. #}
+      {# 28/09/2026: "Đồng bộ công nợ" (POST /api/cong-no/sync — require_ketoan_user: Kế toán + CEO bấm được).
+         Đã sửa (services/cong_no_dong_bo.py): phải thu mỗi đơn = "Còn thu" màn Đơn hàng, cập nhật cả khoản đã có;
+         bấm nút → luôn XEM TRƯỚC (dry_run) số dòng + tổng trước/sau, rồi mới cho chạy thật. #}
+      <button type="button" class="kd-btn" id="cnk-dong-bo">
+        <i class="bi bi-arrow-repeat" aria-hidden="true"></i>Đồng bộ công nợ
+      </button>
+      {# "Thêm công nợ" = nút "+ Thêm Nợ" màn cũ /app#cong-no (POST /api/cong-no, require_ketoan_user). #}
+      <button type="button" class="kd-btn" id="cnk-them">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm công nợ
+      </button>
+      <button type="button" class="kd-btn kd-btn--primary" id="cnk-lap">
+        <i class="bi bi-cash-coin" aria-hidden="true"></i>{{ lap }}
+      </button>
+    </div>
+  </header>
+
+  <dialog class="kd-dialog kt-cn-db-dlg" id="cnk-dlg-db" aria-labelledby="cnk-db-td" aria-describedby="cnk-db-nd">
+    <form method="dialog" novalidate>
+      <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="cnk-db-td">Đồng bộ công nợ từ các phòng</h2>
+        <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+      <div class="kd-dialog__body">
+        <div id="cnk-db-nd">
+          <ul class="kd-bullets">
+            <li><b>Báo giá đã duyệt → phải thu khách hàng.</b> Còn phải thu của mỗi đơn = "Còn thu" trên màn Đơn hàng
+              (tổng đơn − tiền đã thu theo doanh thu − cọc hợp đồng chưa ghi doanh thu). Khoản đã có được tính lại.</li>
+            <li><b>Mua hàng → phải trả nhà cung cấp:</b> đơn mua đã có hàng mà chưa có khoản công nợ nào.</li>
+          </ul>
+          <p class="kd-meta">Không kéo thu hộ / cước vận chuyển của Sale Admin (thu hộ trùng phải thu của đơn; cước trả qua Đề nghị thanh toán). Chạy lại không tạo trùng.</p>
+        </div>
+        <div class="kt-cn-xt" id="cnk-db-xt" aria-live="polite"></div>
+        <p class="kd-form-err" role="alert" hidden></p>
+      </div>
+      <footer class="kd-dialog__foot">
+        <button type="button" class="kd-btn" data-dong id="cnk-db-huy">Huỷ</button>
+        <button type="button" class="kd-btn kd-btn--primary" id="cnk-db-ok" disabled><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Đồng bộ</button>
+      </footer>
+    </form>
+  </dialog>
+
+  {# Thêm / sửa một khoản công nợ — form "Thêm Công Nợ" màn cũ (modal-cn): loại cố định theo màn. Sửa = PUT (chỉ CEO). #}
+  <dialog class="kd-dialog" id="cnk-dlg-f" aria-labelledby="cnk-f-td">
+    <form method="dialog" novalidate id="cnk-f">
+      <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="cnk-f-td">Thêm công nợ</h2>
+        <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+      <div class="kd-dialog__body">
+        <p class="kd-note" id="cnk-f-nguon" hidden></p>
+        <div class="kd-field"><label class="kd-field__label" for="cnk-f-dt">{{ dt_day }} <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input" id="cnk-f-dt" list="cnk-f-dt-ds" maxlength="255" autocomplete="off" placeholder="Gõ để tìm hoặc nhập tên mới…" aria-describedby="cnk-f-dt-loi">
+          <datalist id="cnk-f-dt-ds"></datalist><p class="kd-form-err" id="cnk-f-dt-loi" role="alert" hidden></p></div>
+        <div class="kd-row2">
+          <div class="kd-field"><label class="kd-field__label" for="cnk-f-ma">Mã đơn</label><input class="kd-input" id="cnk-f-ma" maxlength="64" autocomplete="off" placeholder="Liên kết đơn hàng…"></div>
+          <div class="kd-field"><label class="kd-field__label" for="cnk-f-ngay">Ngày phát sinh <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input" type="date" id="cnk-f-ngay" aria-describedby="cnk-f-ngay-loi"><p class="kd-form-err" id="cnk-f-ngay-loi" role="alert" hidden></p></div>
+        </div>
+        <div class="kd-row2">
+          <div class="kd-field"><label class="kd-field__label" for="cnk-f-tien">Số tiền (VND)</label>
+            <input class="kd-input num" id="cnk-f-tien" inputmode="numeric" autocomplete="off" placeholder="0" aria-describedby="cnk-f-tien-gy">
+            <p class="kd-meta" id="cnk-f-tien-gy">Nhập 0 nếu chỉ ghi khoản {{ 'khách ứng trước' if ben == 'kh' else 'ứng trước cho NCC' }} (chưa có hoá đơn).</p></div>
+          <div class="kd-field"><label class="kd-field__label" for="cnk-f-han">Hạn thanh toán</label><input class="kd-input" type="date" id="cnk-f-han"></div>
+        </div>
+        <div class="kd-row2" id="cnk-f-tra-khoi">
+          <div class="kd-field"><label class="kd-field__label" for="cnk-f-da">{{ da_thu }} ngay (VND)</label>
+            <input class="kd-input num" id="cnk-f-da" inputmode="numeric" autocomplete="off" placeholder="0" aria-describedby="cnk-f-da-gy">
+            <p class="kd-meta" id="cnk-f-da-gy">Có thể lớn hơn số tiền nếu {{ 'khách cọc dư' if ben == 'kh' else 'ứng dư' }}. Sổ quỹ tự ghi phiếu {{ 'thu' if ben == 'kh' else 'chi' }}.</p></div>
+          <div class="kd-field"><label class="kd-field__label" for="cnk-f-tk">Tài khoản <span class="kd-field__req" id="cnk-f-tk-bb" aria-hidden="true" hidden>*</span></label>
+            <select class="kd-input" id="cnk-f-tk" aria-describedby="cnk-f-tk-loi"></select><p class="kd-form-err" id="cnk-f-tk-loi" role="alert" hidden></p></div>
+        </div>
+        <p class="kd-meta" id="cnk-f-da-sua" hidden></p>
+        <div class="kd-field"><label class="kd-field__label" for="cnk-f-gc">Ghi chú</label><input class="kd-input" id="cnk-f-gc" maxlength="500" placeholder="Ghi chú…"></div>
+        <p class="kd-form-err" role="alert" hidden></p>
+      </div>
+      <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button>
+        <button type="submit" class="kd-btn kd-btn--primary" id="cnk-f-ok"><i class="bi bi-check-lg" aria-hidden="true"></i>Lưu</button></footer>
+    </form>
+  </dialog>
+
+  <dialog class="kd-dialog" id="cnk-dlg-x" role="alertdialog" aria-labelledby="cnk-x-td" aria-describedby="cnk-x-nd">
+    <form method="dialog" novalidate>
+      <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="cnk-x-td">Xoá khoản công nợ?</h2></header>
+      <div class="kd-dialog__body"><p id="cnk-x-nd"></p><p class="kd-form-err" role="alert" hidden></p></div>
+      <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button>
+        <button type="button" class="kd-btn kd-btn--danger" id="cnk-x-ok"><i class="bi bi-trash" aria-hidden="true"></i>Xoá hẳn</button></footer>
+    </form>
+  </dialog>
+
+  <div class="kt-kpi-khoi">
+    <section class="kd-kpi-row kt-kpi-row--4" aria-label="Tổng hợp công nợ theo bộ lọc" id="cnk-kpi">
+      {% for k in kpis %}
+      <article class="kd-kpi" data-kpi="{{ k[0] }}">
+        <div class="kd-kpi__head">
+          <span class="ico-tile{% if k[2] %} ico-tile{{ k[2] }}{% endif %}" aria-hidden="true"><i class="bi {{ k[3] }}"></i></span>
+          <span class="kd-kpi__label">{{ k[1] }}<span data-tip-o></span></span>
+        </div>
+        <div class="kd-kpi__value num" data-v><span class="kd-skel kd-skel--kpi"></span></div>
+        <p class="kd-kpi__phu" data-phu></p>
+      </article>
+      {% endfor %}
+    </section>
+    <p class="kt-pham-vi" id="cnk-pham-vi"></p>
+  </div>
+
+  <div class="kd-main" id="cnk-main">
+    <section class="kd-card" aria-labelledby="cnk-td">
+      <h2 class="visually-hidden" id="cnk-td">Danh sách công nợ theo {{ dt_day | lower }}</h2>
+      <form class="kd-filter" id="cnk-loc" role="search" hidden novalidate>
+        <label class="kd-field">
+          <span class="kd-field__label">Tình trạng</span>
+          <select class="kd-input" id="cnk-tt">
+            <option value="con_no">Còn nợ</option>
+            <option value="qua_han">Có khoản quá hạn</option>
+            <option value="chua_den_han">Chưa đến hạn</option>
+            <option value="qh_1_30">Quá hạn 1-30 ngày</option>
+            <option value="qh_31_60">Quá hạn 31-60 ngày</option>
+            <option value="qh_tren_60">Quá hạn trên 60 ngày</option>
+            <option value="da_thu_du">Đã thu đủ</option>
+            <option value="tat_ca">Tất cả {{ dt_ngan }}</option>
+          </select>
+        </label>
+        {% if ben == 'ncc' %}
+        {# Bộ lọc của màn cũ /app#cong-no-ncc: tab Tất cả / Đơn đã xong / Chưa trả / Đã trả — tham số
+           `filter` của /api/cong-no/ncc-module (lọc ở máy chủ, theo từng ĐƠN chứ không theo NCC). #}
+        <label class="kd-field">
+          <span class="kd-field__label">Nhóm đơn</span>
+          <select class="kd-input" id="cnk-nhom">
+            <option value="all">Tất cả đơn</option>
+            <option value="da_xong">Đơn đã xong</option>
+            <option value="chua_tra">Đơn chưa trả</option>
+            <option value="da_tra">Đơn đã trả</option>
+          </select>
+        </label>
+        <label class="kd-field">
+          <span class="kd-field__label">Tháng phát sinh</span>
+          <input class="kd-input" type="month" id="cnk-thang">
+        </label>
+        {% endif %}
+        {# Bỏ ô "{{ nv_nhan }}": ketoan.cong_no không có cột nhân viên, API không bao giờ trả danh sách
+           NV → ô chọn luôn chỉ có "Tất cả" (chết). Màn cũ cũng không có bộ lọc này. #}
+        <label class="kd-field">
+          <span class="kd-field__label">Phát sinh từ ngày</span>
+          <input class="kd-input" type="date" id="cnk-tu">
+        </label>
+        <label class="kd-field">
+          <span class="kd-field__label">Tính đến ngày</span>
+          <input class="kd-input" type="date" id="cnk-den">
+        </label>
+        <button type="button" class="kd-link" id="cnk-dat-lai">Đặt lại bộ lọc</button>
+      </form>
+
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="cnk-cuon">
+        <table class="kd-table kd-table--click kt-bang kt-cn-bang">
+          <thead id="cnk-thead"><tr>
+            <th scope="col" class="kt-col-mo"><span class="visually-hidden">Mở hoá đơn</span></th>
+            <th scope="col"><button type="button" class="kd-sort" data-sort="ten" data-kieu="chu">{{ dt_day }} <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+            <th scope="col" class="num"><button type="button" class="kd-sort" data-sort="tong_no">Tổng nợ <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+            <th scope="col" class="num"><button type="button" class="kd-sort" data-sort="da_thu">{{ da_thu }} <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+            <th scope="col" class="num"><button type="button" class="kd-sort" data-sort="con_lai">Còn nợ <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+            <th scope="col"><button type="button" class="kd-sort" data-sort="qua_han">Tuổi nợ <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+            <th scope="col" class="kd-col-act">Thao tác</th>
+          </tr></thead>
+          <tbody id="cnk-tbody"></tbody>
+          <tfoot id="cnk-tfoot"></tfoot>
+        </table>
+      </div>
+      <div id="cnk-tt-khoi"></div>
+
+      <footer class="kd-card__foot" id="cnk-foot" hidden>
+        <span id="cnk-hien-thi" aria-live="polite"></span>
+        <nav class="kd-pager" id="cnk-trang" aria-label="Phân trang"></nav>
+        <label class="kd-select">
+          <span class="visually-hidden">Số {{ dt_ngan }} mỗi trang</span>
+          <select id="cnk-co-trang"><option value="10">10 / trang</option><option value="20">20 / trang</option><option value="50">50 / trang</option></select>
+        </label>
+      </footer>
+    </section>
+
+    <aside class="kd-panel kt-panel" id="cnk-panel" aria-labelledby="cnk-p-td" hidden>
+      <header class="kd-panel__head">
+        <h2 class="kd-panel__title" id="cnk-p-td">Công nợ của {{ dt_ngan }}</h2>
+        <button type="button" class="kd-icon-btn" id="cnk-p-dong" aria-label="Đóng công nợ của {{ dt_ngan }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+      </header>
+      <div class="kd-panel__scroll" id="cnk-p-noi-dung"></div>
+      <footer class="kd-panel__actions" id="cnk-p-nut"></footer>
+    </aside>
+    <div class="kd-scrim" id="cnk-scrim" hidden></div>
+  </div>
+</main>

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Duyệt chi — VẼ LẠI thay kt_duyet.html cũ (anh duyệt ngày 23/09/2026). L3: gộp 3 luồng chi THẬT (giống màn cũ /chi-tap-trung):
+   Đề xuất chi nội bộ (/api/duyet-chi — shared/routers/duyet_chi.py, KHÔNG sửa), Đề nghị TT ĐVVC (/api/de-nghi-tt),
+   Trả nợ NCC (/api/ncc-de-xuat). Duyệt / từ chối / chi tiền gọi đúng API của từng luồng — xem đầu kt-duyet.js. #}
+{% block title %}Duyệt chi{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}{{ ui.css('kt-chung-tu') }}<link rel="stylesheet" href="/static/css/kt-duyet.css?v=popup0928b">{% endblock %}
+
+{% block content %}
+<main class="kd-page kt-l3-rong" id="kd-kt-duyet">
+  {% call ui.dau_trang('Duyệt chi', 'Duyệt theo cấp, rồi chi tiền') %}
+    {{ ui.nut_loc('dc') }}
+    <a class="kd-btn" href="/ketoan/de-xuat-ncc"><i class="bi bi-truck" aria-hidden="true"></i>Đề xuất trả NCC</a>
+    <a class="kd-btn kd-btn--primary" href="/ketoan/de-nghi-tt"><i class="bi bi-plus-lg" aria-hidden="true"></i>Tạo đề xuất chi</a>
+  {% endcall %}
+
+  {{ ui.the_so('dc', [('cho_toi', 'Chờ tôi duyệt', 'warning', 'bi-hourglass-split'), ('cho_chi', 'Chờ chi', 'info', 'bi-check2-circle'),
+                       ('qua_han', 'Quá hạn chi', 'danger', 'bi-exclamation-triangle'), ('da_chi', 'Đã chi tháng này', 'success', 'bi-cash-coin')], nhan_vung='Tình trạng đề nghị chi') }}
+
+  {# Tab: Chờ duyệt / Chờ chi dùng chung bảng chính (đổi ô lọc Trạng thái); Đã chi và Báo cáo là 2 ngăn riêng. #}
+  <div class="kt-dc-tabs">
+    <div class="kd-tabs kd-tabs--lon kt-tabs-trang" role="tablist" aria-label="Nhóm đề nghị chi" id="dc-tabs">
+      <button type="button" role="tab" id="dc-tab-cho_duyet" data-tab="cho_duyet" aria-controls="dc-p-ds" aria-selected="true"><i class="bi bi-hourglass-split" aria-hidden="true"></i>Chờ duyệt <span class="kt-dc-dem" id="dc-dem-cho_toi"></span></button>
+      <button type="button" role="tab" id="dc-tab-cho_chi" data-tab="cho_chi" aria-controls="dc-p-ds" aria-selected="false" tabindex="-1"><i class="bi bi-wallet2" aria-hidden="true"></i>Chờ chi <span class="kt-dc-dem" id="dc-dem-cho_chi"></span></button>
+      <button type="button" role="tab" id="dc-tab-da_chi" data-tab="da_chi" aria-controls="dc-p-da_chi" aria-selected="false" tabindex="-1"><i class="bi bi-check2-all" aria-hidden="true"></i>Đã chi</button>
+      <button type="button" role="tab" id="dc-tab-bao_cao" data-tab="bao_cao" aria-controls="dc-p-bao_cao" aria-selected="false" tabindex="-1"><i class="bi bi-bar-chart" aria-hidden="true"></i>Báo cáo</button>
+    </div>
+    <button type="button" class="kd-tip kd-tip--trai" data-tip="Gộp 3 luồng: Đề xuất chi (Trưởng bộ phận → Kế toán → Giám đốc), Đề nghị TT (Sale Admin) và Trả NCC (Mua Hàng). Thẻ số tính trên toàn bộ, không theo bộ lọc." aria-label="Cách tính"><i class="bi bi-info-circle" aria-hidden="true"></i></button>
+  </div>
+
+  <div class="kt-tab-pane" role="tabpanel" id="dc-p-ds" aria-labelledby="dc-tab-cho_duyet">
+  {% call ui.the_bang('dc', 'Danh sách đề nghị chi', panel='Chi tiết đề nghị') %}
+    {{ ui.o_tim('dc', 'tim', 'Tìm', 'Mã, nội dung, người đề nghị, thụ hưởng, mã đơn…') }}
+    {# "Tất cả" mang giá trị 'tat_ca' (không để rỗng): KT.url.ghi bỏ giá trị rỗng khỏi URL → F5 quay về mặc định "Chờ tôi duyệt". #}
+    {{ ui.o_chon('dc', 'trang_thai', 'Trạng thái', [('cho_toi', 'Chờ tôi duyệt'), ('tat_ca', 'Tất cả'), ('cho_duyet', 'Đang chờ duyệt (mọi cấp)'), ('cho_manager', 'Chờ Trưởng bộ phận duyệt'), ('cho_ketoan', 'Chờ Kế toán duyệt'), ('cho_ceo', 'Chờ Giám đốc duyệt'), ('cho_chi', 'Đã duyệt, chờ chi'), ('qua_han', 'Quá hạn chi'), ('da_chi_thang', 'Đã chi tháng này'), ('da_chi', 'Đã chi (mọi tháng)'), ('chi_ngoai', 'Đã chi ở luồng khác (không cộng lại)'), ('hoan_tat', 'Hoàn tất (dữ liệu cũ)'), ('tu_choi', 'Bị từ chối'), ('cua_toi', 'Do tôi đề nghị')]) }}
+    {{ ui.o_chon('dc', 'nguon', 'Luồng', [('', 'Tất cả'), ('de_xuat_chi', 'Đề xuất chi nội bộ'), ('de_nghi_tt', 'Đề nghị TT (ĐVVC)'), ('de_xuat_ncc', 'Trả nợ NCC')]) }}
+    {{ ui.o_chon('dc', 'loai', 'Loại chi', [('', 'Tất cả'), ('di_chuyen', 'Di chuyển / Xăng xe'), ('van_phong', 'Văn phòng phẩm'), ('tiep_thi', 'Tiếp thị / Quảng cáo'), ('dao_tao', 'Đào tạo'), ('khach_hang', 'Tiếp khách'), ('khac', 'Chi phí khác')]) }}
+    {{ ui.o_chon('dc', 'bo_phan', 'Bộ phận', [('', 'Tất cả')]) }}
+    {{ ui.o_chon('dc', 'thoi_gian', 'Ngày gửi', [('', 'Tất cả thời gian'), ('thang_nay', 'Tháng này'), ('thang_truoc', 'Tháng trước'), ('30_ngay', '30 ngày qua'), ('tuy_chinh', 'Tự chọn khoảng ngày')]) }}
+    <label class="kd-field" id="dc-o-tu-ngay" hidden><span class="kd-field__label">Gửi từ ngày</span><input class="kd-input" type="date" id="dc-tu-ngay"></label>
+    <label class="kd-field" id="dc-o-den-ngay" hidden><span class="kd-field__label">Đến ngày</span><input class="kd-input" type="date" id="dc-den-ngay"></label>
+  {% endcall %}
+  </div>
+
+  {# Đã chi — thay tab "Đã chi" của màn cũ /chi-tap-trung (gộp 3 luồng). #}
+  <div class="kt-tab-pane" role="tabpanel" id="dc-p-da_chi" aria-labelledby="dc-tab-da_chi" hidden>
+  <section class="kd-card kt-dc-bc" aria-labelledby="dc-dc-td">
+    <div class="kt-dc-bc__dau">
+      <div><h2 class="kd-box__title" id="dc-dc-td">Đã chi</h2><p class="kt-dc-tong" id="dc-dc-tong"></p></div>
+      <div class="kt-dc-bc__loc"><label class="kd-field"><span class="kd-field__label">Luồng</span><select class="kd-input" id="dc-dc-nguon"><option value="">Tất cả</option><option value="de_xuat_chi">Đề xuất chi</option><option value="de_nghi_tt">Đề nghị TT</option><option value="de_xuat_ncc">Trả NCC</option></select></label></div>
+    </div>
+    <div class="kd-table-scroll" id="dc-dc-cuon"><table class="kd-table kd-table--click kt-bang"><caption class="visually-hidden">Các khoản đã chi</caption>
+      <thead><tr><th scope="col">Ngày chi</th><th scope="col">Mã</th><th scope="col">Nội dung</th><th scope="col">Người nhận</th><th scope="col">Chi từ</th><th scope="col" class="num">Số tiền (VND)</th></tr></thead>
+      <tbody id="dc-dc-tb"></tbody></table></div>
+    <div id="dc-dc-tt"></div>
+    <footer class="kd-card__foot" id="dc-dc-foot" hidden><span id="dc-dc-hien" aria-live="polite"></span><nav class="kd-pager" id="dc-dc-trang" aria-label="Phân trang đã chi"></nav><span></span></footer>
+  </section>
+  </div>
+
+  {# Báo cáo — thay màn cũ /bao-cao/duyet-chi (GET /api/duyet-chi/report). Chỉ luồng Đề xuất chi nội bộ, như màn cũ. #}
+  <div class="kt-tab-pane" role="tabpanel" id="dc-p-bao_cao" aria-labelledby="dc-tab-bao_cao" hidden>
+  <section class="kd-card kt-dc-bc" aria-labelledby="dc-bc-td">
+    <div class="kt-dc-bc__dau">
+      <div><h2 class="kd-box__title" id="dc-bc-td">Báo cáo đề xuất chi <button type="button" class="kd-tip" data-tip="Chỉ luồng Đề xuất chi nội bộ, tính theo ngày đề xuất." aria-label="Phạm vi báo cáo"><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+      <div class="kt-dc-bc__loc">
+        <label class="kd-field"><span class="kd-field__label">Tháng</span><input type="month" class="kd-input" id="dc-bc-thang"></label>
+        <label class="kd-field"><span class="kd-field__label">Phòng ban</span><select class="kd-input" id="dc-bc-pb"><option value="">Tất cả</option></select></label>
+        <label class="kd-field"><span class="kd-field__label">Trạng thái</span><select class="kd-input" id="dc-bc-trang-thai"><option value="">Tất cả</option><option value="cho_duyet">Chờ duyệt</option><option value="da_duyet">Đã duyệt</option><option value="tu_choi">Từ chối</option></select></label>
+        <label class="kd-field"><span class="kd-field__label">Cấp duyệt</span><select class="kd-input" id="dc-bc-cap"><option value="">Tất cả</option><option value="manager">Trưởng bộ phận</option><option value="ketoan">Kế toán</option><option value="ceo">Giám đốc</option><option value="done">Hoàn tất</option><option value="rejected">Đã từ chối</option></select></label>
+      </div>
+    </div>
+    <div id="dc-bc-tt"></div>
+    <div id="dc-bc-nd" hidden>
+      <dl class="kt-dc-bc__so" id="dc-bc-so"></dl>
+      <div class="kt-dc-bc__bang">
+        <div class="kd-table-scroll"><table class="kd-table kt-bang"><caption class="kt-dc-bc__cap">Theo phòng ban</caption>
+          <thead><tr><th scope="col">Phòng ban</th><th scope="col" class="num">Tổng đơn</th><th scope="col" class="num">Đã duyệt</th><th scope="col" class="num">Đang chờ</th><th scope="col" class="num">Từ chối</th><th scope="col" class="num">Số tiền (VND)</th></tr></thead>
+          <tbody id="dc-bc-pb-tb"></tbody></table></div>
+        <div class="kd-table-scroll"><table class="kd-table kt-bang"><caption class="kt-dc-bc__cap">Theo loại chi</caption>
+          <thead><tr><th scope="col">Loại chi</th><th scope="col" class="num">Tổng đơn</th><th scope="col" class="num">Số tiền (VND)</th></tr></thead>
+          <tbody id="dc-bc-lc-tb"></tbody></table></div>
+      </div>
+    </div>
+  </section>
+  </div>
+</main>
+
+<dialog class="kd-dialog kt-dc-dlg" id="dc-dlg-duyet" aria-labelledby="dc-duyet-td">
+  <form method="dialog" novalidate id="dc-form-duyet">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="dc-duyet-td">Duyệt đề nghị?</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <p class="kt-dc-dlg__nd" id="dc-duyet-nd"></p>
+      <div class="kd-field"><label class="kd-field__label" for="dc-duyet-gc" id="dc-duyet-gc-nhan">Ghi chú (không bắt buộc)</label><textarea class="kd-input kd-textarea" id="dc-duyet-gc" maxlength="500" rows="3"></textarea></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="dc-duyet-ok">Duyệt</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog kt-dc-dlg" id="dc-dlg-chi" aria-labelledby="dc-chi-td">
+  <form method="dialog" novalidate id="dc-form-chi">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="dc-chi-td">Chi tiền và ghi sổ</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <dl class="kt-tq" id="dc-chi-tt"></dl>
+      <div class="kd-field"><label class="kd-field__label" for="dc-chi-co">Chi từ tài khoản <span class="kd-field__req" aria-hidden="true">*</span></label><select class="kd-input" id="dc-chi-co"><option value="">— Chọn tài khoản —</option></select></div>
+      <div class="kd-field"><label class="kd-field__label" for="dc-chi-no">Hạch toán vào <button type="button" class="kd-tip" data-tip="Tự ghi sổ quỹ chi ngày hôm nay; chặn nếu số dư tài khoản không đủ." aria-label="Ghi sổ tự động"><i class="bi bi-info-circle" aria-hidden="true"></i></button></label><input class="kd-input" id="dc-chi-no" readonly tabindex="-1"></div>
+      <div class="kd-field"><label class="kd-field__label" for="dc-chi-gc">Ghi chú (không bắt buộc)</label><input class="kd-input" id="dc-chi-gc" maxlength="200" autocomplete="off" placeholder="VD: đã chuyển khoản cho NCC"></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="dc-chi-ok"><i class="bi bi-cash-coin" aria-hidden="true"></i>Chi và ghi sổ</button></footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}{{ ui.js('kt-duyet', v='tk0928a') }}{% endblock %}

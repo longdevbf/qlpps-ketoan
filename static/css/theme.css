@@ -3,103 +3,187 @@
        cd d:\PapaSanIT\claude-kit && python sync.py
    File này giống hệt nhau ở cả 8 repo. Sửa lẻ một repo là cách
    hệ màu đã trôi khỏi nhau 3 lần. */
+/* ⚠ NỢ DEPLOY — ĐỌC TRƯỚC KHI ĐẨY FILE NÀY LÊN PRODUCTION
+   11/09/2026 hệ màu đổi sang XANH #2563EB (ADR-012). Template trên prod đang
+   hỏi theme.css?v=cam11 (HCNS cam13, ketoan dùng ASSET_V) và trình duyệt đã
+   cache các dấu đó — baogia, marketing, ceo còn trả static "immutable" 1 năm.
+
+   ⇒ Trước khi deploy file này ở app nào, BẮT BUỘC nâng dấu của app đó lên
+     xanh1 ở MỌI template gọi theme.css, nếu không người dùng không bao giờ
+     thấy màu mới. Lệnh (chạy ở d:\PapaSanIT, thay APP bằng tên app):
+
+         grep -rlE --include=*.html "theme.css[?]v=cam1[13]" qlpps-APP \
+           | xargs sed -i -E "s/theme.css[?]v=cam1[13]/theme.css?v=xanh1/g"
+
+
+   CANH BAO: trong comment CSS ĐỪNG viết glob kieu `qlpps-<sao>/templates` —
+   cum sao-gach-cheo DONG COMMENT ngay tai do. Phan con lai bi doc nhu CSS rac
+   va trinh duyet nuot luon ca khoi :root ben duoi: ca file mat mau ma khong
+   bao mot loi nao. Da mac dung loi nay 07/09/2026.
+
+   Xoá đoạn ghi chú này khi cả 8 app đã deploy dấu xanh1. */
+
 /* ═══════════════════════════════════════════════════════════════════════════
-   theme.css — HỆ MÀU QLPPS · CAM trên slate lạnh
+   theme.css — HỆ MÀU QLPPS · XANH DƯƠNG trên nền trắng ám xanh
    ───────────────────────────────────────────────────────────────────────────
-   Chốt 26/08/2026. Thay hệ hổ phách #9E5D09 (11/08) và hệ cam đỏ #D23C0E.
-   NGUỒN SỰ THẬT: qlpps-marketing/docs/HE-MAU-ERP.md — phần :root là giá trị.
+   Chốt 11/09/2026 — quyết định của anh Quang (ưu tiên cao nhất, ADR-012):
+   màu chủ đạo của CẢ hệ thống là TRẮNG + XANH DƯƠNG như bộ ảnh mẫu Kinh doanh.
+   Thay hệ cam #A84A03 trên slate lạnh (26/08 → 11/09/2026). Các hệ trước nữa
+   (hổ phách, cam đỏ) nằm ở bảng đối chiếu cuối file.
+   Tài liệu thiết kế: QLPPS-UI-DOC/01-ban-thao/03-mau-sac.md · 01-ADR.md.
    Cuối file có thêm MỘT lớp component (@layer qlpps.table) — xem lý do tại chỗ.
 
    File này giống hệt nhau ở cả 8 repo vì `claude-kit/sync.py` rải ra. Bản gốc:
    claude-kit/core/static/css/theme.css. Sửa gốc rồi chạy sync, đừng sửa lẻ một
    repo — đó là cách hệ màu đã trôi khỏi nhau 3 lần.
 
+   ── GIỮ TÊN, CHỈ ĐỔI GIÁ TRỊ ──────────────────────────────────────────────
+   Không token nào đổi tên hay bị xoá. Khoảng 2 700 chỗ gọi var(--brand...) trong
+   templates + static của 8 repo tự sang xanh, không sửa template nào.
+   Tên của tài liệu thiết kế (--accent ...) là BÍ DANH trỏ về --brand, mục 1b.
+
    ── VÌ SAO GIÁ TRỊ NHƯ VẬY ──────────────────────────────────────────────
-   Sắc cam rút từ 9 file PDF bản thiết kế khách đưa (đã trích xong màu, xoá
-   27/08 — bảng trích ghi ở qlpps-marketing/docs/HE-MAU-ERP.md). Thang xám và cấu
-   trúc tương phản lấy từ module MKT của HSM. Mọi số dưới đây đo bằng WCAG 2.1.
+   Đo 5 ảnh mẫu Kinh doanh (1536x1024, JPEG): nút chính #0560FD, rãnh nền
+   trang #EAF4FE, thẻ #FEFEFE, mục sidebar đang chọn #DAE9FE, tiêu đề trang
+   navy. Người duyệt chọn #2563EB (blue-600, chữ trắng 5.17) thay #0560FD.
+   Mọi tỉ lệ dưới đây là WCAG 2.1, tính bằng công thức.
+   the = thẻ trắng · nen = --bg-app · lom = --bg-page · soft = --brand-soft
+   · band = --bg-band.
 
-   Điểm mấu chốt: `--brand` đang được gọi **763 lần làm màu CHỮ** trong
-   template (chỉ 72 lần làm nền). Nên nó phải đạt 4.5:1 trên MỌI bề mặt, không
-   chỉ trên thẻ trắng. Đó là lý do brand dừng ở #A84A03 chứ không sáng hơn:
+   Điểm mấu chốt: --brand làm màu CHỮ nhiều hơn làm nền (797 dòng
+   `color: var(--brand)`), và 62 dòng đặt chữ var(--brand) thẳng lên nền
+   var(--brand-soft) (đếm 11/09/2026, templates + static). Nên --brand-soft
+   bị chặn độ đậm — tối hơn là #2563EB trượt 4.5:1 trên nó:
 
-       #CC4E05  the 4.51 · nen 4.11 ✗ · lom 4.31 ✗ · soft 3.83 ✗
-       #B85105  the 4.98 · nen 4.55 · lom 4.76 · soft 4.23 ✗
-       #A84A03  the 5.76 · nen 5.26 · lom 5.51 · soft 4.89   <- đạt hết
+       #DBEAFE  đúng sắc ảnh mẫu    brand trên nó 4.24 ✗
+       #E6F0FE                      brand trên nó 4.49 ✗
+       #EAF2FE                      brand trên nó 4.59   <- chọn
 
-   Độ tươi mà mắt thấy rõ nhất nằm ở --brand-bright (#EA580C) trên SỐ LIỆU cỡ
-   lớn — chữ ≥24px đậm chịu ngưỡng 3.0 nên đi được xa hơn nhiều.
+   Muốn nền chọn đậm như ảnh thì đổi 62 dòng kia sang chữ --brand-hover
+   TRƯỚC, rồi mới hạ --brand-soft. Làm ngược thứ tự là trượt AA im lặng.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ═══ 1. THƯƠNG HIỆU — bốn vai, KHÔNG dùng lẫn ═══════════════════════════
-     --brand        : chữ nhấn, icon, viền nhấn. Cũng dùng làm nền đặc được
-                      (chữ trắng trên nó 5.76:1).
-     --brand-hover  : hover/active; chữ đặt trên --brand-soft (5.44:1).
-     --brand-soft   : NỀN nhấn — nay là XÁM TRUNG TÍNH, không còn là peach.
-                      Xem mục 3 dưới đây, đây là thay đổi lớn nhất.
-     --brand-bright : CHỈ cho số liệu ≥24px đậm và icon lớn. KHÔNG cho chữ nhỏ.
-     --brand-graph  : CHỈ cho thanh biểu đồ (đồ hoạ, không mang chữ).          */
-  --brand:        #A84A03;   /* 5.76 thẻ · 5.26 nền trang · 5.51 lõm · 4.89 soft */
-  --brand-hover:  #9A4703;   /* 5.44 trên --brand-soft */
-  --brand-soft:   #E8EDF3;   /* nổi 1.18 trên thẻ trắng · 1.07 trên nền trang */
-  --brand-bright: #EA580C;   /* 3.56 trên thẻ — chỉ chữ ≥24px đậm */
-  --brand-graph:  #F2610E;   /* 3.09 trên mặt lõm */
-  --text-on-brand: #FFFFFF;  /* 5.76 trên --brand */
+  /* ═══ 1. THƯƠNG HIỆU — XANH DƯƠNG. Mỗi token một vai, KHÔNG dùng lẫn ═════
+     --brand        : chữ nhấn, icon, viền nhấn; nền đặc của nút chính (chữ
+                      trắng 5.17). Đạt 4.5 trên the · nen · lom · soft.
+                      TRƯỢT trên --bg-band (4.31): chữ trên dải dùng -hover.
+     --brand-hover  : hover; chữ đặt trên --brand-soft và trên --bg-band.
+     --brand-active : lúc bấm giữ (:active). Thêm 11/09/2026.
+     --brand-soft   : NỀN nhấn — mục/hàng đang chọn, chip. Nay là XANH NHẠT,
+                      không còn xám. Đọc mục 3 trước khi đổi.
+     --brand-border : viền 1px của khối --brand-soft. Thêm 11/09/2026.
+     --brand-bright : CHỈ số liệu ≥24px đậm và icon lớn. KHÔNG cho chữ nhỏ.
+                      Đồng thời là nền ô icon qua --tile-brand (mục 6b).
+     --brand-graph  : CHỈ thanh biểu đồ (đồ hoạ, không mang chữ).            */
+  --brand:         #2563EB;  /* blue-600 · 5.17 the · 4.66 nen · 4.81 lom · 4.59 soft */
+  --brand-hover:   #1D4ED8;  /* blue-700 · 6.70 the · 5.95 soft · 5.59 band */
+  --brand-active:  #1E40AF;  /* blue-800 · chữ trắng 8.72 */
+  --brand-soft:    #EAF2FE;  /* nổi 1.13 trên thẻ trắng — sàn độ đậm, xem đầu file */
+  --brand-border:  #BFDBFE;  /* blue-200 · 1.42 trên thẻ · 1.26 trên soft */
+  --brand-bright:  #3B82F6;  /* blue-500 · 3.68 the · 3.32 nen — chỉ chữ ≥24px đậm */
+  --brand-graph:   #3B82F6;  /* 3.42 trên mặt lõm · 3.68 trên thẻ — ngưỡng đồ hoạ 3:1 */
+  --text-on-brand: #FFFFFF;  /* 5.17 trên --brand · 6.70 -hover · 8.72 -active */
 
-  /* ═══ 2. NỀN — 3 vai trò, KHÔNG phải 3 mức đậm nhạt ══════════════════════ */
+  /* ═══ 1b. BÍ DANH THEO TÊN TÀI LIỆU — --accent trỏ về --brand ═══════════
+     Tài liệu thiết kế gọi màu nhấn là --accent, code 8 repo gọi là --brand.
+     Hai tên, MỘT giá trị: đổi --brand là --accent đổi theo. Code mới dùng
+     tên nào cũng đúng. KHÔNG khai lại --accent bằng hex ở chỗ khác.
+     Đang có hai nơi tự khai --accent: congnghe/static/app.css (#2563EB) và
+     hcns/templates/index.html (var(--brand)). Cùng giá trị, vô hại, dọn dần. */
+  --accent:         var(--brand);
+  --accent-hover:   var(--brand-hover);
+  --accent-active:  var(--brand-active);
+  --accent-soft:    var(--brand-soft);
+  --accent-border:  var(--brand-border);
+  --text-on-accent: var(--text-on-brand);
+
+  /* ═══ 2. NỀN — 3 vai trò + 1 dải, KHÔNG phải 4 mức đậm nhạt ════════════ */
   --bg-card: #FFFFFF;        /* thẻ, bảng, modal */
-  --bg-app:  #F1F5F9;        /* CHỈ dùng cho `body`. Không dùng cho gì khác */
-  --bg-page: #F8FAFC;        /* mọi mặt lõm bên trong thẻ: sọc bảng, ô nhập,
-                                rãnh thanh, hover hàng */
+  --bg-app:  #EDF4FC;        /* CHỈ dùng cho `body`. Không dùng cho gì khác.
+                                Ảnh mẫu đo #EAF4FE ở rãnh nền, đã bù lệch
+                                JPEG. Thẻ trắng nổi 1.11 lần trên nó */
+  --bg-page: #F4F7FB;        /* mọi mặt lõm bên trong thẻ: sọc bảng, ô nhập,
+                                rãnh thanh, hover hàng, đầu bảng mặc định.
+                                Tài liệu thiết kế gọi vai này là --bg-sunken;
+                                "--bg-page" trong tài liệu là vai KHÁC. */
+  --bg-band: #E5EBF4;        /* DẢI NHẤN — đầu bảng tự style, viên lọc đang
+                                chọn, nút phụ. Thẻ trắng nổi 1.20 lần trên nó,
+                                đậm hơn mặt lõm (1.08) để đầu bảng KHÔNG tàng
+                                hình — lỗi người dùng đã bắt 27/08. Ám xanh vừa
+                                phải. Chữ: --text-1 13.78 · --text-2 8.39 ·
+                                --text-3 4.59. --brand chỉ 4.31: chữ xanh trên
+                                dải dùng --brand-hover. */
 
-  /* ═══ 3. --brand-soft NAY LÀ XÁM — đọc kỹ trước khi "sửa lại" ════════════
-     Trước 26/08 đây là peach #FBE7C6 (hổ phách) / #FBE5D0 (cam đỏ), bão hoà
-     100%. Cả hệ nền nay bão hoà 0–13%, nên một mảng bão hoà 100% nằm giữa
-     trông như dán đè — người dùng chê đúng chỗ này, đã đo và xác nhận.
+  /* ═══ 3. --brand-soft NAY LÀ XANH NHẠT — đọc kỹ trước khi "sửa lại" ═════
+     26/08 → 11/09/2026 đây là xám trung tính, theo luật "bề mặt trung tính,
+     màu ấm chỉ là mực": miếng peach bão hoà trên nền slate trông như dán đè.
+     Luật đó sinh ra cho màu ẤM đặt trên nền LẠNH.
+     Hệ xanh không có mâu thuẫn nhiệt độ ấy: nền trang, nền chọn và mực cùng
+     một họ, đúng như ảnh mẫu. Từ 11/09/2026:
+       BỀ MẶT TRẮNG + XANH NHẠT, XANH ĐẬM LÀ MỰC.
+     Khoảng 409 dòng nền var(--brand-soft) + chữ var(--brand-hover) tự thành
+     blue-700 trên xanh nhạt, 5.95:1 — KHÔNG phải sửa template.
+     Sàn cứng: --brand-soft không được tối hơn #EAF2FE (lý do ở đầu file).
+     Nền thẻ, nền modal, đầu bảng mặc định VẪN trắng/lõm — đừng tô soft.    */
 
-     Luật mới: BỀ MẶT TRUNG TÍNH, CAM CHỈ LÀ MỰC. 540 chỗ đang dùng
-     `background: var(--brand-soft)` sẽ tự thành nền xám nhạt, và 607 chỗ dùng
-     `color: var(--brand-hover)` trên đó vẫn là chữ cam — đúng công thức mới mà
-     KHÔNG phải sửa template.
+  /* ═══ 4. VIỀN — 2 mức. Viền GÁNH việc tách khối ════════════════════════
+     Nền trang so với thẻ trắng chỉ chênh 1.11. Bù lại bằng viền thấy rõ và
+     --ring (mục 12b). Đừng bỏ viền thẻ. Hai mức cùng ám xanh như nền;
+     --border-soft PHẢI nhạt hơn --border.                                   */
+  --border:      #DFE6F0;    /* 1.26 trên thẻ · 1.17 trên mặt lõm */
+  --border-soft: #EBF0F7;    /* 1.15 trên thẻ — kẻ ngang giữa các dòng bảng */
+  --focus-ring: 0 0 0 3px rgba(37, 99, 235, .30);   /* quầng xanh 30% */
 
-     ĐỪNG nhuộm --brand-soft về lại họ cam. Muốn nhấn mạnh hơn thì dùng nền đặc
-     var(--brand) + chữ trắng, không phải làm nền soft ấm lên.                */
+  /* ═══ 5. CHỮ — ĐÚNG 3 MỨC, cùng họ NAVY. Không thêm mức thứ 4 ════════════
+     Ảnh mẫu: tiêu đề trang và số KPI là navy; chữ ô bảng là xám-navy.
+     Ba mức cùng hue, nhạt dần và bớt bão hoà dần. Chú thích dùng --text-3,
+     phân biệt bằng cỡ và độ đậm — đừng thêm mức xám thứ 4 (#94A3B8 chỉ
+     2.56:1, trượt cả ngưỡng chữ lớn).                                      */
+  --text-1: #101C44;   /* 16.51 the · 14.90 nen · 15.37 lom · 14.65 soft · 13.78 band */
+  --text-2: #334166;   /* 10.05 the ·  9.07 nen ·  9.36 lom ·  8.92 soft ·  8.39 band */
+  --text-3: #46546B;   /*  5.50 the ·  4.96 nen ·  5.12 lom ·  4.88 soft ·  4.59 band */
 
-  /* ═══ 4. VIỀN — 2 mức. Ở hệ này viền GÁNH việc tách khối ═════════════════
-     Nền trang so với thẻ trắng chỉ chênh 1.10, thấp hơn hệ kem cũ (1.28). Bù
-     lại bằng viền thấy rõ. Đừng bỏ viền thẻ.                                 */
-  --border:      #E2E8F0;
-  --border-soft: #EDF1F6;    /* kẻ ngang giữa các dòng trong bảng */
-  --focus-ring: 0 0 0 3px rgba(168, 74, 3, .30);
+  /* ═══ 6. MÀU SỐ LIỆU — tô số KPI theo loại ═════════════════════════════
+     Một hàng thẻ không quá 3 màu. Từ 11/09/2026 --kpi-brand và --kpi-data
+     cùng họ xanh — đừng đặt hai loại này cạnh nhau trong một hàng thẻ.     */
+  --kpi-neutral: var(--text-1);   /* 16.51 — số đếm, giá trị trung tính */
+  --kpi-brand:   var(--brand);    /*  5.17 — chỉ số thương hiệu, tỉ lệ chính */
+  --kpi-good:    #15803D;         /*  5.02 — kết quả tốt, đã hoàn thành */
+  --kpi-data:    #1D4ED8;         /*  6.70 — chi phí, số liệu kỹ thuật */
 
-  /* ═══ 5. CHỮ — ĐÚNG 3 MỨC. Không thêm mức thứ 4 ══════════════════════════
-     HSM có mức thứ 4 (#94A3B8) cho chú thích — đo được 2.56:1, TRƯỢT cả
-     ngưỡng chữ lớn. Đừng chép. Chú thích dùng --text-3, phân biệt với nhãn
-     bằng cỡ chữ và độ đậm, không bằng độ nhạt.                               */
-  --text-1: #0F172A;   /* 17.85 thẻ · 16.30 nền — số, tiêu đề */
-  --text-2: #334155;   /* 10.35 thẻ ·  9.45 nền — nội dung */
-  --text-3: #5F6E80;   /*  5.21 thẻ ·  4.76 nền ·  4.98 lõm — nhãn, chú thích */
+  /* ═══ 6b. Ô ICON NỀN ĐẶC — nét trắng (ADR-009 + ADR-011, 11/09/2026) ═════
+     Người duyệt chốt: "sáng như trong ảnh" — 4 ô số liệu màn Chấm công HCNS,
+     đo ra #2563EB · #7C3AED · #EA580C · #16A34A. Mức "600" = sắc SÁNG NHẤT
+     mà nét trắng vẫn đạt 3:1. Mức 500 trượt ở cam (2.80) và xanh lá (2.28).
+     CHỈ làm NỀN ô icon (.ico-tile). Không dùng cho chữ, nút, viền.
+     Cấm làm nền ô icon bằng token -fg / -hover hay sắc 700 trở xuống: tối.
+     Tím là ngoại lệ đã duyệt của giới hạn "7 màu" — chỉ dùng ở đây.
+     --tile-orange vẫn là cam: đó là màu NGHĨA (cảnh báo), không phải brand. */
+  --tile-blue:   #2563EB;   /* 5.17 nét trắng — mặc định, số đếm, thông tin */
+  --tile-violet: #7C3AED;   /* 5.70 — thời gian, nhóm phân loại thứ hai */
+  --tile-orange: #EA580C;   /* 3.56 — cảnh báo, thiếu, sắp hết hạn */
+  --tile-green:  #16A34A;   /* 3.30 — đạt, đã duyệt, có mặt */
+  --tile-red:    #DC2626;   /* 4.83 — lỗi, từ chối, quá hạn */
+  --tile-slate:  #475569;   /* 7.58 — trung tính, chưa phân loại */
+  --tile-brand:  var(--brand-bright);  /* #3B82F6 · 3.68 nét trắng — 8 app cùng giá trị */
 
-  /* ═══ 6. MÀU SỐ LIỆU — tô số KPI theo loại, 4 hue tách nhau ══════════════
-     Mắt phân loại được trước cả khi đọc chữ. Một hàng thẻ không quá 3 màu.
-     Nhãn 11px IN HOA --text-3 (5.21) + số 29px đậm (17.85) = chênh 3.4 lần —
-     đó mới là thứ làm giao diện "rõ ràng", không phải chọn hue nào.          */
-  --kpi-neutral: #0F172A;   /* 17.85 — số đếm, giá trị trung tính */
-  --kpi-brand:   #EA580C;   /*  3.56 — chỉ số thương hiệu, tỉ lệ chính */
-  --kpi-good:    #15803D;   /*  5.02 — kết quả tốt, đã hoàn thành */
-  --kpi-data:    #1D4ED8;   /*  6.70 — chi phí, số liệu kỹ thuật */
 
   /* ═══ 7. TRẠNG THÁI — KHÔNG nhuộm theo thương hiệu ═══════════════════════
-     --warning nay TÁCH khỏi brand. Ở hệ hổ phách chúng cố ý trùng nhau vì
-     hổ phách vốn nghĩa là "chú ý"; cam đỏ thì không, để trùng sẽ lẫn với nút
-     thương hiệu.                                                             */
+     Đổi thương hiệu sang xanh KHÔNG đổi một giá trị nào ở mục này.
+     --info GIỮ XÁM slate, CỐ Ý không chuyển sang xanh: xanh bây giờ là màu
+     thương hiệu; info mà xanh thì pill "Chờ duyệt" trông y như mục đang
+     chọn. Vì vậy ô icon .ico-tile--info dùng --tile-slate (ADR-012).
+     Chữ trạng thái đặt trên --brand-soft / --bg-band thì dùng -fg: bản đặc
+     --success 4.45 soft · 4.18 band và --warning 4.46 · 4.19 đều trượt.     */
   --danger:  #B91C1C;  --danger-soft:  #FEE2E2;  --danger-fg:  #991B1B;  /* 6.80 */
   --success: #15803D;  --success-soft: #DCFCE7;  --success-fg: #166534;  /* 6.49 */
   --warning: #B45309;  --warning-soft: #FEF3C7;  --warning-fg: #92400E;  /* 6.37 */
   --info:    #475569;  --info-soft:    #E9EEF4;  --info-fg:    #334155;  /* 8.88 */
 
-  /* ═══ 8. THƯƠNG HIỆU BÊN THỨ BA — không đổi, đó là nhận diện của họ ══════ */
+  /* ═══ 8. THƯƠNG HIỆU BÊN THỨ BA — không đổi, đó là nhận diện của họ ══════
+     Cùng họ xanh với --brand nhưng KHÔNG thay nhau: logo kênh dùng mã kênh,
+     nút của QLPPS dùng --brand.                                            */
   --facebook:  #0084FF;
   --messenger: #1877F2;
   --zalo:      #0068FF;
@@ -153,15 +237,17 @@
      và tổng xê dịch 1 510px — ít nhất trong cả 5. Bản đầu tiên tôi đặt
      (…16/20…) bắt 1 301 chỗ và xê dịch 1 647px, vì nó chọn theo lý thuyết
      chứ không theo số đếm: 15px dùng 571 lần nhưng bị bỏ ra ngoài thang.     */
-  --fs-micro:    10px;  /* nhãn nhóm trong menu, chữ siêu nhỏ */
-  --fs-eyebrow:  11px;  /* nhãn IN HOA: header bảng, nhãn thẻ số liệu */
-  --fs-meta:     12px;  /* meta, tên người dùng, chú thích */
-  --fs-body:     13px;  /* nội dung, nav, ô nhập — MẶC ĐỊNH */
-  --fs-body-lg:  14px;  /* nội dung app mật độ thấp (ketoan đã duyệt 08/08) */
-  --fs-title:    15px;  /* tiêu đề thẻ / khối */
-  --fs-h:        18px;  /* tiêu đề trang */
+  /* 25/09/2026 anh Quang: "cho người già dễ nhìn" — cả thang chữ tăng ~2px, chữ phụ (--text-3) đậm hơn.
+     Bản cũ: micro 10 · eyebrow 11 · meta 12 · body 13 · body-lg 14 · title 15 · h 18 · kpi 29. */
+  --fs-micro:    12px;  /* nhãn nhóm trong menu, chữ siêu nhỏ */
+  --fs-eyebrow:  13px;  /* nhãn IN HOA: header bảng, nhãn thẻ số liệu */
+  --fs-meta:     14px;  /* meta, tên người dùng, chú thích */
+  --fs-body:     15px;  /* nội dung, nav, ô nhập — MẶC ĐỊNH */
+  --fs-body-lg:  16px;  /* nội dung app mật độ thấp (ketoan đã duyệt 08/08) */
+  --fs-title:    18px;  /* tiêu đề thẻ / khối */
+  --fs-h:        24px;  /* tiêu đề trang */
   --fs-glyph:    22px;  /* icon glyph ☰ ✕ — KHÔNG dùng cho chữ người đọc */
-  --fs-kpi:      29px;  /* số liệu lớn trong thẻ KPI */
+  --fs-kpi:      32px;  /* số liệu lớn trong thẻ KPI */
 
   --lh-tight: 1.2;      /* tiêu đề, số liệu */
   --lh-body:  1.5;      /* nội dung đọc */
@@ -174,22 +260,58 @@
 
      194 chỗ đang gọi var(--shadow-*) sẽ tự đẹp lên, không phải sửa template. */
   --shadow-sm:
-      0 1px 1px rgba(15,23,42,.02),
-      0 1px 2px rgba(15,23,42,.04);
+      0 1px 1px rgba(15,23,42,.04),
+      0 1px 3px rgba(15,23,42,.06);
   --shadow-md:
-      0 1px 1px rgba(15,23,42,.02),
-      0 2px 4px rgba(15,23,42,.03),
-      0 4px 8px rgba(15,23,42,.04);
+      0 1px 1px rgba(15,23,42,.03),
+      0 2px 4px rgba(15,23,42,.05),
+      0 6px 12px rgba(15,23,42,.06);
   --shadow-lg:
-      0 1px 2px rgba(15,23,42,.02),
-      0 4px 8px rgba(15,23,42,.03),
-      0 10px 20px rgba(15,23,42,.05),
-      0 20px 40px rgba(15,23,42,.06);
-  --shadow-pop:
       0 1px 2px rgba(15,23,42,.03),
-      0 4px 10px rgba(15,23,42,.04),
-      0 12px 28px rgba(15,23,42,.06),
-      0 24px 56px rgba(15,23,42,.08);
+      0 4px 8px rgba(15,23,42,.05),
+      0 10px 20px rgba(15,23,42,.07),
+      0 20px 40px rgba(15,23,42,.09);
+  --shadow-pop:
+      0 1px 2px rgba(15,23,42,.04),
+      0 4px 10px rgba(15,23,42,.06),
+      0 12px 28px rgba(15,23,42,.09),
+      0 24px 56px rgba(15,23,42,.12);
+
+  /* ═══ 12b. ĐƯỜNG VIỀN TÓC — thứ THỰC SỰ tách khối khỏi nền ═══════════════
+     27/08/2026. Người dùng báo các khối thông tin không tách khỏi nền.
+     Đo ra thì nguyên nhân KHÔNG phải bóng yếu, mà là thiếu hẳn một cái mép:
+
+       thẻ trắng trên nền --bg-app  = 1.096 lần  ← toàn bộ sự tách hiện có
+       bản thiết kế, thẻ trên viền  = 1.333 lần
+
+     Bóng nhiều lớp gần trong suốt làm mặt phẳng "nhấc khỏi giấy", nhưng nó
+     KHÔNG vẽ ra mép. Trên nền chỉ nhạt hơn thẻ 1.096 lần thì không có mép
+     nghĩa là không thấy khối. Bản thiết kế (Body.pdf) tách khối bằng đúng
+     một đường 1px #DFDFDF, bóng gần như không có.
+
+     alpha .14: ĐO TRÊN TRÌNH DUYỆT THẬT (Playwright + Chromium), quét ngang
+     qua mép trái thẻ rồi lấy điểm ảnh sẫm nhất — không tính bằng công thức
+     nữa, vì các lớp bóng chồng lên viền làm mép sẫm hơn tính toán:
+
+       .10  mép #CFD3D8  thẻ/mép 1.504
+       .14  mép #C6CBD1  thẻ/mép 1.632   <- chọn
+       .18  mép #BEC3CA  thẻ/mép 1.772   (bắt đầu ra vệt kẻ cứng)
+
+     Bản thiết kế được 1.333 trên nền TRẮNG. Nền ở đây là --bg-app, chỉ nhạt
+     hơn thẻ 1.096 lần, nên mép phải gánh nhiều hơn.
+     (Số 1.096 và alpha .14 đo 27/08 trên nền cũ #F1F5F9. Nền xanh 11/09
+     #EDF4FC tách 1.108 lần — gần như cũ, nên giữ .14; CHƯA đo lại trên
+     trình duyệt.)
+
+     `0 0 0 1px` chứ không phải `border`: viền bám theo border-radius, KHÔNG
+     cộng vào kích thước phần tử, nên thêm vào 654 chỗ đang gọi var(--shadow-*)
+     mà không xê dịch bố cục một pixel nào. */
+  --ring: 0 0 0 1px rgba(15,23,42,.14);
+
+  /* Dùng cho THẺ / KHỐI THÔNG TIN: mép + nhấc nhẹ. Đây là thứ nên gọi thay
+     cho var(--shadow-sm) ở các khối lớn. Ô nhỏ, nút, popover thì vẫn dùng
+     --shadow-sm/md/pop như cũ — chúng không cần mép. */
+  --shadow-card: var(--ring), var(--shadow-md);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -223,7 +345,8 @@
   table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
 
   /* Header bảng — dùng vai trò eyebrow, KHÔNG tô màu thương hiệu.
-     Bề mặt trung tính, đúng luật "cam chỉ là mực". */
+     Mặt lõm --bg-page, chữ --text-3 5.12. Cần dải đậm hơn thì --bg-band,
+     đừng dùng --brand-soft. */
   thead th {
     background: var(--bg-page);
     color: var(--text-3);
@@ -265,8 +388,20 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   BẢNG ĐỐI CHIẾU — hai hệ đã bị thay. Gặp hex nào dưới đây trong template thì
+   BẢNG ĐỐI CHIẾU — ba hệ đã bị thay. Gặp hex nào dưới đây trong template thì
    thay bằng var(--token) tương ứng, ĐỪNG khôi phục lại.
+
+   Hệ cam trên slate lạnh (26/08 → 11/09/2026) — đã bị thay bởi hệ xanh
+     --brand        #A84A03       --bg-app       #F1F5F9
+     --brand-hover  #9A4703       --bg-page      #F8FAFC
+     --brand-soft   #E8EDF3       --bg-band      #D6DFDF
+     --brand-bright #EA580C       --border       #E2E8F0
+     --brand-graph  #F2610E       --border-soft  #EDF1F6
+     --kpi-brand    #EA580C       --text-1       #0F172A
+     --text-2       #334155       --text-3       #5F6E80
+     --focus-ring   rgba(168, 74, 3, .30)
+   Riêng #EA580C KHÔNG bị cấm: sống tiếp làm --tile-orange (ADR-011).
+   #334155 sống tiếp làm --info-fg; #0F172A sống tiếp trong màu bóng.
 
    Hệ hổ phách (11/08 → 26/08/2026)      Hệ cam đỏ (→ 11/08/2026)
      --brand        #9E5D09                --brand        #D23C0E

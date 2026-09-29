@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{# Chi tiết tài sản cố định — L4. /ketoan/tscd/chi-tiet?id=<id>.
+   API thật: app/routers/tai_san.py GET /api/tai-san/<id> (khác README /api/tscd/<id>) #}
+{% block title %}Chi tiết tài sản{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-chung-tu.css?v=dot4">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-tscd-ct">
+  <nav aria-label="Đường dẫn">
+    <ol class="kd-crumb">
+      <li><a href="/ketoan/tscd"><i class="bi bi-arrow-left" aria-hidden="true"></i>Tài sản cố định</a></li>
+      <li aria-current="page" id="tc-crumb">Chi tiết</li>
+    </ol>
+  </nav>
+  <header class="kd-dhead">
+    <div class="kd-dhead__id">
+      <span class="ico-tile ico-tile--lg" aria-hidden="true"><i class="bi bi-building"></i></span>
+      <div class="kd-dhead__main">
+        <div class="kd-dhead__title"><h1 class="kd-h1">Chi tiết tài sản cố định</h1><span id="tc-pill"></span></div>
+        <p class="kd-dhead__code num" id="tc-ma"><span class="kd-skel kd-skel--ngan"></span></p>
+        <p class="kd-dhead__meta" id="tc-meta"></p>
+      </div>
+    </div>
+    <div class="kd-dhead__tools">
+      <a class="kd-btn" id="tc-thanh-ly" href="#" hidden><i class="bi bi-box-arrow-right" aria-hidden="true"></i>Thanh lý</a>
+      <a class="kd-btn kd-btn--primary" id="tc-sua" href="#"><i class="bi bi-pencil" aria-hidden="true"></i>Sửa thông tin</a>
+    </div>
+  </header>
+
+  <div id="tc-tt"></div>
+  <div class="kt-ct-cot" id="tc-than" hidden>
+    <section class="kd-kpi-row kt-kpi-row--4" aria-label="Giá trị tài sản" id="tc-kpi"></section>
+    <div class="kd-detail">
+      <div class="kt-ct-cot">
+        <section class="kd-card" aria-labelledby="tc-h-lich">
+          <div class="kd-box__head kt-the-dau"><h2 class="kd-box__title" id="tc-h-lich">Lịch khấu hao</h2><p class="kd-meta" id="tc-lich-gy"></p></div>
+          <div class="kd-table-scroll kd-table-scroll--thanh kt-tc-cuon">
+            <table class="kd-table kt-bang"><caption class="visually-hidden">Lịch khấu hao theo tháng</caption>
+              <thead><tr><th scope="col">Tháng</th><th scope="col" class="num">Khấu hao (VND)</th><th scope="col" class="num">Luỹ kế (VND)</th><th scope="col" class="num">Còn lại (VND)</th><th scope="col">Trạng thái</th></tr></thead>
+              <tbody id="tc-lich"></tbody></table>
+          </div>
+        </section>
+      </div>
+      <aside class="kd-side">
+        <section class="kd-box" aria-labelledby="tc-h-tt"><div class="kd-box__head"><h2 class="kd-box__title" id="tc-h-tt">Thông tin hạch toán</h2></div><dl class="kd-kv kd-kv--2" id="tc-kv"></dl></section>
+        <section class="kd-box" aria-labelledby="tc-h-bt"><div class="kd-box__head"><h2 class="kd-box__title" id="tc-h-bt">Bút toán gần đây</h2></div><div id="tc-bt"></div></section>
+        <section class="kd-box" aria-labelledby="tc-h-lq"><div class="kd-box__head"><h2 class="kd-box__title" id="tc-h-lq">Liên quan</h2></div><ul class="kd-related" id="tc-lq"></ul></section>
+      </aside>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-tscd-chi-tiet.js?v=g4"></script>
+{% endblock %}

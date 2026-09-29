@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Thuế TNCN (khấu trừ từ lương, theo tháng) · Thuế TNDN (tạm tính theo quý).
+   API thật (app/routers/thue.py → services/thue_tn.py):
+   GET /api/thue-tncn?thang= · POST /api/thue-tncn/ghi-so · GET /api/thue-tncn/xuat?thang= (CSV số liệu 05/KK-TNCN)
+   GET /api/thue-tndn?quy= · PUT /api/thue-tndn/dieu-chinh · POST /api/thue-tndn/ghi-so #}
+{% block title %}Thuế TNCN và TNDN{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}{{ ui.css('kt-thue-tn', v='d4') }}{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-thue-tn">
+  {% call ui.dau_trang('Thuế TNCN và TNDN', 'TNCN theo tháng, TNDN tạm tính theo quý') %}
+    <label class="kd-select" id="tn-thang-o"><i class="bi bi-calendar3" aria-hidden="true"></i><span class="visually-hidden">Tháng</span><select id="tn-thang"></select></label>
+    <label class="kd-select" id="tn-quy-o" hidden><i class="bi bi-calendar3" aria-hidden="true"></i><span class="visually-hidden">Quý</span>
+      <select id="tn-quy"></select></label>
+    <a class="kd-btn" id="tn-xuat" href="/api/thue-tncn/xuat"><i class="bi bi-download" aria-hidden="true"></i>Dữ liệu tờ khai 05/KK</a>
+    <button type="button" class="kd-btn kd-btn--primary" id="tn-ghi" disabled><i class="bi bi-journal-check" aria-hidden="true"></i><span id="tn-ghi-chu">Ghi sổ</span></button>
+  {% endcall %}
+
+  <div class="kd-tabs kd-tabs--lon kt-tabs-trang" role="tablist" aria-label="Loại thuế" id="tn-tabs">
+    <button type="button" role="tab" id="tn-tab-tncn" data-tab="tncn" aria-controls="tn-p-tncn" aria-selected="true">Thuế TNCN từ lương</button>
+    <button type="button" role="tab" id="tn-tab-tndn" data-tab="tndn" aria-controls="tn-p-tndn" aria-selected="false" tabindex="-1">Thuế TNDN tạm nộp quý</button>
+  </div>
+
+  <div class="kt-tab-pane" role="tabpanel" id="tn-p-tncn" aria-labelledby="tn-tab-tncn">
+    {{ ui.the_so('tc', [('tn', 'Tổng thu nhập', '', 'bi-cash-stack'), ('nguoi', 'Người phải nộp', 'info', 'bi-people'), ('thue', 'Thuế TNCN khấu trừ', 'warning', 'bi-receipt'), ('han', 'Hạn nộp', 'danger', 'bi-alarm')], kieu='strip', nhan_vung='Tổng hợp thuế TNCN tháng') }}
+    <section class="kd-card" aria-labelledby="tc-td">
+      <div class="kd-box__head kt-the-dau"><h2 class="kd-box__title" id="tc-td">Bảng tính thuế TNCN theo nhân viên<span id="tc-tip"></span></h2><p class="kd-meta" id="tc-qd"></p></div>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="tc-cuon">
+        <table class="kd-table kt-bang"><caption class="visually-hidden">Thuế TNCN theo nhân viên</caption>
+          <thead><tr><th scope="col">Nhân viên</th><th scope="col" class="num">Tổng thu nhập (VND)</th><th scope="col" class="num" title="BH bắt buộc phần người lao động đóng — được trừ trước khi tính thuế">Bảo hiểm bắt buộc</th><th scope="col" class="num">Giảm trừ gia cảnh</th><th scope="col" class="num">Thu nhập tính thuế</th><th scope="col" class="num">Bậc</th><th scope="col" class="num">Thuế TNCN (VND)</th></tr></thead>
+          <tbody id="tc-tbody"></tbody><tfoot id="tc-tfoot"></tfoot>
+        </table>
+      </div>
+      <div id="tc-tt"></div>
+    </section>
+  </div>
+
+  <div class="kt-tab-pane" role="tabpanel" id="tn-p-tndn" aria-labelledby="tn-tab-tndn" hidden>
+    {{ ui.the_so('td', [('ln', 'Lợi nhuận trước thuế', '', 'bi-graph-up'), ('tntt', 'Thu nhập tính thuế', 'info', 'bi-calculator'), ('thue', 'Thuế tạm nộp quý', 'warning', 'bi-receipt'), ('luy_ke', 'Tạm nộp lũy kế năm', 'success', 'bi-bar-chart-steps')], kieu='strip', nhan_vung='Tổng hợp thuế TNDN tạm tính') }}
+    <div id="td-tt"></div>
+    <div class="kd-detail" id="td-than" hidden>
+      <div class="kt-tn-cot">
+        <section class="kd-card" aria-labelledby="td-kq-td">
+          <div class="kd-box__head kt-the-dau"><h2 class="kd-box__title" id="td-kq-td">Kết quả kinh doanh quý</h2><p class="kd-meta" id="td-kq-phu"></p></div>
+          <div class="kd-table-scroll kd-table-scroll--thanh"><table class="kd-table kt-bang"><caption class="visually-hidden">Doanh thu và chi phí quý</caption>
+            <thead><tr><th scope="col">Tài khoản</th><th scope="col" class="num">Số tiền (VND)</th></tr></thead><tbody id="td-kq"></tbody><tfoot id="td-kq-chan"></tfoot></table></div>
+        </section>
+        <section class="kd-card" aria-labelledby="td-dc-td">
+          <div class="kd-box__head kt-the-dau"><h2 class="kd-box__title" id="td-dc-td">Điều chỉnh thu nhập tính thuế<button type="button" class="kd-tip" data-tip="Tăng: chi phí không được trừ. Giảm: thu nhập không chịu thuế, lỗ được chuyển." aria-label="Tăng: chi phí không được trừ. Giảm: thu nhập không chịu thuế, lỗ được chuyển."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+          <div class="kd-table-scroll kd-table-scroll--thanh"><table class="kd-table kt-bang kt-tn-dc"><caption class="visually-hidden">Các khoản điều chỉnh</caption>
+            <thead><tr><th scope="col">Loại</th><th scope="col">Nội dung</th><th scope="col" class="num">Số tiền (VND)</th><th scope="col"><span class="visually-hidden">Xoá</span></th></tr></thead><tbody id="td-dc"></tbody></table></div>
+          <div class="kt-tn-nut"><button type="button" class="kd-btn kd-btn--sm" id="td-dc-them"><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm khoản điều chỉnh</button><button type="button" class="kd-btn kd-btn--sm" id="td-dc-luu" disabled>Lưu điều chỉnh</button><span class="kd-meta" id="td-dc-tt"></span></div>
+          <p class="kt-pham-vi" id="td-dc-chan"></p>
+        </section>
+      </div>
+      <aside class="kd-side">
+        <section class="kd-box" aria-labelledby="td-cq-td"><div class="kd-box__head"><h2 class="kd-box__title" id="td-cq-td">Các quý trong năm</h2></div><ul class="kt-tn-quy" id="td-cq"></ul></section>
+        <section class="kd-box" aria-labelledby="td-qd-td"><div class="kd-box__head"><h2 class="kd-box__title" id="td-qd-td">Căn cứ tính<span id="td-qd-tip"></span></h2></div><div id="td-qd"></div></section>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<dialog class="kd-dialog" id="tn-dlg" role="alertdialog" aria-labelledby="tn-dlg-td" aria-describedby="tn-dlg-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="tn-dlg-td">Ghi sổ?</h2></header>
+    <div class="kd-dialog__body"><p id="tn-dlg-nd"></p>
+      <table class="kt-dk"><thead><tr><th scope="col">Tài khoản</th><th scope="col" class="num">Nợ (VND)</th><th scope="col" class="num">Có (VND)</th></tr></thead><tbody id="tn-dlg-dk"></tbody></table>
+      <p class="kd-form-err" role="alert" hidden></p></div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="button" class="kd-btn kd-btn--primary" id="tn-dlg-ok"><i class="bi bi-check2" aria-hidden="true"></i>Ghi sổ</button></footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}{{ ui.js('kt-thue-tncn-tndn', v='loc0928') }}{% endblock %}

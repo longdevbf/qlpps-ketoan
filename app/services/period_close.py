@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
 
 from ..models import BaoCaoPLSnapshot, KyKeToan
+from .pl_calculator import calc_pl_for_month
 
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
@@ -119,95 +120,50 @@ def _ky_dau_tien_co_data(db: Session) -> Optional[str]:
 
 # ─── P&L calculator bridge (M3) ──────────────────────────────────────────────
 
-def _call_calc_pl_for_month(db: Session, thang: str) -> dict[str, Any]:
-    """Gọi `calc_pl_for_month` của M3. Fallback dùng `_build_tong_hop` cũ + map lại
-    các chỉ tiêu chuẩn mực (cho dev/test khi M3 chưa merge).
+def _flatten_pl_result(result: dict[str, Any]) -> dict[str, Any]:
+    """Chuẩn hoá output 22-dòng của `calc_pl_for_month` (Phase 4/M3) về shape
+    PHẲNG mà `bao_cao_pl_snapshot` cần.
 
-    Output dict bắt buộc có keys:
-      dt_thuan, cogs, ln_gop, cp_ban_hang, cp_quan_ly,
-      dt_tai_chinh, cp_tai_chinh, thu_nhap_khac, cp_khac,
-      ln_truoc_thue, thue_tndn, lnst, raw_breakdown (dict).
+    `calc_pl_for_month` trả `cp_ban_hang` / `cp_quan_ly` / `cp_tai_chinh` dạng
+    dict lồng {bien_phi, dinh_phi, tong} (breakdown chi tiết cho báo cáo B02),
+    còn snapshot đóng kỳ chỉ cần SỐ TỔNG của từng chỉ tiêu — lấy `.tong` của
+    dict đó. Bản thân dict gốc (không mất field nào) được giữ nguyên trong
+    `raw_breakdown` để không mất chi tiết audit.
     """
-    # Try M3 import first
-    try:
-        from .pl_calculator import calc_pl_for_month  # type: ignore[attr-defined]
-        result = calc_pl_for_month(db, thang)
-        if isinstance(result, dict):
-            return result
-        # Pydantic model? dump
-        if hasattr(result, "model_dump"):
-            return result.model_dump(mode="python")
-    except (ImportError, AttributeError):
-        pass
-
-    # Fallback: dùng _build_tong_hop (legacy) + map từ nhom_chi_phi nếu có
-    from ..routers.bao_cao import _build_tong_hop  # noqa: WPS433
-
-    tu, den = _month_range(thang)
-    th = _build_tong_hop(db, tu, den)
-
-    dt_thuan = _d(th.tong_doanh_thu) + _d(th.tong_don_hang_muahang)
-    cogs = Decimal("0")
-    ln_gop = dt_thuan - cogs
-
-    # Phân nhóm chi phí (M3 đã backfill `nhom_chi_phi` → fail-soft)
-    nhom_sql = """
-        SELECT COALESCE(nhom_chi_phi, 'khac') AS nhom,
-               COALESCE(SUM(so_tien), 0)::float AS tong
-        FROM ketoan.chi_phi_phat_sinh
-        WHERE ngay >= :tu AND ngay <= :den
-        GROUP BY nhom_chi_phi
-    """
-    nhom_map: dict[str, float] = {}
-    try:
-        rows = db.execute(text(nhom_sql), {"tu": tu, "den": den}).all()
-        for k, v in rows:
-            nhom_map[str(k)] = float(v or 0)
-    except (ProgrammingError, OperationalError):
-        db.rollback()
-
-    cp_ban_hang = _d(nhom_map.get("ban_hang", 0)) + _d(th.tong_ads_marketing)
-    cp_quan_ly = _d(nhom_map.get("quan_ly", 0)) + _d(th.tong_luong_hcns) + _d(th.tong_chi_phi_co_dinh)
-    cp_tai_chinh = _d(nhom_map.get("tai_chinh", 0))
-    cp_khac = _d(nhom_map.get("khac", 0))
-
-    dt_tai_chinh = Decimal("0")
-    thu_nhap_khac = Decimal("0")
-
-    ln_truoc_thue = (
-        ln_gop
-        - cp_ban_hang - cp_quan_ly
-        + dt_tai_chinh - cp_tai_chinh
-        + thu_nhap_khac - cp_khac
-    )
-    # Thuế TNDN 20% trên LN dương
-    thue_tndn = max(Decimal("0"), ln_truoc_thue) * Decimal("0.20")
-    lnst = ln_truoc_thue - thue_tndn
+    def _tong(v: Any) -> float:
+        if isinstance(v, dict):
+            return float(v.get("tong") or 0)
+        return float(v or 0)
 
     return {
-        "dt_thuan": dt_thuan,
-        "cogs": cogs,
-        "ln_gop": ln_gop,
-        "cp_ban_hang": cp_ban_hang,
-        "cp_quan_ly": cp_quan_ly,
-        "dt_tai_chinh": dt_tai_chinh,
-        "cp_tai_chinh": cp_tai_chinh,
-        "thu_nhap_khac": thu_nhap_khac,
-        "cp_khac": cp_khac,
-        "ln_truoc_thue": ln_truoc_thue,
-        "thue_tndn": thue_tndn,
-        "lnst": lnst,
-        "raw_breakdown": {
-            "fallback": True,
-            "tong_doanh_thu": float(th.tong_doanh_thu),
-            "tong_don_hang_muahang": float(th.tong_don_hang_muahang),
-            "tong_chi_phi_phat_sinh": float(th.tong_chi_phi_phat_sinh),
-            "tong_chi_phi_co_dinh": float(th.tong_chi_phi_co_dinh),
-            "tong_luong_hcns": float(th.tong_luong_hcns),
-            "tong_ads_marketing": float(th.tong_ads_marketing),
-            "nhom_chi_phi": nhom_map,
-        },
+        "dt_thuan": float(result.get("dt_thuan") or 0),
+        "cogs": float(result.get("cogs") or 0),
+        "ln_gop": float(result.get("ln_gop") or 0),
+        "cp_ban_hang": _tong(result.get("cp_ban_hang")),
+        "cp_quan_ly": _tong(result.get("cp_quan_ly")),
+        "dt_tai_chinh": float(result.get("dt_tai_chinh") or 0),
+        "cp_tai_chinh": _tong(result.get("cp_tai_chinh")),
+        "thu_nhap_khac": float(result.get("thu_nhap_khac") or 0),
+        "cp_khac": float(result.get("cp_khac") or 0),
+        "ln_truoc_thue": float(result.get("ln_truoc_thue") or 0),
+        "thue_tndn": float(result.get("thue_tndn") or 0),
+        "lnst": float(result.get("lnst") or 0),
+        "raw_breakdown": result,
     }
+
+
+def _call_calc_pl_for_month(db: Session, thang: str) -> dict[str, Any]:
+    """P&L tháng để chốt kỳ / xem trước = ĐÚNG số báo cáo KQKD (`calc_pl_for_month`, cũng là
+    nguồn của GET /api/bao-cao/pl) — số chuẩn duy nhất cho doanh thu, chi phí, lợi nhuận.
+
+    Bản trước có nhánh dự phòng (khi import/AttributeError) dùng công thức Dashboard cũ: doanh thu
+    thuần = tiền thu + giá trị đơn MUA hàng từ NCC, giá vốn = 0 — chốt kỳ có thể lặng lẽ ra số khác
+    KQKD. Đã bỏ: lỗi tính P&L phải nổi lên thay vì chốt kỳ bằng số sai.
+
+    Output dict có keys: dt_thuan, cogs, ln_gop, cp_ban_hang, cp_quan_ly, dt_tai_chinh,
+    cp_tai_chinh, thu_nhap_khac, cp_khac, ln_truoc_thue, thue_tndn, lnst, raw_breakdown (dict).
+    """
+    return _flatten_pl_result(calc_pl_for_month(db, thang))
 
 
 # ─── cổ tức + trích quỹ (M4 voncsh, fail-soft) ───────────────────────────────
@@ -415,6 +371,140 @@ def mo_ky(db: Session, thang: str, by_user: str) -> dict[str, Any]:
         "ok": True, "thang": thang, "trang_thai": "dang_mo",
         "mo_boi": by_user,
         "snapshot_da_xoa": snap_id,
+    }
+
+
+def preview_chot_ky(db: Session, thang: str) -> dict[str, Any]:
+    """Xem trước + kiểm tra trước khi chốt kỳ `thang` ('YYYY-MM') — KHÔNG ghi gì xuống DB.
+
+    Dùng cho màn Khoá sổ (kt_khoa_so): hiển thị checklist "kiểm" (mỗi mục có `dat`/`chan`)
+    + P&L ước tính trước khi người dùng bấm Chốt kỳ thật (POST .../chot).
+
+    Checklist (`kiem`, tất cả đều `chan=True` — chặn nút Chốt kỳ nếu chưa đạt):
+      1. chua_chot            — kỳ này chưa từng được chốt trước đó
+      2. ky_truoc_da_chot     — kỳ liền trước đã chốt (bỏ qua nếu đây là kỳ đầu tiên có dữ liệu)
+      3. khong_but_toan_nhap  — không còn bút toán trạng thái 'du_thao' (nháp/chưa post) trong kỳ
+      4. no_co_can_bang       — SUM(nợ) = SUM(có) trên các bút toán đã post ('da_post') trong kỳ
+
+    `xem_truoc`: kết quả `_call_calc_pl_for_month` (không commit) + LN giữ lại đầu/cuối kỳ
+    ƯỚC TÍNH tại thời điểm xem (số liệu có thể đổi tới lúc thực sự chốt).
+    """
+    _parse_thang(thang)  # validate format
+    tu, den = _month_range(thang)
+
+    ky = db.get(KyKeToan, thang)
+    trang_thai_hien_tai = ky.trang_thai if ky else "chua_khoi_tao"
+
+    kiem: list[dict[str, Any]] = []
+
+    # 1. Kỳ này chưa từng chốt
+    da_chot_roi = bool(ky and ky.trang_thai == "da_chot")
+    kiem.append({
+        "ma": "chua_chot",
+        "ten": "Kỳ chưa được chốt trước đó",
+        "dat": not da_chot_roi,
+        "chan": True,
+        "chi_tiet": (
+            f"Kỳ {thang} đã chốt lúc {ky.chot_luc} bởi {ky.chot_boi or 'unknown'} — "
+            "muốn chốt lại phải mở khoá kỳ này trước"
+        ) if da_chot_roi else "",
+    })
+
+    # 2. Kỳ trước đã chốt (trừ kỳ đầu tiên có dữ liệu — cùng rule với chot_ky)
+    ky_dau = _ky_dau_tien_co_data(db)
+    la_ky_dau = ky_dau is None or thang <= ky_dau
+    ky_truoc_dat = True
+    chi_tiet_ky_truoc = ""
+    if not la_ky_dau:
+        prev = _prev_thang(thang)
+        prev_ky = db.get(KyKeToan, prev)
+        ky_truoc_dat = bool(prev_ky and prev_ky.trang_thai == "da_chot")
+        if not ky_truoc_dat:
+            chi_tiet_ky_truoc = f"Kỳ {prev} chưa được chốt — phải chốt tuần tự từ kỳ cũ đến kỳ mới"
+    kiem.append({
+        "ma": "ky_truoc_da_chot",
+        "ten": "Kỳ liền trước đã được chốt" if not la_ky_dau else "Kỳ liền trước đã được chốt (bỏ qua — đây là kỳ đầu tiên có dữ liệu)",
+        "dat": ky_truoc_dat,
+        "chan": True,
+        "chi_tiet": chi_tiet_ky_truoc,
+    })
+
+    # 3. Không còn bút toán nháp (du_thao) trong kỳ
+    n_nhap = int(_safe_scalar(
+        db,
+        """SELECT COUNT(*) FROM ketoan.journal_entry
+           WHERE trang_thai = 'du_thao' AND ngay >= :tu AND ngay <= :den""",
+        tu=tu, den=den,
+    ))
+    kiem.append({
+        "ma": "khong_but_toan_nhap",
+        "ten": "Không còn bút toán nháp (du_thao) trong kỳ",
+        "dat": n_nhap == 0,
+        "chan": True,
+        "chi_tiet": f"Còn {n_nhap} bút toán nháp chưa post trong kỳ" if n_nhap else "",
+    })
+
+    # 4. Nợ = Có cân bằng trên các bút toán đã post trong kỳ
+    sum_no = _safe_scalar(
+        db,
+        """SELECT COALESCE(SUM(jl.so_tien), 0) FROM ketoan.journal_line jl
+           JOIN ketoan.journal_entry je ON je.id = jl.journal_id
+           WHERE jl.loai = 'no' AND je.trang_thai = 'da_post'
+             AND je.ngay >= :tu AND je.ngay <= :den""",
+        tu=tu, den=den,
+    )
+    sum_co = _safe_scalar(
+        db,
+        """SELECT COALESCE(SUM(jl.so_tien), 0) FROM ketoan.journal_line jl
+           JOIN ketoan.journal_entry je ON je.id = jl.journal_id
+           WHERE jl.loai = 'co' AND je.trang_thai = 'da_post'
+             AND je.ngay >= :tu AND je.ngay <= :den""",
+        tu=tu, den=den,
+    )
+    lech = round(sum_no - sum_co, 2)
+    kiem.append({
+        "ma": "no_co_can_bang",
+        "ten": "Tổng Nợ = Tổng Có các bút toán đã post trong kỳ",
+        "dat": abs(lech) <= 0.01,
+        "chan": True,
+        "chi_tiet": (
+            f"Lệch {lech:,.2f} VND (Nợ {sum_no:,.2f} / Có {sum_co:,.2f})"
+        ) if abs(lech) > 0.01 else "",
+    })
+
+    # ── Xem trước P&L (đọc-only, không commit) ────────────────────────────────
+    pl = _call_calc_pl_for_month(db, thang)
+    prev_thang = _prev_thang(thang)
+    prev_ky = db.get(KyKeToan, prev_thang)
+    ln_dau_ky = _d(prev_ky.ln_giu_lai_cuoi_ky) if (prev_ky and prev_ky.ln_giu_lai_cuoi_ky is not None) else Decimal("0")
+    co_tuc = _d(_sum_voncsh_loai(db, "chia_co_tuc", tu, den))
+    trich_quy = _d(_sum_voncsh_loai(db, "trich_quy", tu, den))
+    lnst = _d(pl.get("lnst"))
+    ln_cuoi_ky_uoc_tinh = ln_dau_ky + lnst - co_tuc - trich_quy
+
+    return {
+        "thang": thang,
+        "trang_thai_hien_tai": trang_thai_hien_tai,
+        "co_the_chot": all(k["dat"] for k in kiem if k["chan"]),
+        "kiem": kiem,
+        "xem_truoc": {
+            "dt_thuan": float(pl.get("dt_thuan") or 0),
+            "cogs": float(pl.get("cogs") or 0),
+            "ln_gop": float(pl.get("ln_gop") or 0),
+            "cp_ban_hang": float(pl.get("cp_ban_hang") or 0),
+            "cp_quan_ly": float(pl.get("cp_quan_ly") or 0),
+            "dt_tai_chinh": float(pl.get("dt_tai_chinh") or 0),
+            "cp_tai_chinh": float(pl.get("cp_tai_chinh") or 0),
+            "thu_nhap_khac": float(pl.get("thu_nhap_khac") or 0),
+            "cp_khac": float(pl.get("cp_khac") or 0),
+            "ln_truoc_thue": float(pl.get("ln_truoc_thue") or 0),
+            "thue_tndn": float(pl.get("thue_tndn") or 0),
+            "lnst": float(lnst),
+            "ln_giu_lai_dau_ky": float(ln_dau_ky),
+            "co_tuc_du_kien": float(co_tuc),
+            "trich_quy_du_kien": float(trich_quy),
+            "ln_giu_lai_cuoi_ky_uoc_tinh": float(ln_cuoi_ky_uoc_tinh),
+        },
     }
 
 

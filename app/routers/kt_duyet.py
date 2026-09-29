@@ -15,10 +15,14 @@ from sqlalchemy.orm import Session
 from shared.auth import JWTPayload, require_app
 from shared.audit import log_action
 from shared.db import get_db
+from shared.templates import _lookup_user_info
 from shared.events import emit_event
 
 router = APIRouter()
-_AUTH = Depends(require_app("ketoan"))
+# Duyệt cọc = phê duyệt tài chính + ghi sổ quỹ THU → phải ép ROLE kế toán, KHÔNG chỉ
+# require_app (ai có app 'ketoan' cũng lọt). Đồng bộ coc_bo_sung/ncc/dntt. (2026-08-31)
+from ._deps import require_ketoan_user as _require_ketoan_user
+_AUTH = Depends(_require_ketoan_user)
 
 
 # ── Schema ──────────────────────────────────────────────────────────
@@ -297,6 +301,23 @@ def kt_duyet(
         _sync_coc_to_soquy(db, quote, user.username)
         # Khách hàng → "Đã Mua" (Customer + Lead liên kết, idempotent, fail-soft)
         _mark_customer_da_mua(db, quote)
+        # Báo "đã duyệt tiền" lên nhóm "Kinh Doanh - Kế Toán" (fail-soft).
+        try:
+            from shared.services.chat_post import post_to_group
+            _coc = float(getattr(quote, "coc_so_tien", 0) or 0) or float(
+                getattr(quote, "deposit", 0) or 0
+            )
+            # Hiện TÊN chứ không phải mã NV (anh Quang 07/09/2026): tin này
+            # cả nhóm Kinh Doanh lẫn Kế Toán đọc, "nv26006" thì không ai biết
+            # là ai. Rơi về mã cũ nếu tra không ra tên.
+            _kt_ten = _lookup_user_info(user.username)[0] or user.username
+            _msg = (
+                f"✅ Kế Toán {_kt_ten} đã duyệt cọc đơn {quote.quote_number} — "
+                f"{int(_coc):,}đ đã vào sổ quỹ. KH {quote.customer_name or ''}."
+            )
+            post_to_group(db, content=_msg)
+        except Exception:
+            pass
 
     log_action(
         db, app="ketoan", action=f"kt_duyet_{body.action}", user=user, request=request,
@@ -322,7 +343,10 @@ def kt_duyet(
 
 @router.get("/kt-duyet", response_class=HTMLResponse, name="kt_duyet_page")
 def kt_duyet_page(request: Request):
-    """Trang KT xác nhận cọc — render từ template riêng."""
+    """Trang KT xác nhận cọc — render từ template riêng.
+
+    Giữ nguyên như production: giao diện kế toán mới CHƯA có màn thay thế cho xác nhận cọc
+    (/ketoan/kt-duyet là Duyệt chi — việc khác). Không chuyển hướng trang này."""
     from pathlib import Path
     from fastapi.templating import Jinja2Templates
     from shared.templates import setup_jinja2, user_ctx

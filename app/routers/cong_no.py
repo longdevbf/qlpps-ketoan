@@ -4,28 +4,29 @@ from decimal import Decimal
 from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
 
-from ..models import CongNo
+from ..models import CongNo, SoQuy
 from ..schemas import CongNoCreate, CongNoUpdate, CongNoOut, CongNoTraBody
 from ..services import next_cong_no_id
-from ._deps import require_ketoan_user
+from ..services.cong_no_dong_bo import (
+    NGUON_BAO_GIA, NGUON_HOP_LE, NGUON_MUA_HANG, dong_bo_cong_no,
+)
+from ..services.cong_no_tra_nhieu import tra_nhieu
+from ..services.tim_kiem import khop_mot_trong
+from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
 router = APIRouter()
 _AUTH = Depends(require_ketoan_user)
-
-
-class CongNoImportBody(BaseModel):
-    source: str = Field(..., pattern="^(baogia|muahang)$")
-    from_date: Optional[date_cls] = None
-    to_date: Optional[date_cls] = None
+_CEO_EDIT = Depends(require_ceo_thuchi)  # sửa/xoá công nợ → chỉ CEO (đồng bộ thu-chi)
 
 
 @router.get("", response_model=list[CongNoOut])
@@ -38,7 +39,7 @@ def list_cong_no(
     den_ngay: Optional[date_cls] = None,
     doi_tac: Optional[str] = None,
     q: Optional[str] = None,   # search theo mã đơn hoặc đối tác/KH/NCC
-    limit: int = 500,
+    limit: int = Query(500, ge=1, le=2000),
     offset: int = 0,
 ):
     stmt = select(CongNo).order_by(CongNo.ngay.desc(), CongNo.id.desc())
@@ -51,15 +52,17 @@ def list_cong_no(
     if den_ngay:
         stmt = stmt.where(CongNo.ngay <= den_ngay)
     if doi_tac:
-        stmt = stmt.where(CongNo.doi_tac.ilike(f"%{doi_tac}%"))
-    if q:
-        kw = f"%{q}%"
-        stmt = stmt.where(
-            or_(
-                CongNo.doi_tac.ilike(kw),
-                CongNo.ma_don.ilike(kw),
-            )
-        )
+        # Khớp CHÍNH XÁC (không ilike substring) — `doi_tac` là khoá "mã khách"
+        # tạm của app Kế toán (không có id khách hàng riêng), dùng bởi
+        # kt-doi-tuong.js để tổng hợp công nợ CHỈ của MỘT đối tác. ilike
+        # substring trước đây khiến vd doi_tac='Anh Nam' gộp nhầm cả dòng
+        # 'anh Nam' (khác hoa/thường) của KHÁCH KHÁC vào tổng — sai số liệu
+        # hiển thị ở /ketoan/doi-tuong. Tìm kiếm mờ (gõ một phần tên) vẫn
+        # dùng `q` (see filter phía dưới), không đụng tới đây.
+        stmt = stmt.where(CongNo.doi_tac == doi_tac)
+    if q and q.strip():
+        # Không phân biệt dấu + hoa/thường ("chien" ra "CHIẾN PHƯƠNG") — services/tim_kiem.py.
+        stmt = stmt.where(khop_mot_trong((CongNo.doi_tac, CongNo.ma_don), q))
     stmt = stmt.limit(limit).offset(offset)
     return db.execute(stmt).scalars().all()
 
@@ -111,6 +114,31 @@ def create_cong_no(
     return obj
 
 
+# Nút "⬇ MH / ⬇ KD / ⬇ Import Tất Cả" của màn cũ /app#cong-no gửi source=mua_hang|sale_admin|all
+# (bản trước chỉ nhận baogia|muahang → 422; nhánh baogia còn tạo dòng ref_source='baogia' TRÙNG dòng
+# 'baogia_quote' của /sync). Nay /import = /sync (một đường ghi duy nhất, services/cong_no_dong_bo.py).
+_IMPORT_NGUON = {
+    "all": NGUON_HOP_LE, "baogia": (NGUON_BAO_GIA,), "sale_admin": (NGUON_BAO_GIA,),
+    "muahang": (NGUON_MUA_HANG,), "mua_hang": (NGUON_MUA_HANG,),
+}
+
+
+class CongNoImportBody(BaseModel):
+    source: str = Field(..., pattern="^(" + "|".join(_IMPORT_NGUON) + ")$")
+
+
+def _chay_dong_bo(db: Session, user: JWTPayload, request: Request, nguon: list[str] | tuple[str, ...], dry_run: bool,
+                  action: str) -> dict[str, Any]:
+    kq = dong_bo_cong_no(db, nguon=nguon, user=user, dry_run=dry_run)
+    if not dry_run:
+        log_action(
+            db, app="ketoan", action=action, user=user, request=request, resource="cong_no:sync",
+            payload={"nguon": kq["nguon"], "summary": kq["summary"], "detail": kq["detail"],
+                     "ids": [d["id"] for d in kq["dong"]]},
+        )
+    return kq
+
+
 @router.post("/import")
 def import_cong_no(
     body: CongNoImportBody,
@@ -118,162 +146,11 @@ def import_cong_no(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
 ) -> dict[str, Any]:
-    """Bulk import công nợ từ baogia.quotes (phai_thu) hoặc muahang.purchase_orders (phai_tra).
-
-    Idempotent qua field `ref_id` — record có ref_id trùng sẽ skip.
-
-    Body:
-        - source: 'baogia' → quotes duyet_status='approved' tong_don > 0 → cong_no(loai='phai_thu')
-        - source: 'muahang' → POs status='Hoàn Thành' với selected_ncc + ncc_totals → cong_no(loai='phai_tra')
-        - from_date / to_date: lọc theo created_at (optional)
-
-    Trả: {imported: N, skipped: M, source, items: [...]}.
-    """
-    imported = skipped = 0
-    sample: list[dict[str, Any]] = []
-
-    if body.source == "baogia":
-        from baogia.app.models import Quote  # lazy cross-app
-        stmt = (
-            select(Quote)
-            .where(Quote.duyet_status == "approved")
-            .where(Quote.tong_don.is_not(None))
-            .where(Quote.tong_don > 0)
-        )
-        if body.from_date:
-            stmt = stmt.where(Quote.created_at >= body.from_date)
-        if body.to_date:
-            stmt = stmt.where(Quote.created_at < body.to_date)
-
-        for q in db.execute(stmt).scalars().all():
-            ref_id = f"BG-{q.quote_number}" if q.quote_number else f"BG-{q.id}"
-            existing = db.execute(
-                select(CongNo).where(CongNo.ref_id == ref_id)
-            ).scalar_one_or_none()
-            if existing:
-                skipped += 1
-                continue
-            so_tien = Decimal(q.tong_don or 0)
-            deposit = Decimal(q.deposit or 0)
-            cid = next_cong_no_id(db)
-            obj = CongNo(
-                id=cid,
-                ngay=(q.created_at.date() if q.created_at else date_cls.today()),
-                doi_tac=q.customer_name or "(unknown)",
-                so_tien=so_tien,
-                da_tra=deposit if deposit > 0 and deposit < so_tien else Decimal("0"),
-                loai="phai_thu",
-                loai_chi_tiet="Công Nợ Khách Hàng",
-                ma_don=q.quote_number,
-                ref_id=ref_id,
-                ref_source="baogia",
-                han_thanh_toan=None,
-                trang_thai="chua_tra",
-                ghi_chu=f"Auto-import từ báo giá {q.quote_number} (NV: {q.salesperson or '—'})",
-                created_by=user.username,
-            )
-            db.add(obj)
-            db.flush()  # nhận id rồi commit cuối
-            imported += 1
-            if len(sample) < 5:
-                sample.append({
-                    "id": cid, "doi_tac": obj.doi_tac, "so_tien": str(obj.so_tien),
-                    "ref_id": ref_id, "ma_don": obj.ma_don,
-                })
-
-    elif body.source == "muahang":
-        from muahang.app.models import PurchaseOrder, Supplier  # lazy cross-app
-        stmt = (
-            select(PurchaseOrder)
-            .where(PurchaseOrder.status.in_(["Hoàn Thành", "Đã giao"]))
-        )
-        if body.from_date:
-            stmt = stmt.where(PurchaseOrder.created_at >= body.from_date)
-        if body.to_date:
-            stmt = stmt.where(PurchaseOrder.created_at < body.to_date)
-
-        # Cache supplier names
-        suppliers = db.execute(select(Supplier.id, Supplier.name)).all()
-        ncc_name_by_id = {s.id: s.name for s in suppliers}
-
-        for po in db.execute(stmt).scalars().all():
-            ref_id = f"MH-{po.id}"
-            existing = db.execute(
-                select(CongNo).where(CongNo.ref_id == ref_id)
-            ).scalar_one_or_none()
-            if existing:
-                skipped += 1
-                continue
-
-            totals = po.ncc_totals or {}
-            names = po.ncc_names or {}
-            sel_id = po.selected_ncc_id or po.comparison_best_ncc
-
-            so_tien = Decimal("0")
-            ncc_name = "(unknown)"
-            if sel_id and str(sel_id) in totals:
-                so_tien = Decimal(str(totals[str(sel_id)] or 0))
-                ncc_name = (
-                    names.get(str(sel_id))
-                    or ncc_name_by_id.get(sel_id)
-                    or str(sel_id)
-                )
-            elif totals:
-                first_id = next(iter(totals.keys()))
-                so_tien = Decimal(str(totals[first_id] or 0))
-                ncc_name = (
-                    names.get(first_id)
-                    or ncc_name_by_id.get(first_id)
-                    or first_id
-                )
-
-            if so_tien <= 0:
-                # Bỏ PO không có tổng tiền
-                skipped += 1
-                continue
-
-            cid = next_cong_no_id(db)
-            obj = CongNo(
-                id=cid,
-                ngay=(po.created_at.date() if po.created_at else date_cls.today()),
-                doi_tac=ncc_name,
-                so_tien=so_tien,
-                da_tra=Decimal("0"),
-                loai="phai_tra",
-                loai_chi_tiet="Công Nợ NCC",
-                ma_don=po.id,
-                ref_id=ref_id,
-                ref_source="muahang",
-                han_thanh_toan=None,
-                trang_thai="chua_tra",
-                ghi_chu=f"Auto-import từ PO {po.id} ({po.ten_don or ''})".strip(),
-                created_by=user.username,
-            )
-            db.add(obj)
-            db.flush()
-            imported += 1
-            if len(sample) < 5:
-                sample.append({
-                    "id": cid, "doi_tac": obj.doi_tac, "so_tien": str(obj.so_tien),
-                    "ref_id": ref_id, "ma_don": obj.ma_don,
-                })
-
-    db.commit()
-
-    log_action(
-        db, app="ketoan", action="import_cong_no", user=user, request=request,
-        resource=f"cong_no:bulk:{body.source}",
-        payload={"imported": imported, "skipped": skipped, "source": body.source},
-    )
-
-    return {
-        "source": body.source,
-        "imported": imported,
-        "skipped": skipped,
-        "from_date": body.from_date.isoformat() if body.from_date else None,
-        "to_date": body.to_date.isoformat() if body.to_date else None,
-        "items": sample,  # mẫu 5 record đầu
-    }
+    """Tương thích màn cũ: chạy đồng bộ thật cho nguồn đã chọn. Trả thêm `added`/`total` màn cũ đọc."""
+    kq = _chay_dong_bo(db, user, request, _IMPORT_NGUON[body.source], False, "import_cong_no")
+    s = kq["summary"]
+    return {**kq, "source": body.source, "added": s["tao_moi"], "imported": s["tao_moi"],
+            "skipped": s["bo_qua"], "total": db.query(CongNo).count()}
 
 
 @router.get("/{cid}", response_model=CongNoOut)
@@ -294,7 +171,7 @@ def update_cong_no(
     body: CongNoUpdate,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(CongNo, cid)
     if not obj:
@@ -312,6 +189,9 @@ def update_cong_no(
     new_da_tra = Decimal(obj.da_tra or 0)
     paid_delta = new_da_tra - old_da_tra
     if paid_delta > 0:
+        if obj.loai == "phai_tra" and tai_khoan_for_sq:
+            from ..services.so_quy_auto import assert_du_chi as _assert_du_chi
+            _assert_du_chi(db, tai_khoan_for_sq, paid_delta)  # chặn trả nợ làm âm
         try:
             from ..services.so_quy_auto import sync_so_quy_from_cong_no_payment
             sync_so_quy_from_cong_no_payment(
@@ -324,9 +204,42 @@ def update_cong_no(
             )
     log_action(
         db, app="ketoan", action="update_cong_no", user=user, request=request,
-        resource=f"cong_no:{cid}", payload=fields,
+        # jsonable_encoder: fields có Decimal/date — trước đây json.dumps lỗi nên audit sửa công nợ bị bỏ âm thầm.
+        resource=f"cong_no:{cid}", payload=jsonable_encoder(fields),
     )
     return obj
+
+
+class TraNhieuDong(BaseModel):
+    id: str = Field(..., min_length=1, max_length=64)
+    so_tien: Decimal = Field(..., gt=0, decimal_places=2)
+
+
+class TraNhieuBody(BaseModel):
+    tai_khoan: str = Field(..., min_length=1, max_length=120)
+    ngay_tra: Optional[date_cls] = None
+    ghi_chu: Optional[str] = Field(None, max_length=500)
+    dong: list[TraNhieuDong] = Field(..., min_length=1, max_length=500)
+
+
+@router.post("/tra-nhieu")
+def tra_nhieu_cong_no(
+    body: TraNhieuBody,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+    dry_run: bool = False,
+):
+    """Ghi nhận thu/trả NHIỀU khoản trong MỘT giao dịch (all-or-nothing), cùng cơ chế `/{id}/tra`.
+
+    `dry_run=true`: validate + tính đủ (da_tra/con_lai mới, dòng sổ quỹ sẽ tạo, tổng) rồi rollback.
+    Logic ở services/cong_no_tra_nhieu.py.
+    """
+    return tra_nhieu(
+        db, dong=[(d.id, d.so_tien) for d in body.dong], tai_khoan=body.tai_khoan.strip(),
+        ngay_tra=body.ngay_tra, ghi_chu=(body.ghi_chu or "").strip() or None,
+        user=user, request=request, dry_run=dry_run,
+    )
 
 
 @router.post("/{cid}/tra", response_model=CongNoOut)
@@ -353,6 +266,16 @@ def tra_cong_no(
         obj.trang_thai = "chua_tra"
     if body.ghi_chu:
         obj.ghi_chu = body.ghi_chu
+
+    # Chặn trả nợ làm âm quỹ TRƯỚC khi commit — trước 25/09/2026 kiểm sau commit nên
+    # thiếu tiền thì API báo 400, không ghi sổ quỹ, nhưng công nợ đã bị trừ.
+    if paid_delta > 0 and obj.loai == "phai_tra" and body.tai_khoan:
+        from ..services.so_quy_auto import assert_du_chi as _assert_du_chi
+        try:
+            _assert_du_chi(db, body.tai_khoan, paid_delta)
+        except Exception:
+            db.rollback()
+            raise
 
     db.commit()
     db.refresh(obj)
@@ -383,17 +306,20 @@ def delete_cong_no(
     cid: str,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
+    user: Annotated[JWTPayload, _CEO_EDIT],
 ):
     obj = db.get(CongNo, cid)
     if not obj:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "CongNo không tồn tại")
-    # Xóa cascade sổ quỹ liên quan (ref_id chứa cid)
-    from sqlalchemy import delete as sql_delete
+    # Xóa cascade sổ quỹ liên quan — KHỚP CHÍNH XÁC theo ref_id, KHÔNG dùng
+    # '%cid%' (substring): ref_id='{cid}-DA{seq}' → '%CN-2026-001%' sẽ khớp NHẦM
+    # 'CN-2026-0010', '...0011'... của công nợ khác → xoá mất sổ quỹ đơn khác.
+    # (anh Quang 2026-08-28, DB-01)
+    from sqlalchemy import delete as sql_delete, or_ as _or
     db.execute(
         sql_delete(SoQuy).where(
             SoQuy.lien_quan == "cong_no",
-            SoQuy.ref_id.ilike(f"%{cid}%"),
+            _or(SoQuy.ref_id == cid, SoQuy.ref_id.like(f"{cid}-DA%")),
         )
     )
     db.delete(obj)
@@ -414,226 +340,21 @@ def sync_cong_no_from_apps(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
     sources: Optional[list[str]] = Query(
-        default=None,
-        description="['muahang','baogia','saleadmin']. Default: tất cả."
+        default=None, description="'baogia' (phải thu KH), 'muahang' (phải trả NCC). Mặc định: cả hai.",
     ),
-):
-    """Pull công nợ từ 3 app:
-    - **muahang**: purchase_orders đã chốt → phải trả NCC
-    - **baogia**: quotes đã duyệt → phải thu KH
-    - **saleadmin**: vanchuyen → phải trả ĐVVC + phải thu KH (qua DVVC)
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Đồng bộ công nợ: Báo giá đã duyệt → phải thu KH (tạo + CẬP NHẬT theo "Còn thu" màn Đơn hàng),
+    PO Mua hàng đã có hàng chưa có công nợ → phải trả NCC. Chi tiết: services/cong_no_dong_bo.py.
 
-    Idempotent qua UNIQUE (ref_source, ref_id) — chạy lại không tạo trùng,
-    chỉ update so_tien nếu thay đổi (vd PO sửa lại).
-    """
-    from sqlalchemy import text as _t
-
-    selected = set(sources or ["muahang", "baogia", "saleadmin"])
-    result = {
-        "muahang": {"created": 0, "updated": 0, "skipped": 0, "errors": []},
-        "baogia": {"created": 0, "updated": 0, "skipped": 0, "errors": []},
-        "saleadmin_pt": {"created": 0, "updated": 0, "skipped": 0, "errors": []},
-        "saleadmin_pn": {"created": 0, "updated": 0, "skipped": 0, "errors": []},
-    }
-
-    def _upsert(ref_source: str, ref_id: str, fields: dict) -> str:
-        """Upsert vào ketoan.cong_no qua (ref_source, ref_id). Trả 'created' / 'updated' / 'skipped'.
-
-        fields hỗ trợ key bổ sung `da_tra_nguon` — số tiền đã trả ghi nhận từ app nguồn
-        (vd baogia.deposit). Dùng để khởi tạo da_tra khi tạo mới, và cập nhật nếu kế toán
-        chưa ghi nhận thủ công (da_tra == 0).
-        """
-        da_tra_nguon = Decimal(str(fields.pop("da_tra_nguon", 0) or 0))
-        existing = db.execute(
-            select(CongNo).where(
-                CongNo.ref_source == ref_source,
-                CongNo.ref_id == ref_id,
-            )
-        ).scalar_one_or_none()
-        if existing:
-            changed = False
-            new_so_tien = Decimal(str(fields.get("so_tien", 0)))
-            if existing.so_tien != new_so_tien and (existing.da_tra or 0) <= new_so_tien:
-                existing.so_tien = new_so_tien
-                changed = True
-            # Cập nhật da_tra từ nguồn nếu kế toán chưa ghi nhận thủ công
-            if da_tra_nguon > 0 and (existing.da_tra or Decimal("0")) == Decimal("0"):
-                existing.da_tra = da_tra_nguon
-                so_tien_cur = Decimal(str(existing.so_tien or 0))
-                if da_tra_nguon >= so_tien_cur > 0:
-                    existing.trang_thai = "da_tra"
-                changed = True
-            if fields.get("doi_tac") and changed:
-                existing.doi_tac = fields["doi_tac"]
-            if fields.get("ghi_chu") and changed:
-                existing.ghi_chu = fields["ghi_chu"]
-            if changed:
-                db.commit()
-                return "updated"
-            return "skipped"
-        # Tạo mới — lấy da_tra từ nguồn nếu có
-        da_tra_init = da_tra_nguon
-        so_tien_new = Decimal(str(fields.get("so_tien", 0)))
-        trang_thai_init = "da_tra" if da_tra_init >= so_tien_new > 0 else "chua_tra"
-        cid = next_cong_no_id(db)
-        rec = CongNo(
-            id=cid,
-            ngay=fields["ngay"],
-            doi_tac=fields["doi_tac"],
-            so_tien=so_tien_new,
-            da_tra=da_tra_init,
-            loai=fields["loai"],
-            loai_chi_tiet=fields.get("loai_chi_tiet"),
-            ma_don=fields.get("ma_don"),
-            ref_id=ref_id,
-            ref_source=ref_source,
-            han_thanh_toan=fields.get("han_thanh_toan"),
-            trang_thai=trang_thai_init,
-            ghi_chu=fields.get("ghi_chu"),
-            created_by=user.username,
+    `dry_run=true`: chạy y hệt rồi rollback — trả số dòng tạo/cập nhật/bỏ qua, tổng trước/sau theo
+    KH/NCC, từng dòng thay đổi. Chạy lại lần 2 không thay đổi gì (idempotent)."""
+    nguon = sources or list(NGUON_HOP_LE)
+    sai = [n for n in nguon if n not in NGUON_HOP_LE]
+    if sai:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Nguồn không hỗ trợ: {', '.join(sai)}. Chỉ nhận: {', '.join(NGUON_HOP_LE)} "
+            "(Sale Admin không còn đồng bộ — thu hộ trùng phải thu đơn, cước ĐVVC trả qua Đề nghị TT).",
         )
-        db.add(rec)
-        db.commit()
-        return "created"
-
-    # ── 1. MUAHANG → phải trả NCC ───────────────────────────────────────────
-    # REFACTOR 27/05/26: Đơn nguồn logic — delegate sang service
-    # `create_cong_no_list_from_order` (cong_no_from_order.py). Service này:
-    #   - Resolve TẤT CẢ NCC con trong combo (không chỉ moc/son như code cũ)
-    #   - Dùng ref_id format `MH-{po_id}-NCC{ncc_id}` (UNIQUE INDEX bảo vệ)
-    #   - Idempotent: skip nếu đã có
-    #
-    # Code cũ tạo ref_id `{po_id}:{ncc_id}` + chỉ 2 NCC trong combo (moc+son) →
-    # gây trùng + thiếu NCC con (đệm/kính). Đã cleanup 20 dup rows 27/05.
-    if "muahang" in selected:
-        try:
-            from ketoan.app.services.cong_no_from_order import (
-                create_cong_no_list_from_order, CongNoFromOrderError,
-            )
-            po_ids = db.execute(_t("""
-                SELECT id FROM muahang.purchase_orders
-                WHERE selected_ncc_id IS NOT NULL
-                  AND status IN ('Đã có hàng','Hoàn Thành')
-            """)).scalars().all()
-            for po_id in po_ids:
-                try:
-                    created_list = create_cong_no_list_from_order(
-                        db, str(po_id),
-                        created_by="bulk-resync",
-                        require_terminal=False,  # filter status đã làm ở query trên
-                        commit=False,
-                    )
-                    result["muahang"]["created"] += len(created_list)
-                except CongNoFromOrderError as ex:
-                    if ex.code == "duplicate":
-                        result["muahang"]["skipped"] += 1
-                    else:
-                        result["muahang"]["errors"].append(f"po:{po_id}: {ex.message}")
-                except Exception as ex:
-                    db.rollback()
-                    result["muahang"]["errors"].append(f"po:{po_id}: {ex}")
-            db.commit()
-        except Exception as ex:
-            db.rollback()
-            result["muahang"]["errors"].append(f"query: {ex}")
-
-    # ── 2. BAOGIA → phải thu KH ─────────────────────────────────────────────
-    if "baogia" in selected:
-        try:
-            rows = db.execute(_t("""
-                SELECT q.id, q.quote_number, q.customer_name, q.duyet_luc, q.created_at,
-                       COALESCE(q.tong_don, 0) AS tong_don,
-                       COALESCE(q.deposit, 0) AS deposit
-                FROM baogia.quotes q
-                WHERE q.duyet_status = 'approved'
-                  AND COALESCE(q.tong_don, 0) > 0
-            """)).mappings().all()
-            for r in rows:
-                try:
-                    deposit = float(r.get("deposit") or 0)
-                    tong_don = float(r["tong_don"])
-                    action = _upsert("baogia_quote", str(r["id"]), {
-                        "loai": "phai_thu",
-                        "ngay": (r["duyet_luc"] or r["created_at"]).date() if (r["duyet_luc"] or r["created_at"]) else date_cls.today(),
-                        "doi_tac": r["customer_name"] or "(KH chưa rõ)",
-                        "so_tien": tong_don,
-                        "da_tra_nguon": deposit if 0 < deposit < tong_don else 0,
-                        "ma_don": r["quote_number"],
-                        "loai_chi_tiet": "bao_gia_da_duyet",
-                        "ghi_chu": f"Báo giá đã duyệt {r['quote_number']}",
-                    })
-                    result["baogia"][action] += 1
-                except Exception as ex:
-                    db.rollback()
-                    result["baogia"]["errors"].append(f"quote:{r.get('id')}: {ex}")
-        except Exception as ex:
-            db.rollback()
-            result["baogia"]["errors"].append(f"query: {ex}")
-
-    # ── 3. SALEADMIN → phải trả ĐVVC + phải thu KH (qua DVVC) ───────────────
-    if "saleadmin" in selected:
-        try:
-            rows = db.execute(_t("""
-                SELECT id, ma_vh, ma_don, ten_kh, don_vi_vc, ngay_giao, created_at,
-                       COALESCE(chi_phi_vc, 0) AS chi_phi_vc,
-                       COALESCE(da_tra_dvvc, 0) AS da_tra_dvvc,
-                       COALESCE(tien_thu_ho, 0) AS tien_thu_ho,
-                       COALESCE(dvvc_da_thu, 0) AS dvvc_da_thu,
-                       trang_thai
-                FROM saleadmin.vanchuyen
-                WHERE trang_thai NOT IN ('Đã hủy', 'Hủy')
-            """)).mappings().all()
-            for r in rows:
-                try:
-                    ngay = (r["ngay_giao"] or (r["created_at"].date() if r["created_at"] else date_cls.today()))
-                    # 3a. Phải trả ĐVVC (cước vận chuyển còn nợ)
-                    no_dvvc = float(r["chi_phi_vc"]) - float(r["da_tra_dvvc"])
-                    ma_bg = r["ma_don"] or ""   # BG quote number từ saleadmin.vanchuyen
-                    if no_dvvc > 0:
-                        action = _upsert("saleadmin_vc_phai_tra", str(r["id"]), {
-                            "loai": "phai_tra",
-                            "ngay": ngay,
-                            "doi_tac": r["don_vi_vc"] or "(ĐVVC chưa rõ)",
-                            "so_tien": no_dvvc,
-                            "ma_don": ma_bg,
-                            "loai_chi_tiet": "vanchuyen_dvvc",
-                            "ghi_chu": f"Cước VC {r['ma_vh']}" + (f" — đơn {ma_bg}" if ma_bg else ""),
-                        })
-                        result["saleadmin_pt"][action] += 1
-                    # 3b. Phải thu KH (qua DVVC: KH trả cho DVVC nhưng DVVC chưa chuyển về)
-                    pn_kh = float(r["tien_thu_ho"]) - float(r["dvvc_da_thu"])
-                    if pn_kh > 0:
-                        action = _upsert("saleadmin_vc_phai_thu", str(r["id"]), {
-                            "loai": "phai_thu",
-                            "ngay": ngay,
-                            "doi_tac": r["ten_kh"] or "(KH chưa rõ)",
-                            "so_tien": pn_kh,
-                            "ma_don": ma_bg,
-                            "loai_chi_tiet": "vanchuyen_kh",
-                            "ghi_chu": f"Thu hộ KH {r['ma_vh']}" + (f" — đơn {ma_bg}" if ma_bg else ""),
-                        })
-                        result["saleadmin_pn"][action] += 1
-                except Exception as ex:
-                    db.rollback()
-                    result["saleadmin_pt"]["errors"].append(f"vc:{r.get('id')}: {ex}")
-        except Exception as ex:
-            db.rollback()
-            result["saleadmin_pt"]["errors"].append(f"query: {ex}")
-
-    log_action(
-        db, app="ketoan", action="sync_cong_no", user=user, request=request,
-        resource="cong_no:sync", payload={"sources": list(selected), "result": result},
-    )
-
-    total_created = sum(r["created"] for r in result.values())
-    total_updated = sum(r["updated"] for r in result.values())
-    return {
-        "ok": True,
-        "summary": {
-            "tao_moi": total_created,
-            "cap_nhat": total_updated,
-            "bo_qua": sum(r["skipped"] for r in result.values()),
-            "loi": sum(len(r["errors"]) for r in result.values()),
-        },
-        "detail": result,
-    }
+    return _chay_dong_bo(db, user, request, nguon, dry_run, "sync_cong_no")

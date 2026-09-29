@@ -6,7 +6,7 @@ endpoint riêng `POST /chuyen-noi-bo` (idempotent qua ref_id).
 
 Manual CRUD vẫn giữ nhưng GATE chỉ admin/ceo/assistant_ceo (bỏ `manager`/`kt`).
 """
-from datetime import date as date_cls
+from datetime import date as date_cls, timedelta
 from decimal import Decimal
 from typing import Annotated, Any, Optional
 from uuid import uuid4
@@ -21,8 +21,9 @@ from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
 
-from ..models import SoQuy, TaiKhoanNH, SoDuDauKy
+from ..models import SoQuy, TaiKhoanNH
 from ..schemas import SoQuyCreate, SoQuyUpdate, SoQuyOut
+from ..services.so_quy_auto import so_du_truoc_ngay
 from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
@@ -97,6 +98,8 @@ def so_quy_summary(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
     thang: Optional[str] = Query(None, description="YYYY-MM, default = current"),
+    tu_ngay: Optional[date_cls] = Query(None, description="Kỳ tuỳ ý: từ ngày (gồm)"),
+    den_ngay: Optional[date_cls] = Query(None, description="Kỳ tuỳ ý: đến ngày (gồm)"),
 ) -> dict[str, Any]:
     """Số dư từng tài khoản theo tháng (port từ V1 `/api/so-quy/summary`).
 
@@ -105,8 +108,18 @@ def so_quy_summary(
         thu = sum(SoQuy.so_tien WHERE loai='thu' AND sm <= ngay < em)
         chi = sum(SoQuy.so_tien WHERE loai='chi' AND sm <= ngay < em)
         so_du_cuoi = so_du_dau_thang + thu - chi
+
+    Có `tu_ngay` + `den_ngay` (2026-09-25, màn Ngân hàng/Sổ quỹ lọc theo kỳ bất kỳ) →
+    bỏ qua `thang`, tính trên [tu_ngay, den_ngay] (gồm 2 đầu); "so_du_dau_thang" khi
+    đó là số dư NGAY TRƯỚC tu_ngay (`so_quy_auto.so_du_truoc_ngay`, cùng thuật toán neo).
+    Không truyền → hành vi cũ theo tháng giữ nguyên (màn cũ /app#so-quy vẫn dùng).
     """
-    sm, em = _parse_thang(thang)
+    if tu_ngay and den_ngay:
+        if den_ngay < tu_ngay:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "den_ngay phải ≥ tu_ngay")
+        sm, em = tu_ngay, den_ngay + timedelta(days=1)
+    else:
+        sm, em = _parse_thang(thang)
 
     tks = db.execute(
         select(TaiKhoanNH.id, TaiKhoanNH.ten_tk, TaiKhoanNH.so_du_dau, TaiKhoanNH.loai)
@@ -119,75 +132,10 @@ def so_quy_summary(
 
     for tk in tks:
         # Anh Quang 2026-06-05: Số dư cuối kỳ tháng (X-1) = đầu kỳ tháng X — liên tục.
-        # 1) Anchor = SoDuDauKy gần nhất ≤ sm → cộng dồn giao dịch [anchor, sm)
-        # 2) Nếu không có anchor ≤ sm, lùi reverse: dùng anchor TƯƠNG LAI gần nhất
-        #    rồi TRỪ ngược giao dịch [sm, future_anchor).
-        # 3) Fallback cuối cùng: TaiKhoanNH.so_du_dau (initial all-time).
-        anchor_back = db.execute(
-            select(SoDuDauKy.thang, SoDuDauKy.so_du)
-            .where(SoDuDauKy.tai_khoan_id == tk.id, SoDuDauKy.thang <= sm)
-            .order_by(SoDuDauKy.thang.desc())
-            .limit(1)
-        ).first()
-
-        if anchor_back:
-            # Forward: cộng dồn từ anchor đến trước sm
-            anchor_date = anchor_back[0]
-            so_du_anchor = Decimal(anchor_back[1] or 0)
-            thu_truoc = db.scalar(
-                select(func.coalesce(func.sum(SoQuy.so_tien), 0)).where(
-                    SoQuy.tai_khoan == tk.ten_tk, SoQuy.loai == "thu",
-                    SoQuy.ngay >= anchor_date, SoQuy.ngay < sm,
-                )
-            ) or Decimal("0")
-            chi_truoc = db.scalar(
-                select(func.coalesce(func.sum(SoQuy.so_tien), 0)).where(
-                    SoQuy.tai_khoan == tk.ten_tk, SoQuy.loai == "chi",
-                    SoQuy.ngay >= anchor_date, SoQuy.ngay < sm,
-                )
-            ) or Decimal("0")
-            so_du_dau_thang = so_du_anchor + Decimal(thu_truoc) - Decimal(chi_truoc)
-        else:
-            # Reverse: tìm anchor tương lai gần nhất, trừ ngược giao dịch [sm, future)
-            anchor_fwd = db.execute(
-                select(SoDuDauKy.thang, SoDuDauKy.so_du)
-                .where(SoDuDauKy.tai_khoan_id == tk.id, SoDuDauKy.thang > sm)
-                .order_by(SoDuDauKy.thang.asc())
-                .limit(1)
-            ).first()
-
-            if anchor_fwd:
-                fwd_date = anchor_fwd[0]
-                so_du_fwd = Decimal(anchor_fwd[1] or 0)
-                thu_giua = db.scalar(
-                    select(func.coalesce(func.sum(SoQuy.so_tien), 0)).where(
-                        SoQuy.tai_khoan == tk.ten_tk, SoQuy.loai == "thu",
-                        SoQuy.ngay >= sm, SoQuy.ngay < fwd_date,
-                    )
-                ) or Decimal("0")
-                chi_giua = db.scalar(
-                    select(func.coalesce(func.sum(SoQuy.so_tien), 0)).where(
-                        SoQuy.tai_khoan == tk.ten_tk, SoQuy.loai == "chi",
-                        SoQuy.ngay >= sm, SoQuy.ngay < fwd_date,
-                    )
-                ) or Decimal("0")
-                # đầu(sm) = đầu(fwd) - (thu giữa - chi giữa)
-                so_du_dau_thang = so_du_fwd - Decimal(thu_giua) + Decimal(chi_giua)
-            else:
-                # Không có anchor nào → fallback initial + giao dịch trước sm
-                thu_truoc = db.scalar(
-                    select(func.coalesce(func.sum(SoQuy.so_tien), 0)).where(
-                        SoQuy.tai_khoan == tk.ten_tk, SoQuy.loai == "thu",
-                        SoQuy.ngay < sm,
-                    )
-                ) or Decimal("0")
-                chi_truoc = db.scalar(
-                    select(func.coalesce(func.sum(SoQuy.so_tien), 0)).where(
-                        SoQuy.tai_khoan == tk.ten_tk, SoQuy.loai == "chi",
-                        SoQuy.ngay < sm,
-                    )
-                ) or Decimal("0")
-                so_du_dau_thang = Decimal(tk.so_du_dau or 0) + Decimal(thu_truoc) - Decimal(chi_truoc)
+        # Thuật toán neo (anchor SoDuDauKy, forward/reverse/fallback) dùng chung với
+        # màn Ngân Hàng qua so_quy_auto.so_du_truoc_ngay (= so_du_dau_ky khi `sm` là
+        # ngày 1) — tách ra 2026-09-25 để 2 màn không tính lệch nhau khi lọc theo kỳ.
+        so_du_dau_thang = so_du_truoc_ngay(db, tk.id, tk.ten_tk, sm)
 
         # Trong tháng
         thu_thang = db.scalar(
@@ -247,7 +195,7 @@ def list_so_quy(
     thang: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}$"),
     loai: Optional[str] = Query(None, pattern="^(thu|chi)$"),
     tai_khoan: Optional[str] = None,
-    limit: int = 500,
+    limit: int = Query(500, ge=1, le=2000),
     offset: int = 0,
 ):
     stmt = select(SoQuy).order_by(SoQuy.ngay.desc(), SoQuy.id.desc())

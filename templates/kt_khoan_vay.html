@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Khoản vay — L3.
+   Dữ liệu thật: app/routers/khoan_vay.py — GET /api/khoan-vay (mảng phẳng) · GET /api/khoan-vay/summary
+   (thẻ số giống màn cũ #khoan-vay) · GET /api/khoan-vay/{id} (lai_suats + giao_dichs) · GET /{id}/lich-tra.
+   Thao tác giống màn cũ: trả lãi / trả gốc / trả gốc + lãi (POST /{id}/tra-lai|tra-goc|tra-goc-lai),
+   đổi lãi suất (POST /{id}/lai-suat), tất toán (POST /{id}/tat-toan), xoá (DELETE /{id}).
+   Hệ thống CHỈ theo dõi khoản ĐI VAY — không có "cho vay" trong CSDL. #}
+{% block title %}Khoản vay{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-khoan-vay.css?v=g4b">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page kt-l3-rong" id="kd-kt-khoan-vay" data-vai-tro-goc="{{ ((user.role if user else '') or '')|lower }}">
+  {% call ui.dau_trang('Khoản vay', 'Dư nợ, lãi đã trả, lịch trả') %}
+    {{ ui.nut_loc('kv') }}
+    <a class="kd-btn kd-btn--primary" href="/ketoan/khoan-vay/phieu"><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm hợp đồng vay</a>
+  {% endcall %}
+
+  {{ ui.the_so('kv', [('du_no', 'Tổng dư nợ gốc', 'danger', 'bi-bank', 'Tính trên mọi khoản đang vay, không theo bộ lọc. Quá hạn = đã qua ngày đáo hạn mà chưa tất toán.'),
+                       ('lai_ytd', 'Lãi đã trả năm nay', 'info', 'bi-percent', 'Gồm tiền trả lãi và phần lãi của các lần trả gốc + lãi, từ 01/01 tới hôm nay.'),
+                       ('sap_dao_han', 'Sắp đáo hạn', 'tim', 'bi-hourglass-split', 'Khoản đang vay đáo hạn trong 30 ngày tới.'),
+                       ('lai_thang', 'Lãi mỗi tháng', 'warning', 'bi-calendar3', 'Ước tính: dư nợ × lãi suất năm ÷ 12 (chưa ghi sổ).')]) }}
+
+  {% call ui.the_bang('kv', 'Danh sách khoản vay', panel='Chi tiết khoản vay', phan_trang=False) %}
+    {{ ui.o_tim('kv', 'tim', 'Tìm khoản vay', 'Mã, nguồn vay…') }}
+    {{ ui.o_chon('kv', 'status', 'Trạng thái', [('', 'Tất cả'), ('dang_vay', 'Đang vay (gồm quá hạn)'), ('sap_dao_han', 'Sắp đáo hạn (30 ngày)'), ('qua_han', 'Quá hạn'), ('da_tat_toan', 'Đã tất toán')]) }}
+  {% endcall %}
+</main>
+
+{# Trả lãi / trả gốc / trả gốc + lãi — ghi sổ quỹ + bút toán thật ở máy chủ #}
+<dialog class="kd-dialog" id="kv-dlg-tra" aria-labelledby="kv-tra-td">
+  <form method="dialog" novalidate id="kv-form-tra">
+    <header class="kd-dialog__head">
+      <h2 class="kd-dialog__title" id="kv-tra-td">Trả lãi</h2>
+      <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div class="kd-dialog__body">
+      <dl class="kt-tq" id="kv-tra-tt"></dl>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="kv-tra-ngay">Ngày trả <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input" type="date" id="kv-tra-ngay">
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="kv-tra-tk">Trả từ tài khoản</label>
+          <select class="kd-input" id="kv-tra-tk"><option value="">— Không chọn —</option></select>
+        </div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field" id="kv-tra-goc-o">
+          <label class="kd-field__label" for="kv-tra-goc">Số tiền gốc (VND) <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input num" id="kv-tra-goc" inputmode="numeric" autocomplete="off" placeholder="0">
+        </div>
+        <div class="kd-field" id="kv-tra-lai-o">
+          <label class="kd-field__label" for="kv-tra-lai">Số tiền lãi (VND) <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input num" id="kv-tra-lai" inputmode="numeric" autocomplete="off" placeholder="0">
+        </div>
+      </div>
+      <div class="kd-field">
+        <label class="kd-field__label" for="kv-tra-gc">Ghi chú</label>
+        <input class="kd-input" id="kv-tra-gc" maxlength="200" autocomplete="off">
+      </div>
+      <p class="kd-meta" id="kv-tra-gy"></p>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="submit" class="kd-btn kd-btn--primary" id="kv-tra-ok"><i class="bi bi-check2" aria-hidden="true"></i>Ghi giao dịch</button>
+    </footer>
+  </form>
+</dialog>
+
+{# Đổi lãi suất từ ngày X #}
+<dialog class="kd-dialog" id="kv-dlg-ls" aria-labelledby="kv-ls-td">
+  <form method="dialog" novalidate id="kv-form-ls">
+    <header class="kd-dialog__head">
+      <h2 class="kd-dialog__title" id="kv-ls-td">Đổi lãi suất</h2>
+      <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div class="kd-dialog__body">
+      <dl class="kt-tq" id="kv-ls-tt"></dl>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="kv-ls-ngay">Áp dụng từ ngày <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input" type="date" id="kv-ls-ngay">
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="kv-ls-muc">Lãi suất (%/năm) <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input num" type="number" min="0" max="100" step="0.01" id="kv-ls-muc" placeholder="VD: 9,5">
+        </div>
+      </div>
+      <div class="kd-field">
+        <label class="kd-field__label" for="kv-ls-gc">Ghi chú</label>
+        <input class="kd-input" id="kv-ls-gc" maxlength="200" autocomplete="off">
+      </div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="submit" class="kd-btn kd-btn--primary" id="kv-ls-ok"><i class="bi bi-check2" aria-hidden="true"></i>Áp dụng</button>
+    </footer>
+  </form>
+</dialog>
+
+{# Hỏi lại: tất toán / xoá #}
+<dialog class="kd-dialog" id="kv-dlg-hoi" role="alertdialog" aria-labelledby="kv-hoi-td" aria-describedby="kv-hoi-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="kv-hoi-td"></h2></header>
+    <div class="kd-dialog__body">
+      <p id="kv-hoi-nd"></p>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="button" class="kd-btn kd-btn--primary" id="kv-hoi-ok"></button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-khoan-vay.js?v=tk0928a"></script>
+{% endblock %}

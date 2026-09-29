@@ -29,7 +29,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
@@ -81,6 +81,12 @@ class QuyChiIn(BaseModel):
 # ──────────────────────── Helpers ────────────────────────
 
 def _serialize(q: QuyDN, thanh_tien: float = 0.0) -> dict[str, Any]:
+    # Quỹ Công Đoàn: không nạp/chi qua ketoan (chặn ở nap_tien_quy/chi_tien_quy/
+    # chi_quy) nên cột so_du nội bộ đứng yên ở 0 vĩnh viễn — số dư thật do HCNS
+    # quản lý (hcns.cong_doan_fund.so_du_luy_ke, đã lũy kế sẵn, đọc qua
+    # _cong_doan_thang() và truyền vào đây làm `thanh_tien`). Hiển thị "Số dư"
+    # = 0đ cho quỹ có tiền thật là sai/không real → dùng giá trị HCNS làm so_du.
+    so_du = float(thanh_tien) if q.nguon_compute == "hcns_cong_doan" else float(q.so_du or 0)
     return {
         "id": q.id,
         "ten_quy": q.ten_quy,
@@ -88,7 +94,7 @@ def _serialize(q: QuyDN, thanh_tien: float = 0.0) -> dict[str, Any]:
         "nguon_compute": q.nguon_compute,
         "ty_le_pct": float(q.ty_le_pct or 0),
         "thu_tu": int(q.thu_tu or 0),
-        "so_du": float(q.so_du or 0),
+        "so_du": so_du,
         "ghi_chu": q.ghi_chu or "",
         "active": bool(q.active),
         "thanh_tien": round(thanh_tien, 2),
@@ -374,6 +380,10 @@ def chi_quy(
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, Any]:
     """Chi quỹ — giảm so_du, log audit."""
+    # Chi quỹ = rút tiền quỹ DN → chỉ CEO/admin + KHÔNG cho âm (đồng bộ chi_tien_quy
+    # bản mới + chốt chặn số dư âm 2026-08-27). (anh Quang 2026-08-31)
+    if user.role not in ("admin", "ceo", "assistant_ceo"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Chỉ CEO/admin được chi quỹ")
     q = _get_or_404(db, qid)
     if q.nguon_compute == "hcns_cong_doan":
         raise HTTPException(
@@ -383,6 +393,11 @@ def chi_quy(
     so_tien = Decimal(str(body.so_tien))
     if so_tien <= 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Số tiền chi phải > 0")
+    if (q.so_du or Decimal("0")) - so_tien < 0:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Số dư quỹ chỉ còn {int(q.so_du or 0):,}đ — không đủ chi {int(so_tien):,}đ (sẽ âm)",
+        )
 
     q.so_du = (q.so_du or Decimal("0")) - so_tien
     db.commit()
@@ -515,7 +530,7 @@ def list_giao_dich_quy(
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
     loai: Optional[str] = None,
-    limit: int = 500,
+    limit: int = Query(500, ge=1, le=2000),
     offset: int = 0,
 ) -> dict[str, Any]:
     """List giao dịch quỹ — filter `from`/`to`/`loai`."""

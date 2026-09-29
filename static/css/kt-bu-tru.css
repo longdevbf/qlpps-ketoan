@@ -1,0 +1,19 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   kt-bu-tru.css — riêng màn Bù trừ công nợ (#kd-kt-bu-tru) + hộp lập bù trừ (#bt-dlg). Chỉ var(--token).
+   ═══════════════════════════════════════════════════════════════════════════ */
+.kt-doi-tac__ten { display: block; font-weight: 600; color: var(--text-1); }
+.kt-doi-tac__ma { display: block; margin-top: var(--sp-1); font-size: var(--fs-meta); color: var(--text-3); }
+#kd-kt-bu-tru .kt-so-bt { font-weight: 700; color: var(--text-1); }
+
+/* Hộp lập bù trừ rộng hơn mặc định để bảng định khoản không gãy dòng. */
+.kt-bt-dlg { width: min(600px, calc(100vw - 2 * var(--sp-8))); }
+.kt-bt-so { padding: var(--sp-6); border: 1px solid var(--border); border-radius: var(--r); background: var(--bg-page); }
+.kt-bt-so:empty { display: none; }
+.kt-bt-dk { padding-top: var(--sp-2); }
+.kt-bt-dk .kd-block__title { margin-bottom: var(--sp-4); }
+.kt-o-tien { text-align: right; }
+.kt-check--khoi { align-items: flex-start; min-height: 0; line-height: var(--lh-body); }
+.kt-check--khoi input { margin-top: var(--sp-1); flex: none; }
+#bt-dlg .kd-input[aria-invalid="true"] { border-color: var(--danger); }
+/* Ô "Số tiền" có thêm nút "Dùng số tối đa" bên dưới → hàng 2 cột căn đáy làm ô Ngày tụt thấp hơn ô Số tiền. */
+#bt-dlg .kd-row2 { align-items: start; }

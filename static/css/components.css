@@ -39,9 +39,9 @@
    Giá trị lấy trung vị của 8 định nghĩa đang có.                          */
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:var(--gap-1);
-  padding: var(--sp-4) var(--sp-8);
+  padding:8px 16px;
   border:1px solid transparent;border-radius:var(--radius-sm);
-  font-family:inherit;font-size: var(--fs-body-lg);font-weight:600;line-height:1.2;
+  font-family:inherit;font-size:14px;font-weight:600;line-height:1.2;
   white-space:nowrap;text-decoration:none;cursor:pointer;
   transition:background .15s,border-color .15s,color .15s;
 }
@@ -67,21 +67,21 @@
 .btn-success{background:var(--success);color:#fff}
 .btn-success:hover:not(:disabled){background:var(--success-fg)}
 
-.btn-sm{padding: var(--sp-3) var(--sp-6);font-size: var(--fs-body)}
+.btn-sm{padding:6px 12px;font-size:13px}
 
 /* ═══ Ô NHẬP ═════════════════════════════════════════════════════════════
    Thay 13 kiểu đang có (4 bo góc, 2 độ dày viền, 8 giá trị padding).
    Viền 1px là MỨC DUY NHẤT của hệ — bỏ hết 1.5px và 2px đang rải rác.     */
 .field{display:flex;flex-direction:column;gap:var(--gap-1);margin-bottom:12px}
-.field > label{font-size: var(--fs-body);font-weight:600;color:var(--text-2)}
+.field > label{font-size:13px;font-weight:600;color:var(--text-2)}
 
 .field input,.field select,.field textarea,
 .input,.select,.textarea{
   width:100%;
-  padding: var(--sp-4) var(--sp-6);
+  padding:8px 12px;
   border:1px solid var(--border);border-radius:var(--radius-xs);
   background:var(--bg-card);color:var(--text-1);
-  font-family:inherit;font-size: var(--fs-body-lg);
+  font-family:inherit;font-size:14px;
   outline:none;transition:border-color .15s,box-shadow .15s;
 }
 .field input:focus,.field select:focus,.field textarea:focus,
@@ -98,8 +98,8 @@
 }
 .card-head{
   padding:14px 18px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap: var(--sp-6);
-  font-size: var(--fs-body-lg);font-weight:700;color:var(--text-1);
+  display:flex;align-items:center;gap:12px;
+  font-size:14px;font-weight:700;color:var(--text-1);
 }
 .card-head-actions{margin-left:auto;display:flex;align-items:center;gap:var(--gap-2)}
 .card-body{padding:16px 18px}
@@ -114,11 +114,11 @@
 }
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 
-.table{width:100%;border-collapse:collapse;font-size: var(--fs-body-lg)}
+.table{width:100%;border-collapse:collapse;font-size:14px}
 .table thead th{
   background:var(--bg-page);color:var(--text-3);
   padding:11px 13px;text-align:left;white-space:nowrap;
-  font-size: var(--fs-meta);font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+  font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
   border-bottom:1px solid var(--border);
 }
 .table tbody tr{border-bottom:1px solid var(--bg-page);transition:background .12s}
@@ -129,16 +129,16 @@
 .table .act{text-align:right;white-space:nowrap}
 
 /* ═══ THẺ SỐ LIỆU ════════════════════════════════════════════════════════ */
-.stats-bar{display:flex;gap: var(--sp-6);flex-wrap:wrap;margin-bottom:var(--gap)}
+.stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:var(--gap)}
 .stat-card{
   flex:1;min-width:140px;
   background:var(--bg-card);
   border:1px solid var(--border);border-radius:var(--radius);
-  padding: var(--sp-7) var(--sp-8);
+  padding:14px 16px;
 }
-.stat-num{font-size: var(--fs-glyph);font-weight:800;line-height:1;color:var(--text-1)}
+.stat-num{font-size:22px;font-weight:800;line-height:1;color:var(--text-1)}
 .stat-label{
-  font-size: var(--fs-meta);font-weight:600;color:var(--text-3);margin-top:4px;
+  font-size:12px;font-weight:600;color:var(--text-3);margin-top:4px;
   text-transform:uppercase;letter-spacing:.4px;
 }
 
@@ -151,7 +151,7 @@
 .tab-btn{
   padding:9px 16px;background:none;border:none;
   border-bottom:2px solid transparent;margin-bottom:-1px;
-  font-family:inherit;font-size: var(--fs-body-lg);font-weight:600;color:var(--text-3);
+  font-family:inherit;font-size:14px;font-weight:600;color:var(--text-3);
   cursor:pointer;white-space:nowrap;transition:color .15s,border-color .15s;
 }
 .tab-btn:hover{color:var(--brand)}
@@ -163,7 +163,7 @@
 .badge{
   display:inline-flex;align-items:center;gap:var(--gap-1);
   padding:3px 9px;border-radius:var(--radius-pill);
-  font-size: var(--fs-meta);font-weight:700;white-space:nowrap;
+  font-size:12px;font-weight:700;white-space:nowrap;
 }
 .badge-ok{background:var(--success-soft);color:var(--success-fg)}
 .badge-warn{background:var(--warning-soft);color:var(--warning-fg)}
@@ -191,18 +191,18 @@
 }
 .modal--wide{width:800px}
 .modal-head{
-  padding: var(--sp-8) var(--sp-9);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap: var(--sp-6);
-  font-size: var(--fs-title);font-weight:700;color:var(--text-1);
+  padding:16px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;
+  font-size:15px;font-weight:700;color:var(--text-1);
 }
 .modal-close{
   margin-left:auto;background:none;border:none;cursor:pointer;
-  color:var(--text-3);font-size: var(--fs-glyph);line-height:1;padding: 0 var(--sp-2);
+  color:var(--text-3);font-size:22px;line-height:1;padding:0 4px;
 }
 .modal-close:hover{color:var(--brand)}
 .modal-body{padding:18px 20px;overflow-y:auto;flex:1}
 .modal-foot{
-  padding: var(--sp-7) var(--sp-9);border-top:1px solid var(--border);
+  padding:14px 20px;border-top:1px solid var(--border);
   display:flex;gap:var(--gap-2);justify-content:flex-end;flex-wrap:wrap;
 }
 
@@ -214,7 +214,7 @@
 .toast{
   padding:11px 18px;border-radius:var(--radius-sm);
   background:var(--text-1);color:#fff;
-  font-size: var(--fs-body-lg);font-weight:600;
+  font-size:14px;font-weight:600;
   box-shadow:var(--shadow-md);
   opacity:0;transform:translateY(12px);transition:opacity .2s,transform .2s;
 }
@@ -227,7 +227,7 @@
 /* ═══ TRẠNG THÁI RỖNG ════════════════════════════════════════════════════ */
 .empty-state{
   text-align:center;padding:48px 20px;
-  color:var(--text-3);font-size: var(--fs-body-lg);
+  color:var(--text-3);font-size:14px;
 }
 
 /* ═══ TOOLBAR — hàng nút/bộ lọc trên đầu bảng ═══════════════════════════ */

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{# Trang in A4 dùng chung — /ketoan/in?loai=chung_tu&id= · doi_chieu&ben=&id=&den= · bao_cao&mau=kqkd|cdkt|lctt&tu=&den= · de_nghi&id=
+   Trên màn: tờ giấy trong khung app + nút In; khi in chỉ còn tờ giấy. API: xem README mục 4.26. #}
+{% block title %}Bản in{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-in.css?v=4">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-in">
+  <div class="kt-in-thanh" role="group" aria-label="Thao tác bản in">
+    <a class="kd-btn" href="/ketoan/tong-quan" id="in-ve"><i class="bi bi-arrow-left" aria-hidden="true"></i>Quay lại</a>
+    <span class="kt-in-gian" aria-hidden="true"></span>
+    <button type="button" class="kd-tip kd-tip--trai" data-tip="Xem trước khổ A4. Bấm In, trình duyệt sẽ hỏi chọn máy in hoặc lưu PDF." aria-label="Về bản in"><i class="bi bi-info-circle" aria-hidden="true"></i></button>
+    <button type="button" class="kd-btn kd-btn--primary kt-in-nut" id="in-nut" disabled><i class="bi bi-printer" aria-hidden="true"></i>In bản này</button>
+  </div>
+  <article class="kt-giay" id="in-giay" aria-labelledby="in-h1">
+    <div id="in-dau"></div>
+    <h1 class="kt-in-td" id="in-h1">Bản in</h1>
+    <p class="kt-in-td-phu" id="in-h1-phu"></p>
+    <div id="in-noi-dung"></div>
+  </article>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-kqkd-tinh.js?v=loc0928"></script>
+<script src="/static/js/kt-in.js?v=loc0928b"></script>
+{% endblock %}

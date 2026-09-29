@@ -26,7 +26,8 @@ from sqlalchemy.orm import Session
 from shared.auth import JWTPayload
 from shared.db import get_db
 
-from ..models import ChiPhiPhatSinh, SoQuy, TaiKhoanNH, SoDuDauKy
+from ..models import ChiPhiPhatSinh, SoQuy, TaiKhoanNH
+from ..services.so_quy_auto import so_du_truoc_ngay
 from ._deps import require_ketoan_user
 
 
@@ -74,7 +75,9 @@ def _row(r: SoQuy) -> dict[str, Any]:
 # ── Tag detection (so_quy không có loai_chi_phi_id, dùng lien_quan + ghi_chu/noi_dung) ──
 
 # Lower-case substrings hint
-_LIEN_QUAN_KH = ("kh", "phai_thu", "doanh_thu", "order", "don_hang", "cong_no")
+# BỎ token trần "kh" (2 ký tự) — ILIKE '%kh%' bắt nhầm 'khoan_vay','khau_hao'... vào
+# Thu KH (dòng tiền hoạt động) thay vì tài chính. Dùng token có ranh giới. (L4, 2026-08-31)
+_LIEN_QUAN_KH = ("khach", "phai_thu", "doanh_thu", "order", "don_hang", "cong_no")
 _LIEN_QUAN_NCC = ("ncc", "mua_hang", "phai_tra", "cong_no")
 _LIEN_QUAN_LUONG = ("luong", "payroll", "hcns")
 _LIEN_QUAN_ADS = ("ads", "marketing", "mkt", "fb", "facebook", "google")
@@ -205,6 +208,16 @@ def _financing_from_kvgd(
 ) -> dict[str, Any]:
     """Đọc giao dịch khoản vay từ `ketoan.khoan_vay_giao_dich` — SOURCE OF TRUTH
     cho hoạt động tài chính (giải ngân / trả gốc / trả lãi / đáo hạn).
+
+    LCTT là báo cáo THEO PHƯƠNG PHÁP TRỰC TIẾP (chỉ ghi nhận tiền THỰC SỰ ra/vào
+    quỹ) nên chỉ đếm các giao dịch khoản vay có bút toán tiền thật đi kèm — tức
+    `ref_so_quy_id` phải trỏ tới 1 dòng `so_quy` còn tồn tại (INNER JOIN). Một
+    giao dịch có `ref_so_quy_id` mồ côi (dòng `so_quy` gốc đã bị xoá — ví dụ
+    khoản vay đã tất toán rồi bị dọn sổ quỹ nhưng chưa xoá `khoan_vay_giao_dich`
+    tương ứng) KHÔNG được tính vào dòng tiền, nếu không "Trả nợ gốc, lãi vay"
+    (mã 34) sẽ bị thổi phồng bằng những khoản tiền chưa từng thực xuất quỹ, kéo
+    theo Lưu chuyển tiền thuần trong kỳ (mã 50) và Tiền cuối kỳ (mã 70) bị lệch
+    hàng trăm triệu so với số dư quỹ thật (đối chiếu qua `_by_account`).
     """
     from sqlalchemy import text as _t
     placeholders = ",".join(f"'{l}'" for l in loai_list)
@@ -213,6 +226,7 @@ def _financing_from_kvgd(
                g.ghi_chu
         FROM ketoan.khoan_vay_giao_dich g
         JOIN ketoan.khoan_vay kv ON kv.id = g.khoan_vay_id
+        JOIN ketoan.so_quy sq ON sq.id = g.ref_so_quy_id
         WHERE g.loai IN ({placeholders})
           AND g.ngay BETWEEN :tu AND :den
         ORDER BY g.so_tien DESC, g.ngay DESC
@@ -336,7 +350,7 @@ def _daily_breakdown(db: Session, tu: date, den: date) -> list[dict[str, Any]]:
 
 
 def _by_account(db: Session, tu: date, den: date) -> list[dict[str, Any]]:
-    """Per TaiKhoanNH: thu/chi trong kỳ + so_du_cuoi (= so_du_dau + Σ(thu-chi) up to `den`)."""
+    """Per TaiKhoanNH: thu/chi trong kỳ + so_du_cuoi tại `den` (snapshot SoDuDauKy + Σ(thu-chi) từ snapshot)."""
     tks = db.execute(
         select(TaiKhoanNH.id, TaiKhoanNH.ten_tk, TaiKhoanNH.so_du_dau, TaiKhoanNH.loai)
         .where(TaiKhoanNH.active.is_(True))
@@ -359,22 +373,20 @@ def _by_account(db: Session, tu: date, den: date) -> list[dict[str, Any]]:
                 SoQuy.ngay >= tu, SoQuy.ngay <= den,
             )
         ) or Decimal("0")
-        # Số dư cuối tài khoản = so_du_dau + tổng (thu - chi) up to den
-        thu_total = db.scalar(
+        # Số dư cuối tài khoản tại hết ngày `den` = số dư NGAY TRƯỚC ngày `den`+1 theo thuật toán neo
+        # SoDuDauKy dùng chung (so_quy_auto.so_du_truoc_ngay — màn Sổ quỹ / Ngân hàng / mã 60 / cân đối).
+        # Trước đây bỏ qua snapshot (so_du_dau + MỌI giao dịch) → cột "Số dư cuối" cộng 1,36 tỷ
+        # trong khi mã 70 = 97 triệu (QA 25/09/2026, kỳ 09/2026).
+        so_du_cuoi = _f(so_du_truoc_ngay(db, tk.id, tk.ten_tk, den + timedelta(days=1)))
+
+        # Chuyển nội bộ giữa 2 TK (cùng predicate loại khỏi B03 ở _full_chi_classified_ids) —
+        # trả riêng để màn LCTT ghi rõ vì sao Σ thu/chi theo tài khoản > tổng thu/chi B03.
+        noi_bo = or_(SoQuy.lien_quan.ilike("chuyen_noi_bo"), SoQuy.phan_loai_cf == "noi_bo")
+        thu_nb, chi_nb = (db.scalar(
             select(func.coalesce(func.sum(SoQuy.so_tien), 0)).where(
-                SoQuy.tai_khoan == tk.ten_tk,
-                SoQuy.loai == "thu",
-                SoQuy.ngay <= den,
+                SoQuy.tai_khoan == tk.ten_tk, SoQuy.loai == lo, SoQuy.ngay >= tu, SoQuy.ngay <= den, noi_bo,
             )
-        ) or Decimal("0")
-        chi_total = db.scalar(
-            select(func.coalesce(func.sum(SoQuy.so_tien), 0)).where(
-                SoQuy.tai_khoan == tk.ten_tk,
-                SoQuy.loai == "chi",
-                SoQuy.ngay <= den,
-            )
-        ) or Decimal("0")
-        so_du_cuoi = _f(tk.so_du_dau) + _f(thu_total) - _f(chi_total)
+        ) or Decimal("0") for lo in ("thu", "chi"))
 
         thu_f, chi_f = _f(thu_in), _f(chi_in)
         out.append({
@@ -383,53 +395,25 @@ def _by_account(db: Session, tu: date, den: date) -> list[dict[str, Any]]:
             "thu": thu_f,
             "chi": chi_f,
             "net": thu_f - chi_f,
+            "thu_noi_bo": _f(thu_nb),
+            "chi_noi_bo": _f(chi_nb),
             "so_du_cuoi": so_du_cuoi,
         })
     return out
 
 
 def _so_du_dau_ky(db: Session, tu: date) -> float:
-    """Tổng số dư đầu kỳ tại thời điểm `tu`.
+    """Tổng số dư các tài khoản tiền NGAY TRƯỚC ngày `tu` (mã 60).
 
-    Per-account: lấy SoDuDauKy snapshot mới nhất (thang ≤ tu) làm base, cộng
-    giao dịch từ tháng snapshot đến `tu`. Không có snapshot → fallback
-    TaiKhoanNH.so_du_dau + tất cả giao dịch trước `tu`.
+    Dùng đúng thuật toán neo SoDuDauKy của màn Sổ quỹ / Ngân hàng
+    (so_quy_auto.so_du_truoc_ngay: neo lùi → neo tiến → so_du_dau + toàn bộ giao dịch)
+    để "Tiền đầu kỳ" LCTT = tồn đầu kỳ Sổ quỹ = số dư tiền trên Cân đối ngày `tu`−1.
     """
     tks = db.execute(
-        select(TaiKhoanNH.id, TaiKhoanNH.ten_tk, TaiKhoanNH.so_du_dau)
+        select(TaiKhoanNH.id, TaiKhoanNH.ten_tk)
         .where(TaiKhoanNH.active.is_(True))
     ).all()
-    total = Decimal("0")
-    for tk in tks:
-        snap = db.execute(
-            select(SoDuDauKy.thang, SoDuDauKy.so_du)
-            .where(SoDuDauKy.tai_khoan_id == tk.id, SoDuDauKy.thang <= tu)
-            .order_by(SoDuDauKy.thang.desc())
-            .limit(1)
-        ).first()
-        if snap:
-            base = Decimal(snap.so_du or 0)
-            since = snap.thang
-        else:
-            base = Decimal(tk.so_du_dau or 0)
-            since = None
-        thu_q = select(func.coalesce(func.sum(SoQuy.so_tien), 0)).where(
-            SoQuy.tai_khoan == tk.ten_tk,
-            SoQuy.loai == "thu",
-            SoQuy.ngay < tu,
-        )
-        chi_q = select(func.coalesce(func.sum(SoQuy.so_tien), 0)).where(
-            SoQuy.tai_khoan == tk.ten_tk,
-            SoQuy.loai == "chi",
-            SoQuy.ngay < tu,
-        )
-        if since:
-            thu_q = thu_q.where(SoQuy.ngay >= since)
-            chi_q = chi_q.where(SoQuy.ngay >= since)
-        thu = db.scalar(thu_q) or Decimal("0")
-        chi = db.scalar(chi_q) or Decimal("0")
-        total += base + Decimal(thu) - Decimal(chi)
-    return _f(total)
+    return _f(sum((so_du_truoc_ngay(db, tk.id, tk.ten_tk, tu) for tk in tks), Decimal("0")))
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -526,71 +510,39 @@ def _full_chi_classified_ids(db: Session, tu: date, den: date) -> set[int]:
         SoQuy.loai == "chi",
         SoQuy.ngay >= tu, SoQuy.ngay <= den,
     ]
-    # NCC
-    rs = db.execute(
-        select(SoQuy.id).where(
-            *base,
-            _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_NCC),
-        )
-    ).scalars().all()
-    ids.update(rs)
-    # Ads
-    rs = db.execute(
-        select(SoQuy.id).where(
-            *base,
-            or_(
-                _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_ADS),
-                _ilike_any(SoQuy.ghi_chu, ("ads", "marketing", "facebook", "google")),
-                _ilike_any(SoQuy.noi_dung, ("ads", "marketing", "facebook", "google")),
-            ),
-        )
-    ).scalars().all()
-    ids.update(rs)
-    # Lương
-    rs = db.execute(
-        select(SoQuy.id).where(
-            *base,
-            or_(
-                _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_LUONG),
-                _ilike_any(SoQuy.ghi_chu, ("lương", "luong", "salary", "payroll")),
-                _ilike_any(SoQuy.noi_dung, ("lương", "luong", "salary", "payroll")),
-            ),
-        )
-    ).scalars().all()
-    ids.update(rs)
-    # CCDC
-    rs = db.execute(
-        select(SoQuy.id).where(
-            *base,
-            or_(
-                _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_CCDC),
-                _ilike_any(SoQuy.ghi_chu, ("ccdc", "tài sản", "tai san", "tscd")),
-            ),
-        )
-    ).scalars().all()
-    ids.update(rs)
-    # Sửa chữa
-    rs = db.execute(
-        select(SoQuy.id).where(
-            *base,
-            or_(
-                _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_SUACHUA),
-                _ilike_any(SoQuy.ghi_chu, ("sửa chữa", "sua chua", "bảo trì", "bao tri")),
-            ),
-        )
-    ).scalars().all()
-    ids.update(rs)
-    # Trả nợ
-    rs = db.execute(
-        select(SoQuy.id).where(
-            *base,
-            or_(
-                _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_NO_NH),
-                _ilike_any(SoQuy.ghi_chu, ("lãi vay", "lai vay", "trả nợ", "tra no", "nợ ngân hàng")),
-            ),
-        )
-    ).scalars().all()
-    ids.update(rs)
+    # DUP-02 + L3 (2026-08-31): tập loại-trừ phải KHỚP CHÍNH XÁC predicate hiển thị →
+    # dùng chung `_by_cf_or_heuristic(cf, heuristic)` = or_(phan_loai_cf==cf,
+    # and_(phan_loai_cf IS NULL, heuristic)). Nếu chỉ or_(cf, heuristic) như trước thì
+    # chi có phan_loai_cf='khac' + keyword bị LOẠI khỏi chi_khac NHƯNG không vào bucket
+    # nào → BIẾN MẤT khỏi báo cáo (net sai). Dùng helper là khít cả 2 chiều.
+    _preds = [
+        _by_cf_or_heuristic("tra_ncc", _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_NCC)),
+        _by_cf_or_heuristic("nap_ads", or_(
+            _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_ADS),
+            _ilike_any(SoQuy.ghi_chu, ("ads", "marketing", "facebook", "google")),
+            _ilike_any(SoQuy.noi_dung, ("ads", "marketing", "facebook", "google")),
+        )),
+        _by_cf_or_heuristic("tra_luong", or_(
+            _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_LUONG),
+            _ilike_any(SoQuy.ghi_chu, ("lương", "luong", "salary", "payroll")),
+            _ilike_any(SoQuy.noi_dung, ("lương", "luong", "salary", "payroll")),
+        )),
+        _by_cf_or_heuristic("mua_ccdc", or_(
+            _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_CCDC),
+            _ilike_any(SoQuy.ghi_chu, ("ccdc", "tài sản", "tai san", "tscd")),
+        )),
+        _by_cf_or_heuristic("sua_chua_lon", or_(
+            _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_SUACHUA),
+            _ilike_any(SoQuy.ghi_chu, ("sửa chữa", "sua chua", "bảo trì", "bao tri")),
+        )),
+        _by_cf_or_heuristic("tra_nh", or_(
+            _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_NO_NH),
+            _ilike_any(SoQuy.ghi_chu, ("lãi vay", "lai vay", "trả nợ", "tra no", "nợ ngân hàng")),
+        )),
+    ]
+    for _p in _preds:
+        rs = db.execute(select(SoQuy.id).where(*base, _p)).scalars().all()
+        ids.update(rs)
     # Chuyển nội bộ (luân chuyển quỹ giữa 2 TK) — KHÔNG phải chi phí, chỉ là
     # dịch chuyển tiền nội bộ. Loại khỏi chi_khac (2026-06-20). Dòng 'thu' đối
     # ứng vốn đã không lọt vào thu_kh (heuristic KH), nên loại nốt chi → net 0.
@@ -645,20 +597,17 @@ def get_cong_no_ngam(
         "SELECT COALESCE(SUM(chi_phi),0) FROM marketing.ads_cost "
         "WHERE thang BETWEEN :thang_tu AND :thang_den"
     )
-    ads_da_tra = _scalar(
-        "SELECT COALESCE(SUM(so_tien),0) FROM ketoan.so_quy "
-        "WHERE loai='chi' AND ngay BETWEEN :tu AND :den AND phan_loai_cf='nap_ads'"
-    )
+    # "Đã trả" = ĐÚNG khoản mục tương ứng của bảng B03 (/cashflow: phan_loai_cf hoặc heuristic khi
+    # chưa phân loại) — trước đây chỉ đếm phan_loai_cf nên cùng trang LCTT: B03 "chi trả quảng cáo"
+    # 10tr mà Công nợ ngầm "đã trả" 0; "chi trả người lao động" 146,9tr mà "đã trả" 0 (QA 25/09/2026).
+    ads_da_tra = _operating_tra_ads(db, tu, den)["total"]
 
     # 2. Lương — accrual từ hcns.payroll
     luong_phat_sinh = _scalar(
         "SELECT COALESCE(SUM(luong_thuc_linh),0) FROM hcns.payroll "
         "WHERE thang BETWEEN :thang_tu AND :thang_den"
     )
-    luong_da_tra = _scalar(
-        "SELECT COALESCE(SUM(so_tien),0) FROM ketoan.so_quy "
-        "WHERE loai='chi' AND ngay BETWEEN :tu AND :den AND phan_loai_cf='tra_luong'"
-    )
+    luong_da_tra = _operating_tra_luong(db, tu, den)["total"]
 
     # 3. NCC — accrual từ muahang.purchase_orders
     # PO có cột status; "đã ký/đã nhận" coi như phát sinh chi phí.
@@ -677,20 +626,11 @@ def get_cong_no_ngam(
         ncc_phat_sinh = _scalar(
             "SELECT COALESCE(SUM((selected_ncc_id IS NOT NULL)::int * 0),0) FROM muahang.purchase_orders"
         )
-    ncc_da_tra = _scalar(
-        "SELECT COALESCE(SUM(so_tien),0) FROM ketoan.so_quy "
-        "WHERE loai='chi' AND ngay BETWEEN :tu AND :den AND phan_loai_cf='tra_ncc'"
-    )
+    ncc_da_tra = _operating_tra_ncc(db, tu, den)["total"]
 
     # 4. Vay — vay/trả nợ
-    vay_nhan = _scalar(
-        "SELECT COALESCE(SUM(so_tien),0) FROM ketoan.so_quy "
-        "WHERE loai='thu' AND ngay BETWEEN :tu AND :den AND phan_loai_cf='vay_nh'"
-    )
-    vay_tra = _scalar(
-        "SELECT COALESCE(SUM(so_tien),0) FROM ketoan.so_quy "
-        "WHERE loai='chi' AND ngay BETWEEN :tu AND :den AND phan_loai_cf='tra_nh'"
-    )
+    vay_nhan = _financing_vay(db, tu, den)["total"]       # = mã 33 B03
+    vay_tra = _financing_tra_no(db, tu, den)["total"]     # = mã 34 B03
 
     rows = [
         {
@@ -885,7 +825,8 @@ def get_tinh_hinh_tai_chinh(
     from sqlalchemy import text as _t
     today = date.today()
     as_of = as_of or today
-    p = {"as_of": as_of, "thang_now": today.strftime("%Y-%m")}
+    # Nợ ads / lương tính tới THÁNG của as_of (trước: tháng hiện tại → xem kỳ cũ vẫn ra nợ hôm nay)
+    p = {"as_of": as_of, "thang_now": as_of.strftime("%Y-%m")}
 
     def _scalar(sql: str, params: dict | None = None) -> float:
         try:
@@ -902,6 +843,36 @@ def get_tinh_hinh_tai_chinh(
             db.rollback()
             return []
 
+    def _cong_no_theo_doi_tac(loai: str) -> tuple[list[dict[str, Any]], float]:
+        """Công nợ còn lại theo đối tác — cùng điều kiện với Cân đối (loai, ngay ≤ as_of,
+        trang_thai ≠ 'da_tra'); tổng = Σ mọi đối tác để khớp mã 130/311."""
+        rows = _rows("""
+            SELECT doi_tac, SUM(con_lai) AS con_lai,
+                   MIN(NULLIF(han_thanh_toan, '')) AS han_som, COUNT(*) AS so_don
+            FROM ketoan.cong_no
+            WHERE loai = :loai AND ngay <= :as_of AND trang_thai <> 'da_tra'
+            GROUP BY doi_tac
+            ORDER BY SUM(con_lai) DESC
+        """, {"loai": loai, "as_of": as_of})
+        items, tong = [], 0.0
+        for r in rows:
+            con = float(r["con_lai"] or 0)
+            tong += con
+            if not con:
+                continue
+            try:
+                han = date.fromisoformat(str(r["han_som"])[:10]) if r.get("han_som") else None
+            except ValueError:
+                han = None
+            items.append({
+                "doi_tac": r["doi_tac"],
+                "so_tien": round(con, 0),
+                "han_thanh_toan": han.isoformat() if han else None,
+                "qua_han_ngay": (as_of - han).days if han and han < as_of else 0,
+                "so_don": int(r["so_don"] or 0),
+            })
+        return items, tong
+
     # ── 1. TIỀN MẶT — theo từng TK, dùng so_du_dau_ky snapshot nếu có ──
     tk_rows = _rows("""
         SELECT tk.id, tk.ten_tk, tk.loai, tk.ten_nh, tk.so_du_dau
@@ -912,38 +883,8 @@ def get_tinh_hinh_tai_chinh(
     tien_mat_items = []
     tong_tien = 0.0
     for r in tk_rows:
-        tk_id = r["id"]
-        # Lấy snapshot gần nhất <= as_of
-        snap = db.execute(
-            text("""
-                SELECT thang, so_du FROM ketoan.so_du_dau_ky
-                WHERE tai_khoan_id = :tid AND thang <= :asof
-                ORDER BY thang DESC LIMIT 1
-            """),
-            {"tid": tk_id, "asof": as_of},
-        ).first()
-        if snap:
-            base = float(snap[1] or 0)
-            since = snap[0]
-        else:
-            base = float(r.get("so_du_dau") or 0)
-            since = None
-
-        where_since = "AND ngay >= :since" if since else ""
-        params_tk = {"tk": r["ten_tk"], "asof": as_of}
-        if since:
-            params_tk["since"] = since
-
-        thu = db.execute(
-            text(f"SELECT COALESCE(SUM(so_tien),0) FROM ketoan.so_quy WHERE tai_khoan=:tk AND loai='thu' AND ngay<=:asof {where_since}"),
-            params_tk,
-        ).scalar() or 0
-        chi = db.execute(
-            text(f"SELECT COALESCE(SUM(so_tien),0) FROM ketoan.so_quy WHERE tai_khoan=:tk AND loai='chi' AND ngay<=:asof {where_since}"),
-            params_tk,
-        ).scalar() or 0
-
-        so_du = base + float(thu) - float(chi)
+        # Số dư hết ngày as_of — cùng thuật toán neo SoDuDauKy với Sổ quỹ / mã 70 LCTT / Cân đối
+        so_du = float(so_du_truoc_ngay(db, r["id"], r["ten_tk"], as_of + timedelta(days=1)))
         tien_mat_items.append({
             "ten_tk": r["ten_tk"],
             "loai": r["loai"],
@@ -981,30 +922,11 @@ def get_tinh_hinh_tai_chinh(
             })
             tong_tien += u_so_du
 
-    # ── 2. NỢ NCC — từ ketoan.cong_no chưa trả ──
-    ncc_rows = _rows("""
-        SELECT doi_tac, SUM(con_lai) AS con_lai, MIN(han_thanh_toan) AS han_som,
-               COUNT(*) AS so_don
-        FROM ketoan.cong_no
-        WHERE loai='ncc' AND con_lai > 0
-        GROUP BY doi_tac
-        ORDER BY con_lai DESC
-        LIMIT 50
-    """)
-    no_ncc_items = []
-    no_ncc_total = 0.0
-    for r in ncc_rows:
-        con = float(r["con_lai"] or 0)
-        han = r.get("han_som")
-        qua_han = (today - han).days if han and han < today else 0
-        no_ncc_items.append({
-            "doi_tac": r["doi_tac"],
-            "so_tien": round(con, 0),
-            "han_thanh_toan": han.isoformat() if han else None,
-            "qua_han_ngay": qua_han,
-            "so_don": int(r["so_don"] or 0),
-        })
-        no_ncc_total += con
+    # ── 2. NỢ NCC — ketoan.cong_no loai='phai_tra' chưa trả, phát sinh tới as_of ──
+    # QA 25/09/2026: trước lọc loai='ncc' / 'kh' — giá trị KHÔNG tồn tại trong DB (chỉ có
+    # 'phai_tra' / 'phai_thu') → tab NCC + Phải thu luôn 0 trong khi Cân đối (mã 311/130)
+    # có 946tr / 975tr. Nay dùng ĐÚNG điều kiện của bao_cao_can_doi._phai_tra_ncc/_phai_thu.
+    no_ncc_items, no_ncc_total = _cong_no_theo_doi_tac("phai_tra")
 
     # ── 3. NỢ ADS — TỔNG nợ chính xác (accrual − cash) ──
     # Không breakdown per kênh vì so_quy chưa tag từng kênh — chỉ hiển thị
@@ -1078,19 +1000,22 @@ def get_tinh_hinh_tai_chinh(
     vay_rows = _rows("""
         SELECT id, ma_khoan, nguon_vay, loai_vay, so_tien_vay,
                ngay_vay, ngay_dao_han, status,
-               -- tổng đã trả gốc cho khoản vay này
+               -- gốc đã trả tới as_of — cùng công thức Cân đối (_vay_ngan_han_dai_han)
                COALESCE((
-                 SELECT SUM(so_tien) FROM ketoan.khoan_vay_giao_dich kvg
-                 WHERE kvg.khoan_vay_id = kv.id AND kvg.loai IN ('tra_goc','tra_goc_lai')
+                 SELECT SUM(CASE WHEN kvg.loai = 'tra_goc' THEN kvg.so_tien
+                                 WHEN kvg.loai = 'tra_goc_lai' THEN COALESCE(kvg.so_tien_goc, 0)
+                                 ELSE 0 END)
+                 FROM ketoan.khoan_vay_giao_dich kvg
+                 WHERE kvg.khoan_vay_id = kv.id AND kvg.ngay <= :as_of
                ), 0) AS da_tra_goc
         FROM ketoan.khoan_vay kv
-        WHERE status = 'dang_vay'
+        WHERE status = 'dang_vay' AND ngay_vay <= :as_of
         ORDER BY ngay_dao_han ASC
     """)
     no_vay_items = []
     no_vay_total = 0.0
     for r in vay_rows:
-        du_no = float(r["so_tien_vay"] or 0) - float(r["da_tra_goc"] or 0)
+        du_no = max(0.0, float(r["so_tien_vay"] or 0) - float(r["da_tra_goc"] or 0))
         dao_han = r.get("ngay_dao_han")
         ngay_con = (dao_han - today).days if dao_han else None
         no_vay_items.append({
@@ -1104,30 +1029,8 @@ def get_tinh_hinh_tai_chinh(
         })
         no_vay_total += du_no
 
-    # ── 6. PHẢI THU KH — từ ketoan.cong_no loại='kh' chưa thu ──
-    pt_rows = _rows("""
-        SELECT doi_tac, SUM(con_lai) AS con_lai, MIN(han_thanh_toan) AS han_som,
-               COUNT(*) AS so_don
-        FROM ketoan.cong_no
-        WHERE loai='kh' AND con_lai > 0
-        GROUP BY doi_tac
-        ORDER BY con_lai DESC
-        LIMIT 50
-    """)
-    phai_thu_items = []
-    phai_thu_total = 0.0
-    for r in pt_rows:
-        con = float(r["con_lai"] or 0)
-        han = r.get("han_som")
-        qua_han = (today - han).days if han and han < today else 0
-        phai_thu_items.append({
-            "doi_tac": r["doi_tac"],
-            "so_tien": round(con, 0),
-            "han_thanh_toan": han.isoformat() if han else None,
-            "qua_han_ngay": qua_han,
-            "so_don": int(r["so_don"] or 0),
-        })
-        phai_thu_total += con
+    # ── 6. PHẢI THU KH — ketoan.cong_no loai='phai_thu' chưa thu, phát sinh tới as_of ──
+    phai_thu_items, phai_thu_total = _cong_no_theo_doi_tac("phai_thu")
 
     no_phai_tra_total = no_ncc_total + no_ads_total + no_luong_total + no_vay_total
     no_thuan = no_phai_tra_total - tong_tien - phai_thu_total

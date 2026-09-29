@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Phân phối lợi nhuận.
+   Dữ liệu thật ghép từ NHIỀU API sẵn có (không có 1 endpoint /api/phan-phoi-ln):
+   GET /api/von-csh (lịch sử trích quỹ + chia cổ tức + chuyển LN thành vốn) · GET /api/von-csh/summary (tổng đã chia
+   cổ tức / đã trích quỹ — cùng nguồn màn cũ /app#phan-phoi-ln) · GET /api/quy-dn (số dư quỹ) ·
+   GET /api/bao-cao/can-doi (LN giữ lại — TK 421) · GET /api/bao-cao/pl (KQ kỳ hiện tại, chưa kết chuyển).
+   Ghi sổ: POST /api/von-csh/trich-quy · /chia-co-tuc (kèm TK chi + chủ sở hữu như màn cũ) · /chuyen-ln-thanh-von ·
+   DELETE /api/von-csh/{id} (đảo bút toán). "Lập phân phối" gọi các API TUẦN TỰ (không atomic) — xem kt-phan-phoi.js. #}
+{% block title %}Phân phối lợi nhuận{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-phan-phoi.css?v=g4b">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-phan-phoi" data-vai-tro-goc="{{ ((user.role if user else '') or '')|lower }}">
+  {% call ui.dau_trang('Phân phối lợi nhuận', 'Trích quỹ, chia cổ tức, chuyển vốn góp') %}
+    <button type="button" class="kd-btn kd-btn--primary" id="pp-lap" disabled><i class="bi bi-diagram-3" aria-hidden="true"></i>Lập phân phối</button>
+  {% endcall %}
+  {# F3 28/09: /api/von-csh/* (trích quỹ, chia cổ tức, chuyển vốn, xoá) chỉ admin/ceo — kt-phan-phoi.js bật câu này + ẩn nút cho người khác. #}
+  <p class="kd-note" id="pp-chi-xem" role="note" hidden><i class="bi bi-lock" aria-hidden="true"></i> <b>Chỉ xem — cần quyền CEO để ghi.</b> Lập phân phối lợi nhuận (trích quỹ, chia cổ tức, chuyển vốn góp) và xoá lần phân phối chỉ CEO / Admin làm được.</p>
+
+  {{ ui.the_so('pp', [('chua_pp', 'LN chưa phân phối', 'success', 'bi-piggy-bank', 'Số dư TK 421 theo kỳ đã chốt gần nhất. Chỉ nên phân phối phần lợi nhuận đã kết chuyển (kỳ đã khoá sổ).'),
+                       ('chua_kc', 'Lợi nhuận tháng này', 'warning', 'bi-hourglass-split', 'Lợi nhuận sau thuế tháng hiện tại, chưa kết chuyển — chỉ phân phối được sau khi khoá sổ.'),
+                       ('da_trich', 'Đã trích quỹ', 'info', 'bi-graph-up-arrow', 'Tổng luỹ kế các lần trích quỹ.'),
+                       ('phai_tra', 'Đã chia cổ tức', 'tim', 'bi-people', 'Tổng luỹ kế cổ tức đã chia.')], kieu='strip', nhan_vung='Số dư hiện tại') }}
+
+  {% call ui.the_bang('pp', 'Lịch sử phân phối lợi nhuận', phan_trang=False, dau_the='<div class="kd-box__head kt-the-dau"><h3 class="kd-box__title">Lịch sử phân phối<button type="button" class="kd-tip" data-tip="Các khoản ghi cùng một lần Lập phân phối được gộp thành 1 dòng." aria-label="Các khoản ghi cùng một lần Lập phân phối được gộp thành 1 dòng."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h3></div>' | safe) %}{% endcall %}
+</main>
+
+<dialog class="kd-dialog" id="pp-dlg" aria-labelledby="pp-dlg-td">
+  <form method="dialog" novalidate id="pp-form">
+    <header class="kd-dialog__head">
+      <h2 class="kd-dialog__title" id="pp-dlg-td">Lập phân phối lợi nhuận</h2>
+      <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div class="kd-dialog__body">
+      <p class="kd-meta" id="pp-co-the"></p>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="pp-quy_dtpt">Quỹ đầu tư phát triển (414)</label>
+          <input class="kd-input num" id="pp-quy_dtpt" inputmode="numeric" autocomplete="off" data-khoan="quy_dtpt" placeholder="0">
+          <p class="kd-meta" id="pp-g-quy_dtpt"></p>
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="pp-quy_ktpl">Quỹ khen thưởng, phúc lợi (353)</label>
+          <input class="kd-input num" id="pp-quy_ktpl" inputmode="numeric" autocomplete="off" data-khoan="quy_ktpl" placeholder="0">
+          <p class="kd-meta" id="pp-g-quy_ktpl"></p>
+        </div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="pp-quy-khac-id">Trích quỹ khác</label>
+          <select class="kd-input" id="pp-quy-khac-id"><option value="">— Không trích —</option></select>
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="pp-quy_khac">Số tiền quỹ khác</label>
+          <input class="kd-input num" id="pp-quy_khac" inputmode="numeric" autocomplete="off" data-khoan="quy_khac" placeholder="0">
+          <p class="kd-meta" id="pp-g-quy_khac"></p>
+        </div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="pp-chia_csh">Chia cổ tức (chi tiền ngay)</label>
+          <input class="kd-input num" id="pp-chia_csh" inputmode="numeric" autocomplete="off" data-khoan="chia_csh" placeholder="0">
+          <p class="kd-meta" id="pp-g-chia_csh"></p>
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="pp-chuyen_von">Chuyển thành vốn góp (411)</label>
+          <input class="kd-input num" id="pp-chuyen_von" inputmode="numeric" autocomplete="off" data-khoan="chuyen_von" placeholder="0">
+          <p class="kd-meta" id="pp-g-chuyen_von"></p>
+        </div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="pp-chu">Chủ sở hữu</label>
+          <input class="kd-input" id="pp-chu" maxlength="120" autocomplete="off" placeholder="Tên chủ DN (cổ tức / vốn góp)">
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="pp-tk">Tài khoản chi cổ tức</label>
+          <select class="kd-input" id="pp-tk"><option value="">— Chọn tài khoản —</option></select>
+        </div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="pp-ngay">Ngày ghi sổ <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input" type="date" id="pp-ngay" required>
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="pp-ghi-chu">Căn cứ (nghị quyết) <span class="kd-field__req" aria-hidden="true">*</span><button type="button" class="kd-tip kd-tip--trai" data-tip="Số nghị quyết / quyết định. Tỷ lệ trích quỹ nhập theo nghị quyết, điều lệ công ty." aria-label="Số nghị quyết / quyết định. Tỷ lệ trích quỹ nhập theo nghị quyết, điều lệ công ty."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+          <input class="kd-input" id="pp-ghi-chu" maxlength="150" placeholder="VD: Nghị quyết HĐTV số 05/2026" autocomplete="off">
+        </div>
+      </div>
+      <p class="kt-pp-goi-y" hidden><span class="kd-meta" id="pp-ty-le"></span></p>
+      <h3 class="kd-block__title"><i class="bi bi-journal-text" aria-hidden="true"></i>Định khoản sẽ ghi</h3>
+      <table class="kt-dk"><thead><tr><th scope="col">Tài khoản</th><th scope="col" class="num">Nợ (VND)</th><th scope="col" class="num">Có (VND)</th></tr></thead><tbody id="pp-dk"></tbody></table>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="submit" class="kd-btn kd-btn--primary" id="pp-luu"><i class="bi bi-check2" aria-hidden="true"></i>Ghi sổ phân phối</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="pp-dlg-xoa" role="alertdialog" aria-labelledby="pp-xoa-td" aria-describedby="pp-xoa-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="pp-xoa-td">Xoá lần phân phối?</h2></header>
+    <div class="kd-dialog__body"><p id="pp-xoa-nd"></p><p class="kd-form-err" role="alert" hidden></p></div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="button" class="kd-btn kd-btn--danger" id="pp-xoa-ok"><i class="bi bi-trash" aria-hidden="true"></i>Xoá và đảo bút toán</button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-phan-phoi.js?v=tk0928c"></script>
+{% endblock %}

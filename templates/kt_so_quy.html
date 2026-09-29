@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Sổ quỹ tiền mặt (TK 111) — L3. Dữ liệu thật: GET /api/so-quy (danh sách giao dịch,
+   KHÔNG phân trang/tồn luỹ kế sẵn ở server) + GET /api/so-quy/summary?thang= (tồn đầu/cuối
+   theo tài khoản). kt-so-quy.js (dot3b) tự tính tồn luỹ kế + gộp KPI ở trình duyệt — xem
+   ghi chú "GAP THẬT" đầu file JS. #}
+{% block title %}Sổ quỹ tiền mặt{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-so-quy.css?v=g4b">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page kt-l3-rong" id="kd-kt-so-quy">
+  {% call ui.dau_trang('Sổ quỹ tiền mặt', 'Phiếu thu, phiếu chi và tồn quỹ tiền mặt') %}
+    {{ ui.chon_ky('sq') }}
+    {{ ui.nut_loc('sq') }}
+    <button type="button" class="kd-btn" data-lap="chi"><i class="bi bi-box-arrow-up" aria-hidden="true"></i>Lập phiếu chi</button>
+    <button type="button" class="kd-btn kd-btn--primary" data-lap="thu"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i>Lập phiếu thu</button>
+  {% endcall %}
+
+  {{ ui.the_so('sq', [('ton_dau', 'Tồn quỹ đầu kỳ', '', 'bi-safe'), ('thu', 'Tổng thu', 'success', 'bi-box-arrow-in-down'),
+                       ('chi', 'Tổng chi', 'danger', 'bi-box-arrow-up'), ('ton_cuoi', 'Tồn quỹ cuối kỳ', 'info', 'bi-cash-stack')], kieu='strip') }}
+
+  {% call ui.the_bang('sq', 'Sổ quỹ tiền mặt', panel='Chi tiết giao dịch') %}
+    {{ ui.o_tim('sq', 'tim', 'Tìm phiếu', 'Diễn giải, người nộp, mã đơn…') }}
+    {{ ui.o_chon('sq', 'loai', 'Loại phiếu', [('', 'Tất cả'), ('thu', 'Phiếu thu'), ('chi', 'Phiếu chi')]) }}
+  {% endcall %}
+</main>
+
+<dialog class="kd-dialog" id="sq-dlg" aria-labelledby="sq-dlg-td">
+  <form method="dialog" novalidate id="sq-form">
+    <header class="kd-dialog__head">
+      <h2 class="kd-dialog__title"><span id="sq-dlg-td">Lập phiếu thu</span><button type="button" class="kd-tip" data-tip="Phiếu ghi thẳng vào Sổ quỹ của tài khoản đã chọn, không tự sinh doanh thu / chi phí. Phiếu chi bị chặn nếu tài khoản không đủ số dư." aria-label="Phiếu ghi thẳng vào Sổ quỹ của tài khoản đã chọn, không tự sinh doanh thu / chi phí. Phiếu chi bị chặn nếu tài khoản không đủ số dư."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2>
+      <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div class="kd-dialog__body">
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="sq-f-loai">Loại phiếu</label>
+          <select class="kd-input" id="sq-f-loai"><option value="thu">Phiếu thu (tiền vào)</option><option value="chi">Phiếu chi (tiền ra)</option></select>
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="sq-f-ngay">Ngày <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input" type="date" id="sq-f-ngay">
+        </div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="sq-f-tk">Tài khoản / quỹ <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <select class="kd-input" id="sq-f-tk"></select>
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="sq-f-tien">Số tiền (VND) <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input num" id="sq-f-tien" inputmode="numeric" placeholder="0" autocomplete="off">
+        </div>
+      </div>
+      <div class="kd-field">
+        <label class="kd-field__label" for="sq-f-nd">Nội dung <span class="kd-field__req" aria-hidden="true">*</span></label>
+        <input class="kd-input" id="sq-f-nd" maxlength="250" placeholder="Mô tả giao dịch…" autocomplete="off">
+      </div>
+      <div class="kd-field">
+        <label class="kd-field__label" for="sq-f-nv">Nhân viên</label>
+        <select class="kd-input" id="sq-f-nv"><option value="">— Không gắn nhân viên —</option></select>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="sq-f-lq">Liên quan (mã đơn / ID)</label>
+          <input class="kd-input" id="sq-f-lq" maxlength="64" placeholder="CP-xxx / DT-xxx…" autocomplete="off">
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="sq-f-madon">Mã đơn báo giá</label>
+          <input class="kd-input" id="sq-f-madon" maxlength="64" placeholder="VD: NV26025-26-00027 (khi nộp cọc)" autocomplete="off">
+        </div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="sq-f-cf">Phân loại dòng tiền</label>
+          <select class="kd-input" id="sq-f-cf">
+            <option value="">— Mặc định: Khác —</option><option value="thu_kh">Thu từ khách hàng</option><option value="tra_ncc">Trả nhà cung cấp</option>
+            <option value="nap_ads">Nạp quảng cáo</option><option value="tra_luong">Trả lương</option><option value="mua_ccdc">Mua CCDC / TSCĐ</option>
+            <option value="sua_chua_lon">Sửa chữa lớn</option><option value="vay_nh">Vay ngân hàng</option><option value="tra_nh">Trả nợ ngân hàng</option><option value="khac">Khác</option>
+          </select>
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="sq-f-gc">Ghi chú</label>
+          <input class="kd-input" id="sq-f-gc" maxlength="250" autocomplete="off">
+        </div>
+      </div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="submit" class="kd-btn kd-btn--primary" id="sq-f-luu"><i class="bi bi-check2" aria-hidden="true"></i>Lưu phiếu</button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-so-quy.js?v=tk0928a"></script>
+{% endblock %}

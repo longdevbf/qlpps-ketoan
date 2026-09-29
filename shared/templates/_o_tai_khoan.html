@@ -1,0 +1,169 @@
+{# SINH TỰ ĐỘNG — ĐỪNG sửa file này trong repo.
+   Sửa `claude-kit/core/shared/templates/_o_tai_khoan.html` rồi chạy:
+       cd d:\PapaSanIT\claude-kit && python sync.py
+   File này giống hệt nhau ở cả 8 repo. Muốn một app khác đi thì đặt
+   bản riêng trong templates/ của app đó (Jinja đọc templates/ trước). -#}
+{# ═══════════════════════════════════════════════════════════════════════════
+   Ô TÀI KHOẢN — khối hoàn chỉnh: CSS + nút + menu + JS (13/09/2026).
+
+   Vì sao có file này: `_header.html` của 7 app đã có sẵn khối này, NHƯNG hai
+   trang chủ không dùng `_header.html` mà tự viết khối riêng —
+   `qlpps-muahang/templates/index.html` (SPA, lớp `.user-dropdown`) và
+   `qlpps-congnghe/templates/base.html` (lớp `.user-avatar`). Hậu quả người dùng
+   thấy 12/09/2026: vào trang chủ là ô tài khoản kiểu cũ, bấm sang Đào tạo /
+   Duyệt chi mới ra kiểu mới. Hai trang đó nay include file này, hết lệch.
+
+   Dùng — đặt vào đúng chỗ ô tài khoản trên thanh trên cùng:
+       {% include "_o_tai_khoan.html" %}
+
+   Nhận cùng bộ biến với `_menu_tai_khoan.html` (`tk_lien_ket`, `tk_an`,
+   `tk_duyet`, `tk_them`, `tk_doi_anh`, `tk_doi_mk`) — khai TRƯỚC khi include.
+   Cần `user` trong ngữ cảnh (đi qua `user_ctx`).
+
+   KHÔNG include file này vào trang đã có `_header.html`: hai bên cùng khai
+   `#ab-user` là trùng id. JS tự bỏ qua nếu đã có bản khác chạy trước.
+   ═══════════════════════════════════════════════════════════════════════════ #}
+<style>
+/* Bề rộng dùng CHUNG cho nút và menu — người dùng chốt 12/09/2026 "ô account
+   ngang bằng với dropdown". Menu tự nới theo nội dung nhưng không hẹp hơn số này
+   (`_menu_tai_khoan.html` đọc chính biến `--u-w`). */
+.ab-user{position:relative;--u-w:260px}
+/* Cầu nối trong suốt phủ khoảng hở nút↔menu: không có nó thì chuột đi từ nút
+   xuống menu rơi vào vùng trống và menu tự đóng. */
+.ab-user::after{content:'';position:absolute;left:0;right:0;top:100%;height:8px}
+.ab-user .ab-userbtn{display:flex;align-items:center;gap:var(--sp-4);cursor:pointer;
+     padding:var(--sp-3) var(--sp-6);border-radius:9px;border:1px solid transparent;
+     background:none;font:inherit;text-align:left;user-select:none;transition:background .15s;
+     width:var(--u-w);box-sizing:border-box}
+.ab-user .ab-userbtn:hover{background:var(--bg-page);border-color:var(--border)}
+.ab-user .ab-avatar{width:30px;height:30px;border-radius:50%;background:var(--brand-soft);
+     color:var(--brand-hover);overflow:hidden;display:flex;align-items:center;justify-content:center;
+     font-size:var(--fs-meta);font-weight:800;flex-shrink:0}
+.ab-user .ab-avatar img{width:100%;height:100%;object-fit:cover;display:none}
+.ab-user .ab-uinfo{display:flex;flex-direction:column;line-height:1.2;min-width:0;flex:1 1 auto}
+.ab-user .ab-uname{font-size:var(--fs-meta);font-weight:700;color:var(--brand);
+     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ab-user .ab-urole{font-size:var(--fs-micro);font-weight:500;color:var(--text-3);
+     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ab-user .ab-chev{color:var(--text-3);font-size:var(--fs-eyebrow);margin-left:auto;
+     padding-left:8px;transition:transform .2s}
+.ab-user.open .ab-chev{transform:rotate(180deg)}
+.ab-user .ab-umenu{position:absolute;top:calc(100% + 10px);right:0;width:var(--u-w);
+     background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
+     overflow:hidden;display:none;z-index:1200;box-shadow:var(--shadow-lg)}
+.ab-user.open .ab-umenu{display:block}
+.ab-user .ab-div{height:1px;background:var(--border);margin:var(--sp-2) 0}
+@media(max-width:768px){
+  /* Màn hẹp: nút co lại còn mỗi ảnh đại diện, menu vẫn đủ rộng để đọc. */
+  .ab-user .ab-userbtn{width:auto;padding:var(--sp-2) var(--sp-3)}
+  .ab-user .ab-uinfo,.ab-user .ab-chev{display:none}
+}
+</style>
+
+<div class="ab-user" id="ab-user">
+  <button type="button" class="ab-userbtn" onclick="abToggleUser(event)"
+          aria-haspopup="true" aria-expanded="false" aria-label="Menu tài khoản">
+    <span class="ab-avatar">
+      <img id="ab-ava-img" src="" alt="">
+      {#- Chữ tắt lấy 2 từ đầu ("Nguyễn Duy Quang" → ND), khớp với cách JS của SPA Mua Hàng
+          tự tính lại sau khi gọi /api/profile — không thì trang chủ hiện 1 chữ, trang khác 2 chữ. -#}
+      {%- set _tk_tu = ((user.ho_ten or '') if user else '').split() -%}
+      <span id="ab-ava-init">{{ (_tk_tu[0][0] ~ (_tk_tu[1][0] if _tk_tu|length > 1 else ''))|upper if _tk_tu else 'U' }}</span>
+    </span>
+    <span class="ab-uinfo">
+      <span class="ab-uname">{{ user.ho_ten if user else '' }}</span>
+      <span class="ab-urole">{{ (user.phong_ban|upper) if (user and user.phong_ban) else ((user.vai_tro|upper) if (user and user.vai_tro) else '') }}</span>
+    </span>
+    <span class="ab-chev" aria-hidden="true">▾</span>
+  </button>
+  <input type="file" id="ab-ava-upload" accept="image/jpeg,image/png,image/webp"
+         style="display:none" onchange="abUploadAva(this)">
+  <div class="ab-umenu">
+    {# Ruột menu dùng chung 8 app — sửa ở claude-kit/core/shared/templates/_menu_tai_khoan.html #}
+    {% include "_menu_tai_khoan.html" %}
+  </div>
+</div>
+
+<script>
+/* Bỏ qua nếu trang đã có bản của `_header.html` chạy trước — tránh gắn hai lần
+   handler cho cùng một phần tử. */
+if (!window.abToggleUser) (function () {
+  var u = function () { return document.getElementById('ab-user'); };
+  window.abCloseUser = function () {
+    var e = u(); if (!e) return;
+    e.classList.remove('open');
+    var b = e.querySelector('.ab-userbtn');
+    if (b) b.setAttribute('aria-expanded', 'false');
+  };
+  window.abToggleUser = function (ev) {
+    if (ev) ev.stopPropagation();
+    var e = u(); if (!e) return;
+    var dangMo = e.classList.contains('open');
+    window.abCloseUser();
+    if (!dangMo) {
+      e.classList.add('open');
+      var b = e.querySelector('.ab-userbtn');
+      if (b) b.setAttribute('aria-expanded', 'true');
+    }
+  };
+  /* Mở bằng RÊ CHUỘT, chỉ trên thiết bị có chuột thật; màn cảm ứng giữ hành vi
+     bấm vì ở đó "hover" chỉ xảy ra sau khi đã chạm. Đóng có trễ 180ms để đi chéo
+     từ nút xuống menu không bị rớt giữa đường. */
+  if (!window.matchMedia || window.matchMedia('(hover:hover)').matches) {
+    var hen = null, e = u();
+    if (e) {
+      e.addEventListener('mouseenter', function () {
+        clearTimeout(hen);
+        e.classList.add('open');
+        var b = e.querySelector('.ab-userbtn');
+        if (b) b.setAttribute('aria-expanded', 'true');
+      });
+      e.addEventListener('mouseleave', function () {
+        clearTimeout(hen);
+        hen = setTimeout(window.abCloseUser, 180);
+      });
+    }
+  }
+  document.addEventListener('click', function (ev) {
+    if (!ev.target.closest('.ab-user')) window.abCloseUser();
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') window.abCloseUser();
+  });
+
+  function abDatAva(src) {
+    var img = document.getElementById('ab-ava-img'),
+        chu = document.getElementById('ab-ava-init');
+    if (!img) return;
+    img.src = src; img.style.display = 'block';
+    if (chu) chu.style.display = 'none';
+  }
+  window.abUploadAva = function (input) {
+    var f = input.files[0];
+    if (!f) return;
+    if (f.size > 3 * 1024 * 1024) { alert('Ảnh quá lớn, tối đa 3MB'); input.value = ''; return; }
+    var fd = new FormData(); fd.append('file', f);
+    fetch('/api/profile/avatar', { method: 'POST', credentials: 'include', body: fd })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && d.ok) abDatAva(URL.createObjectURL(f));
+        else alert((d && d.detail) || 'Không tải được ảnh');
+      })
+      .catch(function (e) { alert('Lỗi: ' + e.message); })
+      .then(function () { input.value = ''; });
+  };
+  /* Ảnh đại diện có thể chưa có — 404 là bình thường, không báo lỗi ra màn. */
+  fetch('/api/profile/avatar', { credentials: 'include' })
+    .then(function (r) { return r.ok ? r.blob() : null; })
+    .then(function (b) { if (b && b.size) abDatAva(URL.createObjectURL(b)); })
+    .catch(function () {});
+
+  /* Đổi mật khẩu / hồ sơ: trang nào có sẵn modal openProfile() thì dùng, không thì
+     sang màn hồ sơ dùng chung. */
+  window.abOpenProfile = function () {
+    window.abCloseUser();
+    if (typeof window.openProfile === 'function') window.openProfile();
+    else location.href = '/ho-so-ca-nhan';
+  };
+})();
+</script>

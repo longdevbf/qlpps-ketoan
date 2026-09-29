@@ -18,7 +18,7 @@ from hashlib import md5
 from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from sqlalchemy import func, select, text
+from sqlalchemy import case, func, select, text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
@@ -132,53 +132,39 @@ def _doanh_so_per_nv(db: Session, tu: date_cls, den: date_cls) -> dict[str, floa
 # Trả shape FE template `index.html::loadBaoCao` đang đọc.
 # ─────────────────────────────────────────────────────────────────────────────
 
-@router.get("")
-def bao_cao_dashboard(
-    db: Annotated[Session, Depends(get_db)],
-    user: Annotated[JWTPayload, _AUTH],
-    request: Request,
-    response: Response,
-    thang: Optional[str] = Query(None),
-) -> Any:
-    """Dashboard tổng hợp tháng. Map ra shape FE đọc.
+# Dòng công nợ "thu hộ KH qua ĐVVC" (routers/cong_no.py sync saleadmin) TRÙNG khoản phải thu
+# của chính đơn báo giá (vd NV26010-26-00010: CN-2026-0022 báo giá + CN-2026-0057 thu hộ cùng 11tr).
+# Màn Công nợ KH / Bù trừ / Đối tượng đều loại nguồn này — Tổng quan dùng cùng định nghĩa.
+NGUON_PHAI_THU_TRUNG = "saleadmin_vc_phai_thu"
 
-    Format `thang`: 'YYYY-MM'. Nếu không truyền → tháng hiện tại.
+
+def _phai_thu_mo(db: Session) -> list[dict]:
+    """Khoản phải thu CÒN NỢ (con_lai > 0), mọi thời điểm, đã loại dòng thu hộ ĐVVC trùng."""
+    rows = db.execute(
+        select(CongNo.id, CongNo.ngay, CongNo.doi_tac, CongNo.han_thanh_toan, CongNo.con_lai)
+        .where(CongNo.loai == "phai_thu", CongNo.con_lai > 0)
+        .where(func.coalesce(CongNo.ref_source, "") != NGUON_PHAI_THU_TRUNG)
+        .order_by(CongNo.ngay)
+    ).all()
+    return [
+        {"id": i, "ngay": n.isoformat() if n else None, "doi_tac": d,
+         "han_thanh_toan": h or None, "con_lai": float(c or 0)}
+        for i, n, d, h, c in rows
+    ]
+
+
+def _build_dashboard(
+    db: Session, tu: date_cls, den: date_cls, thang_mkt: Optional[str] = None,
+    bo_thu_ho_trung: bool = False,
+) -> dict:
+    """Số liệu Dashboard tổng hợp trong [tu, den] — dùng chung cho `GET /api/bao-cao`
+    (theo tháng, SPA cũ) và `GET /api/bao-cao/tong-quan` (khoảng ngày bất kỳ, màn
+    /ketoan/tong-quan — màn này BỎ các khoá P&L, xem _build_tong_quan). `thang_mkt`: lọc
+    Data/Inbox MKT theo cột `ads_cost.thang` (giữ nguyên hành vi cũ); None → lọc theo
+    `ads_cost.ngay` trong khoảng.
+    `bo_thu_ho_trung`: loại dòng phải thu NGUON_PHAI_THU_TRUNG khỏi công nợ phát sinh
+    (màn mới); False giữ nguyên số của SPA cũ.
     """
-    from calendar import monthrange
-    if not thang:
-        thang = datetime.now().strftime("%Y-%m")
-    try:
-        yr, mo = map(int, thang.split("-"))
-    except (ValueError, IndexError):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "thang format YYYY-MM")
-
-    # Redis cache 30s (dashboard) — fallback in-process nếu Redis lỗi.
-    try:
-        from ..main import cache_get_or_set as _cache_gos  # type: ignore
-    except Exception:
-        _cache_gos = None  # type: ignore
-
-    # TTL cache (30s) — giữ in-process làm L1 (rất nhanh, không network).
-    now = time.time()
-    cached = _DASHBOARD_CACHE.get(thang)
-    if cached and (now - cached[0]) < _DASHBOARD_TTL:
-        out = cached[1]
-        # ETag + 304 fail-soft
-        try:
-            body = json.dumps(out, sort_keys=True, default=str, ensure_ascii=False)
-            etag = 'W/"' + md5(body.encode()).hexdigest() + '"'
-            if request.headers.get("if-none-match") == etag:
-                return Response(status_code=304, headers={"ETag": etag})
-            response.headers["ETag"] = etag
-            response.headers["Cache-Control"] = "private, max-age=10, must-revalidate"
-            response.headers["Vary"] = "Cookie"
-        except Exception:
-            pass
-        return out
-
-    tu = date_cls(yr, mo, 1)
-    den = date_cls(yr, mo, monthrange(yr, mo)[1])
-
     th = _build_tong_hop(db, tu, den)
 
     # Cross-app stats: NV count, đơn hàng count, marketing data/inbox
@@ -228,7 +214,10 @@ def bao_cao_dashboard(
             select(
                 func.coalesce(func.sum(AdsCost.so_data), 0),
                 func.coalesce(func.sum(AdsCost.so_inbox), 0),
-            ).where(AdsCost.thang == thang)
+            ).where(
+                AdsCost.thang == thang_mkt if thang_mkt
+                else AdsCost.ngay.between(tu, den)
+            )
         ).one()
         so_data_mkt = int(row[0] or 0)
         so_inbox_mkt = int(row[1] or 0)
@@ -237,15 +226,20 @@ def bao_cao_dashboard(
 
     # Tổng công nợ (phải thu + phải trả)
     tong_cong_no = 0.0
+    cong_no_by_loai: dict[str, float] = {}
     try:
-        rows = db.execute(
+        stmt = (
             select(CongNo.loai, func.coalesce(func.sum(CongNo.so_tien), 0))
             .where(CongNo.ngay >= tu, CongNo.ngay <= den)
             .group_by(CongNo.loai)
-        ).all()
-        tong_cong_no = float(sum(v or 0 for _, v in rows))
+        )
+        if bo_thu_ho_trung:
+            stmt = stmt.where(func.coalesce(CongNo.ref_source, "") != NGUON_PHAI_THU_TRUNG)
+        rows = db.execute(stmt).all()
+        cong_no_by_loai = {str(k): float(v or 0) for k, v in rows}
+        tong_cong_no = float(sum(cong_no_by_loai.values()))
     except Exception:
-        pass
+        db.rollback()
 
     # ChiPhi by loại — cho bar chart
     cp_loai_rows = db.execute(
@@ -260,13 +254,16 @@ def bao_cao_dashboard(
     cp_by_loai = [(str(k), float(v or 0)) for k, v in cp_loai_rows]
 
     # DoanhThu by loại
+    dt_nhan = func.coalesce(DoanhThu.loai, DoanhThu.loai_thanh_toan, "Khác")
     dt_loai_rows = db.execute(
         select(
-            func.coalesce(DoanhThu.loai, DoanhThu.loai_thanh_toan, "Khác"),
+            dt_nhan,
             func.coalesce(func.sum(DoanhThu.so_tien), 0),
         )
         .where(DoanhThu.ngay >= tu, DoanhThu.ngay <= den)
-        .group_by(DoanhThu.loai, DoanhThu.loai_thanh_toan)
+        # Gộp theo đúng biểu thức nhãn — group theo (loai, loai_thanh_toan) làm
+        # một nhãn "Doanh thu đồ gỗ lẻ" hiện 2 lần (Đặt cọc / Thanh toán).
+        .group_by(dt_nhan)
         .order_by(func.sum(DoanhThu.so_tien).desc())
     ).all()
     dt_by_loai = [(str(k), float(v or 0)) for k, v in dt_loai_rows]
@@ -296,8 +293,7 @@ def bao_cao_dashboard(
     ads_by_kenh = sorted(th.ads_by_kenh.items(), key=lambda x: -x[1])
     luong_by_pb = sorted(th.luong_by_phong_ban.items(), key=lambda x: -x[1])
 
-    result: dict = {
-        "thang": thang,
+    return {
         "tu_ngay": tu.isoformat(),
         "den_ngay": den.isoformat(),
         # P&L
@@ -318,6 +314,7 @@ def bao_cao_dashboard(
         "so_data_mkt": so_data_mkt,
         "so_inbox_mkt": so_inbox_mkt,
         "tong_cong_no": tong_cong_no,
+        "cong_no_by_loai": cong_no_by_loai,
         # Charts (FE expects [[label, val], ...])
         "cp_by_loai": cp_by_loai,
         "dt_by_loai": dt_by_loai,
@@ -326,6 +323,56 @@ def bao_cao_dashboard(
         "luong_by_pb": luong_by_pb,
         "nhansu_by_pb": nhansu_by_pb,
     }
+
+
+@router.get("")
+def bao_cao_dashboard(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+    request: Request,
+    response: Response,
+    thang: Optional[str] = Query(None),
+) -> Any:
+    """Dashboard tổng hợp tháng. Map ra shape FE đọc.
+
+    Format `thang`: 'YYYY-MM'. Nếu không truyền → tháng hiện tại.
+    """
+    from calendar import monthrange
+    if not thang:
+        thang = datetime.now().strftime("%Y-%m")
+    try:
+        yr, mo = map(int, thang.split("-"))
+    except (ValueError, IndexError):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "thang format YYYY-MM")
+
+    # Redis cache 30s (dashboard) — fallback in-process nếu Redis lỗi.
+    try:
+        from ..main import cache_get_or_set as _cache_gos  # type: ignore
+    except Exception:
+        _cache_gos = None  # type: ignore
+
+    # TTL cache (30s) — giữ in-process làm L1 (rất nhanh, không network).
+    now = time.time()
+    cached = _DASHBOARD_CACHE.get(thang)
+    if cached and (now - cached[0]) < _DASHBOARD_TTL:
+        out = cached[1]
+        # ETag + 304 fail-soft
+        try:
+            body = json.dumps(out, sort_keys=True, default=str, ensure_ascii=False)
+            etag = 'W/"' + md5(body.encode()).hexdigest() + '"'
+            if request.headers.get("if-none-match") == etag:
+                return Response(status_code=304, headers={"ETag": etag})
+            response.headers["ETag"] = etag
+            response.headers["Cache-Control"] = "private, max-age=10, must-revalidate"
+            response.headers["Vary"] = "Cookie"
+        except Exception:
+            pass
+        return out
+
+    tu = date_cls(yr, mo, 1)
+    den = date_cls(yr, mo, monthrange(yr, mo)[1])
+
+    result: dict = {"thang": thang, **_build_dashboard(db, tu, den, thang_mkt=thang)}
     _DASHBOARD_CACHE[thang] = (now, result)
 
     # Redis L2 cache (30s) — share giữa workers.
@@ -349,6 +396,65 @@ def bao_cao_dashboard(
     except Exception:
         pass
     return result
+
+
+@router.get("/tong-quan")
+def bao_cao_tong_quan(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+    tu: Optional[date_cls] = Query(None, alias="tu_ngay"),
+    den: Optional[date_cls] = Query(None, alias="den_ngay"),
+) -> dict:
+    """Chỉ số vận hành + dòng tiền của màn /ketoan/tong-quan theo khoảng ngày bất kỳ (lọc
+    Tháng/Quý/Năm/Tuỳ chỉnh). KHÔNG có doanh thu thuần / chi phí / lợi nhuận: màn Tổng quan lấy
+    các số đó từ báo cáo KQKD (`GET /api/bao-cao/pl`, cộng từng tháng như màn KQKD)."""
+    tu, den = _resolve_range(tu, den)
+    if tu > den:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "tu_ngay phải ≤ den_ngay")
+    try:
+        from ..main import cache_get_or_set as _cache_gos  # type: ignore
+        key = f"ketoan:bao_cao:tong_quan:v5:{tu.isoformat()}:{den.isoformat()}"
+        return _cache_gos(key, _DASHBOARD_TTL, lambda: _build_tong_quan(db, tu, den))
+    except Exception:
+        db.rollback()
+        return _build_tong_quan(db, tu, den)
+
+
+# Khoá P&L kiểu Dashboard cũ của _build_dashboard (doanh thu = tiền thu + giá trị đơn MUA hàng từ NCC,
+# không trừ giá vốn) — /tong-quan KHÔNG trả: số chuẩn duy nhất cho doanh thu, chi phí, lợi nhuận là
+# báo cáo KQKD (pl_calculator.calc_pl_for_month — anh Quang duyệt 28/09/2026).
+_KHOA_PL_DASHBOARD_CU = frozenset({
+    "tong_doanh_thu", "tong_kt_thu", "tong_don_hang", "tong_chi_phi", "tong_bien_phi", "tong_dinh_phi",
+    "tong_luong", "loi_nhuan_gop", "loi_nhuan_truoc_thue", "cp_by_loai", "luong_by_pb",
+})
+
+
+def _tien_thu_theo_hinh_thuc(db: Session, tu: date_cls, den: date_cls) -> dict[str, float]:
+    """Tiền thu từ khách (phiếu DoanhThu) tách Đặt cọc / Thanh toán / Khác — cùng quy tắc màn Thu chi
+    (kt-thu-chi.js htTT) và /api/doanh-thu/by-month: loai_thanh_toan chứa "cọc" → đặt cọc,
+    đúng "thanh toán" → thanh toán, còn lại → khác. Tổng 3 phần = sum_doanh_thu cùng khoảng."""
+    hinh_thuc = case(
+        (DoanhThu.loai_thanh_toan.ilike("%cọc%"), "dat_coc"),
+        (func.trim(DoanhThu.loai_thanh_toan).ilike("thanh toán"), "thanh_toan"),
+        else_="khac",
+    )
+    rows = db.execute(
+        select(hinh_thuc, func.coalesce(func.sum(DoanhThu.so_tien), 0))
+        .where(DoanhThu.ngay >= tu, DoanhThu.ngay <= den)
+        .group_by(hinh_thuc)
+    ).all()
+    return {"dat_coc": 0.0, "thanh_toan": 0.0, "khac": 0.0, **{k: float(v or 0) for k, v in rows}}
+
+
+def _build_tong_quan(db: Session, tu: date_cls, den: date_cls) -> dict:
+    dash = _build_dashboard(db, tu, den, bo_thu_ho_trung=True)
+    return {
+        **{k: v for k, v in dash.items() if k not in _KHOA_PL_DASHBOARD_CU},
+        # Tiền thực thu trong kỳ (cọc + thanh toán, gồm VAT) = "Doanh thu đã ghi nhận" màn Thu chi.
+        "tien_thu_khach": dash["tong_kt_thu"],
+        "tien_thu_theo_hinh_thuc": _tien_thu_theo_hinh_thuc(db, tu, den),
+        "phai_thu_mo": _phai_thu_mo(db),
+    }
 
 
 @router.get("/tong-hop", response_model=BaoCaoTongHopOut)
@@ -379,10 +485,11 @@ def bao_cao_tong_hop(
         return _build_tong_hop(db, tu, den)
 
 
-def _build_tong_hop(
-    db: Session, tu: date_cls, den: date_cls
-) -> BaoCaoTongHopOut:
-    """Tính BaoCaoTongHopOut full breakdown — share giữa GET /tong-hop và POST /snapshot."""
+def _build_tong_hop(db: Session, tu: date_cls, den: date_cls) -> BaoCaoTongHopOut:
+    """Tính BaoCaoTongHopOut full breakdown — share giữa GET /tong-hop, POST /snapshot và
+    Dashboard SPA cũ (GET /api/bao-cao). Công thức legacy (doanh thu gồm đơn Mua hàng, định phí
+    sum_chi_phi_co_dinh) — giữ nguyên số màn cũ; màn mới lấy P&L từ KQKD (calc_pl_for_month).
+    """
     dt_total, dt_count = sum_doanh_thu(db, tu, den)
     cpps_total, cpps_count = sum_chi_phi_phat_sinh(db, tu, den)
     cpcd_total, _ = sum_chi_phi_co_dinh(db, tu, den)

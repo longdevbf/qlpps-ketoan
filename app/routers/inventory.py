@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from shared.audit import log_action
@@ -32,6 +32,8 @@ from ..services.inventory_avg import (
     apply_movement, get_or_create_balance, InventoryError,
 )
 from ..services.journal import post_journal
+from ..services.tai_khoan_tien import tk_tien_cua
+from ..services.tim_kiem import khop_mot_trong
 from ._deps import require_ketoan_user
 
 
@@ -59,11 +61,9 @@ def get_balance_tree(
         .outerjoin(InventoryBalance, InventoryBalance.product_id == InvProduct.id)
         .where(InvProduct.active.is_(True))
     )
-    if q:
-        like = f"%{q.strip()}%"
-        products_stmt = products_stmt.where(
-            or_(InvProduct.ma_sp.ilike(like), InvProduct.ten_sp.ilike(like))
-        )
+    if q and q.strip():
+        # Không phân biệt dấu + hoa/thường ("may" ra "MÂY") — services/tim_kiem.py.
+        products_stmt = products_stmt.where(khop_mot_trong((InvProduct.ma_sp, InvProduct.ten_sp), q))
 
     # Build node by category
     nodes: dict[int, InventoryBalanceTreeNode] = {}
@@ -215,7 +215,7 @@ def create_movement(
                     status.HTTP_400_BAD_REQUEST,
                     f"tai_khoan_id={tai_khoan_id} không tồn tại",
                 )
-            cash_acc = "111" if (tk.loai or "").strip() == "tien_mat" else "112"
+            cash_acc = tk_tien_cua(tk)
             gd = TaiKhoanNHGiaoDich(
                 ngay=m.ngay, tai_khoan_id=tk.id, loai="chi",
                 so_tien=thanh_tien,

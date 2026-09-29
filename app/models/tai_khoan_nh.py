@@ -27,6 +27,8 @@ class TaiKhoanNH(Base):
         Numeric(15, 2), server_default="0", nullable=False
     )
     mo_ta: Mapped[Optional[str]] = mapped_column(Text)
+    # TK kế toán con của 111/112 (1111, 1121…) — cột thêm 28/09/2026 bởi services/tai_khoan_tien.py (lifespan)
+    tk_ke_toan: Mapped[Optional[str]] = mapped_column(String(10), unique=True)
     active: Mapped[bool] = mapped_column(Boolean, server_default="true", nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(

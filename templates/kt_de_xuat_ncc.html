@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{# Đề xuất thanh toán nhà cung cấp — VẼ LẠI thay ncc_de_xuat.html cũ. L4: chọn NCC → chọn đơn mua còn nợ → gửi duyệt.
+   /ketoan/de-xuat-ncc[?ncc=<id>]. ĐẤU NỐI THẬT (2026-09-25): công nợ NCC của Mua Hàng (muahang.congno) qua
+   GET /api/ncc-de-xuat/cong-no · GET /api/ncc-de-xuat/cong-no/<ncc_id> · POST /api/ncc-de-xuat (app/routers/ncc_de_xuat.py).
+   Đề xuất tạo ra đi đúng luồng thật: Kế toán duyệt (màn Duyệt chi) → Giám đốc duyệt ở app Mua Hàng → Kế toán chi. #}
+{% block title %}Đề xuất thanh toán NCC{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-chung-tu.css?v=1">
+<link rel="stylesheet" href="/static/css/kt-de-xuat-ncc.css?v=1">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-de-xuat">
+  <nav aria-label="Đường dẫn"><ol class="kd-crumb"><li><a href="/ketoan/kt-duyet"><i class="bi bi-arrow-left" aria-hidden="true"></i>Duyệt chi</a></li><li aria-current="page">Đề xuất thanh toán NCC</li></ol></nav>
+  <header class="kd-dhead">
+    <div class="kd-dhead__id">
+      <span class="ico-tile ico-tile--lg ico-tile--tim" aria-hidden="true"><i class="bi bi-truck"></i></span>
+      <div class="kd-dhead__main">
+        <div class="kd-dhead__title"><h1 class="kd-h1">Đề xuất thanh toán nhà cung cấp</h1><span class="pill pill--muted">Chưa gửi</span></div>
+        <p class="kd-dhead__code" id="dx-ma" hidden></p>
+        <p class="kd-dhead__meta" id="dx-meta"></p>
+      </div>
+    </div>
+    <div class="kd-dhead__tools"><a class="kd-btn" href="/ketoan/kt-duyet?trang_thai=tat_ca&amp;nguon=de_xuat_ncc"><i class="bi bi-list-check" aria-hidden="true"></i>Các đề xuất trả NCC</a></div>
+  </header>
+
+  <div id="dx-tt"></div>
+  <div class="kd-detail kt-ct-nhap" id="dx-than" hidden>
+    <div class="kt-ct-cot">
+      <section class="kd-card kt-ct-the" aria-labelledby="dx-h">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="dx-h">Nhà cung cấp và lịch chi</h2></div>
+        <div class="kt-ct-luoi">
+          <div class="kd-field kt-ct-rong2">
+            <label class="kd-field__label" for="dx-ncc">Nhà cung cấp <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <select class="kd-input" id="dx-ncc"></select>
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="dx-ngay">Ngày đề xuất</label>
+            <input class="kd-input" type="date" id="dx-ngay">
+          </div>
+          <div class="kd-field kt-ct-rong">
+            <label class="kd-field__label" for="dx-nd">Nội dung / lý do trả</label>
+            <input class="kd-input" id="dx-nd" maxlength="200" autocomplete="off">
+          </div>
+        </div>
+      </section>
+      <section class="kd-card" aria-labelledby="dx-h-hd">
+        <div class="kd-box__head kt-the-dau kt-nh-dau">
+          <div><h2 class="kd-box__title" id="dx-h-hd">Đơn mua còn nợ</h2><p class="kd-meta" id="dx-hd-gy"></p></div>
+          <button type="button" class="kd-btn kd-btn--sm" id="dx-chon-han"><i class="bi bi-check2-all" aria-hidden="true"></i>Chọn hết số còn đề xuất được</button>
+        </div>
+        <div class="kd-table-scroll kd-table-scroll--thanh" id="dx-cuon">
+          <table class="kd-table kt-bang kt-ct-bang"><caption class="visually-hidden">Đơn mua còn nợ của nhà cung cấp</caption>
+            <thead><tr><th scope="col" class="kt-ct-stt"><span class="visually-hidden">Chọn</span></th><th scope="col">Đơn mua</th><th scope="col">Ngày ghi nợ</th><th scope="col" class="num">Còn nợ (VND)</th><th scope="col" class="num">Còn đề xuất được (VND)</th><th scope="col" class="num">Đề xuất trả (VND)</th></tr></thead>
+            <tbody id="dx-hd"></tbody><tfoot id="dx-cong"></tfoot></table>
+        </div>
+        <div id="dx-hd-tt"></div>
+      </section>
+    </div>
+    <aside class="kd-side">
+      <section class="kd-box" aria-labelledby="dx-h-tong"><div class="kd-box__head"><h2 class="kd-box__title" id="dx-h-tong">Tổng đề xuất</h2></div><div id="dx-tong"></div></section>
+      <section class="kd-box" aria-labelledby="dx-h-qt"><div class="kd-box__head"><h2 class="kd-box__title" id="dx-h-qt">Quy trình duyệt</h2></div><div id="dx-qt"></div></section>
+    </aside>
+  </div>
+
+  <div class="kd-stickybar" role="group" aria-label="Thao tác với đề xuất" id="dx-thanh" hidden>
+    <a class="kd-btn" href="/ketoan/kt-duyet"><i class="bi bi-arrow-left" aria-hidden="true"></i>Quay lại</a>
+    <span class="kd-stickybar__grow"></span>
+    <p class="kd-form-err" id="dx-loi" role="alert" hidden></p>
+    <button type="button" class="kd-btn kd-btn--primary" id="dx-gui"><i class="bi bi-send" aria-hidden="true"></i>Gửi duyệt</button>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-de-xuat-ncc.js?v=loc0928"></script>
+{% endblock %}
