@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Chốt / mở kỳ kế toán — API THẬT: app/routers/ky_ke_toan.py (prefix /api/ky-ke-toan) + app/services/period_close.py.
+   GET  /api/ky-ke-toan                      12 kỳ gần nhất (CHỈ kỳ đã từng chốt/mở — trước đó chưa có row nào).
+   GET  /api/ky-ke-toan/ln-giu-lai/luy-ke    LN giữ lại luỹ kế hiện tại = kỳ chốt mới nhất.
+   GET  /api/ky-ke-toan/{thang}               Chi tiết 1 kỳ + P&L snapshot (404 nếu kỳ chưa từng chốt/mở).
+   GET  /api/ky-ke-toan/{thang}/xem-truoc     Checklist + P&L ƯỚC TÍNH trước khi chốt, KHÔNG ghi DB
+                                               (thêm mới cho màn này — period_close.py chưa có sẵn).
+   POST /api/ky-ke-toan/{thang}/chot          Chốt kỳ thật — admin/ceo/assistant_ceo/manager/kt.
+   POST /api/ky-ke-toan/{thang}/mo            Mở lại kỳ đã chốt — chỉ admin/ceo, cascade: kỳ SAU phải mở trước.
+   Gap thật (so với thiết kế /api/khoa-so đề xuất ban đầu):
+   - Không có bút toán "kết chuyển 911/421" — P&L tính trực tiếp từ doanh thu/chi phí trong kỳ, không kết
+     chuyển qua sổ cái, nên KHÔNG có bảng "bút toán kết chuyển sẽ ghi" như bản thiết kế cũ.
+   - app/services/journal.py (post/void bút toán tay) KHÔNG kiểm tra kỳ đã khoá chưa — khoá kỳ ở đây là ghi
+     nhận trạng thái + chốt số báo cáo P&L, CHƯA chặn ghi/sửa/huỷ chứng từ khác vào kỳ đã khoá.
+   - "Mở khoá" thật không nhận lý do (không có field `ly_do` ở API) nên bỏ ô lý do của bản thiết kế cũ. #}
+{% block title %}Khoá sổ kế toán{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}{{ ui.css('kt-chung-tu') }}<link rel="stylesheet" href="/static/css/kt-khoa-so.css?v=3">{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-khoa-so" data-vai-tro-goc="{{ ((user.role if user else '') or '')|lower }}">
+  {% call ui.dau_trang('Chốt và khoá sổ kế toán', 'Kiểm tra rồi chốt từng tháng') %}{% endcall %}
+
+  {{ ui.the_so('ks', [('ln_luy_ke', 'LN giữ lại luỹ kế', 'success', 'bi-piggy-bank'), ('ky_gan_nhat', 'Kỳ chốt gần nhất', 'info', 'bi-calendar-check'), ('so_ky', 'Số kỳ đã chốt', 'brand', 'bi-list-check')], kieu='strip', nhan_vung='Tình trạng khoá sổ') }}
+
+  <div id="ks-tt"></div>
+  <div class="kd-detail" id="ks-than" hidden>
+    <div class="kt-ct-cot">
+      <section class="kd-card" aria-labelledby="ks-h-chon">
+        <div class="kd-box__head kt-the-dau">
+          <h2 class="kd-box__title" id="ks-h-chon">Chọn kỳ cần chốt <button type="button" class="kd-tip" data-tip="Bấm Kiểm tra để xem trước P&amp;L và điều kiện. Chỉ chốt thật khi bấm nút Chốt kỳ." aria-label="Bấm Kiểm tra để xem trước P&amp;L và điều kiện. Chỉ chốt thật khi bấm nút Chốt kỳ."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2>
+        </div>
+        <div class="kd-bulk">
+          <label class="kd-field"><span class="kd-field__label">Tháng cần chốt</span><input type="month" class="kd-input" id="ks-thang"></label>
+          <button type="button" class="kd-btn" id="ks-kiem-tra"><i class="bi bi-search" aria-hidden="true"></i>Kiểm tra</button>
+        </div>
+        <div id="ks-xem-tt"></div>
+        <div id="ks-xem-noi-dung" hidden>
+          <p class="kd-meta" id="ks-xem-ghi-chu"></p>
+          <div class="kd-table-scroll kd-table-scroll--thanh">
+            <table class="kd-table kt-bang"><caption class="visually-hidden">P&amp;L ước tính của kỳ đang xem</caption>
+              <thead><tr><th scope="col">Chỉ tiêu</th><th scope="col" class="num">Số tiền (VND)</th></tr></thead>
+              <tbody id="ks-pl"></tbody>
+            </table>
+          </div>
+        </div>
+        <footer class="kd-card__foot" id="ks-xem-foot" hidden>
+          <span id="ks-chot-ghi-chu" class="kd-meta"></span>
+          <button type="button" class="kd-btn kd-btn--primary" id="ks-chot" disabled><i class="bi bi-lock" aria-hidden="true"></i><span id="ks-chot-chu">Chốt kỳ</span></button>
+        </footer>
+      </section>
+
+      <section class="kd-card" aria-labelledby="ks-h-ls">
+        <div class="kd-box__head kt-the-dau"><h2 class="kd-box__title" id="ks-h-ls">Lịch sử kỳ kế toán <button type="button" class="kd-tip" data-tip="12 kỳ gần nhất đã chốt hoặc mở lại. Chỉ mở khoá được kỳ đã chốt gần nhất." aria-label="12 kỳ gần nhất đã chốt hoặc mở lại. Chỉ mở khoá được kỳ đã chốt gần nhất."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+        <div class="kd-table-scroll kd-table-scroll--thanh">
+          <table class="kd-table kt-bang"><caption class="visually-hidden">Các kỳ kế toán và trạng thái khoá sổ</caption>
+            <thead><tr><th scope="col">Tháng</th><th scope="col">Trạng thái</th><th scope="col">Chốt lúc</th><th scope="col" class="num">LNST kỳ (VND)</th><th scope="col" class="num">LN giữ lại cuối kỳ (VND)</th><th scope="col" class="kd-col-act">Thao tác</th></tr></thead>
+            <tbody id="ks-ls"></tbody></table>
+        </div>
+        <div id="ks-ls-tt"></div>
+      </section>
+    </div>
+    <aside class="kd-side">
+      <section class="kd-box" aria-labelledby="ks-h-kiem"><div class="kd-box__head"><h2 class="kd-box__title" id="ks-h-kiem">Kiểm tra trước khi chốt</h2></div><ul class="kt-ct-kiem" id="ks-kiem"><li class="is-ok"><i class="bi bi-info-circle" aria-hidden="true"></i><span>Chọn tháng rồi bấm Kiểm tra ở trên để xem checklist.</span></li></ul></section>
+      <details class="kd-box kt-ks-gt">
+        <summary class="kd-box__title"><i class="bi bi-question-circle" aria-hidden="true"></i>Chốt kỳ làm gì?</summary>
+        <ol class="kt-ks-buoc">
+          <li>Tính P&amp;L tháng và lưu thành bản chụp báo cáo.</li>
+          <li>LN giữ lại cuối kỳ = đầu kỳ + LNST − cổ tức − trích quỹ.</li>
+          <li>Đánh dấu kỳ "Đã chốt" (không dùng bút toán kết chuyển 911/421).</li>
+        </ol>
+        <p class="kd-meta">Lưu ý: các màn ghi sổ khác chưa tự chặn ghi vào kỳ đã khoá.</p>
+      </details>
+    </aside>
+  </div>
+</main>
+
+<dialog class="kd-dialog" id="ks-dlg" role="alertdialog" aria-labelledby="ks-dlg-td" aria-describedby="ks-dlg-nd">
+  <form method="dialog" novalidate id="ks-form">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="ks-dlg-td">Chốt kỳ?</h2></header>
+    <div class="kd-dialog__body">
+      <p id="ks-dlg-nd"></p>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="ks-dlg-ok">Chốt kỳ</button></footer>
+  </form>
+</dialog>
+<dialog class="kd-dialog" id="ks-dlg-mo" role="alertdialog" aria-labelledby="ks-mo-td" aria-describedby="ks-mo-nd">
+  <form method="dialog" novalidate id="ks-form-mo">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="ks-mo-td">Mở khoá kỳ?</h2></header>
+    <div class="kd-dialog__body">
+      <p id="ks-mo-nd"></p>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Giữ khoá</button><button type="submit" class="kd-btn kd-btn--danger" id="ks-mo-ok">Mở khoá</button></footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}{{ ui.js('kt-khoa-so', danh_sach=False, v='f3q') }}{% endblock %}

@@ -800,6 +800,35 @@ def _sum_co_dinh_method_dispatcher(
     return {"tong": tong, "by_method": by_method}
 
 
+# Nhóm định phí mà calc_pl_for_month đưa vào P&L (cp_ban_hang + cp_quan_ly).
+NHOM_DINH_PHI_PL: tuple[str, ...] = ("ban_hang", "quan_ly")
+
+
+def dinh_phi_phan_bo_thang(db: Session, thang: str) -> dict[str, float]:
+    """Định phí (chi_phi_co_dinh) phân bổ vào tháng `thang` — ĐÚNG phần calc_pl_for_month
+    dùng (dispatcher 6 phương pháp, tôn trọng so_thang_phan_bo). Trả {nhom: số, "tong": số}.
+    Dùng chung cho Tổng quan / pnl để khớp KQKD, thay cho sum_chi_phi_co_dinh (legacy —
+    cộng nguyên so_tien_thang mỗi tháng, bỏ qua so_thang_phan_bo).
+    """
+    out = {
+        nhom: round(_sum_co_dinh_method_dispatcher(db, thang, nhom)["tong"], 2)
+        for nhom in NHOM_DINH_PHI_PL
+    }
+    out["tong"] = round(sum(out.values()), 2)
+    return out
+
+
+def dinh_phi_phan_bo_khoang(db: Session, tu: date, den: date) -> float:
+    """Tổng định phí phân bổ của MỌI tháng chạm khoảng [tu, den] — mỗi tháng tính TRỌN
+    tháng (cùng đơn vị với KQKD theo tháng; không chia theo ngày)."""
+    tong = 0.0
+    y, m = tu.year, tu.month
+    while (y, m) <= (den.year, den.month):
+        tong += dinh_phi_phan_bo_thang(db, f"{y:04d}-{m:02d}")["tong"]
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    return round(tong, 2)
+
+
 def _sum_co_dinh_duong_thang_method_only(
     db: Session, thang: str, nhom: str,
     name_like_any: Optional[list[str]] = None,

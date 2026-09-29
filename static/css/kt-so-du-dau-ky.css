@@ -1,0 +1,12 @@
+/* kt-so-du-dau-ky.css — riêng màn Số dư đầu kỳ (danh sách gợi ý khi thêm đối tượng vào tab chi tiết). */
+.kt-sd-goi-y:empty { display: none; }
+.kt-sd-goi-y { padding: 0 var(--sp-8) var(--sp-6); }
+.kt-sd-goi-y__ds { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r); max-height: 280px; overflow-y: auto; }
+.kt-sd-goi-y__ds li { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-6); padding: var(--sp-4) var(--sp-6); font-size: var(--fs-body); }
+.kt-sd-goi-y__ds li + li { border-top: 1px solid var(--border); }
+.kt-sd-goi-y__ds li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.kt-sd-goi-y__ds li > :last-child { flex: none; }
+.kt-sd-goi-y p { margin: 0; }
+
+/* Nút trò chuyện nổi (góc phải dưới, dùng chung toàn app) đè lên nút "Lưu số dư" của thanh dính — chừa chỗ cho nó. */
+#sd-thanh { padding-right: 96px; }

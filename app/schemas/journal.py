@@ -67,6 +67,10 @@ class JournalEntrySummary(BaseModel):
     trang_thai: str
     created_by: Optional[str] = None
     created_at: datetime
+    # Suy từ định khoản (services/journal.py:tom_tat_dinh_khoan) — cột "Loại" + lọc Thu / Chi
+    nghiep_vu: str = "khac"
+    tk_no: list[str] = []
+    tk_co: list[str] = []
     model_config = ConfigDict(from_attributes=True)
 
 

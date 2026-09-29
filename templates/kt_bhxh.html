@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Bảo hiểm xã hội — CHỈ XEM, đọc từ HCNS (mức lương đóng, trạng thái tham gia). Tỷ lệ NLĐ 10,5% (8 + 1,5 + 1) · doanh nghiệp 21,5% (17,5 + 3 + 1).
+   GET /api/external/bhxh?trang_thai= (README mục 4.37) #}
+{% block title %}Bảo hiểm xã hội{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}{{ ui.css('kt-bhxh', v='h6') }}{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-bhxh">
+  <header class="kd-head">
+    <div class="kd-head__title">
+      <h1 class="kd-h1">Bảo hiểm xã hội</h1>
+      <p class="kd-sub">Mức đóng theo hồ sơ nhân sự <button type="button" class="kd-tip" data-tip="Số liệu đọc từ HCNS — sửa ở hồ sơ nhân sự. Người lao động đóng 10,5% (trừ lương), doanh nghiệp đóng 21,5% (tính vào chi phí)." aria-label="Nguồn số liệu"><i class="bi bi-info-circle" aria-hidden="true"></i></button></p>
+    </div>
+    <div class="kd-head__tools">
+      {{ ui.nut_loc('bh') }}
+      <a class="kd-btn" href="/ketoan/luong"><i class="bi bi-wallet2" aria-hidden="true"></i>Lương</a>
+      <a class="kd-btn kd-btn--primary" id="bh-xuat" href="#" aria-disabled="true"><i class="bi bi-download" aria-hidden="true"></i>Xuất Excel</a>
+    </div>
+  </header>
+
+  {{ ui.the_so('bh', [('nv', 'Nhân viên', '', 'bi-people'), ('nld', 'Người LĐ đóng', 'info', 'bi-person'), ('dn', 'Doanh nghiệp đóng', 'tim', 'bi-building'), ('tong', 'Tổng phải nộp', 'warning', 'bi-shield-check')], kieu='strip', nhan_vung='Tổng hợp bảo hiểm theo bộ lọc') }}
+
+  {% set dau_the %}
+    <div class="kt-bh-dau">
+      <label class="kt-check"><input type="checkbox" id="bh-ct"> <span>Hiện chi tiết từng loại (BHXH, BHYT, BHTN)</span></label>
+    </div>
+  {% endset %}
+  {% call ui.the_bang('bh', 'Mức đóng bảo hiểm theo nhân viên', phan_trang=False, dau_the=dau_the) %}
+    {{ ui.o_tim('bh', 'q', 'Tìm', 'Tên, mã nhân viên, phòng ban…') }}
+    {# "Tất cả" = 'tat_ca' (không để rỗng) để F5 / gửi link giữ đúng lựa chọn; JS đổi thành trang_thai rỗng khi gọi API. #}
+    {{ ui.o_chon('bh', 'trang_thai', 'Trạng thái tham gia', [('Đang đóng', 'Đang đóng'), ('Chưa đóng', 'Chưa đóng'), ('Tạm dừng', 'Tạm dừng'), ('Đã nghỉ', 'Đã nghỉ'), ('tat_ca', 'Tất cả')]) }}
+  {% endcall %}
+</main>
+{% endblock %}
+
+{% block scripts %}{{ ui.js(None) | replace('<script src="/static/js/None.js?v=1"></script>', '') }}
+<script src="/static/js/kt-bhxh.js?v=tk0928a"></script>{% endblock %}

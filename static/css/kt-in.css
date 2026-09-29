@@ -1,0 +1,68 @@
+/* kt-in.css — trang in A4 (tiền tố kt-in / kt-giay). Chỉ var(--token); kích thước giấy dùng mm. */
+.kt-in-thanh { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-6); }
+.kt-in-gian { flex: 1 1 auto; }
+.kt-in-nut { min-width: 140px; }
+
+.kt-giay {
+  width: 210mm; max-width: 100%; min-height: 297mm; margin: 0 auto; padding: 14mm 14mm 18mm;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-md);
+  font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-1);
+}
+@media (max-width: 767px) { .kt-giay { min-height: 0; padding: var(--sp-8); overflow-x: auto; } }
+
+/* Đầu giấy: đơn vị bên trái, mẫu số bên phải. */
+.kt-in-dau { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--sp-6); margin-bottom: var(--sp-9); }
+.kt-in-dv { font-weight: 700; text-transform: uppercase; }
+.kt-in-dv p, .kt-in-mau p { margin: 0; }
+.kt-in-dv .kt-in-phu, .kt-in-mau .kt-in-phu { font-weight: 400; text-transform: none; color: var(--text-2); }
+.kt-in-mau { text-align: center; }
+/* Mẫu số + dòng "(Theo Thông tư…)" dài từng rớt xuống dưới đơn vị, lệch giữa — giữ 2 cột trên giấy A4. */
+@media (min-width: 768px) {
+  .kt-in-dau { flex-wrap: nowrap; align-items: flex-start; }
+  .kt-in-dv { flex: 1 1 58%; min-width: 0; }
+  .kt-in-mau { flex: 0 1 38%; min-width: 0; }
+}
+.kt-in-mau strong { display: block; }
+.kt-in-td { margin: 0; text-align: center; font-size: var(--fs-h); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: var(--text-1); }
+.kt-in-td-phu { margin: var(--sp-2) 0 var(--sp-9); text-align: center; font-style: italic; color: var(--text-2); }
+
+/* Dòng khai: "Họ tên người nộp tiền: ......" — giá trị trống hiện đường chấm để viết tay. */
+.kt-in-dong { display: flex; gap: var(--sp-3); margin: 0 0 var(--sp-5); }
+.kt-in-dong > span:first-child { flex: none; }
+.kt-in-dong b { flex: 1 1 auto; font-weight: 600; }
+.kt-in-dong b.is-trong { border-bottom: 1px dotted var(--text-3); }
+.kt-in-tk { display: grid; grid-template-columns: auto auto; justify-content: end; column-gap: var(--sp-5); margin: calc(-1 * var(--sp-7)) 0 var(--sp-7); }
+
+/* Bảng in: kẻ ô đầy đủ như chứng từ giấy. */
+.kt-in-bang { width: 100%; border-collapse: collapse; margin: var(--sp-5) 0 var(--sp-8); font-size: var(--fs-meta); }
+.kt-in-bang th, .kt-in-bang td { padding: var(--sp-3) var(--sp-4); border: 1px solid var(--text-3); vertical-align: top; }
+.kt-in-bang th { font-weight: 700; text-align: center; background: var(--bg-page); }
+.kt-in-bang .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.kt-in-bang .kt-in-giua { text-align: center; }
+.kt-in-bang tr.is-dam td { font-weight: 700; }
+.kt-in-bang tr.is-nhom td { font-weight: 700; text-transform: uppercase; }
+.kt-in-bang td.kt-in-con { padding-left: var(--sp-9); }
+.kt-in-bang td.kt-in-con2 { padding-left: calc(var(--sp-9) * 2); font-style: italic; }
+
+/* Chữ ký: các cột chia đều, chừa chỗ ký. */
+.kt-in-ngay { margin: var(--sp-8) 0 var(--sp-4); text-align: right; font-style: italic; }
+.kt-in-ky { display: grid; grid-template-columns: repeat(var(--kt-in-cot, 3), minmax(0, 1fr)); gap: var(--sp-5); margin-top: var(--sp-4); text-align: center; }
+.kt-in-ky strong { display: block; }
+.kt-in-ky small { display: block; font-size: var(--fs-meta); font-style: italic; color: var(--text-2); }
+.kt-in-ky .kt-in-ten { display: block; margin-top: 18mm; font-weight: 600; }
+.kt-in-ghi { margin: var(--sp-6) 0 0; font-size: var(--fs-meta); color: var(--text-2); }
+
+@media print {
+  .kt-in-dau { flex-wrap: nowrap; }
+  .kt-in-dv { flex: 1 1 58%; }
+  .kt-in-mau { flex: 0 1 38%; }
+  @page { size: A4; margin: 10mm; }
+  body { background: var(--bg-card); }
+  body * { visibility: hidden; }
+  .kt-giay, .kt-giay * { visibility: visible; }
+  .kt-giay { position: absolute; left: 0; top: 0; width: 100%; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+  .kt-in-bang th { background: none; }
+}
+
+/* Đoạn văn thường trong thân giấy (vd "Hôm nay, … chúng tôi gồm:", "Cùng đối chiếu…") — cách đều như dòng khai. */
+#in-noi-dung > p:not([class]) { margin: 0 0 var(--sp-5); }

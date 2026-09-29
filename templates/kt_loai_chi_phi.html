@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Loại chi phí — danh mục phân loại phiếu chi / đề nghị thanh toán, mỗi loại gắn nhóm chi phí mặc định → TK 641 / 642 / 635 / 811 (TT 99/2025).
+   GET/POST /api/loai-chi-phi · PUT/DELETE /api/loai-chi-phi/<id> (README mục 4.39) #}
+{% block title %}Loại chi phí{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}{{ ui.css('kt-loai-chi-phi', v='h5') }}{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-loai-chi-phi">
+  {% call ui.dau_trang('Loại chi phí', 'Gợi ý tài khoản chi phí khi lập phiếu chi') %}
+    {{ ui.nut_loc('lc') }}
+    <button type="button" class="kd-btn kd-btn--primary" id="lc-them"><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm loại chi phí</button>
+  {% endcall %}
+
+  {{ ui.the_so('lc', [('ban_hang', 'Bán hàng · 641', '', 'bi-shop'), ('quan_ly', 'Quản lý DN · 642', 'info', 'bi-building'), ('tai_chinh', 'Tài chính · 635', 'warning', 'bi-bank'), ('khac', 'Khác · 811', 'neutral', 'bi-three-dots')], kieu='strip', nhan_vung='Số loại chi phí đang dùng theo nhóm') }}
+
+  {% call ui.the_bang('lc', 'Danh mục loại chi phí', phan_trang=False) %}
+    {{ ui.o_tim('lc', 'q', 'Tìm', 'Tên hoặc mô tả…') }}
+    {{ ui.o_chon('lc', 'nhom', 'Nhóm chi phí', [('', 'Tất cả nhóm'), ('ban_hang', 'Bán hàng (641)'), ('quan_ly', 'Quản lý doanh nghiệp (642)'), ('tai_chinh', 'Tài chính (635)'), ('khac', 'Khác (811)')]) }}
+    {{ ui.o_chon('lc', 'trang_thai', 'Trạng thái', [('', 'Tất cả'), ('dang', 'Đang dùng'), ('dung', 'Tạm dừng')]) }}
+  {% endcall %}
+</main>
+
+<dialog class="kd-dialog" id="lc-dlg" aria-labelledby="lc-dlg-td">
+  <form method="dialog" novalidate id="lc-form">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="lc-dlg-td">Thêm loại chi phí</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <div class="kd-field"><label class="kd-field__label" for="lc-f-ten">Tên loại chi phí <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="lc-f-ten" maxlength="120" autocomplete="off" placeholder="Vd: Tiền thuê kho" aria-describedby="lc-f-ten-gy"><p class="kd-meta" id="lc-f-ten-gy" hidden>Phiếu chi đã lập lưu tên loại tại thời điểm lập — đổi tên ở đây không đổi tên trên các phiếu cũ.</p></div>
+      <div class="kd-field"><label class="kd-field__label" for="lc-f-nhom">Nhóm chi phí mặc định</label>
+        <select class="kd-input" id="lc-f-nhom" aria-describedby="lc-f-nhom-gy"><option value="ban_hang">Chi phí bán hàng — TK 641</option><option value="quan_ly">Chi phí quản lý doanh nghiệp — TK 642</option><option value="tai_chinh">Chi phí tài chính — TK 635</option><option value="khac">Chi phí khác — TK 811</option></select>
+        <p class="kd-meta" id="lc-f-nhom-gy">Chỉ là gợi ý, vẫn đổi được trên từng phiếu.</p></div>
+      <div class="kd-field"><label class="kd-field__label" for="lc-f-mo-ta">Mô tả (không bắt buộc)</label><textarea class="kd-input kd-textarea" id="lc-f-mo-ta" rows="3" maxlength="300" placeholder="Khi nào dùng loại này, chứng từ cần có…"></textarea></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="lc-f-ok"><i class="bi bi-check-lg" aria-hidden="true"></i>Lưu</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="lc-dlg-xoa" role="alertdialog" aria-labelledby="lc-xoa-td" aria-describedby="lc-xoa-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="lc-xoa-td">Xoá loại chi phí?</h2></header>
+    <div class="kd-dialog__body"><p id="lc-xoa-nd"></p><p class="kd-form-err" role="alert" hidden></p></div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="button" class="kd-btn kd-btn--danger" id="lc-xoa-ok"><i class="bi bi-trash" aria-hidden="true"></i>Xoá hẳn</button></footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}{# = ui.js('kt-loai-chi-phi') nhưng tự đặt ?v= cho JS riêng để trình duyệt không dùng bản cache cũ #}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-loai-chi-phi.js?v=tk0928a"></script>{% endblock %}

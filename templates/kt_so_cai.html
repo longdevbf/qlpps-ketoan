@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{# ─────────────────────────────────────────────────────────────────────────────
+   Sổ kế toán — MỘT màn, HAI chế độ:
+     · không chọn tài khoản → Sổ nhật ký chung (mọi bút toán theo thời gian)
+     · chọn tài khoản (?tk=131) → Sổ cái TK đó
+   Đợt 1 — nối API THẬT app/routers/journal.py (KHÔNG có endpoint sổ-cái-theo-TK-với-
+   dư-luỹ-kế-server-tính như README mục 4.2 đề xuất). Chi tiết từng chỗ khác biệt: xem
+   ghi chú đầu kt-so-cai.js.
+   ───────────────────────────────────────────────────────────────────────────── #}
+{% block title %}Sổ kế toán{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+
+{% block head_extra %}
+{# GHI CHÚ (gap dùng chung mọi màn kt-): chưa có font Bootstrap Icons trong static/ của app này —
+   nạp tạm từ CDN, phiên điều phối trung tâm nên thay bằng bản vendor cục bộ (xem kt_tong_quan.html). #}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-so-cai.css?v=nv0928a">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-so-cai">
+  <header class="kd-head">
+    <div class="kd-head__title">
+      <h1 class="kd-h1">Sổ kế toán</h1>
+      <p class="kd-sub">Nhật ký chung hoặc sổ cái từng tài khoản</p>
+    </div>
+    <div class="kd-head__tools">
+      <label class="kd-select">
+        <i class="bi bi-calendar3" aria-hidden="true"></i>
+        <span class="visually-hidden">Kỳ sổ</span>
+        <select id="sc-ky"></select>
+      </label>
+      <div class="kd-daterange kt-khoang" id="sc-khoang" role="group" aria-label="Khoảng ngày tuỳ chỉnh" hidden>
+        <i class="bi bi-calendar3" aria-hidden="true"></i>
+        <input type="date" id="sc-tu" aria-label="Từ ngày">
+        <span aria-hidden="true">–</span>
+        <input type="date" id="sc-den" aria-label="Đến ngày">
+      </div>
+      <button type="button" class="kd-btn" id="sc-nut-loc" aria-expanded="false" aria-controls="sc-loc">
+        <i class="bi bi-funnel" aria-hidden="true"></i>Bộ lọc<span class="kt-dem-loc num" id="sc-dem-loc" hidden></span>
+      </button>
+      <button type="button" class="kd-btn" id="sc-xuat"><i class="bi bi-download" aria-hidden="true"></i>Xuất Excel</button>
+      {# Bút toán tay: POST /api/journal chỉ cho admin/ceo/assistant_ceo (journal.py _ROLES_POST) → ẩn với Kế toán. #}
+      <a class="kd-btn kd-btn--primary" href="/ketoan/chung-tu?loai=khac" data-quyen="ceo">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>Tạo bút toán
+      </a>
+    </div>
+  </header>
+
+  <div class="kt-kpi-khoi">
+    <section class="kd-strip" id="sc-strip" aria-label="Số tổng của sổ theo bộ lọc">
+      {% for i in range(4) %}
+      <article class="kd-strip__o" data-o="{{ i }}">
+        <span class="ico-tile ico-tile--sm" aria-hidden="true" data-icon><i class="bi bi-journal-text"></i></span>
+        <div>
+          <span class="kd-kpi__label" data-nhan>&nbsp;</span>
+          <div class="kd-kpi__value num" data-v><span class="kd-skel kd-skel--kpi"></span></div>
+          <p class="kd-kpi__phu" data-phu></p>
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+    <p class="kt-pham-vi" id="sc-pham-vi"></p>
+  </div>
+
+  <div class="kd-main" id="sc-main">
+    <section class="kd-card" aria-labelledby="sc-td">
+      <div class="kd-box__head kt-dau-so">
+        <h2 class="kd-box__title" id="sc-td">Sổ nhật ký chung</h2>
+        <button type="button" class="kd-link kd-link--sm" id="sc-ve-nk" hidden><i class="bi bi-arrow-left" aria-hidden="true"></i>Về nhật ký chung</button>
+      </div>
+
+      <form class="kd-filter" id="sc-loc" role="search" hidden novalidate>
+        <label class="kd-field kt-o-tk">
+          <span class="kd-field__label">Tài khoản</span>
+          <select class="kd-input" id="sc-tk"><option value="">Tất cả — sổ nhật ký chung</option></select>
+        </label>
+        <label class="kd-field">
+          <span class="kd-field__label">Loại nghiệp vụ</span>
+          <select class="kd-input" id="sc-nv"><option value="">Tất cả (thu, chi…)</option></select>
+        </label>
+        <label class="kd-field">
+          <span class="kd-field__label">Nguồn chứng từ</span>
+          <select class="kd-input" id="sc-loai"><option value="">Tất cả</option></select>
+        </label>
+        <label class="kd-field">
+          <span class="kd-field__label">Tìm trong sổ</span>
+          <input class="kd-input" type="search" id="sc-tim" placeholder="Số bút toán, diễn giải…" autocomplete="off">
+        </label>
+        <label class="kd-field">
+          <span class="kd-field__label">Mã tham chiếu</span>
+          <input class="kd-input" type="search" id="sc-dt" placeholder="VD: MH-102, BG-2031…" autocomplete="off">
+        </label>
+        <button type="button" class="kd-link" id="sc-dat-lai">Đặt lại bộ lọc</button>
+      </form>
+
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="sc-cuon">
+        <table class="kd-table kd-table--click kt-bang" id="sc-bang">
+          <caption class="visually-hidden" id="sc-cap">Sổ nhật ký chung</caption>
+          <thead id="sc-thead"></thead>
+          <tbody id="sc-tbody"></tbody>
+          <tfoot id="sc-tfoot"></tfoot>
+        </table>
+      </div>
+      <div id="sc-tt"></div>
+
+      <footer class="kd-card__foot" id="sc-foot" hidden>
+        <span id="sc-hien-thi" aria-live="polite"></span>
+        <nav class="kd-pager" id="sc-trang" aria-label="Phân trang"></nav>
+        <label class="kd-select">
+          <span class="visually-hidden">Số bút toán mỗi trang</span>
+          <select id="sc-co-trang"><option value="20">20 / trang</option><option value="50">50 / trang</option><option value="100">100 / trang</option></select>
+        </label>
+      </footer>
+    </section>
+
+    <aside class="kd-panel kt-panel" id="sc-panel" aria-labelledby="sc-p-td" hidden>
+      <header class="kd-panel__head">
+        <h2 class="kd-panel__title" id="sc-p-td">Chi tiết bút toán</h2>
+        <button type="button" class="kd-icon-btn" id="sc-p-dong" aria-label="Đóng chi tiết bút toán"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+      </header>
+      <div class="kd-panel__scroll" id="sc-p-noi-dung"></div>
+      <footer class="kd-panel__actions" id="sc-p-nut"></footer>
+    </aside>
+    <div class="kd-scrim" id="sc-scrim" hidden></div>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-so-cai.js?v=nv0928a"></script>
+{% endblock %}

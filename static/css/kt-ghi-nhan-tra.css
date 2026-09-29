@@ -1,0 +1,66 @@
+/* kt-ghi-nhan-tra.css — hộp "Ghi nhận thu / trả công nợ" (#gnt-dlg, kt-ghi-nhan-tra.js). Chỉ var(--token).
+   Combobox dùng lại .kt-o-tk / .kt-o-tk__ds của kt-chung.css. */
+.kt-gnt-dlg { width: min(680px, calc(100vw - 2 * var(--sp-8))); }
+.kt-gnt-dlg.is-nhieu { width: min(960px, calc(100vw - 2 * var(--sp-8))); }
+.kt-gnt-dlg .kd-row2 { align-items: start; }
+.kt-gnt-dlg .kd-tabs { margin-top: calc(-1 * var(--sp-4)); }
+.kt-gnt-pane { display: grid; gap: var(--sp-7); }
+.kt-gnt-pane[hidden] { display: none; }
+.kt-gnt-dlg .kd-meta { margin: var(--sp-1) 0 0; font-size: var(--fs-meta); color: var(--text-3); }
+.kt-gnt-dlg .kd-input[aria-invalid="true"] { border-color: var(--danger); }
+
+/* Danh sách gợi ý của combobox: 2 dòng (tên · mã đơn / mã CN · còn lại). */
+.kt-gnt-ds [role="option"] { flex-direction: column; gap: var(--sp-1); }
+.kt-gnt-ds [role="option"] b { font-weight: 600; }
+.kt-gnt-ds .kt-o-tk__ten { font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+
+/* Tóm tắt khoản đang chọn (chế độ Một khoản). */
+.kt-gnt-so { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2) var(--sp-6); margin: 0; padding: var(--sp-6); border: 1px solid var(--border); border-radius: var(--r); background: var(--bg-page); }
+.kt-gnt-so:empty { display: none; }
+.kt-gnt-so dt { grid-row: 1; font-size: var(--fs-meta); color: var(--text-3); }
+.kt-gnt-so dd { grid-row: 2; margin: 0; text-align: left; font-weight: 600; color: var(--text-1); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.kt-gnt-so dt.is-dam + dd { color: var(--danger-fg); }
+.kt-gnt-tien { text-align: right; }
+
+/* Chế độ Nhiều khoản. */
+.kt-gnt-dlg .kt-search { width: 100%; }
+.kt-gnt-chips { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+.kt-gnt-chips:empty { display: none; }
+.kt-gnt-chips .kd-chip { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.kt-gnt-bo { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-3); cursor: pointer; }
+.kt-gnt-bo:hover { background: var(--border); color: var(--text-1); }
+.kt-gnt-bang-cuon { max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: var(--r); }
+.kt-gnt-bang thead th { position: sticky; top: 0; z-index: 1; background: var(--bg-card); }
+.kt-gnt-cot-chon { width: 40px; text-align: center; }
+.kt-gnt-cot-chon input { width: 16px; height: 16px; margin: 0; accent-color: var(--brand); cursor: pointer; }
+.kt-gnt-bang tr.is-chon td { background: var(--brand-soft); }
+.kt-gnt-ten { display: block; min-width: 140px; font-weight: 600; color: var(--text-1); }
+.kt-gnt-dlg .kd-input.kt-gnt-so-tra { width: 140px; min-height: 36px; text-align: right; }
+.kt-gnt-rong { padding: var(--sp-7); text-align: center; }
+
+/* Tổng + Xem trước. */
+.kt-gnt-tong { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-3) var(--sp-5); padding: var(--sp-5) var(--sp-6); border-radius: var(--r); background: var(--bg-page); color: var(--text-2); }
+.kt-gnt-tong b { font-size: var(--fs-title); color: var(--text-1); }
+.kt-gnt-xt { display: grid; gap: var(--sp-4); padding: var(--sp-6); border: 1px dashed var(--info); border-radius: var(--r); background: var(--info-soft); }
+.kt-gnt-xt[hidden] { display: none; }
+.kt-gnt-xt .kd-table th, .kt-gnt-xt .kd-table td { background: transparent; }
+
+@media (max-width: 599px) {
+  .kt-gnt-so { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kt-gnt-so dt, .kt-gnt-so dd { grid-row: auto; }
+  .kt-gnt-dlg .kd-input.kt-gnt-so-tra { width: 110px; }
+  .kt-gnt-dlg .kd-dialog__foot { flex-wrap: wrap; }
+}
+
+/* Đợt 4 — gọn, nút to cho người lớn tuổi. */
+.kt-gnt-dlg .kd-dialog__title { display: inline-flex; align-items: center; }
+.kt-gnt-dlg .kd-dialog__foot .kd-btn { min-height: 44px; padding-inline: var(--sp-8); font-size: var(--fs-body-lg); }
+.kt-gnt-dlg .kd-tabs { margin-top: 0; }
+.kt-gnt-dlg .kd-tabs [role="tab"] { min-height: 44px; font-size: var(--fs-body-lg); }
+.kt-gnt-dlg .kd-input { min-height: 44px; }
+.kt-gnt-dlg .kt-gnt-du { justify-self: start; margin-top: var(--sp-3); min-height: 40px; }
+.kt-gnt-dlg .kd-field__label { font-size: var(--fs-body); }
+.kt-gnt-tien { font-size: var(--fs-title); font-weight: 700; }
+.kt-gnt-tong b { font-size: var(--fs-kpi); }
+.kt-gnt-so dt { font-size: var(--fs-body); }
+.kt-gnt-cot-chon input { width: 20px; height: 20px; }

@@ -1,0 +1,10 @@
+/* kt-so-quy.css — riêng màn Sổ quỹ tiền mặt. Chỉ var(--token). */
+
+/* Diễn giải: xuống tối đa 2 dòng thay vì cắt "…" giữa chừng. */
+#kd-kt-so-quy .kt-sq-dg { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-width: 220px; max-width: 380px; white-space: normal; }
+
+/* ⓘ trong tiêu đề hộp thoại canh giữa với chữ. */
+#sq-dlg .kd-dialog__title { display: inline-flex; align-items: center; }
+/* Hộp thoại cắt phần tràn → bong bóng mở sang phải từ ⓘ thay vì canh giữa. */
+#sq-dlg .kd-tip::after { left: 0; transform: none; }
+#kd-kt-so-quy .kt-sq-loai { white-space: nowrap; }

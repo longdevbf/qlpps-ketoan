@@ -1,0 +1,87 @@
+/* kt-chung-tu.css — riêng trang Chứng từ kế toán (L4). Tiền tố kt-ct. Chỉ var(--token). */
+
+/* Cột chính: các thẻ xếp dọc cách nhau như dải của trang. */
+.kt-ct-cot { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--sp-8); min-width: 0; }
+.kt-ct-the > .kd-box__head { margin: 0; padding: var(--sp-8) var(--sp-8) var(--sp-6); }
+
+/* Lưới ô nhập: 1 cột → 2 cột (768) → 3 cột (1280). Diễn giải chiếm trọn hàng. */
+.kt-ct-luoi { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-6) var(--sp-7); padding: 0 var(--sp-8) var(--sp-8); }
+@media (min-width: 768px) { .kt-ct-luoi { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .kt-ct-luoi { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.kt-ct-luoi .kt-ct-rong { grid-column: 1 / -1; }
+.kt-ct-luoi .kd-meta { margin: var(--sp-2) 0 0; }
+.kt-ct-dt { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--sp-4); }
+
+/* Bảng định khoản nhập liệu: ô nhập nằm gọn trong ô bảng. */
+.kt-ct-bang td { vertical-align: top; padding-top: var(--sp-4); padding-bottom: var(--sp-4); }
+.kt-ct-bang .kd-input { min-width: 0; }
+.kt-ct-bang .kt-ct-stt { width: 36px; color: var(--text-3); }
+.kt-ct-bang td.kt-ct-stt { padding-top: var(--sp-6); }
+.kt-ct-bang .kt-ct-o-tk { min-width: 220px; }
+.kt-ct-bang .kt-ct-o-dg { min-width: 180px; }
+.kt-ct-bang .kt-ct-o-dt { min-width: 120px; }
+.kt-ct-bang .kt-ct-o-so { min-width: 130px; }
+.kt-ct-bang .kt-ct-o-so .kd-input { text-align: right; font-variant-numeric: tabular-nums; }
+.kt-ct-bang tr.is-khoa td { background: var(--bg-page); }
+.kt-ct-bang tr.is-khoa .kd-input[readonly] { background: var(--bg-page); color: var(--text-1); font-weight: 600; }
+.kt-ct-bang .kt-ct-khoa { display: block; margin-top: var(--sp-2); font-size: var(--fs-meta); color: var(--text-3); white-space: normal; }
+.kt-ct-bang .kt-ct-sai { border-color: var(--danger); }
+.kt-ct-them { padding: var(--sp-6) var(--sp-8) 0; }
+
+/* Chân thẻ: ghi chú mẫu | tổng tiền. */
+.kt-ct-chan { padding: var(--sp-8); }
+.kt-ct-tong { display: grid; row-gap: var(--sp-6); }
+
+/* Danh sách kiểm tra ở cột phải: icon trạng thái + câu; màu chỉ nhấn, chữ đã nói đủ. */
+.kt-ct-kiem { display: grid; row-gap: var(--sp-5); margin: 0; padding: 0; list-style: none; }
+.kt-ct-kiem li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--sp-4); font-size: var(--fs-body); color: var(--text-1); }
+.kt-ct-kiem .bi { line-height: var(--lh-body); }
+.kt-ct-kiem .is-ok .bi { color: var(--success); }
+.kt-ct-kiem .is-loi .bi { color: var(--danger); }
+.kt-ct-kiem .is-cho .bi { color: var(--text-3); }
+.kt-ct-kiem small { grid-column: 2; font-size: var(--fs-meta); color: var(--text-3); }
+
+/* Chế độ xem (đã ghi sổ): bảng chỉ đọc gọn. */
+.kt-ct-bang.is-xem td { vertical-align: middle; }
+.kd-stickybar .kd-form-err { margin: 0; max-width: 480px; }
+
+/* Ô đối tượng (2 ô chọn) rộng gấp đôi. */
+@media (min-width: 768px) { .kt-ct-luoi .kt-ct-rong2 { grid-column: span 2; } }
+
+/* Khi LẬP chứng từ, bảng định khoản cần chỗ: cột phải xuống dưới cho tới 1560px (2 hộp cạnh nhau từ 768px). */
+@media (min-width: 1024px) {
+  .kd-detail.kt-ct-nhap { grid-template-columns: minmax(0, 1fr); }
+  .kd-detail.kt-ct-nhap > .kd-side { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+@media (min-width: 1560px) {
+  .kd-detail.kt-ct-nhap { grid-template-columns: minmax(0, 1fr) var(--kd-w-side); }
+  .kd-detail.kt-ct-nhap > .kd-side { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Thông tin chứng từ ở chế độ xem: nhãn trên, giá trị dưới — không dùng ô nhập bị khoá. */
+.kt-ct-xem { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-6) var(--sp-7); margin: 0; padding: 0 var(--sp-8) var(--sp-8); }
+@media (min-width: 768px) { .kt-ct-xem { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .kt-ct-xem { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.kt-ct-xem .kt-ct-rong { grid-column: 1 / -1; }
+.kt-ct-xem dt { font-size: var(--fs-meta); color: var(--text-3); }
+.kt-ct-xem dd { margin: var(--sp-2) 0 0; font-size: var(--fs-body); font-weight: 600; color: var(--text-1); }
+.kt-ct-luoi > .kd-field { align-content: start; align-self: start; }
+
+/* Chi tiết TSCĐ: lịch khấu hao dài → cuộn trong thẻ, dòng kỳ tới nổi bằng nền brand-soft. */
+.kt-tc-cuon { max-height: 480px; overflow-y: auto; }
+.kt-tc-cuon thead th { position: sticky; top: 0; z-index: 1; }
+.kt-bang tbody tr.kt-tc-toi td { background: var(--brand-soft); font-weight: 600; }
+
+/* Màn khoá sổ: các bước khoá sổ đánh số. */
+.kt-ks-buoc { display: grid; row-gap: var(--sp-4); margin: 0; padding-left: var(--sp-8); font-size: var(--fs-body); color: var(--text-2); }
+.kt-ct-kiem .is-canh .bi { color: var(--warning); }
+
+/* Duyệt chi: dòng đang chờ chính người xem — vạch trái brand để quét nhanh. */
+.kt-bang tbody tr.kt-dc-toi td:first-child { box-shadow: inset 3px 0 0 var(--brand); }
+.kt-panel .kd-stepper { margin: var(--sp-6) 0 var(--sp-2); }
+
+/* Đợt 4 (chỉ trang Chứng từ): ghi chú hướng dẫn nằm trong ⓘ; cột tài khoản / diễn giải rộng hơn vì bỏ cột Đối tượng. */
+#kd-kt-chung-tu .kd-box__title .kd-tip, #ct-dlg-dao .kd-tip { vertical-align: middle; }
+#kd-kt-chung-tu .kt-ct-bang .kt-ct-o-tk { min-width: 260px; }
+#kd-kt-chung-tu .kt-ct-bang .kt-ct-o-dg { min-width: 240px; }
+#kd-kt-chung-tu .kt-ct-luoi .kd-meta:empty { display: none; }

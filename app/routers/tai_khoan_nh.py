@@ -1,4 +1,4 @@
-"""TaiKhoanNH API — CRUD tài khoản ngân hàng / tiền mặt."""
+"""TaiKhoanNH API — CRUD tài khoản ngân hàng / tiền mặt (kèm TK kế toán con 111x/112x)."""
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -11,6 +11,7 @@ from shared.db import get_db
 
 from ..models import TaiKhoanNH
 from ..schemas import TaiKhoanNHCreate, TaiKhoanNHUpdate, TaiKhoanNHOut
+from ..services.tai_khoan_tien import kiem_tra_tk_ke_toan, ma_tiep_theo
 from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
@@ -35,6 +36,16 @@ def list_tai_khoan(
     return db.execute(stmt).scalars().all()
 
 
+@router.get("/ma-tk-tiep-theo")
+def goi_y_tk_ke_toan(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+    loai: Optional[str] = None,
+):
+    """Mã TK con trống kế tiếp dưới 111/112 cho loại tài khoản — gợi ý ở hộp thoại Thêm tài khoản."""
+    return {"tk_ke_toan": ma_tiep_theo(db, loai)}
+
+
 @router.post("", response_model=TaiKhoanNHOut, status_code=status.HTTP_201_CREATED)
 def create_tai_khoan(
     body: TaiKhoanNHCreate,
@@ -50,7 +61,11 @@ def create_tai_khoan(
             raise HTTPException(
                 status.HTTP_409_CONFLICT, f"Số tài khoản {body.so_tk} đã tồn tại"
             )
-    obj = TaiKhoanNH(**body.model_dump(exclude_unset=True))
+    data = body.model_dump(exclude_unset=True)
+    data["tk_ke_toan"] = (
+        kiem_tra_tk_ke_toan(db, body.tk_ke_toan, body.loai) if body.tk_ke_toan else ma_tiep_theo(db, body.loai)
+    )
+    obj = TaiKhoanNH(**data)
     db.add(obj)
     db.commit()
     db.refresh(obj)
@@ -73,6 +88,12 @@ def update_tai_khoan(
     if not obj:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "TaiKhoanNH không tồn tại")
     fields = body.model_dump(exclude_unset=True)
+    if "tk_ke_toan" in fields or "loai" in fields:
+        # Đổi loại (tiền mặt ↔ ngân hàng) cũng phải đổi TK con sang đúng TK cha mới.
+        ma = fields.get("tk_ke_toan") or obj.tk_ke_toan
+        if not ma:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Chọn TK kế toán cho tài khoản")
+        fields["tk_ke_toan"] = kiem_tra_tk_ke_toan(db, ma, fields.get("loai", obj.loai), obj)
     for k, v in fields.items():
         setattr(obj, k, v)
     db.commit()

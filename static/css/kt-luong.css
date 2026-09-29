@@ -1,0 +1,17 @@
+/* kt-luong.css — riêng màn Lương. Tiền tố kt-lg. Chỉ var(--token). */
+
+/* Hai biểu đồ phòng ban cạnh nhau (chuyển từ màn cũ), xuống 1 cột ở màn hẹp */
+.kt-lg-bd { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); }
+@media (min-width: 1024px) { .kt-lg-bd { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kt-lg-bd .kd-box__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-4); }
+.kt-lg-bd .kd-box__head .kd-meta { margin: 0; white-space: nowrap; }
+/* Hàng biểu đồ không có hạng/avatar: tên · thanh · số */
+.kt-lg-bd .kd-rank__o { grid-template-columns: minmax(0, 1.3fr) minmax(40px, 1fr) minmax(64px, auto); }
+.kt-lg-bd .kd-rank__so { text-align: right; }
+.kt-lg-bd .kd-rank .kd-meta { margin: 0; }
+/* Cột chi tiết thu nhập (lương cơ bản, theo công, phụ cấp, hoa hồng): ẩn mặc định, bật bằng ô chọn */
+.kt-bang:not(.kt-lg-hien) .kt-lg-ct { display: none; }
+.kt-lg-bat { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-7); padding: var(--sp-5) var(--sp-8) 0; }
+.kt-lg-bat .kt-check { min-height: 40px; }
+/* ⓘ cạnh nhãn thẻ số: nút 22px cao hơn dòng chữ → kéo lề để thẻ có/không có ⓘ thẳng hàng nhau */
+.kd-kpi__label .kd-tip { margin-block: -4px; }

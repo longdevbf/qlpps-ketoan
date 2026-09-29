@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{# Đề nghị thanh toán — L4 form. /ketoan/de-nghi-tt.
+   ĐẤU NỐI THẬT (2026-09-25, xem kt-de-nghi-tt.js đầu file): gửi qua workflow duyệt chi dùng chung 8 app
+   POST /api/duyet-chi {tieu_de, loai_chi, so_tien, ngay_de_xuat, han_thanh_toan?, muc_dich, ghi_chu?} rồi
+   POST /api/duyet-chi/<id>/chung-tu (multipart). "Loại" đổi sang đúng 6 loại_chi thật của model — không còn
+   4 loại (Chi phí/Tạm ứng/Thanh toán NCC/Hoàn ứng) của thiết kế cũ vì backend thật không có các loại đó. #}
+{% block title %}Đề nghị thanh toán{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-chung-tu.css?v=1">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-de-nghi">
+  <nav aria-label="Đường dẫn"><ol class="kd-crumb"><li><a href="/ketoan/kt-duyet"><i class="bi bi-arrow-left" aria-hidden="true"></i>Duyệt chi</a></li><li aria-current="page">Tạo đề nghị thanh toán</li></ol></nav>
+  <header class="kd-dhead">
+    <div class="kd-dhead__id">
+      <span class="ico-tile ico-tile--lg ico-tile--warning" aria-hidden="true"><i class="bi bi-receipt"></i></span>
+      <div class="kd-dhead__main">
+        <div class="kd-dhead__title"><h1 class="kd-h1">Tạo đề nghị thanh toán</h1><span class="pill pill--muted">Chưa gửi</span><button type="button" class="kd-tip" data-tip="Tạo đề xuất chi nội bộ, mã tự cấp khi gửi. Đề nghị thanh toán ĐVVC từ Sale Admin được duyệt ở màn Duyệt chi." aria-label="Về mẫu này"><i class="bi bi-info-circle" aria-hidden="true"></i></button></div>
+        <p class="kd-dhead__meta"><span>Người đề nghị: <b id="dn-nguoi">—</b></span><span>Bộ phận: <b id="dn-bp-meta">—</b></span></p>
+      </div>
+    </div>
+    <div class="kd-dhead__tools">
+      <div class="kd-seg" role="group" aria-label="Loại chi" id="dn-loai">
+        <button type="button" data-loai="di_chuyen" aria-pressed="false">Di chuyển</button>
+        <button type="button" data-loai="van_phong" aria-pressed="false">Văn phòng phẩm</button>
+        <button type="button" data-loai="tiep_thi" aria-pressed="false">Tiếp thị</button>
+        <button type="button" data-loai="dao_tao" aria-pressed="false">Đào tạo</button>
+        <button type="button" data-loai="khach_hang" aria-pressed="false">Tiếp khách</button>
+        <button type="button" data-loai="khac" aria-pressed="true">Khác</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="dn-tt"></div>
+  <div class="kd-detail kt-ct-nhap" id="dn-than" hidden>
+    <div class="kt-ct-cot">
+      <section class="kd-card kt-ct-the" aria-labelledby="dn-h">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="dn-h">Nội dung đề nghị</h2></div>
+        <div class="kt-ct-luoi">
+          <div class="kd-field kt-ct-rong">
+            <label class="kd-field__label" for="dn-nd">Nội dung <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input" id="dn-nd" maxlength="200" autocomplete="off" placeholder="VD: Chi quảng cáo Facebook tuần 40">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="dn-tien">Số tiền (VND) <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input num" id="dn-tien" inputmode="numeric" autocomplete="off" placeholder="0" aria-describedby="dn-tien-chu">
+            <p class="kd-meta" id="dn-tien-chu"></p>
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="dn-bp">Bộ phận</label>
+            <select class="kd-input" id="dn-bp"></select>
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="dn-han">Cần chi trước ngày</label>
+            <input class="kd-input" type="date" id="dn-han">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="dn-ht">Hình thức</label>
+            <select class="kd-input" id="dn-ht"><option value="ck">Chuyển khoản</option><option value="tm">Tiền mặt</option></select>
+          </div>
+          <div class="kd-field kt-ct-rong2" id="dn-th-o">
+            <label class="kd-field__label" for="dn-th" id="dn-th-nhan">Người thụ hưởng <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <select class="kd-input" id="dn-th-chon" hidden aria-labelledby="dn-th-nhan"></select>
+            <input class="kd-input" id="dn-th" maxlength="120" autocomplete="off" placeholder="Tên đơn vị / cá nhân nhận tiền">
+          </div>
+          <div class="kd-field" id="dn-stk-o">
+            <label class="kd-field__label" for="dn-stk">Số tài khoản nhận</label>
+            <input class="kd-input num" id="dn-stk" maxlength="24" inputmode="numeric" autocomplete="off">
+          </div>
+          <div class="kd-field" id="dn-nh-o">
+            <label class="kd-field__label" for="dn-nh">Ngân hàng nhận</label>
+            <input class="kd-input" id="dn-nh" maxlength="60" autocomplete="off" placeholder="VD: Vietcombank">
+          </div>
+          <div class="kd-field kt-ct-rong">
+            <label class="kd-field__label" for="dn-ly">Diễn giải chi tiết <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <textarea class="kd-input kd-textarea" id="dn-ly" maxlength="1000" placeholder="Căn cứ chi: hợp đồng, báo giá, kế hoạch…"></textarea>
+          </div>
+          <div class="kd-field kt-ct-rong">
+            <label class="kd-field__label" for="dn-tep">Chứng từ kèm <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input" type="file" id="dn-tep" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.gif">
+            <ul class="kd-files kt-dn-tep" id="dn-tep-ds"></ul>
+          </div>
+        </div>
+      </section>
+    </div>
+    <aside class="kd-side">
+      <section class="kd-box" aria-labelledby="dn-h-qt"><div class="kd-box__head"><h2 class="kd-box__title" id="dn-h-qt">Quy trình duyệt <button type="button" class="kd-tip kd-tip--trai" data-tip="Giám đốc luôn duyệt sau Kế toán, không phụ thuộc số tiền." aria-label="Về quy trình duyệt"><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div><div id="dn-qt"></div></section>
+      <section class="kd-box" aria-labelledby="dn-h-ct"><div class="kd-box__head"><h2 class="kd-box__title" id="dn-h-ct">Chứng từ cần có</h2></div><ul class="kt-ct-kiem" id="dn-can"></ul></section>
+    </aside>
+  </div>
+
+  <div class="kd-stickybar" role="group" aria-label="Thao tác với đề nghị" id="dn-thanh" hidden>
+    <a class="kd-btn" href="/ketoan/kt-duyet"><i class="bi bi-arrow-left" aria-hidden="true"></i>Quay lại</a>
+    <span class="kd-stickybar__grow"></span>
+    <p class="kd-form-err" id="dn-loi" role="alert" hidden></p>
+    <button type="button" class="kd-btn kd-btn--primary" id="dn-gui"><i class="bi bi-send" aria-hidden="true"></i>Gửi duyệt</button>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-de-nghi-tt.js?v=loc0928"></script>
+{% endblock %}

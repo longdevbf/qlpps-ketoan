@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{# ─────────────────────────────────────────────────────────────────────────────
+   Bù trừ công nợ — đợt 2. Đối tác vừa là khách hàng vừa là nhà cung cấp.
+   Tab 1: đối tác còn phải thu VÀ phải trả → số có thể bù trừ = min(phải thu, phải trả).
+   Tab 2: các bút toán bù trừ đã lập. Lập bù trừ = bút toán Nợ 331 (NCC) / Có 131 (KH).
+
+   KHÔNG có endpoint /api/cong-no/bu-tru như README mục 4.7 — và backend KHÔNG có trường mã số
+   thuế (MST) trên hồ sơ khách/NCC nên KHÔNG ghép được đúng thiết kế gốc. kt-bu-tru.js tự ghép
+   đối tác hai chiều bằng GET /api/cong-no?loai=phai_thu|phai_tra (khớp theo TÊN đối tác, không
+   phải MST) và ghi sổ thật qua POST /api/journal (Nợ 331 / Có 131) — chỉ role admin/ceo/
+   assistant_ceo được phép post bút toán thủ công, nút bị khoá sẵn cho role khác qua
+   `co_the_lap_but_toan` (router ui_ketoan_dot2.py truyền vào, khớp _ROLES_POST của journal.py).
+   ───────────────────────────────────────────────────────────────────────────── #}
+{% block title %}Bù trừ công nợ{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-bu-tru.css?v=r4a">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-bu-tru" data-co-quyen="{{ 'true' if co_the_lap_but_toan else 'false' }}">
+  <header class="kd-head">
+    <div class="kd-head__title">
+      <h1 class="kd-h1">Bù trừ công nợ</h1>
+      <p class="kd-sub">Cấn trừ công nợ với đối tác hai chiều</p>
+    </div>
+    <div class="kd-head__tools">
+      {# F3 28/09: không đủ quyền thì ẨN hẳn (trước để nút khoá — vẫn hiện ra). Quyền = journal.py _ROLES_POST (co_the_lap_but_toan). #}
+      {% if co_the_lap_but_toan %}<button type="button" class="kd-btn kd-btn--primary" id="bt-lap"><i class="bi bi-arrow-left-right" aria-hidden="true"></i>Lập bút toán bù trừ</button>{% endif %}
+    </div>
+  </header>
+
+  {% if not co_the_lap_but_toan %}
+  <p class="kd-note" role="note"><i class="bi bi-lock" aria-hidden="true"></i> <b>Chỉ xem — cần quyền CEO để ghi.</b> Bút toán bù trừ (Nợ 331 / Có 131) là bút toán tay — chỉ CEO / Admin / Trợ lý CEO ghi sổ được. Bạn vẫn xem được đối tác hai chiều và các lần đã bù trừ.</p>
+  {% endif %}
+
+  <div class="kt-kpi-khoi">
+    <section class="kd-strip kd-strip--3" id="bt-strip" aria-label="Tổng quan bù trừ">
+      {% for k in [('so_doi_tac', 'Đối tác hai chiều', 'bi-people', ''), ('co_the_bu_tru', 'Có thể bù trừ', 'bi-arrow-left-right', 'tim'), ('da_bu_tru_ky', 'Đã bù trừ tháng này', 'bi-check2-circle', 'success')] %}
+      <article class="kd-strip__o" data-kpi="{{ k[0] }}">
+        <span class="ico-tile ico-tile--sm{% if k[3] %} ico-tile--{{ k[3] }}{% endif %}" aria-hidden="true"><i class="bi {{ k[2] }}"></i></span>
+        <div>
+          <span class="kd-kpi__label">{{ k[1] }}{% if k[0] == 'so_doi_tac' %}<button type="button" class="kd-tip" data-tip="Đối tác vừa là khách hàng vừa là nhà cung cấp, ghép theo tên (chưa có mã số thuế)." aria-label="Đối tác vừa là khách hàng vừa là nhà cung cấp, ghép theo tên (chưa có mã số thuế)."><i class="bi bi-info-circle" aria-hidden="true"></i></button>{% elif k[0] == 'co_the_bu_tru' %}<button type="button" class="kd-tip" data-tip="Số nhỏ hơn giữa phải thu và phải trả. Bút toán Nợ 331 / Có 131." aria-label="Số nhỏ hơn giữa phải thu và phải trả. Bút toán Nợ 331 / Có 131."><i class="bi bi-info-circle" aria-hidden="true"></i></button>{% endif %}</span>
+          <div class="kd-kpi__value num" data-v><span class="kd-skel kd-skel--kpi"></span></div>
+          <p class="kd-kpi__phu" data-phu></p>
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+    <p class="kt-pham-vi" id="bt-pham-vi"></p>
+  </div>
+
+  <section class="kd-card" aria-labelledby="bt-td">
+    <h2 class="visually-hidden" id="bt-td">Bù trừ công nợ</h2>
+    <div class="kd-tabs" role="tablist" aria-label="Nội dung bù trừ" id="bt-tabs">
+      <button type="button" role="tab" id="bt-tab-co" data-tab="co" aria-controls="bt-pane-co" aria-selected="true">Có thể bù trừ <span class="kd-muted" data-dem="co"></span></button>
+      <button type="button" role="tab" id="bt-tab-da" data-tab="da" aria-controls="bt-pane-da" aria-selected="false" tabindex="-1">Đã bù trừ <span class="kd-muted" data-dem="da"></span></button>
+    </div>
+
+    <div role="tabpanel" id="bt-pane-co" aria-labelledby="bt-tab-co">
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="bt-cuon-co">
+        <table class="kd-table{% if co_the_lap_but_toan %} kd-table--click{% endif %} kt-bang">
+          <thead><tr>
+            <th scope="col">Đối tác</th>
+            <th scope="col" class="num">Phải thu</th>
+            <th scope="col" class="num">Phải trả</th>
+            <th scope="col" class="num">Có thể bù trừ</th>
+            <th scope="col">Sau bù trừ</th>
+            <th scope="col" class="kd-col-act">Thao tác</th>
+          </tr></thead>
+          <tbody id="bt-tbody-co"></tbody>
+          <tfoot id="bt-tfoot-co"></tfoot>
+        </table>
+      </div>
+      <div id="bt-tt-co"></div>
+    </div>
+
+    <div role="tabpanel" id="bt-pane-da" aria-labelledby="bt-tab-da" hidden>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="bt-cuon-da">
+        <table class="kd-table kt-bang">
+          <thead><tr>
+            <th scope="col">Ngày</th>
+            <th scope="col">Số chứng từ</th>
+            <th scope="col">Đối tác</th>
+            <th scope="col">Diễn giải</th>
+            <th scope="col" class="num">Số tiền</th>
+            <th scope="col">Người lập</th>
+          </tr></thead>
+          <tbody id="bt-tbody-da"></tbody>
+        </table>
+      </div>
+      <div id="bt-tt-da"></div>
+    </div>
+  </section>
+</main>
+
+<dialog class="kd-dialog kt-bt-dlg" id="bt-dlg" aria-labelledby="bt-dlg-td">
+  <form method="dialog" novalidate id="bt-form">
+    <header class="kd-dialog__head">
+      <h2 class="kd-dialog__title" id="bt-dlg-td">Lập bút toán bù trừ</h2>
+      <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div class="kd-dialog__body">
+      <div class="kd-field">
+        <label class="kd-field__label" for="bt-f-dt">Đối tác <span class="kd-field__req" aria-hidden="true">*</span></label>
+        <select class="kd-input" id="bt-f-dt" aria-describedby="bt-f-dt-loi"></select>
+        <p class="kd-form-err" id="bt-f-dt-loi" role="alert" hidden></p>
+      </div>
+      <dl class="kt-tq kt-bt-so" id="bt-f-so"></dl>
+      <div class="kd-row2">
+        <div class="kd-field">
+          <label class="kd-field__label" for="bt-f-tien">Số tiền bù trừ (VND) <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input num kt-o-tien" id="bt-f-tien" inputmode="numeric" autocomplete="off" aria-describedby="bt-f-tien-loi bt-f-tien-meo">
+          <p class="kd-form-err" id="bt-f-tien-loi" role="alert" hidden></p>
+          <button type="button" class="kd-link kd-link--sm" id="bt-f-toi-da">Dùng số tối đa</button>
+        </div>
+        <div class="kd-field">
+          <label class="kd-field__label" for="bt-f-ngay">Ngày hạch toán <span class="kd-field__req" aria-hidden="true">*</span></label>
+          <input class="kd-input" type="date" id="bt-f-ngay" aria-describedby="bt-f-ngay-loi">
+          <p class="kd-form-err" id="bt-f-ngay-loi" role="alert" hidden></p>
+        </div>
+      </div>
+      <div class="kd-field">
+        <label class="kd-field__label" for="bt-f-dg">Diễn giải</label>
+        <input class="kd-input" id="bt-f-dg" maxlength="200" placeholder="VD: Theo biên bản đối chiếu số 09/2026">
+      </div>
+      <section class="kt-bt-dk" aria-labelledby="bt-f-dk-td">
+        <h3 class="kd-block__title" id="bt-f-dk-td"><i class="bi bi-list-columns" aria-hidden="true"></i>Định khoản sẽ ghi sổ<button type="button" class="kd-tip" data-tip="Ghi sổ xong, màn Công nợ KH/NCC không tự giảm — cần tất toán phiếu liên quan riêng." aria-label="Ghi sổ xong, màn Công nợ KH/NCC không tự giảm — cần tất toán phiếu liên quan riêng."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h3>
+        <table class="kt-dk"><thead><tr><th scope="col">Tài khoản</th><th scope="col" class="num">Nợ (VND)</th><th scope="col" class="num">Có (VND)</th></tr></thead>
+          <tbody id="bt-f-dk"></tbody></table>
+      </section>
+      <label class="kt-check kt-check--khoi">
+        <input type="checkbox" id="bt-f-bb" aria-describedby="bt-f-bb-loi">
+        <span>Đã có biên bản bù trừ hai bên ký</span>
+      </label>
+      <p class="kd-form-err" id="bt-f-bb-loi" role="alert" hidden></p>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="submit" class="kd-btn kd-btn--primary" id="bt-f-luu"><i class="bi bi-check2" aria-hidden="true"></i>Ghi sổ bù trừ</button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-bu-tru.js?v=f3q"></script>
+{% endblock %}

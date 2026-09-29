@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Thuế GTGT — bảng kê bán ra / mua vào theo kỳ kê khai (tháng hoặc quý), tổng hợp số phải nộp.
+   API thật (app/routers/thue.py → services/thue_gtgt.py): GET /api/thue-gtgt?ky=YYYY-MM|Qn-YYYY&chieu=ban|mua&tim&page&size&sort
+   · GET /api/thue-gtgt/to-khai?ky= (XML số liệu 01/GTGT để đối chiếu). Đầu ra = đơn đã duyệt theo ngày duyệt; đầu vào chưa có nguồn. #}
+{% block title %}Thuế GTGT{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}{{ ui.css('') }}{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-thue-gtgt">
+  {% call ui.dau_trang('Thuế GTGT', 'Theo kỳ kê khai, phương pháp khấu trừ') %}
+    <label class="kd-select">
+      <i class="bi bi-calendar3" aria-hidden="true"></i><span class="visually-hidden">Kỳ kê khai</span>
+      <select id="tg-ky"></select>
+    </label>
+    <button type="button" class="kd-btn kd-btn--primary" id="tg-xuat"><i class="bi bi-download" aria-hidden="true"></i>Xuất dữ liệu tờ khai</button>
+  {% endcall %}
+
+  {{ ui.the_so('tg', [('dau_ra', 'Thuế GTGT đầu ra', '', 'bi-box-arrow-up-right'), ('dau_vao', 'Đầu vào khấu trừ', 'success', 'bi-box-arrow-in-down-left'),
+                       ('chuyen', 'Kỳ trước chuyển sang', 'info', 'bi-arrow-return-right'), ('phai_nop', 'Phải nộp kỳ này', 'warning', 'bi-bank')], kieu='strip', nhan_vung='Tổng hợp thuế GTGT của kỳ') }}
+
+  <div class="kd-tabs kd-tabs--lon kt-tabs-trang" role="tablist" aria-label="Bảng kê" id="tg-tabs">
+    <button type="button" role="tab" id="tg-tab-ban" data-tab="ban" aria-controls="tg-pane-ban" aria-selected="true">Hoá đơn bán ra <span class="kd-muted" id="tg-dem-ban"></span></button>
+    <button type="button" role="tab" id="tg-tab-mua" data-tab="mua" aria-controls="tg-pane-mua" aria-selected="false" tabindex="-1">Hoá đơn mua vào <span class="kd-muted" id="tg-dem-mua"></span></button>
+  </div>
+  <div class="kt-tab-pane" role="tabpanel" id="tg-pane-ban" aria-labelledby="tg-tab-ban">
+    {% call ui.the_bang('tb', 'Bảng kê hoá đơn bán ra') %}
+      {{ ui.o_tim('tb', 'tim', 'Tìm', 'Số đơn, khách hàng, MST…') }}
+    {% endcall %}
+  </div>
+  <div class="kt-tab-pane" role="tabpanel" id="tg-pane-mua" aria-labelledby="tg-tab-mua" hidden>
+    {% call ui.the_bang('tm', 'Bảng kê hoá đơn mua vào') %}
+      {{ ui.o_tim('tm', 'tim', 'Tìm', 'Số hoá đơn, nhà cung cấp…') }}
+    {% endcall %}
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}{{ ui.js('kt-thue-gtgt', v='loc0928') }}{% endblock %}

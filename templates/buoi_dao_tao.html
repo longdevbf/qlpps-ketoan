@@ -440,7 +440,7 @@ function renderTable(){
       <td><span class="badge badge-dept">${esc(s.phong_ban||'Mua Hàng')}</span></td>
       <td style="font-size:13px;color:var(--text-2)">${esc(s.giang_vien||'—')}</td>
       <td>${fileBadge}</td>
-      <td style="font-size:13px;color:var(--text-3)" title="${esc(s.created_by||'')}">${esc(s.created_by_ten||s.created_by||'—')}</td>
+      <td style="font-size:13px;color:var(--text-3)">${esc(s.created_by||'—')}</td>
       <td class="td-actions">${actions}</td>
     </tr>`;
   }).join('');
@@ -612,7 +612,7 @@ function renderDetail(s){
       <span class="badge badge-dept">${esc(s.phong_ban||'Mua Hàng')}</span>
       ${s.giang_vien?`<span class="badge badge-trainer">${esc(s.giang_vien)}</span>`:''}
       <span class="badge" style="background:var(--warning-soft);color:var(--warning-fg)">${fmtDate(s.ngay)}</span>
-      <span class="badge" style="background:var(--bg-page);color:var(--text-2)" title="${esc(s.created_by||'')}">${esc(s.created_by_ten||s.created_by||'—')}</span>
+      <span class="badge" style="background:var(--bg-page);color:var(--text-2)">${esc(s.created_by||'—')}</span>
     </div>
     ${s.mo_ta?`<p class="detail-desc">${esc(s.mo_ta)}</p>`:''}
     <div class="section-label">Tài liệu đào tạo <span style="font-size:12px;color:var(--text-3);font-weight:500">(${files.length} file)</span></div>

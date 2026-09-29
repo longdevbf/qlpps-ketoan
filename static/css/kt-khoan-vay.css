@@ -1,0 +1,8 @@
+/* kt-khoan-vay.css — riêng màn Khoản vay (/ketoan/khoan-vay) và Hợp đồng vay (/ketoan/khoan-vay/phieu). Chỉ var(--token). */
+/* Đợt 4: dòng giải thích dưới hàng thẻ đã chuyển vào ⓘ → ẩn khi trống để không chừa khoảng. */
+#kd-kt-khoan-vay .kt-pham-vi:empty { display: none; }
+/* Dòng phụ dưới số tiền ("Đã trả …", "Đang vay …") giữ trọn một dòng, không ngắt giữa chữ và số. */
+#kd-kt-khoan-vay .kt-bang td.num .kt-khach__ma, #kd-kt-khoan-vay #kv-tbody td:nth-child(6) .kt-khach__ma { white-space: nowrap; }
+/* Hợp đồng vay: cột phụ "Lịch trả dự kiến" hẹp → nhãn tự xuống dòng, số tiền giữ trọn một dòng. */
+#kd-kt-khoan-vay-phieu .kd-side .kt-tq { grid-template-columns: minmax(0, 1fr) auto; }
+#kd-kt-khoan-vay-phieu .kd-side .kt-tq dd { white-space: nowrap; overflow-wrap: normal; }

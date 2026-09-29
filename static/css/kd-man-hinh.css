@@ -1,0 +1,1307 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   kd-man-hinh.css — khung chung cho các màn giao diện mới /kd/* (dựng theo ảnh mockup)
+   ───────────────────────────────────────────────────────────────────────────
+   Nguồn cấu trúc: QLPPS-UI-DOC/01-ban-thao/11-layout-blueprint-L1-L7.md (L3 master–detail,
+   L4 chi tiết), 07-component-du-lieu.md §6.1 (thẻ KPI), 03-mau-sac.md §2.4 (.pill),
+   .claude/rules/icon-net-trang.md (.ico-tile). Giá trị màu/chữ/bo góc/khoảng cách: CHỈ
+   var(--token) của static/css/theme.css. Không hex, không font-size px.
+
+   Token tài liệu dùng mà theme chưa có → quy đổi tại chỗ, không khai token mới:
+     --bg-sunken → --bg-page · --fs-display → --fs-h (18px, cap-chu.md) · --fw-* → số
+     --shadow-xs → --shadow-sm · --kpi-up/--kpi-down → --success/--danger · --w-rail → 368px
+   Tiền tố kd- để không đụng CSS riêng của trang cũ và của Bootstrap (base.html vẫn nạp).
+   Mốc responsive: chỉ 480 / 768 / 1024 / 1280 (01-BAN-CHOT-THANG.md §5), chỉ min-width.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Token khai báo cả cho <dialog>/menu thả: chúng nằm NGOÀI .kd-page (top-layer / gắn vào body),
+   thiếu token thì nút/ô trong modal mất chiều cao và co dúm. */
+.kd-page, .kd-dialog, .kd-menu {
+  --kd-w-panel: 368px;                 /* bề rộng panel chi tiết — blueprint L3 */
+  --kd-w-side: 320px;                  /* cột phải trang chi tiết — blueprint L4 */
+  --kd-h-ctl: 40px;                    /* cao nút/ô ở dải tiêu đề — blueprint L3 */
+  --kd-h-field: 36px;                  /* cao ô lọc trong thẻ bảng */
+  --kd-top: calc(var(--ab-h, 56px) + var(--sp-8));   /* mép dính của panel dưới topbar */
+}
+/* App không nạp Bootstrap nên .visually-hidden chưa có — thiếu nó thì caption bảng / nhãn ẩn cho trình đọc
+   màn hình hiện ra thành chữ lặp (vd "Danh sách đề nghị chi" in 2 lần). 33 template dùng class này. */
+.visually-hidden {
+  position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important;
+  margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important; border: 0 !important;
+}
+.kd-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);   /* BẮT BUỘC: không để bảng đẩy tràn ngang */
+  row-gap: var(--sp-9);
+  min-width: 0;
+  color: var(--text-2);
+  /* Cỡ chữ gốc của màn: thiếu dòng này thì <p> trần ăn 16px mặc định của Bootstrap (đo ảnh thật 11/09). */
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+.kd-page .num { font-variant-numeric: tabular-nums; }
+.kd-page [hidden] { display: none !important; }
+
+/* ── Dải 1 · tiêu đề trang ─────────────────────────────────────────────── */
+.kd-head { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--sp-6); }
+.kd-head__title { min-width: 0; }
+.kd-h1 {
+  margin: 0; font-size: var(--fs-h); font-weight: 700;
+  line-height: var(--lh-tight); color: var(--text-1);
+}
+.kd-sub { margin: var(--sp-2) 0 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-3); }
+.kd-head__tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-6); }
+.kd-search {
+  display: inline-flex; align-items: center; gap: var(--sp-4); height: var(--kd-h-ctl); min-width: 0;
+  padding: 0 var(--sp-6); border: 1px solid var(--border); border-radius: var(--r);
+  background: var(--bg-card); color: var(--text-3);
+}
+.kd-search:focus-within { box-shadow: var(--focus-ring); }
+.kd-search input {
+  flex: 1 1 auto; min-width: 0; width: 100%; border: 0; background: transparent; outline: none;
+  font: inherit; font-size: var(--fs-body); color: var(--text-1);
+}
+.kd-search input::placeholder { color: var(--text-3); }
+
+/* ── Nút ──────────────────────────────────────────────────────────────────
+   Mỗi màn đúng MỘT nút chính khối đặc (frontend-ui luật 3); còn lại là nút nền thẻ viền xám. */
+.kd-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-4);
+  height: var(--kd-h-ctl); padding: 0 var(--sp-8);
+  border: 1px solid var(--border); border-radius: var(--r);
+  background: var(--bg-card); color: var(--text-1);
+  font: inherit; font-size: var(--fs-body); font-weight: 600; line-height: 1;
+  text-decoration: none; white-space: nowrap; cursor: pointer;
+  transition: background-color .15s, border-color .15s, color .15s;
+}
+.kd-btn:hover { background: var(--bg-page); color: var(--text-1); }
+.kd-btn:active { background: var(--bg-band); }
+.kd-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.kd-btn[disabled], .kd-btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+.kd-btn--primary { background: var(--brand); border-color: var(--brand); color: var(--text-on-brand); }
+.kd-btn--primary:hover { background: var(--brand-hover); border-color: var(--brand-hover); color: var(--text-on-brand); }
+.kd-btn--primary:active { background: var(--brand-active); border-color: var(--brand-active); }
+/* Nút huỷ / từ chối: viền + chữ đỏ, không khối đặc — không nhuộm theo màu thương hiệu (design-system). */
+.kd-btn--danger { border-color: var(--danger); color: var(--danger); }
+.kd-btn--danger:hover { background: var(--danger-soft); color: var(--danger-fg); }
+.kd-btn--sm { height: 32px; padding: 0 var(--sp-6); font-size: var(--fs-meta); }
+.kd-btn .bi { font-size: var(--fs-body-lg); line-height: 1; }
+
+.kd-icon-btn {
+  display: inline-grid; place-items: center; width: 32px; height: 32px; flex: none;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--bg-card); color: var(--text-2); cursor: pointer; text-decoration: none;
+}
+.kd-icon-btn:hover { background: var(--bg-page); color: var(--text-1); }
+.kd-icon-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.kd-icon-btn--lg { width: var(--kd-h-ctl); height: var(--kd-h-ctl); border-radius: var(--r); }
+
+.kd-link {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  padding: 0; border: 0; background: none; font: inherit; font-size: var(--fs-body);
+  font-weight: 600; color: var(--brand); cursor: pointer; white-space: nowrap; text-decoration: none;
+}
+.kd-link:hover { color: var(--brand-hover); text-decoration: underline; }
+.kd-link:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+.kd-link--sm { font-size: var(--fs-meta); }
+
+/* ── Ô nhập / chọn ────────────────────────────────────────────────────── */
+.kd-input {
+  width: 100%; min-width: 0; height: var(--kd-h-field); padding: 0 var(--sp-6);
+  border: 1px solid var(--border); border-radius: var(--r);
+  background: var(--bg-card); color: var(--text-1);
+  font: inherit; font-size: var(--fs-body);
+}
+.kd-input::placeholder { color: var(--text-3); }
+.kd-input:focus { outline: none; border-color: var(--border); box-shadow: var(--focus-ring); }
+select.kd-input { padding-right: var(--sp-10); }
+.kd-textarea { height: auto; min-height: 88px; padding: var(--sp-4) var(--sp-6); line-height: var(--lh-body); resize: vertical; }
+.kd-select {
+  display: inline-flex; align-items: center; gap: var(--sp-4); height: var(--kd-h-ctl);
+  padding: 0 var(--sp-6); border: 1px solid var(--border); border-radius: var(--r);
+  background: var(--bg-card); color: var(--text-2); font-size: var(--fs-body);
+}
+.kd-select:focus-within { box-shadow: var(--focus-ring); }
+.kd-select select {
+  border: 0; background: transparent; color: var(--text-1); font: inherit;
+  font-size: var(--fs-body); font-weight: 600; outline: none; cursor: pointer; min-width: 0;
+}
+.kd-field { display: grid; row-gap: var(--sp-3); min-width: 0; }
+.kd-field__label { font-size: var(--fs-meta); font-weight: 600; color: var(--text-2); white-space: nowrap; }
+.kd-field__req { color: var(--danger); }
+.kd-daterange {
+  display: flex; align-items: center; gap: var(--sp-3); height: var(--kd-h-field);
+  padding: 0 var(--sp-5); border: 1px solid var(--border); border-radius: var(--r);
+  background: var(--bg-card); color: var(--text-3); min-width: 0;
+}
+.kd-daterange:focus-within { box-shadow: var(--focus-ring); }
+.kd-daterange input {
+  flex: 1 1 0; min-width: 0; border: 0; background: transparent; color: var(--text-1);
+  font: inherit; font-size: var(--fs-meta); outline: none;
+}
+
+/* ── Ô icon nền đặc, nét trắng — mã chuẩn của icon-net-trang.md ─────────── */
+.ico-tile {
+  display: inline-grid; place-items: center; flex: none;
+  width: 40px; height: 40px; border-radius: var(--r-md);
+  background: var(--tile-blue); color: var(--text-on-brand);
+}
+.ico-tile .bi { font-size: var(--fs-title); line-height: 1; }
+.ico-tile--sm { width: 28px; height: 28px; border-radius: var(--r-sm); }
+.ico-tile--sm .bi { font-size: var(--fs-body); }
+.ico-tile--lg { width: 52px; height: 52px; border-radius: var(--r-lg); }
+.ico-tile--lg .bi { font-size: var(--fs-glyph); }
+.ico-tile--tim     { background: var(--tile-violet); }
+.ico-tile--warning { background: var(--tile-orange); }
+.ico-tile--success { background: var(--tile-green); }
+.ico-tile--danger  { background: var(--tile-red); }
+.ico-tile--info,
+.ico-tile--neutral { background: var(--tile-slate); }
+.ico-tile--brand   { background: var(--tile-brand); }
+
+/* ── Dải 2 · thẻ KPI (07 §6.1) ────────────────────────────────────────── */
+.kd-kpi-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-6); min-width: 0; }
+.kd-kpi {
+  min-width: 0; padding: var(--sp-8);
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+.kd-kpi__head { display: flex; align-items: center; gap: var(--sp-5); min-width: 0; }
+.kd-kpi__label {
+  min-width: 0; font-size: var(--fs-body); font-weight: 500;
+  line-height: var(--lh-tight); color: var(--text-2);
+}
+.kd-kpi__value {
+  display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-2);
+  margin-top: var(--sp-5); font-size: var(--fs-kpi); font-weight: 700;
+  line-height: var(--lh-tight); color: var(--text-1);
+}
+/* Đơn vị tiền viết nhỏ cạnh số — không cắt số bằng dấu "…" khi thẻ hẹp */
+.kd-kpi__don-vi { font-size: var(--fs-title); font-weight: 600; color: var(--text-2); white-space: nowrap; }
+/* Thẻ nhỏ trang chi tiết khách: số cỡ tiêu đề, không phải số KPI 29px */
+/* Thẻ gọn nằm ngay dưới H1 trang chi tiết: số dùng nấc dưới H1 để H1 vẫn nổi trước (cap-chu, ui-reviewer 11/09) */
+.kd-kpi--gon .kd-kpi__value { margin-top: var(--sp-3); font-size: var(--fs-title); }
+.kd-kpi--gon .kd-kpi__don-vi { font-size: var(--fs-body); }
+.kd-kpi__delta {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2);
+  margin: var(--sp-3) 0 0; font-size: var(--fs-meta); font-weight: 600; color: var(--text-3);
+}
+.kd-kpi__delta[data-tot="up"][data-huong="up"],
+.kd-kpi__delta[data-tot="down"][data-huong="down"] { color: var(--success); }
+.kd-kpi__delta[data-tot="up"][data-huong="down"],
+.kd-kpi__delta[data-tot="down"][data-huong="up"] { color: var(--danger); }
+.kd-kpi__since { font-weight: 500; color: var(--text-3); }
+
+/* ── Dải 3 · thân: thẻ bảng + panel chi tiết ──────────────────────────── */
+.kd-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); align-items: start; min-width: 0; }
+
+.kd-card {
+  display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.kd-filter {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-6) var(--sp-7);
+  align-items: end; padding: var(--sp-8); border-bottom: 1px solid var(--border-soft);
+}
+.kd-filter .kd-link { height: var(--kd-h-field); }
+.kd-bulk {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-6);
+  padding: var(--sp-5) var(--sp-8); background: var(--bg-page);
+  border-bottom: 1px solid var(--border-soft); font-size: var(--fs-body); color: var(--text-2);
+}
+
+/* Bảng một dòng mỗi hàng như ảnh mockup: ô không xuống dòng, thiếu chỗ thì thẻ cuộn ngang. */
+.kd-table-scroll { min-width: 0; overflow-x: auto; }
+.kd-table { width: 100%; border-collapse: collapse; }
+.kd-table th {
+  padding: var(--sp-5) var(--sp-7); background: var(--bg-page);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-meta); font-weight: 600; color: var(--text-3);
+  text-align: left; white-space: nowrap;
+  text-transform: none; letter-spacing: 0;          /* ảnh mockup: chữ thường, không IN HOA */
+}
+.kd-table td {
+  height: 44px; padding: var(--sp-4) var(--sp-7);
+  border-bottom: 1px solid var(--border-soft);
+  font-size: var(--fs-body); color: var(--text-1); vertical-align: middle; white-space: nowrap;
+}
+.kd-table tbody tr:last-child td { border-bottom: 0; }
+.kd-table .num { text-align: right; white-space: nowrap; }
+.kd-table .kd-col-check { width: 44px; text-align: center; }
+.kd-table .kd-col-act { width: 64px; text-align: center; }
+.kd-table--click tbody tr { cursor: pointer; }
+.kd-table--click tbody tr:hover td { background: var(--bg-page); }
+.kd-table tbody tr.is-selected td { background: var(--brand-soft); }
+.kd-table tbody tr.is-selected td:first-child { box-shadow: inset 3px 0 0 var(--brand); }
+.kd-table tbody tr:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.kd-table input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--brand); cursor: pointer; }
+.kd-table--gon td { height: 40px; padding: var(--sp-3) var(--sp-6); }
+.kd-table--gon th { padding: var(--sp-4) var(--sp-6); }
+.kd-strong { font-weight: 700; color: var(--text-1); }
+.kd-muted { color: var(--text-3); }
+.kd-act { display: inline-flex; gap: var(--sp-3); }
+
+.kd-sort {
+  display: inline-flex; align-items: center; gap: var(--sp-2); padding: 0; border: 0;
+  background: none; font: inherit; font-size: var(--fs-meta); font-weight: 600; color: var(--text-3); cursor: pointer;
+}
+.kd-sort .bi { font-size: var(--fs-micro); opacity: .6; }
+.kd-sort[aria-sort="ascending"], .kd-sort[aria-sort="descending"] { color: var(--text-1); }
+.kd-sort[aria-sort="ascending"] .bi, .kd-sort[aria-sort="descending"] .bi { opacity: 1; }
+.kd-sort:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+
+.kd-card__foot {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--sp-6); padding: var(--sp-6) var(--sp-8); border-top: 1px solid var(--border-soft);
+  font-size: var(--fs-body); color: var(--text-3);
+}
+.kd-pager { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.kd-pager button {
+  min-width: 32px; height: 32px; padding: 0 var(--sp-4);
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--bg-card); color: var(--text-1); font: inherit; font-size: var(--fs-body); cursor: pointer;
+}
+.kd-pager button:hover:not([disabled]):not([aria-current="page"]) { background: var(--bg-page); }
+.kd-pager button[aria-current="page"] { background: var(--brand); border-color: var(--brand); color: var(--text-on-brand); font-weight: 700; }
+.kd-pager button[disabled] { opacity: .45; cursor: not-allowed; }
+.kd-pager button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.kd-pager .kd-pager__gap { padding: 0 var(--sp-2); color: var(--text-3); }
+
+/* ── Nhãn trạng thái — hợp đồng .pill của 03-mau-sac.md §2.4 ──────────────
+   Theo CLAUDE.md của repo: chờ = warning, từ chối = danger, đã duyệt = success, hết hạn = muted. */
+.pill {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  height: 22px; padding: 0 var(--sp-4); border-radius: var(--r-full);
+  font-size: var(--fs-eyebrow); font-weight: 600; line-height: 1; white-space: nowrap;
+}
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: var(--r-full); background: currentColor; flex: none; }
+.pill--success { background: var(--success-soft); color: var(--success-fg); }
+.pill--danger  { background: var(--danger-soft);  color: var(--danger-fg); }
+.pill--warning { background: var(--warning-soft); color: var(--warning-fg); }
+.pill--info    { background: var(--info-soft);    color: var(--info-fg); }
+.pill--muted   { background: var(--bg-page); color: var(--text-3); box-shadow: inset 0 0 0 1px var(--border); }
+/* Chip xanh thương hiệu — đúng công thức chip của design-system.md (soft + viền brand-border + chữ
+   brand-hover 5,95:1). Dùng khi hai trạng thái cùng họ cần tách màu (người dùng yêu cầu 11/09). */
+.pill--brand   { background: var(--brand-soft); color: var(--brand-hover); box-shadow: inset 0 0 0 1px var(--brand-border); }
+/* Biến thể có viền đậm cùng họ màu — tách hai trạng thái liền kề cùng họ (vd "Từ chối" / "KT từ chối",
+   "Đặt hàng" / "Đang SX"). Chữ giữ nguyên bản -fg nên tương phản không đổi. */
+.pill--vien.pill--danger  { box-shadow: inset 0 0 0 1px var(--danger); }
+.pill--vien.pill--success { box-shadow: inset 0 0 0 1px var(--success); }
+.pill--vien.pill--warning { box-shadow: inset 0 0 0 1px var(--warning); }
+.pill--vien.pill--info    { box-shadow: inset 0 0 0 1px var(--info); }
+.pill--vien.pill--brand   { box-shadow: inset 0 0 0 1px var(--brand); }
+
+/* ── Menu thao tác (⋯) ────────────────────────────────────────────────── */
+.kd-menu {
+  position: fixed; z-index: 1060; min-width: 208px; padding: var(--sp-3);
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-pop);
+}
+.kd-menu button, .kd-menu a {
+  display: flex; align-items: center; gap: var(--sp-5); width: 100%;
+  padding: var(--sp-4) var(--sp-6); border: 0; border-radius: var(--r-sm);
+  background: none; color: var(--text-1); font: inherit; font-size: var(--fs-body);
+  text-align: left; text-decoration: none; cursor: pointer;
+}
+.kd-menu button:hover, .kd-menu a:hover, .kd-menu button:focus-visible, .kd-menu a:focus-visible {
+  outline: none; background: var(--bg-page);
+}
+.kd-menu .bi { width: 16px; color: var(--text-3); }
+.kd-menu .is-danger, .kd-menu .is-danger .bi { color: var(--danger); }
+.kd-menu hr { margin: var(--sp-3) 0; border: 0; border-top: 1px solid var(--border-soft); opacity: 1; }
+
+/* ── 4 trạng thái của khối dữ liệu (frontend-ui luật 5) ───────────────── */
+.kd-state {
+  display: grid; justify-items: center; row-gap: var(--sp-5);
+  padding: var(--sp-10) var(--sp-8); text-align: center; color: var(--text-3); font-size: var(--fs-body);
+}
+.kd-state--gon { padding: var(--sp-8) var(--sp-6); }
+.kd-state__title { margin: 0; font-size: var(--fs-body-lg); font-weight: 600; color: var(--text-1); }
+.kd-state__icon { font-size: var(--fs-kpi); color: var(--text-3); }
+.kd-state--error .kd-state__icon { color: var(--danger); }
+.kd-skel {
+  display: block; height: 12px; border-radius: var(--r-xs); background: var(--bg-band);
+  animation: kd-nhip 1.2s ease-in-out infinite;
+}
+.kd-skel--kpi { width: 55%; height: 28px; margin-top: var(--sp-1); }
+.kd-skel--o { width: 70%; }
+.kd-skel--ngan { width: 40%; }
+@keyframes kd-nhip { 50% { opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .kd-skel { animation: none; } }
+.kd-banner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-6);
+  padding: var(--sp-6) var(--sp-8); border-radius: var(--r-lg);
+  background: var(--danger-soft); color: var(--danger-fg); font-size: var(--fs-body);
+}
+.kd-banner--info { background: var(--info-soft); color: var(--info-fg); }
+
+/* ── Panel chi tiết (blueprint L3) ────────────────────────────────────────
+   Dưới 1280px: lớp phủ trượt từ phải (không đủ chỗ đặt cạnh bảng).
+   Từ 1280px: nằm trong lưới, dính dưới topbar khi cuộn. */
+.kd-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 1050;
+  width: min(var(--kd-w-panel), 100vw);
+  display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto; min-width: 0;
+  background: var(--bg-card); border-left: 1px solid var(--border); box-shadow: var(--shadow-pop);
+}
+.kd-scrim { position: fixed; inset: 0; z-index: 1049; background: rgba(15, 38, 64, .42); }
+.kd-panel__head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-6);
+  padding: var(--sp-7) var(--sp-8) var(--sp-4);
+}
+.kd-panel__title { margin: 0; font-size: var(--fs-title); font-weight: 600; line-height: var(--lh-tight); color: var(--text-1); }
+.kd-panel__id { display: flex; align-items: flex-start; gap: var(--sp-6); padding: var(--sp-4) var(--sp-8) var(--sp-7); }
+.kd-panel__code { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); font-size: var(--fs-title); font-weight: 700; color: var(--text-1); }
+.kd-meta { margin: var(--sp-2) 0 0; font-size: var(--fs-meta); color: var(--text-3); }
+.kd-tabs {
+  display: flex; gap: var(--sp-8); padding: 0 var(--sp-8);
+  border-bottom: 1px solid var(--border); overflow-x: auto;
+}
+.kd-tabs [role="tab"] {
+  flex: none; padding: var(--sp-5) 0; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  background: none; font: inherit; font-size: var(--fs-body); font-weight: 600; color: var(--text-2); cursor: pointer;
+}
+.kd-tabs [role="tab"][aria-selected="true"] { color: var(--brand); border-bottom-color: var(--brand); }
+.kd-tabs [role="tab"]:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.kd-tabs--lon [role="tab"] { padding: var(--sp-7) 0; font-size: var(--fs-body-lg); }
+.kd-panel__scroll { min-height: 0; overflow-y: auto; padding: var(--sp-8); }
+.kd-panel__actions {
+  display: flex; flex-wrap: wrap; gap: var(--sp-5); padding: var(--sp-7) var(--sp-8);
+  border-top: 1px solid var(--border);
+}
+.kd-panel__actions .kd-btn { height: 36px; }
+.kd-panel__actions .kd-btn--grow { flex: 1 1 0; }
+.kd-panel__actions .kd-icon-btn { width: 36px; height: 36px; }
+
+/* nhãn ↔ giá trị: icon | nhãn | giá trị. <dt> của Bootstrap mặc định đậm — ảnh mockup là chữ thường.
+   Căn theo chân chữ (GD-2): dưới 1024px link SĐT cao 44px, căn "start" làm chữ số thấp hơn nhãn 12px ở panel đơn
+   (đo 11/09); baseline giữ nhãn thẳng dòng ĐẦU của giá trị, kể cả giá trị nhiều dòng. */
+.kd-kv { display: grid; grid-template-columns: 20px minmax(0, 104px) minmax(0, 1fr); gap: var(--sp-6); margin: 0; align-items: baseline; }
+.kd-kv dt { display: contents; font-weight: 400; }
+.kd-kv__icon { color: var(--text-3); }
+.kd-kv__label { font-size: var(--fs-body); font-weight: 400; color: var(--text-3); }
+.kd-kv dd { margin: 0; min-width: 0; font-size: var(--fs-body); color: var(--text-1); overflow-wrap: anywhere; }
+/* Biến thể 2 cột (nhãn | giá trị) của thẻ thông tin trang chi tiết */
+/* baseline: nhãn thẳng hàng chữ của giá trị kể cả khi ô giá trị có nút 32px (dòng SĐT lệch ~6px trên ảnh thật) */
+.kd-kv--2 { grid-template-columns: minmax(0, 132px) minmax(0, 1fr); row-gap: var(--sp-4); column-gap: var(--sp-6); align-items: baseline; }
+.kd-kv--2 dt { display: block; font-size: var(--fs-body); color: var(--text-3); }
+.kd-block { margin-top: var(--sp-9); }
+.kd-block__title {
+  display: flex; align-items: center; gap: var(--sp-4); margin: 0 0 var(--sp-6);
+  font-size: var(--fs-body); font-weight: 600; color: var(--text-1);
+}
+.kd-block__title .bi { color: var(--text-3); }
+.kd-note {
+  margin: 0; padding: var(--sp-6); border: 1px solid var(--border); border-radius: var(--r);
+  background: var(--bg-page); font-size: var(--fs-body); color: var(--text-2); white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.kd-note--danger { border-color: var(--danger-soft); background: var(--danger-soft); color: var(--danger-fg); }
+
+/* stepper ngang — 08-component-lop-phu.md §7.6 */
+.kd-stepper {
+  display: grid; grid-template-columns: repeat(var(--kd-buoc, 4), minmax(0, 1fr));
+  margin: 0; padding: 0; list-style: none;
+}
+/* 3 hàng chấm | nhãn (giãn) | giờ: nhãn dài xuống 2 dòng (cột phải trang chi tiết 1280px, ảnh thật 11/09) thì giờ các bước
+   vẫn thẳng một hàng — BG-6 làm bước "Quản lý duyệt" có giờ ở báo giá chờ KT nên lệch này mới lộ ra. */
+.kd-step { position: relative; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; row-gap: var(--sp-3); text-align: center; min-width: 0; }
+.kd-step::before {
+  content: ""; position: absolute; top: 8px; right: 50%; width: 100%; height: 2px; background: var(--border);
+}
+.kd-step:first-child::before { display: none; }
+.kd-step.is-done::before, .kd-step.is-current::before { background: var(--brand); }
+.kd-step__dot {
+  position: relative; z-index: 1; display: grid; place-items: center;
+  width: 18px; height: 18px; border-radius: var(--r-full);
+  background: var(--bg-card); box-shadow: inset 0 0 0 2px var(--border); color: var(--text-on-brand);
+}
+.kd-step.is-done .kd-step__dot { background: var(--brand); box-shadow: none; }
+.kd-step.is-current .kd-step__dot { background: var(--bg-card); box-shadow: inset 0 0 0 5px var(--brand); }
+.kd-step.is-fail .kd-step__dot { background: var(--danger); box-shadow: none; }
+.kd-step__label { font-size: var(--fs-meta); font-weight: 600; color: var(--text-1); overflow-wrap: anywhere; }
+.kd-step.is-todo .kd-step__label { color: var(--text-3); font-weight: 500; }
+.kd-step.is-fail .kd-step__label { color: var(--danger-fg); }
+.kd-step__time { font-size: var(--fs-eyebrow); color: var(--text-3); }
+/* Bản lớn có dấu tích — thanh tiến độ ở đầu trang chi tiết đơn */
+.kd-stepper--lon .kd-step::before { top: 11px; }
+.kd-stepper--lon .kd-step__dot { width: 24px; height: 24px; }
+.kd-stepper--lon .kd-step__dot .bi { font-size: var(--fs-meta); line-height: 1; }
+.kd-stepper--lon .kd-step.is-current .kd-step__dot { box-shadow: inset 0 0 0 6px var(--brand); }
+.kd-stepper--lon .kd-step__label { font-size: var(--fs-body); }
+.kd-stepper--lon .kd-step__time { font-size: var(--fs-meta); }
+/* 375px: nhãn dài xuống 2 dòng, nhãn ngắn 1 dòng → giờ bên dưới lệch hàng (ảnh thật 11/09). Giữ chỗ 2 dòng cho nhãn
+   ở màn hẹp; từ 768px nhãn đủ chỗ trên một dòng nên trả về bình thường. */
+.kd-stepper--lon .kd-step__label { min-height: calc(2em * var(--lh-body)); }
+@media (min-width: 768px) { .kd-stepper--lon .kd-step__label { min-height: 0; } }
+
+.kd-lines { display: grid; row-gap: var(--sp-5); margin: 0; padding: 0; list-style: none; }
+.kd-lines li {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2) var(--sp-6);
+  padding-bottom: var(--sp-5); border-bottom: 1px solid var(--border-soft); font-size: var(--fs-body);
+}
+.kd-lines li:last-child { border-bottom: 0; padding-bottom: 0; }
+.kd-lines__sub { grid-column: 1 / -1; font-size: var(--fs-meta); color: var(--text-3); }
+
+.kd-timeline { display: grid; row-gap: var(--sp-7); margin: 0; padding: 0; list-style: none; }
+.kd-timeline li { position: relative; padding-left: var(--sp-9); font-size: var(--fs-body); color: var(--text-1); }
+.kd-timeline li::before {
+  content: ""; position: absolute; left: 2px; top: 5px; width: 10px; height: 10px;
+  border-radius: var(--r-full); background: var(--bg-card); box-shadow: inset 0 0 0 3px var(--brand);
+}
+.kd-timeline li::after {
+  content: ""; position: absolute; left: 6px; top: 18px; bottom: calc(-1 * var(--sp-7)); width: 2px; background: var(--border-soft);
+}
+.kd-timeline li:last-child::after { display: none; }
+.kd-tl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2) var(--sp-5); align-items: start; }
+.kd-tl__who { display: inline-flex; align-items: center; gap: var(--sp-3); font-size: var(--fs-meta); color: var(--text-3); white-space: nowrap; }
+
+/* ═══════════════════════ TRANG CHI TIẾT (blueprint L4) ═══════════════════════ */
+
+/* Đường dẫn — ngoại lệ đã duyệt 11/09/2026, CHỈ ở 3 trang chi tiết (báo giá, đơn hàng, khách hàng) */
+.kd-crumb {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3);
+  margin: 0; padding: 0; list-style: none; font-size: var(--fs-body); color: var(--text-3);
+}
+.kd-crumb li { display: inline-flex; align-items: center; gap: var(--sp-3); }
+.kd-crumb li + li::before { content: "›"; color: var(--text-3); }
+.kd-crumb a { display: inline-flex; align-items: center; gap: var(--sp-4); color: var(--text-2); text-decoration: none; }
+.kd-crumb a:hover { color: var(--brand); }
+.kd-crumb a:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+.kd-crumb [aria-current="page"] { font-weight: 600; color: var(--text-1); }
+
+.kd-dhead { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--sp-6); align-items: start; }
+.kd-dhead__id { display: flex; align-items: flex-start; gap: var(--sp-7); min-width: 0; }
+.kd-dhead__title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4) var(--sp-6); min-width: 0; }
+.kd-dhead__code { margin: var(--sp-3) 0 0; font-size: var(--fs-h); font-weight: 700; line-height: var(--lh-tight); color: var(--text-1); }
+.kd-dhead__meta {
+  display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-9); margin: var(--sp-3) 0 0;
+  font-size: var(--fs-body); color: var(--text-3);
+}
+.kd-dhead__meta b { font-weight: 500; color: var(--text-2); }
+.kd-dhead__meta .is-ok { color: var(--success); }
+.kd-dhead__meta .is-het { color: var(--danger); }
+.kd-dhead__tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-5); }
+
+.kd-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); align-items: stretch; min-width: 0; }
+.kd-box {
+  min-width: 0; padding: var(--sp-8);
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg);
+}
+.kd-box--phang { padding: var(--sp-7); background: var(--bg-card); }
+/* Ghim khối đầu thẻ lên MÉP TRÊN hàng lưới của nó. Cùng nguyên nhân với 6 thẻ KPI:
+   .kd-card là grid, thẻ bị kéo cao bằng nhau nên hàng đầu giãn ra và tiêu đề trôi
+   xuống, làm các thẻ cùng hàng lệch nhau vài px. Ở đây KHÔNG dùng align-content:start
+   cho cả thẻ vì khối biểu đồ bên dưới CẦN giãn hết chỗ. */
+/* .kd-card cố ý để padding 0 (bảng cần tràn sát viền), MỌI khối con tự mang đệm.
+   .kd-rank/.kd-feed đã có; còn đầu thẻ, phễu, biểu đồ, ghi chú thì THIẾU nên chữ
+   dính sát mép thẻ và chữ phụ lấn sang thẻ bên cạnh (đo: hở trái/phải chỉ 1px = viền).
+   Chỉ áp cho con TRỰC TIẾP của .kd-card — .kd-box đã có đệm 16px riêng, không đụng. */
+.kd-card > .kd-box__head { align-self: start; padding: var(--sp-7) var(--sp-8) 0; }
+.kd-card > .kd-chart,
+.kd-card > .kd-funnel { padding-left: var(--sp-8); padding-right: var(--sp-8); }
+/* Phễu không có đệm riêng; dòng ghi chú dưới nó đã bỏ (12/09/2026) nên nếu không
+   tự mang đệm đáy thì chặng cuối dính sát viền thẻ. */
+.kd-card > .kd-funnel { padding-bottom: var(--sp-8); }
+.kd-card > .kd-note,
+.kd-card > .kd-meta { padding: 0 var(--sp-8) var(--sp-8); }
+/* Thẻ <p> mang lề mặc định của trình duyệt; khi căn baseline nó kéo cả dòng xuống,
+   làm tiêu đề thẻ có chữ phụ lệch 3px so với thẻ không có. Bỏ lề của MỌI con. */
+.kd-box__head > * { margin-block: 0; }
+/* align-items:baseline chứ KHÔNG center: tiêu đề 15px và chữ phụ 12px căn giữa hộp
+   thì chân chữ lệch 1-2px (đo được), nhìn như bị so le. Baseline làm thẳng chân chữ. */
+.kd-box__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-5); margin: 0 0 var(--sp-7); }
+.kd-box__title {
+  display: flex; align-items: center; gap: var(--sp-5); margin: 0;
+  font-size: var(--fs-title); font-weight: 600; line-height: var(--lh-tight); color: var(--text-1);
+}
+.kd-box__sub { margin: 0; font-size: var(--fs-body); font-weight: 600; color: var(--text-1); }
+
+.kd-person { display: flex; align-items: center; gap: var(--sp-6); min-width: 0; margin-bottom: var(--sp-7); }
+.kd-person__ten { margin: 0; font-size: var(--fs-title); font-weight: 700; color: var(--text-1); overflow-wrap: anywhere; }
+.kd-person .kd-chips { margin-top: var(--sp-3); }
+
+.kd-avatar {
+  display: inline-grid; place-items: center; flex: none; width: 40px; height: 40px; overflow: hidden;
+  border-radius: var(--r-full); background: var(--brand-soft); color: var(--brand-hover);
+  box-shadow: inset 0 0 0 1px var(--brand-border);
+  font-size: var(--fs-body); font-weight: 700; line-height: 1;
+}
+.kd-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.kd-avatar--sm { width: 28px; height: 28px; font-size: var(--fs-micro); }
+.kd-avatar--lg { width: 80px; height: 80px; font-size: var(--fs-h); }
+
+.kd-chips { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+.kd-chip {
+  display: inline-flex; align-items: center; min-height: 24px; padding: 0 var(--sp-4);
+  border-radius: var(--r-sm); background: var(--brand-soft); color: var(--brand-hover);
+  box-shadow: inset 0 0 0 1px var(--brand-border); font-size: var(--fs-meta); font-weight: 500;
+}
+.kd-chip--xam { background: var(--bg-page); color: var(--text-2); box-shadow: inset 0 0 0 1px var(--border); }
+
+.kd-detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); align-items: start; min-width: 0; }
+.kd-side { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); min-width: 0; }
+
+/* bảng sản phẩm: tên được xuống dòng, có dòng mô tả nhỏ */
+.kd-items td { white-space: normal; }
+.kd-items td.num, .kd-items td.kd-nw { white-space: nowrap; }
+.kd-items tbody tr:hover td { background: transparent; }
+.kd-items__sub { display: block; margin-top: var(--sp-1); font-size: var(--fs-meta); color: var(--text-3); }
+.kd-items__nhom td { height: auto; padding-top: var(--sp-5); padding-bottom: var(--sp-5); background: var(--bg-page); font-weight: 600; color: var(--text-1); }
+
+/* Bảng sản phẩm NHIỀU CỘT của chi tiết Báo giá (người dùng 16/09/2026: mỗi thuộc tính một cột, khung cuộn ngang).
+   Ô mặc định không xuống dòng → bảng nở theo nội dung và cuộn trong .kd-table-scroll thay vì ép chữ. Chữ dài (tên, vật
+   liệu, phụ kiện, ghi chú) bọc trong .kd-items__dai: width:max-content để cột rộng đúng bằng chữ (ngắn thì hẹp), max-width
+   chặn trên để chữ dài gói lại thay vì kéo bảng đi mãi. Đặt trên khối CON vì bố cục bảng tự động bỏ qua max-width khai
+   thẳng trên <td>; nếu chỉ white-space:normal thì cột bị bóp về bề rộng của từ dài nhất (ui-reviewer 16/09). */
+.kd-items--cot td { white-space: nowrap; }
+.kd-items--cot td .kd-state { white-space: normal; }   /* câu gợi ý trạng thái rỗng phải xuống dòng được ở 375px */
+.kd-items__dai { display: block; width: max-content; max-width: 320px; white-space: normal; overflow-wrap: anywhere; }
+/* Ô chữ dài trong BẢNG DANH SÁCH nhiều cột (17/09/2026: địa chỉ, nội dung quan tâm, ghi chú): tối đa 240px và
+   2 dòng — dòng bảng không phình (ghi chú prod có bản >1.000 ký tự); bản đầy đủ ở title, rê chuột xem. */
+.kd-o-dai { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; width: max-content; max-width: 240px; white-space: normal; overflow-wrap: anywhere; }
+.kd-items__ten .kd-items__dai { max-width: 240px; }
+/* Thanh cuộn ngang MỜ, LUÔN HIỆN (người dùng 16/09/2026: "thanh scroll mờ mờ để kéo ngang, không cố định cột nào").
+   Không dùng thanh native: Edge/Chrome Win11 chế độ overlay ẩn nó tới khi rê chuột và bỏ cả ::-webkit-scrollbar (đã
+   chụp với --enable-features=OverlayScrollbar; ảnh thật của người dùng cùng ngày cũng không thấy thanh). Thay bằng rail
+   .kd-cuon do kd-man-hinh.js (veThanhCuon) dựng ngay dưới khung; thanh native ẨN để trình duyệt chế độ cổ điển không hiện
+   hai thanh — khả năng cuộn (lăn chuột, vuốt, bàn phím) giữ nguyên. Rail mờ trên nền thẻ, con trượt màu viền; rê hoặc
+   đang kéo thì đậm lên để biết nắm được. */
+.kd-table-scroll--thanh { scrollbar-width: none; }
+.kd-table-scroll--thanh::-webkit-scrollbar { display: none; }
+.kd-cuon { position: relative; height: 10px; margin: var(--sp-3) var(--sp-8) 0; border-radius: var(--r-full); background: var(--bg-page); cursor: pointer; touch-action: none; }
+.kd-cuon__num { position: absolute; top: 0; height: 100%; border-radius: var(--r-full); background: var(--border); cursor: grab; }
+.kd-cuon:hover .kd-cuon__num, .kd-cuon.is-keo .kd-cuon__num { background: var(--text-3); }
+.kd-cuon.is-keo .kd-cuon__num { cursor: grabbing; }
+/* Máy tính (17/09/2026, người dùng): bảng dài thì rail NỔI ở đáy cửa sổ trong lúc đáy bảng còn dưới mép màn — không phải
+   kéo xuống cuối danh sách mới kéo ngang được. Không dùng position:sticky: .kd-card có overflow:hidden và base.html cho
+   body overflow-x:hidden (body thành scroll container cao bằng nội dung) nên sticky không bao giờ bám. kd-man-hinh.js
+   (noiRay) đo vị trí khung và bật .is-noi + left/width; ô chỗ .kd-cuon__cho giữ chiều cao để bố cục không nhảy.
+   Viền trắng để rail nổi trên chữ của dòng đang cuộn qua. Dưới 1024px JS không bật (điện thoại vuốt ngang trực tiếp). */
+.kd-cuon.is-noi { position: fixed; bottom: var(--sp-4); margin: 0; z-index: 1030; box-shadow: 0 0 0 4px var(--bg-card); }
+.kd-cuon__cho { height: 10px; margin-top: var(--sp-3); }
+.kd-thumb { display: block; width: 48px; height: 38px; object-fit: cover; border-radius: var(--r-xs); background: var(--bg-page); }
+.kd-thumb-btn { display: inline-block; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: var(--r-xs); }
+.kd-thumb-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.kd-seg-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-5); padding: var(--sp-6) var(--sp-8) 0; font-size: var(--fs-body); color: var(--text-3); }
+.kd-seg { display: inline-flex; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-2); border: 1px solid var(--border); border-radius: var(--r); background: var(--bg-page); }
+.kd-seg button {
+  height: 30px; padding: 0 var(--sp-6); border: 0; border-radius: var(--r-sm); background: transparent;
+  font: inherit; font-size: var(--fs-body); font-weight: 600; color: var(--text-2); cursor: pointer;
+}
+.kd-seg button[aria-pressed="true"] { background: var(--bg-card); color: var(--brand-hover); box-shadow: var(--shadow-sm); }
+.kd-seg button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.kd-foot2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); padding: var(--sp-8); border-top: 1px solid var(--border-soft); }
+.kd-bullets { display: grid; row-gap: var(--sp-3); margin: 0; padding-left: var(--sp-9); font-size: var(--fs-body); color: var(--text-2); overflow-wrap: anywhere; }
+.kd-totals { display: grid; row-gap: var(--sp-4); margin: 0; }
+.kd-totals div { display: flex; justify-content: space-between; gap: var(--sp-6); font-size: var(--fs-body); }
+.kd-totals dt { font-weight: 400; color: var(--text-3); }
+.kd-totals dd { margin: 0; color: var(--text-1); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kd-totals .is-dam dt { font-weight: 600; color: var(--text-1); }
+.kd-totals .is-dam dd { font-weight: 700; }
+.kd-grand {
+  margin-top: var(--sp-6); padding: var(--sp-7) var(--sp-8); border-radius: var(--r-md);
+  background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand-border);
+}
+.kd-grand__row {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--sp-4);
+  font-size: var(--fs-h); font-weight: 700; line-height: var(--lh-tight); color: var(--brand-hover);
+}
+.kd-grand__row span:last-child { font-variant-numeric: tabular-nums; }
+.kd-grand__chu { margin: var(--sp-3) 0 0; font-size: var(--fs-meta); color: var(--text-2); }
+
+.kd-files { display: grid; row-gap: var(--sp-6); margin: 0; padding: 0; list-style: none; }
+.kd-file { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-5); }
+.kd-file__ten { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-body); font-weight: 600; color: var(--text-1); text-decoration: none; }
+.kd-file__ten:hover { color: var(--brand); }
+.kd-file__meta { display: block; font-size: var(--fs-meta); color: var(--text-3); }
+.kd-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--sp-5); margin: 0; padding: 0; list-style: none; }
+.kd-gallery li { position: relative; }
+.kd-gallery img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--r); background: var(--bg-page); }
+.kd-gallery .kd-icon-btn { position: absolute; top: var(--sp-2); right: var(--sp-2); width: 28px; height: 28px; }
+
+.kd-related { display: grid; margin: 0; padding: 0; list-style: none; }
+.kd-related li + li { border-top: 1px solid var(--border-soft); }
+.kd-related a, .kd-related button {
+  display: grid; grid-template-columns: 20px minmax(0, 1fr); column-gap: var(--sp-5); width: 100%;
+  padding: var(--sp-5) 0; border: 0; background: none; font: inherit; text-align: left; text-decoration: none; cursor: pointer;
+}
+.kd-related .bi { color: var(--text-3); line-height: var(--lh-body); }
+.kd-related__ten { font-size: var(--fs-body); font-weight: 600; color: var(--brand); }
+.kd-related a:hover .kd-related__ten, .kd-related button:hover .kd-related__ten { color: var(--brand-hover); text-decoration: underline; }
+.kd-related__sub { grid-column: 2; font-size: var(--fs-meta); color: var(--text-3); }
+.kd-related a:focus-visible, .kd-related button:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+
+.kd-comments { display: grid; row-gap: var(--sp-8); margin: 0; padding: 0; list-style: none; }
+.kd-comment { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-5); }
+.kd-comment__dau { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2) var(--sp-5); }
+.kd-comment__ten { font-size: var(--fs-body); font-weight: 700; color: var(--text-1); }
+.kd-comment__luc { font-size: var(--fs-meta); color: var(--text-3); }
+.kd-comment__nd { margin: var(--sp-2) 0 0; font-size: var(--fs-body); color: var(--text-2); white-space: pre-line; overflow-wrap: anywhere; }
+.kd-comment__anh { display: block; max-width: 200px; margin-top: var(--sp-4); border-radius: var(--r); }
+/* Danh sách rút gọn ở cột phải (người dùng 16/09/2026: bình luận dài chiếm cả màn): cắt ở 6 dòng, có "…" ở cuối;
+   kd-don-hang-ct.js đo bị cắt thật thì mới gắn nút "Xem chi tiết" sang tab Trao đổi. -webkit-line-clamp là cách duy
+   nhất cắt đúng ranh giới dòng (max-height cắt lửng nửa chữ); Firefox/Safari/Chrome đều hiểu tiền tố này. */
+.kd-comments--ngan .kd-comment__nd { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; }
+.kd-comment__xem { display: inline-flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+/* Bình luận vừa được nhảy tới trong tab Trao đổi: tô nền soft 2,5 giây rồi trả lại; outline lan ra ngoài hộp để
+   khoảng tô rộng hơn chữ mà không đẩy layout. */
+.kd-comment { border-radius: var(--r); transition: background .25s, outline-color .25s; outline: 6px solid transparent; }
+.kd-comment.is-noi-bat { background: var(--brand-soft); outline-color: var(--brand-soft); }
+/* Ô soạn: textarea trải hết bề ngang khối, hàng nút (ảnh · Gửi) xuống dưới canh phải (người dùng 16/09/2026, ảnh cột
+   phải Đơn hàng: textarea bị bóp còn nửa khối, nút chiếm nửa kia — "mất cân đối"). Dùng chung cả tab Trao đổi. */
+.kd-compose { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); margin-bottom: var(--sp-8); }
+.kd-compose__tools { display: flex; justify-content: flex-end; gap: var(--sp-3); }
+
+.kd-back { display: flex; }
+.kd-pane { padding: var(--sp-8); }
+.kd-mt { margin-top: var(--sp-5); }
+.kd-dhead__main { min-width: 0; }
+.kd-ok, .kd-dhead__meta b.kd-ok, .kd-dhead__meta .kd-ok { color: var(--success); }
+.kd-het, .kd-dhead__meta b.kd-het, .kd-dhead__meta .kd-het { color: var(--danger); }
+.kd-chu-y { color: var(--warning-fg); }   /* cần chú ý, không phải lỗi — vd còn phải thu của đơn đã cọc */
+.kd-tel { color: inherit; text-decoration: none; }
+.kd-tel:hover { color: var(--brand); text-decoration: underline; }
+.kd-tel:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+.kd-moc { display: grid; row-gap: var(--sp-2); margin: var(--sp-7) 0 0; padding: 0; list-style: none; font-size: var(--fs-meta); color: var(--text-3); }
+
+/* thanh chân dính của trang chi tiết đơn */
+.kd-stickybar {
+  position: static;
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-5);
+  padding: var(--sp-6) var(--sp-8); background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-md);
+}
+.kd-stickybar__grow { flex: 1 1 auto; }
+
+/* ── Phễu khách hàng — mỗi chặng cùng họ màu với nhãn chặng trong bảng ── */
+/* HAI BIẾN THỂ, đừng gộp lại làm một:
+   · MẶC ĐỊNH (.kd-funnel) = mũi tên NGANG nền pastel — màn Khách hàng, nơi phễu trải
+     hết bề ngang trang. Đây là dạng trong ảnh mẫu của màn đó.
+   · .kd-funnel--doc = thanh DỌC nền đặc — Dashboard, nơi phễu chỉ chiếm cột 1/3 cạnh
+     biểu đồ đường; 5 chặng ngang ở đó chỉ còn 65px mỗi chặng và CẮT MẤT số
+     (đo được: "23.357" in ra thành "23.35").
+   HỒI QUY 12/09/2026: bản trước sửa thẳng .kd-funnel sang dạng dọc cho Dashboard, và
+   màn Khách hàng lãnh đủ — 5 thanh rộng 1.344px xếp dọc, mất hết hình mũi tên. */
+.kd-funnel { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-4); min-width: 0; }
+.kd-stage {
+  display: grid; row-gap: var(--sp-3); min-width: 0; padding: var(--sp-7) var(--sp-8);
+  border: 0; border-radius: var(--r-md); text-align: left; font: inherit; cursor: pointer;
+}
+.kd-stage__ten { font-size: var(--fs-body); font-weight: 700; }
+.kd-stage__so { font-size: var(--fs-h); font-weight: 700; line-height: var(--lh-tight); color: var(--text-1); font-variant-numeric: tabular-nums; }
+.kd-stage--khach_moi   { background: var(--brand-soft);   color: var(--brand-hover); }
+.kd-stage--da_lien_he  { background: var(--info-soft);    color: var(--info-fg); }
+.kd-stage--dang_tu_van { background: var(--warning-soft); color: var(--warning-fg); }
+.kd-stage--chot_don    { background: var(--success-soft); color: var(--success-fg); }
+.kd-stage--that_bai    { background: var(--danger-soft);  color: var(--danger-fg); }
+
+/* ── Biến thể DỌC, nền ĐẶC — chỉ Dashboard ─────────────────────────────────
+   Thu hẹp dần từ trên xuống cho ra hình cái phễu. Tương phản chữ trắng ĐÃ TÍNH trên
+   từng nền: --brand 5,17 · --brand-hover 6,70 · --warning 5,02 · --success 5,02 ·
+   --danger 6,47 — đều đạt 4,5. KHÔNG dùng bảng --tile-*: tile-green chỉ 3,30 và
+   tile-orange 3,56, trượt ngưỡng chữ thường.
+   Hai chặng đầu cùng HỌ XANH đậm dần: bản trước để "Đã liên hệ" màu --info xám slate,
+   đặt giữa dải xanh–cam–lục–đỏ thì trông như chặng bị hỏng dữ liệu. Không cho nó màu
+   lục như ảnh mẫu vì lục đã là "Chốt đơn" — hai chặng cùng lục thì mất nghĩa. */
+.kd-funnel--doc { grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
+.kd-funnel--doc > * { justify-self: center; width: 100%; }
+.kd-funnel--doc > :nth-child(2) { width: 94%; }
+.kd-funnel--doc > :nth-child(3) { width: 88%; }
+.kd-funnel--doc > :nth-child(4) { width: 82%; }
+.kd-funnel--doc > :nth-child(5) { width: 76%; }
+.kd-funnel--doc .kd-stage {
+  grid-template-columns: minmax(0, 1fr) auto auto; align-items: center;
+  column-gap: var(--sp-5); row-gap: 0; padding: var(--sp-5) var(--sp-7);
+}
+/* Nền chặng ở đây là màu ĐẶC nên số phải theo màu chữ của chặng (trắng), không ghim navy. */
+.kd-funnel--doc .kd-stage__so { color: inherit; }
+.kd-funnel--doc .kd-stage--khach_moi   { background: var(--brand);       color: var(--text-on-brand); }
+.kd-funnel--doc .kd-stage--da_lien_he  { background: var(--brand-hover); color: var(--text-on-brand); }
+.kd-funnel--doc .kd-stage--dang_tu_van { background: var(--warning);     color: var(--text-on-brand); }
+.kd-funnel--doc .kd-stage--chot_don    { background: var(--success);     color: var(--text-on-brand); }
+.kd-funnel--doc .kd-stage--that_bai    { background: var(--danger);      color: var(--text-on-brand); }
+.kd-stage[aria-pressed="true"] { box-shadow: inset 0 -3px 0 currentColor; }
+.kd-stage:hover { filter: brightness(.97); }
+.kd-stage:focus-visible { outline: 2px solid var(--brand); outline-offset: -3px; }
+
+/* ── Hộp thoại <dialog> gốc của trình duyệt: có sẵn bẫy focus + Esc, không cần component Bootstrap ── */
+.kd-dialog {
+  /* margin:auto phải đặt lại — base.css reset *{margin:0} làm modal dính góc trên-trái thay vì giữa màn. */
+  margin: auto;
+  width: min(520px, calc(100vw - 2 * var(--sp-8))); max-height: calc(100vh - 2 * var(--sp-8));
+  padding: 0; border: 1px solid var(--border); border-radius: var(--r-lg);
+  background: var(--bg-card); color: var(--text-2); box-shadow: var(--shadow-pop);
+}
+.kd-dialog::backdrop { background: rgba(15, 38, 64, .42); }
+.kd-dialog form { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; max-height: inherit; margin: 0; }
+.kd-dialog__head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-6);
+  padding: var(--sp-7) var(--sp-8); border-bottom: 1px solid var(--border-soft);
+}
+.kd-dialog__title { margin: 0; font-size: var(--fs-title); font-weight: 600; color: var(--text-1); }
+.kd-dialog__body { display: grid; gap: var(--sp-7); padding: var(--sp-8); overflow-y: auto; font-size: var(--fs-body); }
+.kd-dialog__body p { margin: 0; }
+.kd-dialog__foot {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-5);
+  padding: var(--sp-6) var(--sp-8); border-top: 1px solid var(--border-soft);
+}
+.kd-form-err { margin: 0; font-size: var(--fs-meta); color: var(--danger); }
+.kd-row2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-6); }
+
+/* ── Mốc responsive ───────────────────────────────────────────────────── */
+@media (min-width: 480px) {
+  .kd-kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kd-row2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 768px) {
+  .kd-kpi-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kd-filter { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kd-foot2 { grid-template-columns: minmax(0, 1fr) minmax(0, 400px); }
+  /* Dưới 768px thanh chân xuống 3 hàng (~175px) — dính thì che 1/4 màn hình khi cuộn, nên chỉ dính từ đây. */
+  .kd-stickybar { position: sticky; bottom: var(--sp-6); z-index: 20; }
+}
+@media (min-width: 1024px) {
+  /* Mũi tên ngang: chỉ cho phễu MẶC ĐỊNH. :not(.kd-funnel--doc) là bắt buộc — khối
+     @media này nằm SAU phần khai báo --doc, cùng độ đặc hiệu thì cái sau thắng. */
+  .kd-funnel:not(.kd-funnel--doc) { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; }
+  .kd-funnel:not(.kd-funnel--doc) .kd-stage {
+    padding-left: calc(var(--sp-8) + var(--sp-6)); margin-right: calc(-1 * var(--sp-5)); border-radius: 0;
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%, 16px 50%);
+  }
+  .kd-funnel:not(.kd-funnel--doc) .kd-stage:first-child { padding-left: var(--sp-8); clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%); border-radius: var(--r-md) 0 0 var(--r-md); }
+  .kd-funnel:not(.kd-funnel--doc) .kd-stage:last-child { margin-right: 0; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 16px 50%); border-radius: 0 var(--r-md) var(--r-md) 0; }
+  .kd-head { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+  .kd-head__tools { justify-content: flex-end; }
+  /* Khung lọc GỌN (người dùng 18/09/2026: "không nhất thiết cần dài thế, dropdown nội dung cũng không dài"): từ 1024px
+     xếp flex, mỗi ô rộng cố định theo loại nội dung thay vì kéo giãn theo lưới — ô chọn 180px, ô tìm 280px, khoảng ngày
+     theo nội dung; nhiều ô thì tự xuống hàng. Dưới 1024px giữ lưới 1–2 cột để ô đủ rộng cho ngón tay. */
+  .kd-filter { display: flex; flex-wrap: wrap; align-items: flex-end; column-gap: var(--sp-6); row-gap: var(--sp-5); }
+  .kd-filter > .kd-field { flex: 0 1 auto; width: 180px; }
+  .kd-filter > .kd-field:has(input[type="search"]) { width: 280px; }
+  .kd-filter > .kd-field:has(.kd-daterange) { width: auto; }
+  .kd-filter > .kd-link { flex: none; }
+  .kd-dhead { grid-template-columns: minmax(0, 1fr) auto; }
+  .kd-dhead__tools { justify-content: flex-end; }
+  .kd-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kd-grid--bang { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1280px) {
+  .kd-kpi-row { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .kd-kpi-row--5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .kd-main.has-panel { grid-template-columns: minmax(0, 1fr) var(--kd-w-panel); }
+  /* Panel mở thì thẻ bảng hẹp đi ~370px: 6 ô lọc trên một hàng không còn dùng được
+     (đo ảnh thật 11/09: ô ngày chỉ còn "m▢ – m▢") → về 3 ô mỗi hàng. */
+  .kd-main.has-panel .kd-panel {
+    position: sticky; top: var(--kd-top); bottom: auto; right: auto; z-index: auto;
+    width: auto; max-height: calc(100vh - var(--kd-top) - var(--sp-8));
+    border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: none; overflow: hidden;
+  }
+  /* Panel nằm trong lưới thì không có lớp phủ — lớp phủ ở trong .kd-main nên chọn bằng ">" */
+  .kd-main.has-panel > .kd-scrim { display: none; }
+  .kd-detail { grid-template-columns: minmax(0, 1fr) var(--kd-w-side); }
+  .kd-grid--kh { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.1fr); }
+}
+
+/* ═══ Bổ sung sau khi xem ảnh thật 4 màn danh sách/chi tiết (11/09/2026) ═══ */
+
+/* Cột "Thao tác" dính mép phải khi bảng cuộn ngang: ở 1280px có sidebar, bảng 9–10 cột không vừa nên phải
+   cuộn mới thấy nút ⋯ (ảnh thật màn Đơn hàng, Khách hàng). Nền đặc để chữ cuộn phía dưới không lộ qua. */
+.kd-table-scroll .kd-col-act {
+  position: sticky; right: 0; z-index: 1;
+  background: var(--bg-card); box-shadow: inset 1px 0 0 var(--border);
+}
+.kd-table-scroll th.kd-col-act { background: var(--bg-page); }
+/* KH-11: bên dưới cột dính còn cột bị khuất (ảnh thật 1440px: pill "Đang hoạt…" bị cắt mà không có dấu hiệu gì) → bóng mép
+   trái. kd-man-hinh.js bật .is-khuat-phai khi khung còn cuộn sang phải được, nên bảng vừa khít (1920px) không có bóng.
+   Bóng đặt trên ::before TRONG SUỐT phủ cả ô, không đặt trên chính ô: đo pixel 11/09 thì Chrome không sơn bóng ngoài của ô
+   bảng dính (lệch 0), còn ::before thì có. Bóng ngoài không vẽ bên dưới hộp nên không đè nút; clip-path chừa phần tràn sang
+   TRÁI 24px, trên/dưới cắt đúng mép ô để các ô liền nhau thành một vệt. --shadow-pop: đậm nhất trong token (lệch 25/255 sát
+   mép, --shadow-lg 20, --shadow-md 11). */
+.kd-table-scroll.is-khuat-phai .kd-col-act::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  box-shadow: var(--shadow-pop); clip-path: inset(0 0 0 -24px);
+}
+
+/* Tên người dài trong dòng nhật ký xuống dòng thay vì tràn khỏi panel hẹp (ảnh panel đơn hàng: "… · Kế toán" bị cắt). */
+.kd-tl__who { white-space: normal; text-align: right; max-width: 16em; overflow-wrap: anywhere; }
+
+/* Vùng bấm ≥ 44px trên màn hẹp (frontend-ui luật 8). Dùng min-width/min-height để không đụng kích thước gốc;
+   từ 1024px trả về mật độ desktop đã duyệt. Không áp cho textarea (đã có min-height riêng). */
+.kd-page .kd-btn, .kd-dialog .kd-btn, .kd-page .kd-select, .kd-page .kd-search,
+.kd-page .kd-input:not(textarea), .kd-dialog .kd-input:not(textarea), .kd-page .kd-daterange,
+.kd-tabs [role="tab"], .kd-seg button, .kd-menu button, .kd-menu a { min-height: 44px; }
+.kd-page .kd-icon-btn, .kd-dialog .kd-icon-btn, .kd-pager button { min-width: 44px; min-height: 44px; }
+/* Nút ⋯ trong bảng trên màn hẹp (người dùng 15/09/2026: "đủ để thấy thôi"): VẼ 28px không viền, nhưng VÙNG BẤM vẫn 44px
+   nhờ lớp ::after trong suốt tràn ra 8px mỗi phía — luật 8 tính theo chỗ chạm được, không theo chỗ nhìn thấy.
+   Từ 1024px trả về nút 32px có viền như mọi nút icon khác. */
+.kd-page .kd-table .kd-col-act .kd-icon-btn {
+  position: relative; min-width: 0; min-height: 0; width: 28px; height: 28px;
+  border-color: transparent; background: transparent; color: var(--text-3);
+}
+.kd-page .kd-table .kd-col-act .kd-icon-btn::after { content: ""; position: absolute; inset: -8px; }
+/* Cột Thao tác trên màn hẹp thu về 40px (người dùng 15/09/2026: "vẫn hơi rộng"): đệm ngang 4px, chữ tiêu đề "Thao tác"
+   đẩy ra ngoài ô bằng text-indent — mắt không thấy nhưng trình đọc màn hình vẫn đọc, khác với xoá chữ. */
+.kd-page .kd-table .kd-col-act { width: 40px; padding-left: var(--sp-2); padding-right: var(--sp-2); }
+.kd-page .kd-table th.kd-col-act { text-indent: -9999px; overflow: hidden; white-space: nowrap; }
+/* Link chữ, breadcrumb, SĐT, ảnh nhỏ cũng là vùng bấm (ui-reviewer 11/09: "Xem chi tiết", "Sửa ghi chú" chỉ cao ~18px). */
+.kd-page .kd-link, .kd-crumb a, .kd-thumb-btn { min-height: 44px; }
+.kd-page .kd-tel { display: inline-flex; align-items: center; min-height: 44px; }
+/* SĐT là DÒNG PHỤ dưới tên khách trong bảng (17/09/2026): xuống dòng, không kéo cao ô bằng vùng bấm 44px — cả dòng bảng
+   đã là vùng bấm. Đặt ở đây (cùng độ đặc hiệu, sau) để thắng luật inline-flex ngay trên. */
+.kd-page .kd-tel.kd-tel--phu { display: block; min-height: 0; }
+.kd-page .kd-file__ten { line-height: 44px; }
+@media (min-width: 1024px) {
+  .kd-page .kd-link, .kd-crumb a, .kd-thumb-btn, .kd-page .kd-tel { min-height: 0; }
+  .kd-page .kd-file__ten { line-height: inherit; }
+  .kd-page .kd-btn, .kd-dialog .kd-btn, .kd-page .kd-select, .kd-page .kd-search,
+  .kd-page .kd-input:not(textarea), .kd-dialog .kd-input:not(textarea), .kd-page .kd-daterange,
+  .kd-tabs [role="tab"], .kd-seg button, .kd-menu button, .kd-menu a { min-height: 0; }
+  .kd-page .kd-icon-btn, .kd-dialog .kd-icon-btn { min-width: 0; min-height: 0; }
+  .kd-pager button { min-width: 32px; min-height: 0; }
+  .kd-page .kd-table .kd-col-act .kd-icon-btn {
+    width: 32px; height: 32px; border-color: var(--border); background: var(--bg-card); color: var(--text-2);
+  }
+  .kd-page .kd-table .kd-col-act .kd-icon-btn::after { display: none; }
+  .kd-page .kd-table .kd-col-act { width: 64px; padding-left: var(--sp-7); padding-right: var(--sp-7); }
+  .kd-page .kd-table th.kd-col-act { text-indent: 0; overflow: visible; }
+}
+/* Ảnh hỏng (tệp mất trên máy chủ, link hết hạn) — ô viền đứt có icon, thay biểu tượng ảnh vỡ của trình duyệt.
+   Kích thước lấy từ lớp gốc đi kèm (.kd-thumb 48×38); ô thư viện giữ tỉ lệ 4:3 như ảnh thật. */
+.kd-anh-hong { display: grid; place-items: center; color: var(--text-3); background: var(--bg-page); border: 1px dashed var(--border); }
+.kd-anh-hong--o { width: 100%; aspect-ratio: 4 / 3; border-radius: var(--r); }
+.kd-comment__anh.kd-anh-hong { width: 96px; height: 72px; }
+/* QR chuyển khoản đặt cọc — tương đương khối QR trang cũ (quote_view.html:417-443), màu theo bản hệ xanh của trang đó */
+.kd-qr { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-6); align-items: start; }
+.kd-qr__anh { width: 120px; height: 120px; padding: var(--sp-2); background: var(--bg-card); border: 1px solid var(--brand); border-radius: var(--r-sm); }
+.kd-qr__noi-dung { display: grid; gap: var(--sp-3); min-width: 0; font-size: var(--fs-body); color: var(--text-2); }
+.kd-qr__noi-dung p { margin: 0; overflow-wrap: anywhere; }
+.kd-qr__tien { color: var(--brand-hover); font-size: var(--fs-title); }
+.kd-qr code { padding: 1px var(--sp-2); background: var(--brand-soft); border-radius: var(--r-xs); color: var(--brand-hover); }
+/* Dải số tổng theo bộ lọc — 7 ô thống kê tab "Đơn đã lên hệ thống" của màn cũ (index.html:723-751) */
+.kd-tong-loc {
+  display: flex; flex-wrap: wrap; gap: var(--sp-3) var(--sp-8); margin: 0; padding: var(--sp-5) var(--sp-8);
+  border-top: 1px solid var(--border-soft); background: var(--bg-page); font-size: var(--fs-meta); color: var(--text-3);
+}
+.kd-tong-loc div { display: flex; align-items: baseline; gap: var(--sp-3); }
+.kd-tong-loc dt { margin: 0; }
+.kd-tong-loc dd { margin: 0; font-weight: 700; color: var(--text-1); font-variant-numeric: tabular-nums; }
+
+/* ═══ Dashboard /kd/dashboard (12/09/2026) — chỉ var(--token), mốc @media chỉ min-width ═══
+   Sidebar chung chiếm 196px nên ở khung 1280px phần nội dung chỉ còn ~1040px: các mốc dưới đây đã
+   dịch lên cho khớp (2 cột từ 1024, tách cột phải từ 1440). */
+.kd-dash__body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); align-items: start; min-width: 0; }
+.kd-dash__main { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); min-width: 0; }
+.kd-dash__tang1 { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-6); min-width: 0; }
+.kd-dash__doi { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); min-width: 0; }
+.kd-sub--ky { margin: 0; font-size: var(--fs-meta); }
+
+/* Tầng 0 — việc phải làm hôm nay, dải ngang trên cùng */
+.kd-todo {
+  display: grid; gap: var(--sp-5); padding: var(--sp-7) var(--sp-8);
+  border: 1px solid var(--brand-border); border-radius: var(--r-lg); background: var(--brand-soft);
+}
+.kd-todo__title { margin: 0; display: flex; align-items: center; gap: var(--sp-3); font-size: var(--fs-title); font-weight: 600; color: var(--brand-hover); }
+.kd-todo__ds { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-4); }
+.kd-todo__o {
+  display: flex; align-items: center; gap: var(--sp-4); min-height: 44px; padding: var(--sp-4) var(--sp-6);
+  border-radius: var(--r-md); background: var(--bg-card); color: var(--text-2); text-decoration: none;
+}
+.kd-todo__o b { color: var(--text-1); }
+.kd-todo__o > span:nth-child(2) { flex: 1; min-width: 0; }
+.kd-todo__o:hover { box-shadow: var(--shadow-card); }
+.kd-todo__o:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Tầng 1 — 2 thẻ lớn */
+.kd-kpi--lon { gap: var(--sp-3); }
+.kd-kpi--lon .kd-kpi__value { font-size: var(--fs-kpi); }
+.kd-kpi__phu { margin: 0; font-size: var(--fs-meta); color: var(--text-3); }
+.kd-spark { margin-top: var(--sp-4); height: 44px; color: var(--brand-graph); }
+/* Biến thể màu của spark — currentColor nên cả đường lẫn mảng nền đổi theo. */
+.kd-spark--success { color: var(--success); }
+.kd-spark--warning { color: var(--warning); }
+.kd-spark--danger  { color: var(--danger); }
+.kd-spark--tim     { color: var(--tile-violet); }
+.kd-spark svg { display: block; width: 100%; height: 100%; }
+
+/* Tầng 2 — dải mỏng 4 ô, ngăn nhau bằng kẻ, không phải 4 thẻ rời */
+.kd-strip {
+  display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0;
+  /* Đủ 4 dòng của một thẻ (design-system mục "Thẻ"): thiếu bóng thì mép dải lệch với 6 thẻ lớn ngay trên
+     (ui-reviewer đo mép ảnh 16/09/2026). Hiện chỉ Dashboard dùng .kd-strip. */
+  border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg-card); box-shadow: var(--shadow-sm);
+}
+.kd-strip__o { display: flex; align-items: flex-start; gap: var(--sp-4); min-width: 0; padding: var(--sp-6) var(--sp-7); border-top: 1px solid var(--border-soft); }
+.kd-strip__o:first-child { border-top: 0; }
+/* flex: 1 — khối chữ giãn hết ô; không có thì khung chờ (width 55%) tính theo bề rộng NHÃN, ô "Đã mua" chỉ còn vệt 21px. */
+.kd-strip__o > div { flex: 1; min-width: 0; }
+.kd-strip__o .kd-kpi__value { margin-top: var(--sp-2); font-size: var(--fs-title); }
+/* Khung chờ: .kd-skel--kpi cao 28px là cho số 29px của thẻ lớn; số trong ô mỏng chỉ --fs-title → giữ cao gần bằng
+   số thật để DÒNG SỐ không nhảy khi dữ liệu về (dòng phụ vẫn làm hàng cao thêm một dòng chữ). */
+.kd-strip__o .kd-skel--kpi { height: 18px; }
+/* Thứ bậc chữ trong ô mỏng của Dashboard (đo trên trang thật 16/09/2026): nhãn đang 13px — TO HƠN nhãn 11px của 6 thẻ
+   lớn ngay trên (.kd-dash__kpi6 .kd-kpi__label), thẻ phụ nổi hơn thẻ chính; đơn vị "triệu VND" 15px bằng đúng con số.
+   Nhãn dùng cùng token với thẻ lớn (--fs-eyebrow) → số 15px gấp 1,36 lần nhãn (cap-chu TC-4 cần ≥ 1,25). Đơn vị hạ về
+   --fs-body như tiền lệ thẻ gọn (.kd-kpi--gon .kd-kpi__don-vi). */
+.kd-strip--3 .kd-kpi__label { font-size: var(--fs-eyebrow); }   /* line-height lấy --lh-tight từ luật gốc */
+.kd-strip__o .kd-kpi__don-vi { font-size: var(--fs-body); }
+/* Đầu các khối xếp hạng của Dashboard: tiêu đề + meta không đủ một hàng thì meta XUỐNG DÒNG riêng, thay vì cả hai
+   cùng bị bóp thành 2 dòng (ảnh "Doanh số theo nhân viên" ở 1440px và 375px, 16/09/2026). Chỉ đổi khi thật sự thiếu chỗ. */
+.kd-dash__ba .kd-box__head { flex-wrap: wrap; }
+/* Dải 3 ô của Dashboard (phương án A, 16/09/2026). Theo luật gốc 2 cột (768px) rồi 4 cột (1024px), ô thứ 3 hoặc
+   đứng lẻ một hàng hoặc chừa một cột trống. Lớp phụ thay vì sửa luật gốc: .kd-strip là component chung (hiện chỉ
+   Dashboard dùng), bản 4 ô vẫn đúng cho màn nào dùng lại. Hai lớp (.kd-strip.kd-strip--3) cho độ ưu tiên cao hơn
+   luật gốc nên thắng bất kể đặt trước hay sau trong file. */
+@media (min-width: 768px) {
+  .kd-strip.kd-strip--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kd-strip.kd-strip--3 > .kd-strip__o { border-top: 0; border-left: 1px solid var(--border-soft); }
+  .kd-strip.kd-strip--3 > .kd-strip__o:first-child { border-left: 0; }
+}
+
+/* Biểu đồ */
+.kd-chart { position: relative; min-width: 0; padding: var(--sp-6) var(--sp-8) var(--sp-8); }
+.kd-chart canvas { max-width: 100%; }
+.kd-chart--tron { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-6); align-items: center; }
+.kd-legend { display: grid; gap: var(--sp-3); margin: 0; padding: 0; list-style: none; font-size: var(--fs-body); }
+.kd-legend li { display: flex; align-items: center; gap: var(--sp-3); }
+.kd-legend__cham { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.kd-legend__ten { flex: 1; min-width: 0; color: var(--text-2); }
+
+/* Phễu: thêm dòng % dưới số (mockup có %) — phần còn lại dùng .kd-stage sẵn có */
+.kd-stage__pct { font-size: var(--fs-meta); font-weight: 500; }
+
+/* Xếp hạng top 5 — thanh ngang vẽ bằng CSS, không cần canvas */
+/* align-content:start — cùng lý do với 6 thẻ KPI: thẻ bị kéo cao bằng nhau nên
+   khoảng trống thừa chia đều cho các hàng, làm danh sách giãn thưa bất thường. */
+.kd-rank { display: grid; align-content: start; gap: var(--sp-4); padding: var(--sp-6) var(--sp-8) var(--sp-8); min-width: 0; }
+/* DOM mỗi hàng: hạng · avatar · tên · thanh · số → đúng 5 cột, TẤT CẢ trên MỘT hàng
+   như ảnh mẫu. Bản cũ đặt thanh `grid-column: 3 / span 2` nên nó rơi xuống dòng dưới
+   và trải hết bề ngang thẻ. */
+.kd-rank__o { display: grid; grid-template-columns: auto auto minmax(0, 1.8fr) minmax(28px, 0.6fr) auto; align-items: center; gap: var(--sp-3); min-width: 0; }
+.kd-rank__hang { width: 20px; color: var(--text-3); font-size: var(--fs-meta); }
+.kd-rank__ten { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kd-rank__thanh { height: 6px; border-radius: var(--r-xs); background: var(--bg-page); }
+.kd-rank__thanh > span { display: block; height: 100%; border-radius: var(--r-xs); background: var(--brand-graph); }
+.kd-rank__so { font-size: var(--fs-meta); color: var(--text-1); white-space: nowrap; }
+
+/* Thao tác nhanh */
+.kd-quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--sp-4); padding: var(--sp-6) var(--sp-8) var(--sp-8); }
+.kd-quick__o {
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3); min-height: 44px;
+  padding: var(--sp-5) var(--sp-6); border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--bg-card); color: var(--text-2); text-decoration: none; font-size: var(--fs-body);
+}
+.kd-quick__o:hover { border-color: var(--brand-border); background: var(--brand-soft); color: var(--brand-hover); }
+.kd-quick__o:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Dòng thông báo và lịch */
+.kd-feed { display: grid; gap: var(--sp-5); padding: var(--sp-6) var(--sp-8) var(--sp-8); min-width: 0; }
+.kd-feed__o { display: flex; align-items: flex-start; gap: var(--sp-4); min-width: 0; }
+.kd-feed__chu { display: grid; gap: var(--sp-1); min-width: 0; color: var(--text-2); text-decoration: none; }
+a.kd-feed__chu:hover .kd-feed__tieu-de { color: var(--brand-hover); }
+.kd-feed__tieu-de { font-size: var(--fs-body); color: var(--text-1); }
+.kd-feed__luc { font-size: var(--fs-meta); color: var(--text-3); }
+.kd-feed__gio { flex: none; width: 44px; font-size: var(--fs-meta); color: var(--text-3); }
+
+@media (min-width: 768px) {
+  .kd-todo__ds { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .kd-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kd-strip__o:nth-child(2) { border-top: 0; }
+  .kd-strip__o:nth-child(even) { border-left: 1px solid var(--border-soft); }
+  .kd-dash__tang1 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1024px) {
+  .kd-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .kd-strip__o { border-top: 0; border-left: 1px solid var(--border-soft); }
+  .kd-strip__o:first-child { border-left: 0; }
+  .kd-dash__doi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Thẻ Doanh số rộng hơn thẻ Công nợ: hai thẻ KHÔNG bằng nhau (frontend-ui luật 4). */
+  .kd-dash__tang1 { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+  .kd-chart--tron { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+/* 12/09/2026 — hạ ngưỡng 1440 → 1200. Lý do: ngưỡng cũ làm khổ 1280 (phổ biến nhất)
+   rơi hết cột phải xuống đáy và trải ngang, trang dài ngoẵng và lệch.
+   Cảnh báo cũ "phễu 5 chặng và biểu đồ 3 chuỗi bị bóp" VẪN ĐÚNG, nên đổi cách giải:
+   trong khoảng 1200-1559 thì XẾP DỌC hàng đôi để phễu ăn trọn bề ngang cột trái,
+   thay vì vừa chia đôi vừa nhường cột phải (khi đó phễu chỉ còn ~370px). */
+@media (min-width: 1200px) {
+  .kd-dash__body { grid-template-columns: minmax(0, 1fr) var(--kd-w-side); }
+  .kd-dash__side { position: sticky; top: calc(var(--ab-h, 56px) + var(--sp-6)); }
+  .kd-dash__doi { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 1560px) {
+
+  /* Đủ rộng cho cả cột phải LẪN hàng đôi: cột trái còn ≥ ~1000px. */
+  .kd-dash__doi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* Phễu ở Dashboard là <a> (bấm sang màn Khách hàng đã lọc chặng), .kd-stage vốn viết cho <button> */
+/* Hộp riêng cho canvas trong lưới — xem chú thích ở dashboard.html.
+   min-width:0 để ô lưới co được; position:relative cho lớp phủ (nhãn giữa vòng). */
+/* 6 thẻ KPI đều nhau (ảnh mẫu). Ở 1280 cột chính chỉ rộng ~688px → 6 thẻ thì mỗi
+   thẻ 114px, không đủ chỗ cho số kiểu "10,25 tỷ VND"; nên 6 cột chỉ bật từ 1560px,
+   dưới đó xuống 3 rồi 2 — vẫn đều nhau, vẫn đọc được. */
+/* Bộ 3 nút chọn nhanh kỳ (ảnh mẫu) — viên bo tròn, nút đang chọn là khối đặc. */
+.kd-seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--bg-page);
+          border: 1px solid var(--border); border-radius: var(--r-full); }
+.kd-seg__o { min-height: 34px; padding: 0 var(--sp-7); border: 0; background: none;
+             border-radius: var(--r-full); font: inherit; font-size: var(--fs-body);
+             font-weight: 600; color: var(--text-2); white-space: nowrap; cursor: pointer;
+             transition: background .12s, color .12s; }
+.kd-seg__o:hover { color: var(--brand); }
+.kd-seg__o[aria-pressed="true"] { background: var(--brand); color: var(--text-on-brand); }
+.kd-seg__o:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* 6 thẻ trên một hàng → chỗ cho nhãn rất hẹp. Thu ô icon 40→32px và hạ nhãn xuống
+   cỡ eyebrow để "Báo giá chờ duyệt" / "Khách đang tư vấn" nằm gọn MỘT dòng như ảnh. */
+.kd-dash__kpi6 .kd-kpi__label { font-size: var(--fs-eyebrow); line-height: 1.25; }
+.kd-dash__kpi6 .ico-tile { width: 32px; height: 32px; }
+/* ĐO ở khổ 1600: nhãn dài nhất "Khách đang tư vấn" cần 94px mà chỉ được 92px —
+   thiếu đúng 2px nên rớt xuống 2 dòng. Siết đệm ngang 12→10px (+4) và khe icon
+   8→6px (+2): dư 6px, đủ biên an toàn cho khác biệt render font. */
+.kd-dash__kpi6 .kd-kpi__head { gap: var(--sp-3); }
+.kd-dash__kpi6 .kd-kpi { padding-left: var(--sp-5); padding-right: var(--sp-5);
+  /* .kd-card là display:grid. 6 thẻ bị kéo CAO BẰNG NHAU nên khoảng trống thừa được
+     chia đều cho các hàng bên trong — thẻ ít nội dung thì mỗi hàng phình to hơn, làm
+     nhãn 6 thẻ lệch nhau tới 22px (đo được: khối đầu cao 32/35/35/76/54/53px).
+     align-content:start ép các hàng bám mép trên, chỗ thừa dồn xuống đáy. */
+  align-content: start; }
+/* Huy hiệu số tròn của "Công việc của tôi" (ảnh mẫu), thay ô icon vuông. */
+.kd-todo__so { display: inline-grid; place-items: center; flex: none; width: 26px; height: 26px;
+               border-radius: var(--r-full); background: var(--tile-blue);
+               color: var(--text-on-brand); font-size: var(--fs-eyebrow); font-weight: 700; }
+.kd-todo__so--warning { background: var(--tile-orange); }
+.kd-todo__so--info    { background: var(--tile-slate); }
+.kd-todo__nhan { min-width: 0; }
+.kd-todo__nhan::first-letter { text-transform: uppercase; }
+.kd-dash__bo3 { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); min-width: 0; }
+.kd-dash__ba  { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); min-width: 0; }
+.kd-dash__kpi6 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-6); min-width: 0; }
+.kd-dash__kpi6 .kd-kpi { min-width: 0; }
+.kd-dash__congno { margin-top: var(--sp-6); }
+.kd-chart__o { position: relative; min-width: 0; }
+a.kd-stage { text-decoration: none; }
+/* Hàng đôi của Dashboard: một thẻ bị ẩn (vd xếp hạng NV với vai nhân viên) thì thẻ còn lại trải hết
+   chiều ngang, không để lộ nửa lưới trống. */
+.kd-dash__doi > [hidden] + .kd-card { grid-column: 1 / -1; }
+
+/* ── Lưới 6 thẻ KPI: ĐẶT CUỐI FILE ─────────────────────────────────────────
+   Quy tắc gốc `.kd-dash__kpi6 { repeat(2) }` nằm ở giữa file; cùng độ đặc hiệu
+   thì quy tắc đứng SAU thắng, nên hai mốc dưới đây phải ở cuối, không thì luôn
+   ra 2 cột dù màn rộng bao nhiêu (đã dính 12/09/2026). */
+@media (min-width: 768px) {
+  .kd-dash__kpi6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1560px) {
+  .kd-dash__kpi6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
+/* ── Bố cục theo ảnh mẫu: biểu đồ + phễu cạnh nhau; 3 thẻ ngang ───────────
+   ĐẶT CUỐI FILE, cùng lý do với lưới 6 thẻ KPI ở trên. Mốc 1560 chứ không phải
+   1024: ở 1280 cột chính chỉ 688px, chia 3 thì mỗi thẻ 229px — vòng tròn trong
+   thẻ "nhóm sản phẩm" còn bị chia đôi tiếp cho chú thích nên chỉ còn ~114px. */
+@media (min-width: 1024px) {
+  .kd-dash__bo3 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  .kd-dash__ba  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1560px) {
+  .kd-dash__ba  { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* ═══ Báo cáo kinh doanh — /kd/bao-cao (ảnh mockup 14/09/2026) ════════════════
+   ĐẶT CUỐI FILE: các @media ở đây phải đứng SAU quy tắc gốc (bài học 12/09/2026).
+   Mọi quy tắc gắn phạm vi .kd-bc hoặc lớp riêng .kd-bc__* — không đụng Dashboard, màn Khách hàng
+   (màn Khách hàng từng vỡ vì sửa thẳng .kd-funnel dùng chung). */
+.kd-bc__hang { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); min-width: 0; }
+/* Ba thẻ một hàng bị kéo cao bằng nhau: thiếu dòng này thì phần dư chia cho các hàng bên trong thẻ,
+   tiêu đề và bảng giãn thưa (cùng lỗi 6 thẻ KPI Dashboard 12/09/2026). */
+.kd-bc .kd-card { align-content: start; }
+/* Ô chọn nhỏ trong đầu thẻ: thấp hơn ô lọc đầu trang để không đẩy tiêu đề thẻ xuống. */
+.kd-bc__chon, .kd-bc__chon select { height: 32px; font-size: var(--fs-meta); }
+/* Thanh ngang có %: tên · thanh · % — 3 cột (.kd-rank__o gốc 5 cột có hạng + ảnh đại diện). */
+.kd-rank--pct .kd-rank__o { grid-template-columns: minmax(0, 1.2fr) minmax(40px, 1fr) minmax(52px, auto); }
+.kd-rank--pct .kd-rank__so { text-align: right; }
+/* Tên dài trong bảng: cắt "…", tên đầy đủ nằm ở title. KHÔNG đổi display của <td> — vỡ bảng. */
+/* 180px: đo 14/09/2026 ở 1280 (hai bảng, thẻ 502px) bảng Top khách cần 513px khi tên tối đa 220px. */
+td.kd-bc__ten { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kd-bc__nv { display: inline-flex; align-items: center; gap: var(--sp-4); min-width: 0; max-width: 220px; }
+span.kd-bc__ten { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* "Sắp có": chữ --text-3 trên --bg-band đạt 4,59:1 (design-system). Dùng ở thẻ KPI và phễu. */
+.kd-sap-co {
+  display: inline-block; padding: var(--sp-2) var(--sp-4); border-radius: var(--r-full);
+  background: var(--bg-band); color: var(--text-3);
+  font-size: var(--fs-meta); font-weight: 700; line-height: var(--lh-tight); white-space: nowrap;
+}
+.kd-kpi--sap-co .kd-kpi__value { font-size: var(--fs-body); }
+/* Phễu ở màn này KHÔNG bấm được: tắt con trỏ + hiệu ứng của .kd-stage gốc (viết cho <button>/<a>),
+   kẻo người dùng tưởng bấm được. */
+.kd-bc .kd-stage { cursor: default; }
+.kd-bc .kd-stage:hover { filter: none; }
+.kd-bc__chan { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-6); }
+.kd-bc__chan .kd-meta { margin: 0; }
+/* Bảng trong hàng bảng: đệm ngang hẹp như ảnh mẫu. Đo 14/09/2026 ở 1600px (thẻ 435px): bảng Top SP cần 449px,
+   Hiệu suất NV cần 484px, Top khách cần 591px — đệm mặc định đẩy cột Doanh số / Số đơn vào vùng cuộn, người xem
+   tưởng bảng thiếu cột. */
+.kd-bc__bang .kd-table--gon td, .kd-bc__bang .kd-table--gon th { padding-left: var(--sp-3); padding-right: var(--sp-3); }
+/* Ô lọc giãn theo lựa chọn DÀI NHẤT ("Facebook,Khách hàng tự qua showroom" → 308px) và ép H1 xuống 2 dòng ở 1280.
+   Chặn 190px: đo ra H1 về 1 dòng ở mọi khổ ≥1280; lựa chọn dài bị cắt "…" nhưng danh sách thả xuống vẫn đủ chữ. */
+.kd-bc__loc .kd-select { max-width: 190px; }
+.kd-bc__loc .kd-select select { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+/* Đầu thẻ hàng biểu đồ: tiêu đề bám MÉP TRÊN — căn giữa thì thẻ có ô chọn 32px đẩy tiêu đề lệch so với thẻ
+   bên cạnh, ba tiêu đề đứng một hàng so le (soát UI 14/09/2026). */
+.kd-bc__bieu-do .kd-card > .kd-box__head { align-items: flex-start; }
+/* Dưới 768px ẩn cột phụ — mã (SP000…, LEAD-2026-…) và "Số cơ hội" (toàn "—" tới khi có màn Cơ hội):
+   đủ cột trong thẻ ~340px thì cột tiền bị đẩy ra ngoài khung đầu, phải cuộn ngang (ảnh thật 375px 14/09/2026). */
+@media (max-width: 767.98px) {
+  .kd-bc__an-hep { display: none; }
+}
+
+@media (min-width: 1024px) {
+  /* Ở 1024–1559 chia 3 thì thẻ nhóm SP còn ~337px, vòng tròn bị chia đôi tiếp cho chú thích
+     (lỗi đã gặp ở Dashboard) → biểu đồ thời gian cả hàng, hai thẻ còn lại chia đôi. */
+  .kd-bc__bieu-do { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kd-bc__bieu-do > :first-child { grid-column: 1 / -1; }
+  .kd-bc__bang { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kd-bc__bang > :nth-child(3) { grid-column: 1 / -1; }
+}
+@media (min-width: 1024px) and (max-width: 1439.98px) {
+  /* Ô lọc ~806px cạnh H1: đo 14/09/2026 cột tiêu đề chỉ còn 218px ở 1280 · 304px ở 1366 (phụ đề gãy 5–6 dòng),
+     378px ở 1440 thì phụ đề còn 2–3 dòng → xếp dọc tới 1440. */
+  .kd-bc__head { grid-template-columns: minmax(0, 1fr); }
+  .kd-bc__head .kd-head__tools { justify-content: flex-start; }
+}
+@media (min-width: 1560px) {
+  .kd-bc__bieu-do { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr) minmax(0, 4fr); }
+  .kd-bc__bieu-do > :first-child { grid-column: auto; }
+  /* Chỉ quản lý có thẻ thứ 3 (Hiệu suất NV) — template gắn --3; NV thường giữ 2 cột từ mốc 1024. */
+  .kd-bc__bang--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kd-bc__bang--3 > :nth-child(3) { grid-column: auto; }
+  /* Ba bảng một hàng: cột tên co lại để cột số không bị đẩy vào vùng cuộn — tên đầy đủ vẫn ở title. */
+  .kd-bc__bang--3 td.kd-bc__ten { max-width: 130px; }
+  .kd-bc__pheu { grid-template-columns: minmax(0, 8fr) minmax(0, 5fr); }
+}
+
+/* ═══ Popup "Việc cần kiểm soát" — Báo giá + Đơn hàng (17/09/2026; trước đó CSS riêng trong bao_gia.html) ═══
+   Markup: templates/kd/_viec_kiem_soat.html · JS: KD.batViecKiemSoat(). Cùng API, cùng chu kỳ tải lại với màn cũ
+   (index.html:440-455, 1975-2065). Giữ id mgr-alert / mgr-alert-bubble / mgr-alert-body / mgr-bubble-count của màn cũ:
+   luật đẩy popup ra khỏi thanh bên (_header.html:251-254) và luật màn hẹp (base.html:174-209) viết cho đúng các id này. */
+#mgr-alert {
+  position: fixed; left: var(--sp-9); bottom: var(--sp-9); z-index: 1040;
+  display: grid; grid-template-rows: auto minmax(0, 1fr);
+  width: min(380px, calc(100vw - 2 * var(--sp-6))); max-height: 70vh;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.kd-cb__head {
+  display: flex; align-items: center; gap: var(--sp-5); padding: var(--sp-5) var(--sp-5) var(--sp-5) var(--sp-7);
+  border-bottom: 1px solid var(--border-soft);
+}
+.kd-cb__title { flex: 1 1 auto; min-width: 0; margin: 0; font-size: var(--fs-title); font-weight: 600;
+                line-height: var(--lh-tight); color: var(--text-1); }
+#mgr-alert-body { min-height: 0; overflow-y: auto; padding: var(--sp-7); font-size: var(--fs-body); }
+.kd-cb__nhom + .kd-cb__nhom { margin-top: var(--sp-8); }
+.kd-cb__nhom-td { margin: 0 0 var(--sp-4); font-size: var(--fs-eyebrow); font-weight: 700; text-transform: uppercase;
+                  letter-spacing: .05em; color: var(--text-3); }
+.kd-cb__ds { display: grid; row-gap: var(--sp-4); margin: 0; padding: 0; list-style: none; }
+.kd-cb__muc { display: grid; row-gap: var(--sp-2); padding: var(--sp-4) var(--sp-6); border-radius: var(--r-sm);
+              background: var(--bg-page); overflow-wrap: anywhere; }
+.kd-cb__muc--danger  { box-shadow: inset 3px 0 0 var(--danger); }
+.kd-cb__muc--warning { box-shadow: inset 3px 0 0 var(--warning); }
+.kd-cb__muc--brand   { box-shadow: inset 3px 0 0 var(--brand); }
+.kd-cb__muc p { margin: 0; }
+.kd-cb__meta { font-size: var(--fs-meta); color: var(--text-3); }
+.kd-cb__nd { color: var(--text-2); }
+#mgr-alert-bubble {
+  position: fixed; left: var(--sp-9); bottom: var(--sp-9); z-index: 1040;
+  display: grid; place-items: center; width: 54px; height: 54px; padding: 0;
+  border: 0; border-radius: var(--r-full); background: var(--tile-red); color: var(--text-on-brand);
+  box-shadow: var(--shadow-lg); cursor: pointer;
+}
+#mgr-alert-bubble .bi { font-size: var(--fs-glyph); line-height: 1; }
+#mgr-alert-bubble:focus-visible { outline: none; box-shadow: var(--focus-ring), var(--shadow-lg); }
+#mgr-bubble-count {
+  position: absolute; top: calc(-1 * var(--sp-2)); right: calc(-1 * var(--sp-2)); min-width: 22px;
+  padding: var(--sp-1) var(--sp-3); border-radius: var(--r-full); background: var(--bg-card);
+  box-shadow: inset 0 0 0 1px var(--danger); color: var(--danger-fg); font-size: var(--fs-meta); font-weight: 700; line-height: var(--lh-tight);
+}
+
+/* ── Chừa chỗ cho nút chat nổi (#_chat_fab: fixed, right 24px, 56×56, chat_widget.css) ──
+   Không có chỗ trống thì nút che nút "Ghi sổ" của thanh dính dưới và số ở cột cuối dòng bảng cuối. */
+.kd-page { --kd-chua-fab: 88px; padding-bottom: var(--kd-chua-fab); }
+@media (min-width: 768px) { .kd-stickybar { margin-right: 64px; } }
+
+/* Thuộc tính hidden trong hộp thoại (nằm ngoài .kd-page) không bị CSS display của component đè. */
+.kd-dialog [hidden] { display: none !important; }
+
+/* Ô nhập nhiều dòng trong modal: nhiều màn dùng <textarea class="kd-input"> thiếu kd-textarea → bị ép cao 1 dòng như ô thường. */
+.kd-dialog textarea.kd-input, .kd-page textarea.kd-input { height: auto; min-height: 88px; padding-top: var(--sp-5); padding-bottom: var(--sp-5); line-height: 1.5; resize: vertical; }
+
+/* ── Biểu tượng ⓘ giữ ghi chú phụ (KD.tip) — thay cho đoạn chữ giải thích in thẳng trên màn ──
+   Rê chuột / chạm (focus) mới hiện bong bóng. .kd-tip--trai: bong bóng canh phải (khi ⓘ nằm sát mép phải). */
+.kd-tip {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; margin-left: var(--sp-2); padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: var(--text-3); font-size: var(--fs-body); line-height: 1; cursor: help; vertical-align: middle;
+}
+.kd-tip:hover, .kd-tip:focus-visible { color: var(--brand); outline: none; box-shadow: var(--focus-ring); }
+.kd-tip::after {
+  content: attr(data-tip); position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  z-index: 60; width: max-content; max-width: min(340px, 80vw); padding: var(--sp-5) var(--sp-6);
+  border-radius: var(--r); background: var(--text-1); color: #fff;
+  font-size: var(--fs-meta); font-weight: 400; line-height: 1.5; text-align: left; white-space: normal;
+  box-shadow: var(--shadow-pop); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s;
+}
+.kd-tip:hover::after, .kd-tip:focus::after { opacity: 1; visibility: visible; }
+.kd-tip--trai::after { left: auto; right: 0; transform: none; }
+/* Màn hẹp: bong bóng ⓘ canh giữa 340px tràn mép + bị nút chat che → hiện cố định dưới thanh trên cùng, rộng hết màn. */
+@media (max-width: 767px) {
+  .kd-tip::after { position: fixed; top: calc(var(--ab-h, 56px) + 16px); left: 16px; right: 16px; transform: none; width: auto; max-width: none; }
+}
+
+/* ⓘ nằm trong dòng nhãn không làm nhãn cao hơn (thẻ có/không có ⓘ thẳng hàng). */
+.kd-tip { margin-block: -4px; }
+
+/* Nhãn ô nhập dài được xuống dòng — nowrap làm nhãn đè sang ô bên cạnh trong hộp thoại 2 cột. */
+.kd-field__label { white-space: normal; }
+
+/* Nút/khối chỉ dành cho người có quyền ghi sổ tay (data-quyen="ceo"): ẩn với vai trò khác. */
+html:not([data-quyen-ceo]) [data-quyen="ceo"] { display: none !important; }
+
+/* ═══ Chi tiết bản ghi = POPUP GIỮA MÀN HÌNH (anh Quang 28/09/2026: "click vào bản ghi thì hiện popup ở giữa
+   màn hình… cho trực quan, dễ nhìn") — thay cho panel dính cạnh phải / trượt từ phải. Cùng phần tử .kd-panel,
+   cùng KT.ganPanel (mở/đóng, Esc, bấm nền mờ để đóng) nên mọi màn dùng panel đều đổi theo. ═══ */
+.kd-panel,
+.kd-main.has-panel .kd-panel {
+  position: fixed; top: 50%; left: 50%; right: auto; bottom: auto; z-index: 1050;
+  transform: translate(-50%, -50%);
+  width: min(var(--kd-w-popup, 820px), calc(100vw - 32px));
+  max-height: min(88vh, 960px);
+  border: 1px solid var(--border); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-pop); overflow: hidden;
+}
+.kd-main.has-panel { grid-template-columns: minmax(0, 1fr); }
+.kd-main.has-panel > .kd-scrim { display: block; }
+.kd-panel .kd-panel__scroll { padding: var(--sp-8) var(--sp-9); overscroll-behavior: contain; }
+@media (max-width: 767px) {
+  .kd-panel, .kd-main.has-panel .kd-panel { width: calc(100vw - 16px); max-height: 92vh; max-height: 92dvh; }
+  .kd-panel .kd-panel__scroll { padding: var(--sp-7); }
+}
+/* Nút chat nổi (#_chat_fab, z-index 99998) nằm trên popup → đè nút ở chân popup trên điện thoại. Ẩn khi popup mở
+   (cùng cách hộp rộng của /phe-duyet). */
+body:has(.kd-main.has-panel) #_chat_fab { display: none !important; }
+/* Bề ngang ~820px (trước 368px): chân popup dồn phải, nút cỡ vừa chữ — nút giãn kín 780px trông như thanh ngang.
+   Điện thoại giữ nút giãn đều cho dễ bấm. Danh sách dòng (hoá đơn còn nợ, lịch sử thu) xếp 2 cột thay vì một cột dài.
+   .kd-kv (icon | nhãn | giá trị canh trái) giữ 1 cặp/hàng: giá trị dài (diễn giải bút toán) được trải hết bề ngang. */
+@media (min-width: 768px) {
+  .kd-panel .kd-panel__actions { justify-content: flex-end; }
+  .kd-panel .kd-panel__actions .kd-btn--grow { flex: 0 0 auto; min-width: 168px; }
+  .kd-panel .kd-lines { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--sp-10); }
+  .kd-panel .kd-lines li:nth-last-child(2):nth-child(odd) { border-bottom: 0; padding-bottom: 0; }
+}
+
+/* Dải tiêu đề trang: tiêu đề giữ tối thiểu 260px; nhiều nút thì dải nút tự xuống hàng thay vì bóp tiêu đề
+   thành từng chữ (Công nợ KH ở 1366px, 28/09/2026). */
+@media (min-width: 768px) {
+  .kd-head { grid-template-columns: minmax(260px, 1fr) minmax(0, max-content); }
+}

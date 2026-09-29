@@ -28,7 +28,6 @@ from sqlalchemy.orm import Session
 from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
-from shared.services.employees import ten_nv
 
 from ..models import QuyDN, SoQuy, TaiKhoanNH, TaiKhoanNHGiaoDich, VonCSH
 from ..schemas import (
@@ -36,6 +35,7 @@ from ..schemas import (
     TrichQuyBody, VonCSHOut, VonCSHSummary,
 )
 from ..services.journal import map_quy_to_account, post_journal
+from ..services.tai_khoan_tien import tk_tien_cua
 from ..services.so_quy_auto import assert_du_chi as _assert_du_chi
 from ..services.quy_dn_calc import nap_quy as _nap_quy_dn, void_giao_dich as _void_quy_gd
 from ._deps import require_ketoan_user
@@ -106,10 +106,8 @@ def _ensure_tk_nh(db: Session, tai_khoan_id: int) -> TaiKhoanNH:
 
 
 def _tk_account_code(tk: TaiKhoanNH) -> str:
-    """Map TaiKhoanNH.loai → account_code: 'tien_mat'→111, ngược lại 112."""
-    if (tk.loai or "").strip() == "tien_mat":
-        return "111"
-    return "112"
+    """TK định khoản của tài khoản tiền: TK con đã gán (1111, 1121…), chưa gán thì 111/112 theo loại."""
+    return tk_tien_cua(tk)
 
 
 def _insert_tknhgd(
@@ -154,9 +152,7 @@ def list_von_csh(
         stmt = stmt.where(VonCSH.loai_giao_dich == loai)
     stmt = stmt.limit(limit).offset(offset)
     items = db.execute(stmt).scalars().all()
-    # `created_by` lưu username — tra tên một lượt, trả THÊM `created_by_ten` cạnh trường cũ.
-    ten = ten_nv(db, [v.created_by for v in items]) if items else {}
-    return [{**_serialize(v), "created_by_ten": ten.get(v.created_by, v.created_by)} for v in items]
+    return [_serialize(v) for v in items]
 
 
 @router.get("/summary", response_model=VonCSHSummary)

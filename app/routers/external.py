@@ -16,8 +16,8 @@ from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
 from shared.templates import _lookup_user_info
-from shared.services.employees import ten_nv
 
+from ..services.tim_kiem import mau_like, sql_khop
 from ._deps import require_ketoan_user
 
 
@@ -229,7 +229,7 @@ def get_ads_external(
 def list_employees_external(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
-    q: Optional[str] = Query(None, description="Tìm theo ho_ten/ma_nv (ILIKE)"),
+    q: Optional[str] = Query(None, description="Tìm theo ho_ten/ma_nv (không phân biệt dấu, hoa/thường)"),
     active: bool = Query(True, description="Chỉ NV đang làm (trang_thai='Đang làm')"),
     phong_ban: Optional[str] = Query(None),
 ):
@@ -250,9 +250,9 @@ def list_employees_external(
     if phong_ban:
         sql += " AND phong_ban = :pb"
         params["pb"] = phong_ban
-    if q:
-        sql += " AND (ho_ten ILIKE :kw OR ma_nv ILIKE :kw)"
-        params["kw"] = f"%{q.strip()}%"
+    if q and q.strip():
+        sql += " AND " + sql_khop(("ho_ten", "ma_nv"))   # không phân biệt dấu + hoa/thường
+        params["kw"] = mau_like(q)
     sql += " ORDER BY phong_ban NULLS LAST, ho_ten LIMIT 200"
     rows = _safe_rows_silent(db, sql, **params)
     # Enrich `id` từ ma_nv: 'NV26015' → 26015
@@ -399,9 +399,9 @@ def list_quotes_external(
         else:
             sql += " AND COALESCE(status, '') = :st"
             params["st"] = status_filter
-    if q:
-        sql += " AND (quote_number ILIKE :kw OR customer_name ILIKE :kw)"
-        params["kw"] = f"%{q.strip()}%"
+    if q and q.strip():
+        sql += " AND " + sql_khop(("quote_number", "customer_name"))   # không phân biệt dấu + hoa/thường
+        params["kw"] = mau_like(q)
     if tu_ngay:
         sql += " AND COALESCE(duyet_luc::date, created_at::date) >= :tu"
         params["tu"] = tu_ngay
@@ -481,14 +481,33 @@ def orders_salespeople(
     return {"data": data}
 
 
+# orders-overview: giới hạn dòng khi KHÔNG lọc kỳ (giữ như cũ) / khi có lọc kỳ trong SQL.
+_OV_LIMIT = 200
+_OV_LIMIT_CO_KY = 3000
+_OV_TZ = "Asia/Ho_Chi_Minh"
+_OV_NGAY_EXPR = {
+    "duyet": f"(COALESCE(q.duyet_luc, q.created_at) AT TIME ZONE '{_OV_TZ}')::date",
+    "created": f"(q.created_at AT TIME ZONE '{_OV_TZ}')::date",
+    "ketoan": f"(v.ketoan_approved_at AT TIME ZONE '{_OV_TZ}')::date",
+}
+
+
 @router.get("/orders-overview")
 def orders_overview(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
     filter: str = Query("active", description="active|pending|done|all"),
     salesperson: Optional[str] = Query(None, description="Lọc NV KD (q.salesperson, case-insensitive)"),
+    date_basis: Optional[str] = Query(None, description="duyet|created|ketoan — cột ngày dùng cho tu_ngay/den_ngay"),
+    tu_ngay: Optional[date_cls] = Query(None),
+    den_ngay: Optional[date_cls] = Query(None),
 ):
     """Bảng đối chiếu kế toán — overview mỗi đơn báo giá đã duyệt.
+
+    `date_basis` + `tu_ngay`/`den_ngay` (tuỳ chọn, màn /ketoan/don-hang): lọc kỳ NGAY
+    TRONG SQL (trước LIMIT) — màn cũ lọc kỳ phía trình duyệt trên 200 đơn mới nhất nên
+    kỳ cũ hơn bị thiếu đơn. `date_basis=ketoan` ép filter=done (giống màn cũ).
+    Không truyền → hành vi y như cũ (index.html cũ vẫn dùng).
 
     `filter`:
       - `active`:  đơn duyệt + CHƯA Hoàn Thành (case-insensitive trim — bắt cả 'hoàn thành' lowercase)
@@ -503,6 +522,9 @@ def orders_overview(
     """
     where_clause = "q.duyet_status = 'approved'"
     sp_params: dict[str, Any] = {}  # bind params cho IN-list salesperson (SEC-06)
+    ngay_expr = _OV_NGAY_EXPR.get(date_basis or "")
+    if date_basis == "ketoan":
+        filter = "done"
     if filter == "pending":
         where_clause = "v.trang_thai = 'da_giao'"
     elif filter == "done":
@@ -534,6 +556,16 @@ def orders_overview(
             _ph.append(f":{_k}")
             sp_params[_k] = (_a or "").strip().lower()
         where_clause += f" AND LOWER(TRIM(COALESCE(q.salesperson,''))) IN ({', '.join(_ph)})"
+
+    limit = _OV_LIMIT
+    if ngay_expr and (tu_ngay or den_ngay):
+        limit = _OV_LIMIT_CO_KY
+        if tu_ngay:
+            where_clause += f" AND {ngay_expr} >= :ov_tu"
+            sp_params["ov_tu"] = tu_ngay
+        if den_ngay:
+            where_clause += f" AND {ngay_expr} <= :ov_den"
+            sp_params["ov_den"] = den_ngay
 
     sql = f"""
         WITH doanh_thu_agg AS (
@@ -663,16 +695,9 @@ def orders_overview(
         ) gc ON TRUE
         WHERE {where_clause}
         ORDER BY q.created_at DESC
-        LIMIT 200
+        LIMIT {limit}
     """
-    rows = _safe_rows(db, sql, **sp_params)
-    # `salesperson` lưu lẫn mã/tên, `ketoan_approved_by` lưu username — tra tên một lượt
-    # SAU khi có rows (không đổi câu SQL), trả THÊM `*_ten`; không khớp thì giữ nguyên.
-    ten = ten_nv(db, [x for r in rows for x in (r.get("salesperson"), r.get("ketoan_approved_by"))]) if rows else {}
-    for r in rows:
-        r["salesperson_ten"] = ten.get(r.get("salesperson"), r.get("salesperson"))
-        r["ketoan_approved_by_ten"] = ten.get(r.get("ketoan_approved_by"), r.get("ketoan_approved_by"))
-    return {"filter": filter, "data": rows}
+    return {"filter": filter, "limit": limit, "data": _safe_rows(db, sql, **sp_params)}
 
 
 @router.get("/orders-optimization")
@@ -856,6 +881,7 @@ def orders_optimization(
             "is_papasan_mix": is_papasan_mix,
             "papasan_base": round(papasan_base),
             "max_ck_ap_dung": mck,
+            "phan_khuc_duyet": (r.get("phan_khuc_duyet") or "").strip(),
             "tam_tinh": round(row_tam_tinh),
             "tong_giam": round(row_tong_giam),
             "ck_pct": round(ck_pct_eff, 2),
@@ -929,6 +955,9 @@ def orders_optimization(
         "max_ck": max_ck_go,          # tương thích ngược (trần Đồ Gỗ = mức cũ)
         "max_ck_go": max_ck_go,
         "max_ck_may": max_ck_may,
+        # Trần Gỗ phân khúc khác (Hàng Trạm) — chỉ trả khi đã hiệu lực trong kỳ đang xem.
+        "max_ck_go_tram": max_ck_go_tram if _tram_hieu_luc else None,
+        "max_ck_go_tram_ap_tu": _tram_ap_tu if _tram_hieu_luc else None,
         "totals": {
             "so_don": T["so_don"], "tam_tinh": round(T["tam_tinh"]),
             "sau_ck": round(T["tam_tinh"] - T["tong_giam"]),  # tổng tiền sau chiết khấu
@@ -996,10 +1025,6 @@ def order_detail(
     if not quote_rows:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Báo giá {ma_bg} không tồn tại")
     quote = quote_rows[0]
-    # `salesperson` lưu lẫn mã/tên, `duyet_boi` lưu username — thêm `*_ten` cho modal chi tiết.
-    _tq = ten_nv(db, [quote.get("salesperson"), quote.get("duyet_boi")])
-    quote["salesperson_ten"] = _tq.get(quote.get("salesperson"), quote.get("salesperson"))
-    quote["duyet_boi_ten"] = _tq.get(quote.get("duyet_boi"), quote.get("duyet_boi"))
 
     items = _safe_rows_silent(
         db,
@@ -1160,9 +1185,9 @@ def list_products_with_inventory(
     params: dict[str, Any] = {}
     if active_only:
         where.append("p.active = TRUE")
-    if q:
-        where.append("(p.ma_sp ILIKE :kw OR p.ten_sp ILIKE :kw OR p.label ILIKE :kw)")
-        params["kw"] = f"%{q.strip()}%"
+    if q and q.strip():
+        where.append(sql_khop(("p.ma_sp", "p.ten_sp", "p.label")))   # không phân biệt dấu + hoa/thường
+        params["kw"] = mau_like(q)
     if nhom_hang:
         where.append("p.nhom_hang = :nh")
         params["nh"] = nhom_hang
@@ -1204,15 +1229,16 @@ def list_ton_kho_from_muahang(
     """Đọc tồn kho từ phòng Mua Hàng (`muahang.ton_kho_items`) — mỗi dòng = 1 lô nhập."""
     where = ["1=1"]
     params: dict[str, Any] = {}
-    if q:
-        where.append("(t.ma_sp ILIKE :kw OR t.ten_sp ILIKE :kw)")
-        params["kw"] = f"%{q.strip()}%"
+    # q + ncc: 2 ô tìm của màn Tồn kho — không phân biệt dấu + hoa/thường.
+    if q and q.strip():
+        where.append(sql_khop(("t.ma_sp", "t.ten_sp")))
+        params["kw"] = mau_like(q)
     if danh_muc:
         where.append("t.danh_muc = :dm")
         params["dm"] = danh_muc
-    if ncc:
-        where.append("t.ncc_name ILIKE :ncc")
-        params["ncc"] = f"%{ncc.strip()}%"
+    if ncc and ncc.strip():
+        where.append(sql_khop(("t.ncc_name",), "ncc"))
+        params["ncc"] = mau_like(ncc)
     if only_remaining:
         where.append("t.so_luong > 0")
 
@@ -1687,7 +1713,12 @@ def mark_vanchuyen_completed(
                 so_ghi_nhan = round(float(_cod_khai), 2)
             else:
                 so_ghi_nhan = con_lai
-            so_ghi_nhan = round(max(0.0, min(so_ghi_nhan, con_lai)), 2)
+            # VND là số nguyên — làm tròn về đồng (trước 25/09/2026 để 2 số lẻ → doanh thu,
+            # sổ quỹ, bút toán có phần lẻ kiểu 699.999,68, lệch 1đ khi cộng trên màn).
+            from decimal import ROUND_HALF_UP as _HALF_UP
+            so_ghi_nhan = float(
+                Decimal(str(max(0.0, min(so_ghi_nhan, con_lai)))).quantize(Decimal(1), rounding=_HALF_UP)
+            )
 
             # Loại doanh thu theo nhóm SP CHÍNH Mây/Gỗ (shared.products.nhom_master)
             _nm = db.execute(text("""
@@ -1784,6 +1815,15 @@ def mark_vanchuyen_completed(
                         "gc": f"COGS đơn {ma_don} hoàn thành (FIFO from muahang.ton_kho_items)",
                         "by": user.username,
                     })
+                    # Trừ tồn kho KT (inventory_balance). Trước 25/09/2026 chỉ INSERT phiếu xuất
+                    # mà không trừ tồn → kho KT dư đúng số đã bán. Không dùng apply_movement():
+                    # hàm đó ghi đè giá xuất = giá BQ, lệch với bút toán 632 ghi theo giá FIFO.
+                    # Giá vốn BQ giữ nguyên khi xuất; cho phép âm để không chặn hoàn thành đơn.
+                    from ..services.inventory_avg import get_or_create_balance
+                    bal = get_or_create_balance(db, p_row[0])
+                    bal.so_luong_ton = (bal.so_luong_ton or Decimal(0)) - Decimal(str(qty))
+                    # Giữ bất biến của inventory_avg: gia_tri_ton = so_luong_ton × gia_von_bq.
+                    bal.gia_tri_ton = bal.so_luong_ton * (bal.gia_von_bq or Decimal(0))
                     movements_info["created"] += 1
 
             # 6. Sinh journal kép — DT (Nợ 131 / Có 511) + COGS (Nợ 632 / Có 156)
@@ -1936,9 +1976,9 @@ def list_suppliers_for_dropdown(
     """List NCC từ `muahang.suppliers` cho dropdown chọn đối tác công nợ phải trả."""
     where = ["1=1"]
     params: dict[str, Any] = {}
-    if q:
-        where.append("(name ILIKE :kw OR short_code ILIKE :kw)")
-        params["kw"] = f"%{q.strip()}%"
+    if q and q.strip():
+        where.append(sql_khop(("name", "short_code")))   # không phân biệt dấu + hoa/thường
+        params["kw"] = mau_like(q)
     sql = f"""
         SELECT id, name, short_code, phone
         FROM muahang.suppliers
@@ -2020,9 +2060,9 @@ def list_customers_for_dropdown(
     """List KH từ `baogia.customers` cho dropdown chọn đối tác công nợ phải thu."""
     where = ["1=1"]
     params: dict[str, Any] = {}
-    if q:
-        where.append("(ho_ten ILIKE :kw OR sdt ILIKE :kw)")
-        params["kw"] = f"%{q.strip()}%"
+    if q and q.strip():
+        where.append(sql_khop(("ho_ten", "sdt")))   # không phân biệt dấu + hoa/thường
+        params["kw"] = mau_like(q)
     sql = f"""
         SELECT id, ho_ten, sdt, dia_chi
         FROM baogia.customers

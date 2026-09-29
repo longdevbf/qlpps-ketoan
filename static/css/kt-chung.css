@@ -1,0 +1,179 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   kt-chung.css — phần dùng chung của các màn Kế toán mới (tiền tố kt-)
+   Nạp SAU kd-man-hinh.css (lấy nguyên từ qlpps-baogia, KHÔNG sửa trong ketoan).
+   Chỉ var(--token) của theme.css — không hex, không font-size px, không font-family.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Dòng giải thích phạm vi số ngay dưới hàng thẻ. Mẫu này đang chép ở cn-/hd-/tk-pham-vi của Báo Giá
+   → ĐỀ XUẤT gộp thành .kd-pham-vi trong kd-man-hinh.css rồi xoá bản này. */
+.kt-kpi-khoi { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--sp-4); min-width: 0; }
+.kt-pham-vi { margin: 0; font-size: var(--fs-meta); line-height: var(--lh-body); color: var(--text-3); }
+
+/* Khoảng ngày trong dải tiêu đề: cao bằng control 40px của dải (mẫu .cn-khoang). */
+.kt-khoang { height: var(--kd-h-ctl); }
+
+/* Ô tìm của dải tiêu đề: width cố định, không flex-basis (Search README). */
+.kt-search { flex: 0 1 auto; width: 300px; min-width: 0; }
+
+/* ── Dòng Cộng / số dư ở chân bảng sổ ─────────────────────────────────────
+   kd-man-hinh.css chưa có kiểu cho <tfoot>. Nền lõm bg-page như đầu bảng, chữ đậm text-1. */
+.kt-bang tfoot td, .kt-bang tfoot th {
+  height: 44px; padding: var(--sp-4) var(--sp-7);
+  background: var(--bg-page); border-top: 1px solid var(--border);
+  font-size: var(--fs-body); font-weight: 700; color: var(--text-1); text-align: left; white-space: nowrap;
+}
+.kt-bang tfoot .num { text-align: right; }
+.kt-bang tfoot tr + tr td, .kt-bang tfoot tr + tr th { border-top: 1px solid var(--border-soft); }
+.kt-bang tfoot .kd-col-act { background: var(--bg-page); }
+
+/* Dòng số dư đầu kỳ nằm đầu tbody: không bấm được, nền lõm để tách khỏi dòng phát sinh. */
+.kt-bang tbody tr.kt-dong-so-du td { background: var(--bg-page); font-weight: 600; cursor: default; }
+
+/* Ô Nợ/Có bằng 0 để trống cho dễ dò sổ. */
+.kt-bang td.num .kd-muted { font-weight: 400; }
+
+/* Mã tài khoản: số in đậm, tên TK nhỏ text-3 cạnh bên. */
+.kt-tk { font-weight: 600; color: var(--text-1); }
+.kt-tk__ten { margin-left: var(--sp-3); font-size: var(--fs-meta); color: var(--text-3); }
+
+/* Cắt chữ dài một dòng (diễn giải, đối tượng) — bản đủ ở title. */
+.kt-cat { display: inline-block; max-width: 280px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+.kt-cat--hep { max-width: 180px; }
+
+/* Số âm/dương theo nghĩa, luôn kèm dấu trong chữ (màu không một mình mang nghĩa). Bản -fg đọc được trên brand-soft. */
+.kt-so--tot { color: var(--success-fg); }
+.kt-so--xau { color: var(--danger-fg); }
+
+/* Spark màu info — kd-man-hinh.css có --success/--warning/--danger/--tim, thiếu bản slate. */
+.kd-spark.kt-spark--info { color: var(--info); }
+
+/* Huy hiệu số bộ lọc đang bật trong nút "Bộ lọc" (mẫu .cn-dem-loc/.hd-dem-loc — lần chép thứ ba → nên gộp vào kd-man-hinh.css). */
+.kt-dem-loc {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 var(--sp-2);
+  border-radius: var(--r-full); background: var(--brand); color: var(--text-on-brand);
+  font-size: var(--fs-meta); font-weight: 700;
+}
+
+/* Panel chỉ có đầu · vùng cuộn · hàng nút (không có dải mã và tab như panel Báo giá). */
+.kt-panel { grid-template-rows: auto minmax(0, 1fr) auto; }
+.kt-panel .kd-panel__actions:empty { display: none; }
+
+/* Khối "định khoản" trong panel: bảng gọn Nợ/Có. */
+.kt-dk { width: 100%; border-collapse: collapse; font-size: var(--fs-body); }
+.kt-dk th { padding: var(--sp-3) 0; border-bottom: 1px solid var(--border); font-size: var(--fs-meta); font-weight: 600; color: var(--text-3); text-align: left; }
+.kt-dk td { padding: var(--sp-4) 0; border-bottom: 1px solid var(--border-soft); color: var(--text-1); vertical-align: baseline; }
+.kt-dk .num { text-align: right; padding-left: var(--sp-5); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.kt-dk tfoot td { border-bottom: 0; font-weight: 700; }
+.kt-dk__phu { display: block; margin-top: var(--sp-1); font-size: var(--fs-meta); color: var(--text-3); }
+
+/* Nút đi kèm khối rỗng (KD.khoiRong chỉ in chữ). */
+.kt-giua { display: flex; justify-content: center; margin: calc(-1 * var(--sp-6)) 0 0; padding-bottom: var(--sp-10); }
+
+/* Dải mã trong vùng cuộn của panel: vùng cuộn đã đệm sp-8 nên bỏ đệm ngang của .kd-panel__id. */
+.kt-p-id { padding: 0 0 var(--sp-7); }
+
+/* Link số chứng từ (bảng gọn, dòng phụ, bảng hoá đơn con). */
+.kt-ma { font-weight: 700; color: var(--brand); text-decoration: none; }
+.kt-ma:hover { color: var(--brand-hover); text-decoration: underline; }
+.kt-ma:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+
+
+/* Ô chọn dạng checkbox trong dải lọc — cao bằng ô lọc 36px để thẳng hàng. */
+.kt-check { display: inline-flex; align-items: center; gap: var(--sp-4); min-height: var(--kd-h-field); font-size: var(--fs-body); color: var(--text-2); cursor: pointer; }
+.kt-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--brand); cursor: pointer; }
+.kd-filter > .kt-check { align-self: end; }
+.kd-filter .kd-seg { align-self: start; }
+
+/* Nhãn "Đang dùng/Ngừng dùng" và mã số trong ô bảng có thụt theo cấp. */
+.kt-cap-2 { padding-left: var(--sp-9); }
+.kt-cap-2::before { content: "└"; margin-right: var(--sp-3); color: var(--border); }
+
+/* Bảng tổng quan nhãn trái – số phải (panel công nợ, hộp bù trừ). */
+/* Cột nhãn giữ tối thiểu độ dài 1 từ dài nhất (min-content) — trước đây minmax(0,1fr) + dd nowrap làm
+   nhãn co về 0 và ngắt từng chữ ("Số / tiền") khi giá trị dài; giá trị dài giờ xuống dòng thay vì tràn. */
+.kt-tq { display: grid; grid-template-columns: fit-content(60%) minmax(0, 1fr); row-gap: var(--sp-4); column-gap: var(--sp-6); margin: 0; }
+.kt-tq dt { font-weight: 400; color: var(--text-3); }
+.kt-tq dd { margin: 0; text-align: right; font-weight: 600; color: var(--text-1); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.kt-tq .is-dam { font-weight: 700; }
+.kt-tq .is-dam + dd { font-weight: 700; }
+
+/* ── Khung danh sách dùng chung (kt-danh-sach.js) ─────────────────────── */
+/* Hàng 4 thẻ số: 2 cột → 4 cột (tránh 3 + 1 mồ côi và tránh 4/6 ô trống ở 1280px). */
+@media (min-width: 768px) { .kd-kpi-row.kt-kpi-row--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .kd-kpi-row.kt-kpi-row--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .kd-kpi-row.kt-kpi-row--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* Panel chi tiết giờ là popup giữa màn cho mọi màn (kd-man-hinh.css, 28/09/2026) — bỏ bố cục lớp phủ/đặt cạnh bảng riêng ở đây.
+   Popup rộng ~820px: bảng nhãn–giá trị .kt-tq xếp 2 cặp một hàng (trước 1 cặp/hàng: nhãn mép trái, số mép phải cách ~700px,
+   khó dò). Cặp lẻ cột trái, cặp chẵn cột phải, hai nửa bằng nhau (vạch giữa và mép số thẳng hàng giữa các khối trong
+   cùng popup); row-gap 0 + đệm dọc để vạch liền. Điện thoại giữ 1 cặp/hàng. */
+@media (min-width: 768px) {
+  .kd-panel .kt-tq { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr) minmax(0, 0.85fr) minmax(0, 1.15fr); row-gap: 0; column-gap: var(--sp-6); }
+  .kd-panel .kt-tq > dt, .kd-panel .kt-tq > dd { padding-block: var(--sp-3); }
+  .kd-panel .kt-tq > dt:nth-of-type(odd) { grid-column: 1; }
+  .kd-panel .kt-tq > dd:nth-of-type(odd) { grid-column: 2; padding-right: var(--sp-5); }
+  .kd-panel .kt-tq > dt:nth-of-type(even) { grid-column: 3; padding-left: var(--sp-8); border-left: 1px solid var(--border-soft); }
+  .kd-panel .kt-tq > dd:nth-of-type(even) { grid-column: 4; }
+}
+/* Popup trên điện thoại (~374px): bảng gọn cho chữ xuống dòng thay vì đẩy tràn ngang cả popup (bảng Đơn mua NCC của Đơn hàng). */
+@media (max-width: 767px) {
+  .kd-panel .kt-bang-nho th, .kd-panel .kt-bang-nho td:not(.num) { white-space: normal; }
+}
+/* Tên + dòng phụ trong ô bảng (dùng chung mọi màn danh sách). */
+.kt-khach__ten { display: block; min-width: 160px; font-weight: 600; color: var(--text-1); }
+.kt-khach__ma { display: block; margin-top: var(--sp-1); font-size: var(--fs-meta); font-weight: 400; color: var(--text-3); white-space: normal; }
+/* Số tiền vào (+) / ra (−) — dấu luôn có trong chữ, màu chỉ nhấn thêm. */
+.kt-vao { color: var(--success-fg); font-weight: 600; }
+.kt-ra { color: var(--text-1); }
+/* Bảng gọn trong panel / hộp thoại. */
+.kt-bang-nho { width: 100%; border-collapse: collapse; font-size: var(--fs-meta); }
+.kt-bang-nho th { padding: var(--sp-3) var(--sp-2); border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-3); text-align: left; white-space: nowrap; }
+.kt-bang-nho td { padding: var(--sp-3) var(--sp-2); border-bottom: 1px solid var(--border-soft); color: var(--text-1); white-space: nowrap; }
+.kt-bang-nho .num { text-align: right; font-variant-numeric: tabular-nums; }
+.kt-bang-nho tr.is-cho td { color: var(--text-3); }
+.kt-bang-nho tr.is-nay td { background: var(--brand-soft); font-weight: 600; }
+/* Banner thông tin đứng như một dải của trang. */
+.kt-banner .bi { font-size: var(--fs-body-lg); }
+/* Tiêu đề nhìn thấy đặt đầu thẻ bảng (macro the_bang, tham số dau_the). */
+.kt-the-dau { margin: 0; padding: var(--sp-8) var(--sp-8) var(--sp-6); }
+/* Đầu thẻ có tiêu đề + mô tả (dạng flex của kd-box__head): cho xuống hàng, không bóp tiêu đề thành từng chữ ở màn hẹp. */
+.kt-the-dau { flex-wrap: wrap; }
+.kt-the-dau .kd-box__title { flex: none; }
+/* Dòng "Điền theo tỷ lệ gợi ý" trong hộp thoại phân phối. */
+.kt-pp-goi-y { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4); margin: 0; }
+.kt-pp-goi-y .kd-meta { margin: 0; }
+/* Tab cấp trang (đứng như một dải giữa tiêu đề và thẻ số, không nằm trong thẻ). */
+.kd-tabs.kt-tabs-trang { padding: 0; }
+/* Ngăn tab cấp trang: xếp dọc các dải cách nhau như .kd-page (thẻ số → thẻ bảng). */
+.kt-tab-pane { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--sp-9); min-width: 0; }
+
+/* ── Báo cáo tài chính theo mẫu (kt-bao-cao.js) ─────────────────────────── */
+.kt-bc th[scope="row"] { font-weight: 400; color: var(--text-1); text-align: left; white-space: normal; min-width: 280px; }
+.kt-bc tbody tr { cursor: default; }
+.kt-bc__ma { color: var(--text-3); white-space: nowrap; }
+.kt-bc--nhom th { padding-top: var(--sp-7); background: var(--bg-page); font-size: var(--fs-eyebrow); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); text-align: left; }
+.kt-bc--tong th[scope="row"], .kt-bc--tong td { font-weight: 700; color: var(--text-1); }
+.kt-bc--dam th[scope="row"], .kt-bc--dam td { font-weight: 700; color: var(--text-1); background: var(--brand-soft); }
+.kt-bc--con th[scope="row"] { padding-left: calc(var(--sp-7) + var(--sp-8)); }
+.kt-bc--con2 th[scope="row"] { padding-left: calc(var(--sp-7) + var(--sp-8) * 2); color: var(--text-2); }
+.kt-bc__lien { color: inherit; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+.kt-bc__lien:hover { color: var(--brand); text-decoration-color: var(--brand); }
+.kt-bc__lien:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+.kt-bc__chan { display: block; font-size: var(--fs-meta); color: var(--text-3); }
+.kt-den-ngay { border: 0; background: none; font: inherit; color: var(--text-1); }
+
+/* ── Ô chọn tài khoản có tìm kiếm (KT.oTk) ─────────────────────────────── */
+.kt-o-tk { position: relative; }
+.kt-o-tk__ds {
+  position: absolute; left: 0; right: 0; top: calc(100% + var(--sp-2)); z-index: 1070;
+  max-height: 280px; overflow-y: auto; margin: 0; padding: var(--sp-3); list-style: none;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-pop);
+}
+.kt-o-tk__ds [role="option"] { display: flex; gap: var(--sp-5); align-items: baseline; padding: var(--sp-4) var(--sp-5); border-radius: var(--r-sm); font-size: var(--fs-body); color: var(--text-1); cursor: pointer; }
+.kt-o-tk__ds [role="option"]:hover, .kt-o-tk__ds [aria-selected="true"] { background: var(--brand-soft); }
+.kt-o-tk__ten { min-width: 0; color: var(--text-2); }
+.kt-o-tk__rong { padding: var(--sp-4) var(--sp-5); font-size: var(--fs-meta); color: var(--text-3); }
+.kt-o-tk__canh { margin: var(--sp-2) 0 0; font-size: var(--fs-meta); color: var(--warning-fg); }
+
+/* Dòng phạm vi trống thì ẩn (không chừa khoảng trắng). */
+.kt-pham-vi:empty { display: none; }

@@ -1,0 +1,3 @@
+/* kt-loai-chi-phi.css — riêng màn Loại chi phí. Chỉ var(--token). */
+/* ⓘ cạnh nhãn thẻ số: nút 22px cao hơn dòng chữ → kéo lề để thẻ có/không có ⓘ thẳng hàng nhau */
+.kd-kpi__label .kd-tip { margin-block: -4px; }

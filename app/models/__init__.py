@@ -39,6 +39,14 @@ from .khau_hao_log import KhauHaoLog
 from .ads_phan_bo_don import AdsPhanBoDon
 # SePay webhook — thu tiền qua QR CK
 from .sepay_transaction import SepayTransaction
+# Cài đặt Kế toán — đơn vị (letterhead) + chính sách/đánh số (2026-09-25)
+from .don_vi import DonVi
+from .cai_dat_he_thong import CaiDatHeThong
+# Tạm ứng (TK 141) + chi tiết số dư đầu kỳ theo đối tượng (2026-09-25)
+from .tam_ung import TamUng, TamUngQuyetToan
+from .so_du_dau_ky_doi_tuong import SoDuDauKyDoiTuong
+from .thue_tndn_dieu_chinh import ThueTndnDieuChinh
+from .phan_bo_242 import PhanBo242
 
 __all__ = [
     "DoanhThu",
@@ -80,4 +88,14 @@ __all__ = [
     "AdsPhanBoDon",
     # SePay
     "SepayTransaction",
+    # Cài đặt Kế toán
+    "DonVi",
+    "CaiDatHeThong",
+    # Tạm ứng + số dư đầu kỳ theo đối tượng
+    "TamUng",
+    "TamUngQuyetToan",
+    "SoDuDauKyDoiTuong",
+    # Thuế TNDN điều chỉnh + phân bổ TK 242
+    "ThueTndnDieuChinh",
+    "PhanBo242",
 ]

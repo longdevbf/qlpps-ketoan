@@ -1,0 +1,7 @@
+/* kt-doi-tuong.css — riêng màn Chi tiết công nợ đối tượng (#kd-kt-doi-tuong). Chỉ var(--token).
+   Bên NCC có 6 thẻ (thêm Nợ thực / Nợ dự kiến như màn cũ) → 3 cột thay vì 4 để không lẻ 4+2. */
+@media (min-width: 1024px) {
+  #kd-kt-doi-tuong .kd-kpi-row.kt-kpi-row--6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* Tiêu đề thẻ "Hoá đơn còn nợ" dính sát hàng tiêu đề bảng — chừa khoảng như thẻ Sổ chi tiết. */
+#kd-kt-doi-tuong .kd-card > .kd-box__head.kt-the-dau { padding: var(--sp-8) var(--sp-8) var(--sp-6); margin: 0; }

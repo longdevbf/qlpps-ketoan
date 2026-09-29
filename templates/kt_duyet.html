@@ -6,6 +6,7 @@
 {% set page_sub   = "Duyệt để đơn lên Mua Hàng · Từ chối khi chưa nhận được tiền cọc" %}
 
 {% block title %}Xác Nhận Cọc{% endblock %}
+{% block page_mod %}page--full{% endblock %}
 
 {% block page_actions %}
   <button class="btn" style="background:var(--brand-soft);color:var(--brand-hover);border:1px solid var(--brand-soft)" onclick="loadData()">Làm mới</button>
@@ -204,18 +205,17 @@ function renderTable(){
       ? '<span class="badge b-wait">Chờ KT</span>'
       : '<span class="badge b-kvt">Chưa Về Tiền</span>';
 
-    // Tên NV là chữ chính (`*_ten` từ API), mã giữ ở title; thiếu `_ten` thì rơi về mã.
     return `<tr>
       <td><a href="https://baogia.qlpps.com/quote/${q.id}" target="_blank" style="font-weight:700;color:var(--brand);text-decoration:none">${esc(q.quote_number)}</a></td>
       <td><strong>${esc(q.customer_name)}</strong></td>
       <td>${esc(q.customer_phone||'—')}</td>
-      <td title="${esc(q.salesperson||'')}">${esc(q.salesperson_ten||q.salesperson||'—')}</td>
+      <td>${esc(q.salesperson||'—')}</td>
       <td class="text-end" style="font-weight:700;color:var(--brand);white-space:nowrap">${fmt(q.tong_don)}</td>
       <td class="text-end" style="white-space:nowrap">${fmtChenh(q)}</td>
       <td>${cocHtml}</td>
       <td>
         ${badge}
-        ${q.duyet_boi?`<div style="font-size:12px;color:var(--text-3);margin-top:2px"><span title="${esc(q.duyet_boi)}">${esc(q.duyet_boi_ten||q.duyet_boi)}</span> · ${(q.duyet_luc||'').slice(0,16)}</div>`:''}
+        ${q.duyet_boi?`<div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(q.duyet_boi)} · ${(q.duyet_luc||'').slice(0,16)}</div>`:''}
         ${kvtNote}
       </td>
       <td style="text-align:center">

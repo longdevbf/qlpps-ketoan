@@ -1,0 +1,183 @@
+{# ─────────────────────────────────────────────────────────────────────────────
+   _kt_macro.html — mảnh giao diện dùng chung cho các màn Kế toán (nhóm 3–5).
+   Chỉ dựng KHUNG theo đúng component của hệ QLPPS; dữ liệu do kt-danh-sach.js / kt-bao-cao.js điền.
+   Quy ước id: mọi phần tử của một màn mang tiền tố `pfx` (vd "ts-tbody", "ts-panel") để JS tìm.
+   Dùng: {% import "_kt_macro.html" as ui %}
+   ───────────────────────────────────────────────────────────────────────────── #}
+
+{# Dải tiêu đề: H1 + dòng phụ; công cụ truyền qua {% call %} #}
+{# tip (tuỳ chọn): ghi chú phụ hiện trong ⓘ cạnh dòng phụ — thay cho đoạn chú thích dài trên màn. #}
+{% macro dau_trang(h1, sub, tip='') -%}
+  <header class="kd-head">
+    <div class="kd-head__title">
+      <h1 class="kd-h1">{{ h1 }}</h1>
+      <p class="kd-sub">{{ sub }}{% if tip %} <button type="button" class="kd-tip" data-tip="{{ tip }}" aria-label="{{ tip }}"><i class="bi bi-info-circle" aria-hidden="true"></i></button>{% endif %}</p>
+    </div>
+    <div class="kd-head__tools">{{ caller() }}</div>
+  </header>
+{%- endmacro %}
+
+{# Ô chọn kỳ + khoảng ngày tuỳ chỉnh cho dải tiêu đề #}
+{% macro chon_ky(pfx, nhan='Kỳ số liệu') -%}
+      <label class="kd-select">
+        <i class="bi bi-calendar3" aria-hidden="true"></i>
+        <span class="visually-hidden">{{ nhan }}</span>
+        <select id="{{ pfx }}-ky"></select>
+      </label>
+      <div class="kd-daterange kt-khoang" id="{{ pfx }}-khoang" role="group" aria-label="Khoảng ngày tuỳ chỉnh" hidden>
+        <i class="bi bi-calendar3" aria-hidden="true"></i>
+        <input type="date" id="{{ pfx }}-tu" aria-label="Từ ngày">
+        <span aria-hidden="true">–</span>
+        <input type="date" id="{{ pfx }}-den" aria-label="Đến ngày">
+      </div>
+{%- endmacro %}
+
+{% macro nut_loc(pfx) -%}
+      <button type="button" class="kd-btn" id="{{ pfx }}-nut-loc" aria-expanded="false" aria-controls="{{ pfx }}-loc">
+        <i class="bi bi-funnel" aria-hidden="true"></i>Bộ lọc<span class="kt-dem-loc num" id="{{ pfx }}-dem-loc" hidden></span>
+      </button>
+{%- endmacro %}
+
+{# Hàng thẻ số. items: (key, nhan, mau ico-tile, icon). kieu: 'kpi' (thẻ lớn) | 'strip' (một thẻ chia ô) #}
+{# items: (khoá, nhãn, màu, icon[, tip]) — phần tử thứ 5 tuỳ chọn là ghi chú ⓘ cạnh nhãn. #}
+{% macro the_so(pfx, items, kieu='kpi', nhan_vung='Tổng hợp theo bộ lọc') -%}
+  <div class="kt-kpi-khoi">
+    {% if kieu == 'kpi' %}
+    <section class="kd-kpi-row{% if items | length == 5 %} kd-kpi-row--5{% elif items | length == 4 %} kt-kpi-row--4{% endif %}" id="{{ pfx }}-kpi" aria-label="{{ nhan_vung }}">
+      {% for k in items %}
+      <article class="kd-kpi" data-kpi="{{ k[0] }}">
+        <div class="kd-kpi__head">
+          <span class="ico-tile{% if k[2] %} ico-tile--{{ k[2] }}{% endif %}" aria-hidden="true"><i class="bi {{ k[3] }}"></i></span>
+          <span class="kd-kpi__label">{{ k[1] }}{% if k | length > 4 and k[4] %}<button type="button" class="kd-tip" data-tip="{{ k[4] }}" aria-label="{{ k[4] }}"><i class="bi bi-info-circle" aria-hidden="true"></i></button>{% endif %}</span>
+        </div>
+        <div class="kd-kpi__value num" data-v><span class="kd-skel kd-skel--kpi"></span></div>
+        <p class="kd-kpi__phu" data-phu></p>
+      </article>
+      {% endfor %}
+    </section>
+    {% else %}
+    <section class="kd-strip{% if items | length == 3 %} kd-strip--3{% endif %}" id="{{ pfx }}-kpi" aria-label="{{ nhan_vung }}">
+      {% for k in items %}
+      <article class="kd-strip__o" data-kpi="{{ k[0] }}">
+        <span class="ico-tile ico-tile--sm{% if k[2] %} ico-tile--{{ k[2] }}{% endif %}" aria-hidden="true"><i class="bi {{ k[3] }}"></i></span>
+        <div>
+          <span class="kd-kpi__label">{{ k[1] }}{% if k | length > 4 and k[4] %}<button type="button" class="kd-tip" data-tip="{{ k[4] }}" aria-label="{{ k[4] }}"><i class="bi bi-info-circle" aria-hidden="true"></i></button>{% endif %}</span>
+          <div class="kd-kpi__value num" data-v><span class="kd-skel kd-skel--kpi"></span></div>
+          <p class="kd-kpi__phu" data-phu></p>
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+    {% endif %}
+    <p class="kt-pham-vi" id="{{ pfx }}-pham-vi"></p>
+  </div>
+{%- endmacro %}
+
+{# Ô lọc #}
+{% macro o_tim(pfx, key, nhan, ph) -%}
+        <label class="kd-field">
+          <span class="kd-field__label">{{ nhan }}</span>
+          <input class="kd-input" type="search" id="{{ pfx }}-{{ key }}" data-loc="{{ key }}" placeholder="{{ ph }}" autocomplete="off">
+        </label>
+{%- endmacro %}
+{% macro o_chon(pfx, key, nhan, lua_chon) -%}
+        <label class="kd-field">
+          <span class="kd-field__label">{{ nhan }}</span>
+          <select class="kd-input" id="{{ pfx }}-{{ key }}" data-loc="{{ key }}">
+            {% for v, t in lua_chon %}<option value="{{ v }}">{{ t }}</option>{% endfor %}
+          </select>
+        </label>
+{%- endmacro %}
+
+{# Thẻ bảng L3: dải lọc (caller) + bảng + khối trạng thái + chân phân trang; panel xem nhanh tuỳ chọn #}
+{% macro the_bang(pfx, tieu_de_an, panel=None, phan_trang=True, rong=False, dau_the='') -%}
+  <div class="kd-main" id="{{ pfx }}-main">
+    <section class="kd-card" aria-labelledby="{{ pfx }}-td">
+      <h2 class="visually-hidden" id="{{ pfx }}-td">{{ tieu_de_an }}</h2>
+      {{ dau_the }}
+      {% set o_loc = caller() %}
+      {% if o_loc | trim %}
+      <form class="kd-filter" id="{{ pfx }}-loc" role="search" hidden novalidate>
+        {{ o_loc }}
+        <button type="button" class="kd-link" id="{{ pfx }}-dat-lai">Đặt lại bộ lọc</button>
+      </form>
+      {% endif %}
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="{{ pfx }}-cuon">
+        <table class="kd-table{% if panel %} kd-table--click{% endif %} kt-bang" id="{{ pfx }}-bang">
+          <caption class="visually-hidden">{{ tieu_de_an }}</caption>
+          <thead id="{{ pfx }}-thead"></thead>
+          <tbody id="{{ pfx }}-tbody"></tbody>
+          <tfoot id="{{ pfx }}-tfoot"></tfoot>
+        </table>
+      </div>
+      <div id="{{ pfx }}-tt"></div>
+      {% if phan_trang %}
+      <footer class="kd-card__foot" id="{{ pfx }}-foot" hidden>
+        <span id="{{ pfx }}-hien-thi" aria-live="polite"></span>
+        <nav class="kd-pager" id="{{ pfx }}-trang" aria-label="Phân trang"></nav>
+        <label class="kd-select">
+          <span class="visually-hidden">Số dòng mỗi trang</span>
+          <select id="{{ pfx }}-co-trang"><option value="20">20 / trang</option><option value="25">25 / trang</option><option value="50">50 / trang</option><option value="100">100 / trang</option></select>
+        </label>
+      </footer>
+      {% endif %}
+    </section>
+    {% if panel %}
+    <aside class="kd-panel kt-panel" id="{{ pfx }}-panel" aria-labelledby="{{ pfx }}-p-td" hidden>
+      <header class="kd-panel__head">
+        <h2 class="kd-panel__title" id="{{ pfx }}-p-td">{{ panel }}</h2>
+        <button type="button" class="kd-icon-btn" id="{{ pfx }}-p-dong" aria-label="Đóng {{ panel | lower }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+      </header>
+      <div class="kd-panel__scroll" id="{{ pfx }}-p-noi-dung"></div>
+      <footer class="kd-panel__actions" id="{{ pfx }}-p-nut"></footer>
+    </aside>
+    <div class="kd-scrim" id="{{ pfx }}-scrim" hidden></div>
+    {% endif %}
+  </div>
+{%- endmacro %}
+
+{# (Màn báo cáo vẫn nạp kt-danh-sach.js vì cần bộ vẽ KT.H.)
+   Thẻ báo cáo theo mẫu: đầu thẻ (tên mẫu + đơn vị) · bảng chỉ tiêu · khối trạng thái · ghi chú chân thẻ.
+   cot: danh sách (nhan, num) theo thứ tự sau cột "Chỉ tiêu" #}
+{% macro the_bao_cao(pfx, tieu_de, mau, cot) -%}
+  <section class="kd-card" aria-labelledby="{{ pfx }}-td">
+    <div class="kd-box__head kt-the-dau">
+      <h2 class="kd-box__title" id="{{ pfx }}-td">{{ tieu_de }}</h2>
+      <p class="kd-meta">{{ mau }} · Đơn vị tính: VND</p>
+    </div>
+    <div class="kd-table-scroll kd-table-scroll--thanh" id="{{ pfx }}-cuon">
+      <table class="kd-table kt-bang kt-bc">
+        <caption class="visually-hidden">{{ tieu_de }}</caption>
+        <thead><tr><th scope="col">Chỉ tiêu</th>{% for nhan, so in cot %}<th scope="col"{% if so %} class="num"{% endif %}>{{ nhan }}</th>{% endfor %}</tr></thead>
+        <tbody id="{{ pfx }}-tbody"></tbody>
+      </table>
+    </div>
+    <div id="{{ pfx }}-tt"></div>
+    <footer class="kd-card__foot kt-bc__chan" id="{{ pfx }}-ghi-chu" hidden></footer>
+  </section>
+{%- endmacro %}
+
+{# Ô "Đến ngày" cho báo cáo thời điểm (CĐKT) #}
+{% macro den_ngay(pfx) -%}
+      <label class="kd-select kt-khoang">
+        <i class="bi bi-calendar3" aria-hidden="true"></i>
+        <span class="visually-hidden">Số liệu đến ngày</span>
+        <input type="date" id="{{ pfx }}-den-ngay" class="kt-den-ngay">
+      </label>
+{%- endmacro %}
+
+{# Khối CSS/JS chuẩn cho mọi màn — gọi trong head_extra / scripts #}
+{# v = phiên bản file RIÊNG của màn — đổi khi sửa CSS/JS màn đó để trình duyệt tải bản mới. #}
+{% macro css(rieng, v='1') -%}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+{% if rieng %}<link rel="stylesheet" href="/static/css/{{ rieng }}.css?v={{ v }}">{% endif %}
+{%- endmacro %}
+{% macro js(rieng, chart=False, danh_sach=True, bao_cao=False, v='1') -%}
+{% if chart %}<script src="/static/js/chart.umd.js?v=1"></script>{% endif %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+{% if danh_sach %}<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>{% endif %}
+{% if bao_cao %}<script src="/static/js/kt-bao-cao.js?v=loc0928b"></script>{% endif %}
+<script src="/static/js/{{ rieng }}.js?v={{ v }}"></script>
+{%- endmacro %}

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{# ─────────────────────────────────────────────────────────────────────────────
+   Bảng cân đối phát sinh (can-doi) — restyle theo hệ QLPPS. Đợt 2.
+   Mỗi dòng tài khoản là LIÊN KẾT sang Sổ cái đã lọc đúng TK + đúng kỳ (drill-down),
+   nên màn này không có panel xem nhanh: chi tiết của một TK chính là sổ cái của nó.
+
+   Nguồn: GET /api/journal/can-doi-phat-sinh (app/services/journal.py:trial_balance) — dư đầu,
+   phát sinh Nợ/Có thật, dư cuối của mọi TK (chỉ bút toán da_post). Xem chú thích đầu kt-can-doi.js.
+   Mức hiển thị "Chi tiết" (28/09/2026) = thêm dòng TK con của tài khoản tiền (API trả cap=2 + tk_cha).
+   ───────────────────────────────────────────────────────────────────────────── #}
+{% block title %}Cân đối phát sinh{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-can-doi.css?v=g4b">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-can-doi">
+  <header class="kd-head">
+    <div class="kd-head__title">
+      <h1 class="kd-h1">Cân đối phát sinh</h1>
+      <p class="kd-sub">Số dư và phát sinh từng tài khoản <button type="button" class="kd-tip" data-tip="Bấm một tài khoản để mở sổ cái của tài khoản đó." aria-label="Bấm một tài khoản để mở sổ cái của tài khoản đó."><i class="bi bi-info-circle" aria-hidden="true"></i></button></p>
+    </div>
+    <div class="kd-head__tools">
+      <label class="kd-select">
+        <i class="bi bi-calendar3" aria-hidden="true"></i>
+        <span class="visually-hidden">Kỳ báo cáo</span>
+        <select id="cd-ky"></select>
+      </label>
+      <div class="kd-daterange kt-khoang" id="cd-khoang" role="group" aria-label="Khoảng ngày tuỳ chỉnh" hidden>
+        <i class="bi bi-calendar3" aria-hidden="true"></i>
+        <input type="date" id="cd-tu" aria-label="Từ ngày">
+        <span aria-hidden="true">–</span>
+        <input type="date" id="cd-den" aria-label="Đến ngày">
+      </div>
+      <button type="button" class="kd-btn" id="cd-in"><i class="bi bi-printer" aria-hidden="true"></i>In</button>
+      <button type="button" class="kd-btn kd-btn--primary" id="cd-xuat"><i class="bi bi-download" aria-hidden="true"></i>Xuất Excel</button>
+    </div>
+  </header>
+
+  <div class="kt-kpi-khoi">
+    <section class="kd-strip" id="cd-strip" aria-label="Kiểm tra cân đối">
+      {% for k in [
+        ('dau', 'Số dư đầu kỳ', 'bi-box-arrow-in-right', 'info'),
+        ('ps', 'Phát sinh trong kỳ', 'bi-arrow-left-right', ''),
+        ('cuoi', 'Số dư cuối kỳ', 'bi-box-arrow-right', 'tim'),
+        ('can', 'Kết quả kiểm tra', 'bi-check2-circle', 'success')
+      ] %}
+      <article class="kd-strip__o" data-o="{{ k[0] }}">
+        <span class="ico-tile ico-tile--sm{% if k[3] %} ico-tile--{{ k[3] }}{% endif %}" aria-hidden="true" data-icon><i class="bi {{ k[2] }}"></i></span>
+        <div>
+          <span class="kd-kpi__label">{{ k[1] }}</span>
+          <div class="kd-kpi__value num" data-v><span class="kd-skel kd-skel--kpi"></span></div>
+          <p class="kd-kpi__phu" data-phu></p>
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+    <p class="kt-pham-vi" id="cd-pham-vi"></p>
+  </div>
+
+  <section class="kd-card" aria-labelledby="cd-td">
+    <h2 class="visually-hidden" id="cd-td">Bảng cân đối phát sinh</h2>
+    <form class="kd-filter" id="cd-loc" role="search" novalidate>
+      <label class="kd-field">
+        <span class="kd-field__label">Tìm tài khoản</span>
+        <input class="kd-input" type="search" id="cd-tim" placeholder="Số hiệu hoặc tên tài khoản…" autocomplete="off">
+      </label>
+      <div class="kd-field">
+        <span class="kd-field__label" id="cd-cap-nhan">Mức hiển thị</span>
+        <div class="kd-seg" role="group" aria-labelledby="cd-cap-nhan" id="cd-cap">
+          <button type="button" data-cap="1" aria-pressed="true">Cấp 1</button>
+          <button type="button" data-cap="chi_tiet" aria-pressed="false" title="Hiện thêm tài khoản con (từng quỹ / ngân hàng) dưới tài khoản cấp 1">Chi tiết</button>
+        </div>
+      </div>
+      <label class="kt-check">
+        <input type="checkbox" id="cd-an" checked>
+        <span>Ẩn tài khoản không có số</span>
+      </label>
+      <button type="button" class="kd-link" id="cd-dat-lai">Đặt lại bộ lọc</button>
+    </form>
+
+    <div class="kd-table-scroll kd-table-scroll--thanh" id="cd-cuon">
+      <table class="kd-table kt-bang kt-cd-bang">
+        <caption class="visually-hidden" id="cd-cap-bang">Bảng cân đối phát sinh</caption>
+        <thead>
+          <tr>
+            <th scope="col" rowspan="2">Số hiệu</th>
+            <th scope="col" rowspan="2">Tên tài khoản</th>
+            <th scope="colgroup" colspan="2" class="kt-nhom-cot">Số dư đầu kỳ (VND)</th>
+            <th scope="colgroup" colspan="2" class="kt-nhom-cot">Phát sinh trong kỳ (VND)</th>
+            <th scope="colgroup" colspan="2" class="kt-nhom-cot">Số dư cuối kỳ (VND)</th>
+          </tr>
+          <tr>
+            <th scope="col" class="num">Nợ</th><th scope="col" class="num">Có</th>
+            <th scope="col" class="num">Nợ</th><th scope="col" class="num">Có</th>
+            <th scope="col" class="num">Nợ</th><th scope="col" class="num">Có</th>
+          </tr>
+        </thead>
+        <tbody id="cd-tbody"></tbody>
+        <tfoot id="cd-tfoot"></tfoot>
+      </table>
+    </div>
+    <div id="cd-tt"></div>
+    <p class="kd-muted kt-ghi-chu" id="cd-ghi-chu"></p>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-can-doi.js?v=tk0928b"></script>
+{% endblock %}

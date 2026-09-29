@@ -203,12 +203,11 @@ function render(){
       ? `<button class="btn btn-ok" onclick="openApprove('${r.id}')">Duyệt</button>
          <button class="btn btn-no" onclick="openReject('${r.id}')">Từ chối</button>`
       : `<span style="color:var(--text-3);font-size:12px">—</span>`;
-    // API đã trả `*_ten` (tra tên từ username) — hiện tên, mã giữ ở title để rê chuột vẫn tra được.
     const kt = r.kt_duyet_boi
-      ? `<div title="${esc(r.kt_duyet_boi)}">${esc(r.kt_duyet_boi_ten||r.kt_duyet_boi)}</div><div style="color:var(--text-3);font-size:12px">${fmtDt(r.kt_duyet_luc)}</div>${r.kt_ghi_chu ? `<div class="ghi-chu-cell">${esc(r.kt_ghi_chu)}</div>` : ''}`
+      ? `<div>${esc(r.kt_duyet_boi)}</div><div style="color:var(--text-3);font-size:12px">${fmtDt(r.kt_duyet_luc)}</div>${r.kt_ghi_chu ? `<div class="ghi-chu-cell">${esc(r.kt_ghi_chu)}</div>` : ''}`
       : '—';
     const ceo = r.nguoi_duyet
-      ? `<div title="${esc(r.nguoi_duyet)}">${esc(r.nguoi_duyet_ten||r.nguoi_duyet)}</div><div style="color:var(--text-3);font-size:12px">${fmtDt(r.ngay_duyet)}</div>`
+      ? `<div>${esc(r.nguoi_duyet)}</div><div style="color:var(--text-3);font-size:12px">${fmtDt(r.ngay_duyet)}</div>`
       : '—';
     return `<tr>
       <td><b>${esc(r.id)}</b></td>
@@ -217,7 +216,7 @@ function render(){
       <td>${esc(r.don_vi_vc||'')}</td>
       <td class="money">${fmtVnd(r.so_tien)}</td>
       <td class="ghi-chu-cell">${esc(r.ly_do||'')}</td>
-      <td title="${esc(r.nguoi_tao||'')}">${esc(r.nguoi_tao_ten||r.nguoi_tao||'')}</td>
+      <td>${esc(r.nguoi_tao||'')}</td>
       <td><span class="badge b-${r.trang_thai}">${STATUS_LABEL[r.trang_thai]||r.trang_thai}</span></td>
       <td>${kt}</td>
       <td>${ceo}</td>

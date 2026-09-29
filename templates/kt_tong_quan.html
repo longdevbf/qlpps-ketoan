@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{# ─────────────────────────────────────────────────────────────────────────────
+   Tổng quan Kế toán — bố cục Dashboard của Hệ giao diện QLPPS (guidelines/10-bo-cuc.md)
+   Đợt 1 — nối vào API THẬT (không còn /api/ketoan/tong-quan giả định của README):
+     · Doanh thu thuần / giá vốn + chi phí / lợi nhuận / cơ cấu chi phí / biểu đồ tháng: báo cáo KQKD
+       (GET /api/bao-cao/pl qua KT.kqkd — kt-kqkd-tinh.js, cùng cách dựng số màn KQKD) — số chuẩn duy nhất
+     · GET /api/bao-cao/tong-quan (tiền thu từ khách + chỉ số vận hành theo khoảng ngày; kỳ trước cho %),
+       /api/orders/pending-revenue
+     · GET /api/cong-no/ncc-module (phải trả, đến hạn NCC — như màn Công nợ NCC), /api/journal (bút toán gần đây),
+       /api/so-quy/summary (tồn quỹ đến ngày cuối kỳ), /api/duyet-chi/queue/me… ("Chờ tôi duyệt" như màn Duyệt chi)
+   Chi tiết từng chỗ khác README mock: xem chú thích trong kt-tong-quan.js.
+   ───────────────────────────────────────────────────────────────────────────── #}
+{% block title %}Tổng quan kế toán{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-tong-quan.css?v=kqkd0928b">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-tong-quan">
+  <header class="kd-head">
+    <div class="kd-head__title">
+      <h1 class="kd-h1">Tổng quan kế toán</h1>
+      <p class="kd-sub kd-sub--ky" id="tq-ky-chu" aria-live="polite"></p>
+    </div>
+    <div class="kd-head__tools">
+      <label class="kd-select">
+        <i class="bi bi-calendar3" aria-hidden="true"></i>
+        <span class="visually-hidden">Kỳ số liệu</span>
+        <select id="tq-ky"></select>
+      </label>
+      <div class="kd-daterange kt-khoang" id="tq-khoang" role="group" aria-label="Khoảng ngày tuỳ chỉnh" hidden>
+        <i class="bi bi-calendar3" aria-hidden="true"></i>
+        <input type="date" id="tq-tu" aria-label="Từ ngày">
+        <span aria-hidden="true">–</span>
+        <input type="date" id="tq-den" aria-label="Đến ngày">
+      </div>
+      {# API chứng từ / bút toán tay chỉ cho CEO (require_ceo_thuchi) → ẩn với Kế toán, tránh bấm vào bị 403. #}
+      <a class="kd-btn kd-btn--primary" href="/ketoan/chung-tu?loai=khac" data-quyen="ceo">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>Tạo bút toán
+      </a>
+    </div>
+  </header>
+
+  <div class="kd-dash__body" id="tq-body">
+    <div class="kd-dash__main">
+      {# 8 thẻ chính (4 cột ở màn rộng): hàng 1 dòng tiền & công nợ; hàng 2 số báo cáo KQKD — nhãn theo dòng B02,
+         CÙNG số màn KQKD. Nhãn ngắn + số + tối đa 1 dòng phụ; phần tách chi tiết nằm trong ⓘ (data-tip-o). #}
+      <section class="kd-dash__kpi6 kt-kpi8" aria-label="Chỉ số tài chính chính" id="tq-kpi">
+        {% for k in [
+          ('phai_thu',  'Phải thu',          '',          'bi-cash-stack',        'down', ''),
+          ('phai_tra',  'Phải trả',          '--tim',     'bi-truck',             '',     ' kd-tip--trai'),
+          ('ton_quy',   'Tồn quỹ',           '--info',    'bi-wallet2',           'up',   ''),
+          ('tien_thu',  'Tiền thu từ khách', '--success', 'bi-box-arrow-in-down', 'up',   ' kd-tip--trai'),
+          ('dt_thuan',  'Doanh thu thuần',   '--brand',   'bi-graph-up-arrow',    'up',   ''),
+          ('chi_phi',   'Giá vốn + chi phí', '--warning', 'bi-receipt',           'down', ' kd-tip--trai'),
+          ('ln_gop',    'Lợi nhuận gộp',     '--success', 'bi-bar-chart',         'up',   ''),
+          ('loi_nhuan_truoc_thue', 'Lợi nhuận trước thuế', '--success', 'bi-piggy-bank', 'up', ' kd-tip--trai')
+        ] %}
+        <article class="kd-kpi" data-kpi="{{ k[0] }}" data-tip-lop="{{ k[5]|trim }}">
+          <div class="kd-kpi__head">
+            <span class="ico-tile{% if k[2] %} ico-tile{{ k[2] }}{% endif %}" aria-hidden="true"><i class="bi {{ k[3] }}"></i></span>
+            <span class="kd-kpi__label">{{ k[1] }}</span><span data-tip-o></span>
+          </div>
+          <div class="kd-kpi__value num" data-v><span class="kd-skel kd-skel--kpi"></span></div>
+          <p class="kd-kpi__delta" data-d{% if k[4] %} data-tot="{{ k[4] }}"{% endif %} hidden></p>
+          <p class="kd-kpi__phu" data-phu></p>
+        </article>
+        {% endfor %}
+      </section>
+
+      {# 9 chỉ số phụ gom vào MỘT thẻ, hai cột danh sách: nhãn | số (ghi chú trong ⓘ). Lợi nhuận gộp đã lên hàng thẻ KQKD. #}
+      <section class="kd-card kt-chiso" aria-labelledby="tq-h-chiso" id="tq-chiso">
+        <div class="kd-box__head">
+          <h2 class="kd-box__title" id="tq-h-chiso">Chỉ số khác trong kỳ</h2>
+        </div>
+        <div class="kt-chiso__luoi">
+          {% for nhom in [
+            [('so_don', 'Đơn hàng đã duyệt', 'bi-bag-check', ''),
+             ('no_qua_han', 'Nợ khách quá hạn', 'bi-exclamation-triangle', ' ico-tile--danger'),
+             ('den_han_ncc_7_ngay', 'Đến hạn trả NCC 7 ngày', 'bi-hourglass-split', ' ico-tile--warning'),
+             ('cong_no_ps', 'Công nợ phát sinh', 'bi-journal-text', ' ico-tile--tim'),
+             ('vat_dau_ra', 'VAT đầu ra', 'bi-percent', '')],
+            [('tong_ads', 'Chi ADS thực tế', 'bi-megaphone', ' ico-tile--warning'),
+             ('so_data_mkt', 'Data marketing', 'bi-person-lines-fill', ' ico-tile--tim'),
+             ('so_inbox_mkt', 'Inbox marketing', 'bi-chat-dots', ' ico-tile--tim'),
+             ('tong_nv', 'Tổng nhân sự', 'bi-people', '')]
+          ] %}
+          <ul class="kt-chiso__ds">
+            {% for s in nhom %}
+            <li class="kt-chiso__o" data-kpi="{{ s[0] }}">
+              <span class="ico-tile ico-tile--sm{{ s[3] }}" aria-hidden="true"><i class="bi {{ s[2] }}"></i></span>
+              <span class="kt-chiso__nhan">{{ s[1] }}<span data-tip-o></span></span>
+              <b class="kt-chiso__so num" data-v><span class="kd-skel kd-skel--kpi"></span></b>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endfor %}
+        </div>
+      </section>
+
+      <div class="kd-dash__bo3">
+        <section class="kd-card" aria-labelledby="tq-h-thang">
+          <div class="kd-box__head">
+            <h2 class="kd-box__title" id="tq-h-thang">Doanh thu thuần theo tháng<span id="tq-thang-tip"></span></h2>
+            <p class="kd-meta" id="tq-thang-meta">12 tháng gần nhất</p>
+          </div>
+          <div class="kd-chart" id="tq-chart-hop">
+            <div class="kd-chart__o"><canvas id="tq-chart" height="260" role="img" aria-label="Biểu đồ doanh thu thuần (báo cáo KQKD) 12 tháng gần nhất"></canvas></div>
+          </div>
+          <div id="tq-chart-tt"></div>
+        </section>
+
+        <section class="kd-card" aria-labelledby="tq-h-tuoi">
+          <div class="kd-box__head">
+            <h2 class="kd-box__title" id="tq-h-tuoi">Tuổi nợ phải thu</h2>
+            <a class="kd-link kd-link--sm" href="/ketoan/cong-no-kh">Xem công nợ<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+          </div>
+          <div class="kt-tuoi" id="tq-tuoi"></div>
+        </section>
+      </div>
+
+      <div class="kd-dash__ba">
+        <section class="kd-card" aria-labelledby="tq-h-cp">
+          <div class="kd-box__head">
+            <h2 class="kd-box__title" id="tq-h-cp">Cơ cấu chi phí<button type="button" class="kd-tip" data-tip="Giá vốn và các nhóm chi phí của báo cáo Kết quả kinh doanh trong kỳ." aria-label="Giá vốn và các nhóm chi phí của báo cáo Kết quả kinh doanh trong kỳ."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2>
+            <a class="kd-link kd-link--sm" id="tq-kqkd-link" href="/ketoan/bao-cao/kqkd">Xem KQKD<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+          </div>
+          <div class="kt-loai" id="tq-cp"></div>
+        </section>
+
+        <section class="kd-card" aria-labelledby="tq-h-nv">
+          <div class="kd-box__head">
+            <h2 class="kd-box__title" id="tq-h-nv">Doanh số theo nhân viên<button type="button" class="kd-tip kd-tip--trai" data-tip="Giá trị báo giá đã duyệt (chưa thuế), theo ngày duyệt — khác Doanh thu thuần (KQKD: đơn đã hoàn thành)." aria-label="Giá trị báo giá đã duyệt (chưa thuế), theo ngày duyệt — khác Doanh thu thuần (KQKD: đơn đã hoàn thành)."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2>
+          </div>
+          <div class="kd-rank" id="tq-nv"></div>
+        </section>
+      </div>
+
+      <div class="kd-dash__ba">
+        <section class="kd-card" aria-labelledby="tq-h-dt">
+          <div class="kd-box__head">
+            <h2 class="kd-box__title" id="tq-h-dt">Tiền thu theo loại<button type="button" class="kd-tip" data-tip="Tiền thực thu từ khách trong kỳ (cọc + thanh toán, gồm VAT) theo loại doanh thu của phiếu thu — cộng bằng thẻ Tiền thu từ khách." aria-label="Tiền thực thu từ khách trong kỳ theo loại doanh thu của phiếu thu — cộng bằng thẻ Tiền thu từ khách."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2>
+          </div>
+          <div class="kt-loai" id="tq-dt"></div>
+        </section>
+
+        <section class="kd-card" aria-labelledby="tq-h-ads">
+          <div class="kd-box__head">
+            <h2 class="kd-box__title" id="tq-h-ads">Chi phí ADS theo kênh</h2>
+          </div>
+          <div class="kt-loai" id="tq-ads"></div>
+        </section>
+      </div>
+
+      <div class="kd-dash__ba">
+        <section class="kd-card" aria-labelledby="tq-h-bt">
+          <div class="kd-box__head">
+            <h2 class="kd-box__title" id="tq-h-bt">Bút toán gần đây</h2>
+            <a class="kd-link kd-link--sm" href="/ketoan/so-cai">Mở sổ nhật ký<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+          </div>
+          <div class="kt-khoi-dem"><ul class="kd-lines" id="tq-bt" aria-label="Bút toán ghi sổ gần nhất"></ul></div>
+          <div id="tq-bt-tt"></div>
+        </section>
+
+        <section class="kd-card" aria-labelledby="tq-h-top">
+          <div class="kd-box__head">
+            <h2 class="kd-box__title" id="tq-h-top">Khách nợ nhiều nhất<button type="button" class="kd-tip kd-tip--trai" data-tip="Số còn phải thu hiện tại, tính mọi thời điểm." aria-label="Số còn phải thu hiện tại, tính mọi thời điểm."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2>
+          </div>
+          <div class="kd-rank" id="tq-top"></div>
+        </section>
+      </div>
+    </div>
+
+    <aside class="kd-dash__side" aria-label="Việc và lối tắt">
+      <section class="kd-box kt-viec" aria-labelledby="tq-h-viec" id="tq-viec-hop" hidden>
+        <header class="kd-box__head">
+          <h2 class="kd-box__title" id="tq-h-viec">Việc cần xử lý <span class="kt-dem-loc num" id="tq-viec-dem"></span></h2>
+        </header>
+        <ul class="kd-lines kt-viec__ds" id="tq-viec" aria-label="Việc cần xử lý"></ul>
+      </section>
+      <section class="kd-box kt-duyet" aria-labelledby="tq-h-duyet">
+        <header class="kd-box__head">
+          <h2 class="kd-box__title" id="tq-h-duyet">Chờ tôi duyệt <span class="kt-dem-loc num" id="tq-duyet-dem" hidden></span></h2>
+          <a class="kd-link kd-link--sm" href="/ketoan/kt-duyet">Mở Duyệt chi<i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+        </header>
+        <p class="kt-duyet__tong" id="tq-duyet-tong" hidden></p>
+        <ul class="kd-lines kt-duyet__ds" id="tq-duyet" aria-label="Lệnh chờ duyệt lâu nhất"></ul>
+        <div id="tq-duyet-tt"></div>
+      </section>
+      <section class="kd-box" aria-labelledby="tq-h-nhanh">
+        <h2 class="kd-box__title" id="tq-h-nhanh">Thao tác nhanh</h2>
+        <div class="kd-quick">
+          <a class="kd-quick__o" href="/ketoan/so-quy?lap=thu"><span class="ico-tile ico-tile--success" aria-hidden="true"><i class="bi bi-box-arrow-in-down"></i></span>Lập phiếu thu</a>
+          <a class="kd-quick__o" href="/ketoan/so-quy?lap=chi"><span class="ico-tile ico-tile--warning" aria-hidden="true"><i class="bi bi-box-arrow-up"></i></span>Lập phiếu chi</a>
+          <a class="kd-quick__o" href="/ketoan/ngan-hang"><span class="ico-tile" aria-hidden="true"><i class="bi bi-bank"></i></span>Đối chiếu sao kê</a>
+          <a class="kd-quick__o" href="/ketoan/so-cai"><span class="ico-tile ico-tile--tim" aria-hidden="true"><i class="bi bi-table"></i></span>Sổ kế toán</a>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <section class="kd-card" id="tq-loi" hidden></section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/chart.umd.js?v=dot1"></script>
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-kqkd-tinh.js?v=loc0928"></script>
+<script src="/static/js/kt-tong-quan.js?v=kqkd0928b"></script>
+{% endblock %}

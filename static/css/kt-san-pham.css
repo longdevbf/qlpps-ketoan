@@ -1,0 +1,88 @@
+/* kt-san-pham.css — Sản phẩm · Tồn kho · Thuộc tính (3 màn cùng luồng dữ liệu sản phẩm). Tiền tố kt-sp / kt-tk / kt-tt. Chỉ var(--token). */
+
+/* Ảnh sản phẩm trong bảng: vuông 40px, bo góc nhỏ (không có token kích thước ảnh — cố định theo đề bài) */
+.kt-sp-anh { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: var(--r-sm); object-fit: cover; background: var(--bg-page); color: var(--text-3); vertical-align: middle; }
+.kt-sp-anh--lon { width: 72px; height: 72px; font-size: var(--fs-h2); }
+.kt-sp-anh--rong { border: 1px dashed var(--border); }
+.kt-sp-anh-o { display: flex; align-items: center; gap: var(--sp-7); }
+.kt-sp-anh-o .kd-field { flex: 1; margin: 0; }
+
+/* Hộp thêm/sửa sản phẩm: rộng hơn hộp chuẩn, chia nhóm trường */
+.kd-dialog.kt-sp-dlg { width: min(760px, calc(100vw - 2 * var(--sp-8))); max-width: none; }
+.kt-sp-nhom { display: grid; row-gap: var(--sp-6); margin: 0; padding: 0; border: 0; min-width: 0; }
+/* Các lớp hiển thị riêng (inline-grid, grid, kd-link…) đè thuộc tính hidden → ép ẩn trong hộp thoại/màn này */
+.kt-sp-dlg [hidden], #kd-kt-san-pham [hidden], #kd-kt-ton-kho [hidden], #kd-kt-thuoc-tinh [hidden] { display: none !important; }
+.kt-sp-nhom legend { margin-bottom: var(--sp-5); padding: 0; font-size: var(--fs-eyebrow); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); }
+.kt-sp-size { display: grid; row-gap: var(--sp-4); }
+.kt-sp-size .kd-input { min-width: 0; }
+
+/* Tồn kho: cột do Mua hàng nhập nền warning-soft, cột Kế toán đặt nền success-soft */
+.kt-bang .kt-cot-mh { background: var(--warning-soft); }
+.kt-bang .kt-cot-kt { background: var(--success-soft); }
+.kt-bang thead .kt-cot-mh, .kt-bang thead .kt-cot-kt { color: var(--text-1); }
+.kt-tk-phe { display: flex; flex-wrap: wrap; gap: var(--sp-3) var(--sp-7); margin: 0; padding: var(--sp-6) var(--sp-8) 0; list-style: none; font-size: var(--fs-meta); color: var(--text-2); }
+.kt-tk-phe li { display: inline-flex; align-items: center; gap: var(--sp-3); }
+.kt-tk-o { display: inline-block; width: 12px; height: 12px; border-radius: var(--r-sm); border: 1px solid var(--border); }
+.kt-tk-o--mh { background: var(--warning-soft); }
+.kt-tk-o--kt { background: var(--success-soft); }
+
+/* Thuộc tính: 2 cột — danh sách sản phẩm ~280px bên trái, 7 khối thuộc tính bên phải */
+.kt-tt-khung { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-9); align-items: start; }
+@media (min-width: 1024px) { .kt-tt-khung { grid-template-columns: 280px minmax(0, 1fr); } }
+.kt-tt-trai { position: sticky; top: calc(56px + var(--sp-8)); display: grid; grid-template-rows: auto minmax(0, 1fr); max-height: calc(100vh - 56px - 2 * var(--sp-8)); }
+@media (max-width: 1023.98px) { .kt-tt-trai { position: static; max-height: 360px; } }
+.kt-tt-trai .kd-box__head { margin: 0; padding: var(--sp-7) var(--sp-7) var(--sp-5); }
+.kt-tt-tim { padding: 0 var(--sp-7) var(--sp-5); }
+.kt-tt-ds { margin: 0; padding: 0 var(--sp-4) var(--sp-5); list-style: none; overflow-y: auto; }
+.kt-tt-sp { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-4); width: 100%; padding: var(--sp-4) var(--sp-5); border: 0; border-radius: var(--r-sm); background: transparent; font: inherit; text-align: left; color: var(--text-1); cursor: pointer; }
+.kt-tt-sp:hover { background: var(--bg-page); }
+.kt-tt-sp[aria-current="true"] { background: var(--brand-soft); box-shadow: inset 3px 0 0 var(--brand); }
+.kt-tt-sp__ten { display: block; font-size: var(--fs-body); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kt-tt-sp__ma { display: block; font-size: var(--fs-meta); color: var(--text-3); }
+.kt-tt-sp--mac { margin-bottom: var(--sp-3); border-bottom: 1px solid var(--border-soft); border-radius: var(--r-sm) var(--r-sm) 0 0; }
+.kt-tt-phai { display: grid; row-gap: var(--sp-8); min-width: 0; }
+.kt-tt-ngu { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-4) var(--sp-6); }
+.kt-tt-ngu p { margin: 0; }
+.kt-tt-luoi { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); }
+@media (min-width: 1440px) { .kt-tt-luoi { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kt-tt-the > .kd-box__head { margin: 0; padding: var(--sp-7) var(--sp-7) var(--sp-4); display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-3) var(--sp-5); }
+.kt-tt-the .kd-meta { margin: var(--sp-2) 0 0; }
+.kt-tt-bang td { vertical-align: middle; }
+.kt-tt-bang .kd-input { min-width: 0; height: 32px; }
+.kt-tt-bang .kt-tt-he { width: 96px; text-align: right; font-variant-numeric: tabular-nums; }
+.kt-tt-bang tr.is-tat td { color: var(--text-3); }
+.kt-tt-them { display: flex; flex-wrap: wrap; gap: var(--sp-4); padding: var(--sp-5) var(--sp-7) var(--sp-7); }
+.kt-tt-them .kd-input { flex: 1 1 160px; min-width: 0; }
+.kt-tt-them .kt-tt-he { flex: 0 0 110px; }
+.kt-tt-buoc { margin: 0; font-size: var(--fs-meta); color: var(--text-3); }
+/* Ô sửa tại chỗ: viền báo đang lưu / đã lưu / lỗi */
+.kt-tt-bang .kd-input.is-luu { border-color: var(--warning); }
+.kt-tt-bang .kd-input.is-ok { border-color: var(--success); }
+.kt-tt-bang .kd-input.is-loi { border-color: var(--danger); }
+.kt-tt-chip { display: inline-flex; flex-wrap: wrap; gap: var(--sp-3); margin-top: var(--sp-2); }
+.kt-tt-the .kt-dh-xl, .kt-tt-ngu .kt-dh-xl { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+.kt-tt-the .kt-the-dau { margin: 0; }
+.kt-tt-trai > .kd-box__head { display: block; }
+.kt-tt-trai > .kd-box__head .kd-box__title { margin-top: var(--sp-2); }
+.kt-tt-luoi > .kt-tt-the[data-addon] { grid-column: 1 / -1; }
+.kt-tt-the { display: flex; flex-direction: column; }
+.kt-tt-the > .kt-tt-them:last-child { margin-top: auto; }
+
+/* ── Màn Sản phẩm · các tab Kho kế toán (kt-san-pham-kho.js) ── */
+.kt-sp-cong-cu { display: contents; }
+.kt-kk-loc .kt-kk-nut { display: flex; flex-wrap: wrap; gap: var(--sp-4); margin-left: auto; }
+.kt-kk-bang .kt-kk-nhom-dong > * { background: var(--bg-page); font-weight: 600; color: var(--text-1); }
+.kt-kk-bang .kt-kk-nhom-dong th { text-align: left; }
+.kt-kk-dau { flex-wrap: wrap; align-items: flex-start; }
+.kt-kk-dau .kd-meta { margin-top: var(--sp-2); }
+.kt-kn-ten { display: inline-block; padding-left: calc(var(--sau, 0) * var(--sp-8)); }
+.kt-bom-nvl { width: 100%; }
+.kt-bom-nvl .kd-input { min-width: 0; }
+.kt-bom-nvl td:first-child { min-width: 160px; }
+.kt-bom-nvl .kt-bom-dvt { width: 80px; }
+.kt-bom-nvl .kt-bom-so { width: 120px; text-align: right; }
+.kt-bom-nvl tfoot th { text-align: right; font-weight: 600; }
+.kt-kk-mg-loc { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-5); }
+.kt-kk-mg-loc .kd-field { flex: 1 1 160px; }
+/* Đợt 4: dòng giải thích dưới hàng thẻ đã chuyển vào ⓘ → ẩn khi trống để không chừa khoảng (Sản phẩm · Tồn kho · Thuộc tính). */
+#kd-kt-san-pham .kt-pham-vi:empty, #kd-kt-ton-kho .kt-pham-vi:empty, #kd-kt-thuoc-tinh .kt-pham-vi:empty { display: none; }

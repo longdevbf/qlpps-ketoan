@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Lưu chuyển tiền tệ (B03-DN, phương pháp trực tiếp) + toàn bộ số liệu màn cũ #cashflow.
+   API (cùng API màn cũ): GET /api/bao-cao/cashflow?from&to (kỳ này + kỳ liền trước cùng số ngày, song song)
+   · /api/bao-cao/tinh-hinh-tai-chinh?as_of=<đến ngày> (tiền hiện có, nợ phải trả, phải thu, thanh khoản thuần)
+   · /api/bao-cao/cong-no-ngam?from&to · /api/bao-cao/cashflow-validation?from&to (đối chiếu trực tiếp ↔ gián tiếp).
+   Khối "Dự báo tồn tiền 8 tuần" bản thiết kế đã BỎ: backend không có endpoint /api/bao-cao/du-bao-tien
+   (khối luôn báo lỗi 404) và màn cũ cũng không có số liệu này. #}
+{% block title %}Lưu chuyển tiền tệ{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-bao-cao.css?v=d4">
+<link rel="stylesheet" href="/static/css/kt-lctt.css?v=d4">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-lctt">
+  {% call ui.dau_trang('Lưu chuyển tiền tệ', 'Mẫu B03-DN, phương pháp trực tiếp') %}
+    {{ ui.chon_ky('lc') }}
+    <button type="button" class="kd-btn" id="lc-in"><i class="bi bi-printer" aria-hidden="true"></i>In</button>
+    <button type="button" class="kd-btn kd-btn--primary" id="lc-xuat"><i class="bi bi-download" aria-hidden="true"></i>Xuất Excel</button>
+  {% endcall %}
+
+  {{ ui.the_so('lc', [('dau', 'Tiền đầu kỳ', '', 'bi-safe'), ('hdkd', 'Lưu chuyển kinh doanh', 'success', 'bi-shop'),
+                       ('thuan', 'Lưu chuyển thuần', 'info', 'bi-arrow-left-right'), ('cuoi', 'Tiền cuối kỳ', 'tim', 'bi-cash-stack')], nhan_vung='Dòng tiền trong kỳ') }}
+
+  {{ ui.the_bao_cao('lc', 'Báo cáo lưu chuyển tiền tệ', 'Mẫu B03-DN', [('Mã số', False), ('Kỳ này', True), ('Kỳ trước', True)]) }}
+
+  {# Các khối phân tích phụ — thu gọn mặc định, mỗi khối một tab #}
+  <details class="kd-card kt-gap" id="pt-khoi">
+    <summary class="kt-gap__dau">
+      <span class="kt-gap__ten"><i class="bi bi-bar-chart-line" aria-hidden="true"></i><b>Phân tích thêm</b><span class="kd-meta kt-gap__phu">Tiền và công nợ · thu chi theo ngày · giao dịch lớn · đối chiếu</span></span>
+      <span class="kt-gap__mo" aria-hidden="true"></span><i class="bi bi-chevron-down" aria-hidden="true"></i>
+    </summary>
+    <div class="kd-tabs kt-lc-tabs kt-lc-pt-tabs" role="tablist" aria-label="Phân tích thêm" id="pt-tabs">
+      <button type="button" role="tab" data-tab="th" id="pt-t-th" aria-controls="pt-p-th" aria-selected="true">Tiền và công nợ</button>
+      <button type="button" role="tab" data-tab="bd" id="pt-t-bd" aria-controls="pt-p-bd" aria-selected="false" tabindex="-1">Thu chi theo ngày</button>
+      <button type="button" role="tab" data-tab="tk" id="pt-t-tk" aria-controls="pt-p-tk" aria-selected="false" tabindex="-1">Theo tài khoản</button>
+      <button type="button" role="tab" data-tab="gd" id="pt-t-gd" aria-controls="pt-p-gd" aria-selected="false" tabindex="-1">Giao dịch lớn</button>
+      <button type="button" role="tab" data-tab="cn" id="pt-t-cn" aria-controls="pt-p-cn" aria-selected="false" tabindex="-1">Công nợ ngầm</button>
+      <button type="button" role="tab" data-tab="dx" id="pt-t-dx" aria-controls="pt-p-dx" aria-selected="false" tabindex="-1">Đối chiếu</button>
+    </div>
+
+    <section class="kt-lc-pane" role="tabpanel" id="pt-p-th" aria-labelledby="th-td">
+      <div class="kt-lc-pane__dau"><h2 class="kd-box__title" id="th-td">Tình hình tiền và công nợ</h2><p class="kd-meta" id="th-sub"></p></div>
+      <div class="kt-lc-th" id="th-so">
+        <div class="kt-lc-th__o"><span class="kd-kpi__label">Tiền hiện có</span><b class="kt-lc-th__so num kt-so--tot" id="th-tien">—</b><ul class="kt-lc-ds" id="th-tien-ds"></ul></div>
+        <div class="kt-lc-th__o"><span class="kd-kpi__label">Tổng nợ phải trả</span><b class="kt-lc-th__so num kt-so--xau" id="th-no">—</b><ul class="kt-lc-ds" id="th-no-ds"></ul></div>
+        <div class="kt-lc-th__o"><span class="kd-kpi__label">Thanh khoản thuần<span id="th-tk-tip"></span></span><b class="kt-lc-th__so num" id="th-tk">—</b><ul class="kt-lc-ds" id="th-tk-ds"></ul></div>
+      </div>
+      <div class="kd-tabs kt-lc-tabs" role="tablist" aria-label="Chi tiết công nợ" id="th-tabs">
+        <button type="button" role="tab" data-tab="ncc" id="th-t-ncc" aria-controls="th-p-ncc" aria-selected="true">Nhà cung cấp</button>
+        <button type="button" role="tab" data-tab="ads" id="th-t-ads" aria-controls="th-p-ads" aria-selected="false" tabindex="-1">Quảng cáo</button>
+        <button type="button" role="tab" data-tab="luong" id="th-t-luong" aria-controls="th-p-luong" aria-selected="false" tabindex="-1">Lương</button>
+        <button type="button" role="tab" data-tab="vay" id="th-t-vay" aria-controls="th-p-vay" aria-selected="false" tabindex="-1">Vay ngân hàng</button>
+        <button type="button" role="tab" data-tab="pt" id="th-t-pt" aria-controls="th-p-pt" aria-selected="false" tabindex="-1">Phải thu khách hàng</button>
+      </div>
+      <div class="kd-table-scroll kd-table-scroll--thanh" role="tabpanel" id="th-p-ncc" aria-labelledby="th-t-ncc"><table class="kd-table kt-bang"><caption class="visually-hidden">Nợ nhà cung cấp</caption><thead><tr><th scope="col">Nhà cung cấp</th><th scope="col" class="num">Còn nợ (VND)</th><th scope="col">Hạn thanh toán</th><th scope="col">Quá hạn</th><th scope="col" class="num">Số đơn</th></tr></thead><tbody id="th-b-ncc"></tbody></table></div>
+      <div class="kd-table-scroll kd-table-scroll--thanh" role="tabpanel" id="th-p-ads" aria-labelledby="th-t-ads" hidden><table class="kd-table kt-bang"><caption class="visually-hidden">Nợ quảng cáo</caption><thead><tr><th scope="col">Khoản</th><th scope="col" class="num">Phát sinh (VND)</th><th scope="col" class="num">Đã trả (VND)</th><th scope="col" class="num">Còn nợ (VND)</th></tr></thead><tbody id="th-b-ads"></tbody></table></div>
+      <div class="kd-table-scroll kd-table-scroll--thanh" role="tabpanel" id="th-p-luong" aria-labelledby="th-t-luong" hidden><table class="kd-table kt-bang"><caption class="visually-hidden">Lương còn nợ</caption><thead><tr><th scope="col">Tháng</th><th scope="col" class="num">Phát sinh (VND)</th><th scope="col" class="num">Đã trả (VND)</th><th scope="col" class="num">Còn nợ (VND)</th></tr></thead><tbody id="th-b-luong"></tbody></table></div>
+      <div class="kd-table-scroll kd-table-scroll--thanh" role="tabpanel" id="th-p-vay" aria-labelledby="th-t-vay" hidden><table class="kd-table kt-bang"><caption class="visually-hidden">Khoản vay</caption><thead><tr><th scope="col">Mã khoản</th><th scope="col">Nguồn vay</th><th scope="col">Loại</th><th scope="col" class="num">Dư nợ (VND)</th><th scope="col">Đáo hạn</th><th scope="col" class="num">Còn lại</th></tr></thead><tbody id="th-b-vay"></tbody></table></div>
+      <div class="kd-table-scroll kd-table-scroll--thanh" role="tabpanel" id="th-p-pt" aria-labelledby="th-t-pt" hidden><table class="kd-table kt-bang"><caption class="visually-hidden">Phải thu khách hàng</caption><thead><tr><th scope="col">Khách hàng</th><th scope="col" class="num">Khách còn nợ (VND)</th><th scope="col">Hạn thanh toán</th><th scope="col">Quá hạn</th><th scope="col" class="num">Số đơn</th></tr></thead><tbody id="th-b-pt"></tbody></table></div>
+      <div id="th-tt"></div>
+    </section>
+
+    <section class="kt-lc-pane" role="tabpanel" id="pt-p-bd" aria-labelledby="bd-td" hidden>
+      <div class="kt-lc-pane__dau"><h2 class="kd-box__title" id="bd-td">Thu và chi theo ngày</h2></div>
+      <div class="kd-chart"><div class="kd-chart__o" style="height:300px"><canvas id="bd-chart" role="img" aria-label="Biểu đồ thu, chi và dòng tiền thuần theo ngày"></canvas></div></div>
+      <div id="bd-tt"></div>
+    </section>
+
+    <section class="kt-lc-pane" role="tabpanel" id="pt-p-tk" aria-labelledby="tk-td" hidden>
+      <div class="kt-lc-pane__dau"><h2 class="kd-box__title" id="tk-td">Dòng tiền theo tài khoản</h2></div>
+      <div class="kd-table-scroll kd-table-scroll--thanh"><table class="kd-table kt-bang"><caption class="visually-hidden">Dòng tiền theo tài khoản</caption>
+        <thead><tr><th scope="col">Tài khoản</th><th scope="col" class="num">Thu (VND)</th><th scope="col" class="num">Chi (VND)</th><th scope="col" class="num">Thuần (VND)</th><th scope="col" class="num">Số dư cuối (VND)</th></tr></thead>
+        <tbody id="tk-tbody"></tbody><tfoot id="tk-tfoot"></tfoot></table></div>
+    </section>
+
+    <section class="kt-lc-pane" role="tabpanel" id="pt-p-gd" aria-labelledby="gd-td" hidden>
+      <div class="kt-lc-pane__dau"><h2 class="kd-box__title" id="gd-td">Giao dịch tiền nổi bật<span class="kd-tip" role="note" tabindex="0" data-tip="5 giao dịch lớn nhất của mỗi khoản mục trong kỳ" aria-label="5 giao dịch lớn nhất của mỗi khoản mục trong kỳ"><i class="bi bi-info-circle" aria-hidden="true"></i></span></h2></div>
+      <div class="kt-lc-gd-dau">
+        <div class="kd-tabs kt-lc-tabs" role="tablist" aria-label="Nhóm giao dịch" id="gd-tabs">
+          <button type="button" role="tab" data-tab="op" aria-selected="true">Kinh doanh</button>
+          <button type="button" role="tab" data-tab="inv" aria-selected="false" tabindex="-1">Đầu tư</button>
+          <button type="button" role="tab" data-tab="fin" aria-selected="false" tabindex="-1">Tài chính</button>
+          <button type="button" role="tab" data-tab="moi" aria-selected="false" tabindex="-1">Mới nhất</button>
+        </div>
+        <label class="kd-field kt-lc-tim"><span class="visually-hidden">Tìm giao dịch</span><input class="kd-input" type="search" id="gd-q" placeholder="Tìm nội dung, tài khoản…" autocomplete="off"></label>
+      </div>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="gd-cuon"><table class="kd-table kt-bang"><caption class="visually-hidden">Giao dịch tiền</caption>
+        <thead><tr><th scope="col" class="num">#</th><th scope="col">Ngày</th><th scope="col">Khoản</th><th scope="col">Liên quan / nội dung</th><th scope="col">Tài khoản</th><th scope="col" class="num">Số tiền (VND)</th></tr></thead>
+        <tbody id="gd-tbody"></tbody></table></div>
+      <div id="gd-tt"></div>
+    </section>
+
+    <section class="kt-lc-pane" role="tabpanel" id="pt-p-cn" aria-labelledby="cn-td" hidden>
+      <div class="kt-lc-pane__dau"><h2 class="kd-box__title" id="cn-td">Công nợ ngầm<span class="kd-tip" role="note" tabindex="0" data-tip="Chi phí đã phát sinh so với tiền đã trả trong kỳ" aria-label="Chi phí đã phát sinh so với tiền đã trả trong kỳ"><i class="bi bi-info-circle" aria-hidden="true"></i></span></h2></div>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="cn-cuon"><table class="kd-table kt-bang"><caption class="visually-hidden">Công nợ ngầm</caption>
+        <thead><tr><th scope="col">Khoản</th><th scope="col" class="num">Phát sinh (VND)</th><th scope="col" class="num">Đã trả (VND)</th><th scope="col" class="num">Còn nợ (VND)</th></tr></thead>
+        <tbody id="cn-tbody"></tbody><tfoot id="cn-tfoot"></tfoot></table></div>
+      <div id="cn-tt"></div>
+    </section>
+
+    <section class="kt-lc-pane" role="tabpanel" id="pt-p-dx" aria-labelledby="dx-td" hidden>
+      <div class="kt-lc-pane__dau"><h2 class="kd-box__title" id="dx-td">Đối chiếu trực tiếp và gián tiếp</h2><p class="kd-meta" id="dx-tt-nhan"></p></div>
+      <div class="kt-lc-dx" id="dx-noi-dung">
+        <div><h3 class="kt-lc-dx__td">Trực tiếp (từ sổ quỹ)</h3><dl class="kt-tq" id="dx-tt"></dl></div>
+        <div><h3 class="kt-lc-dx__td">Gián tiếp (từ lãi lỗ)</h3><dl class="kt-tq" id="dx-gt"></dl></div>
+      </div>
+      <p class="kt-lc-dx__kq" id="dx-kq"></p>
+      <div id="dx-loi"></div>
+    </section>
+  </details>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/chart.umd.js?v=1"></script>
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-bao-cao.js?v=loc0928b"></script>
+<script src="/static/js/kt-lctt.js?v=tk0928a"></script>
+{% endblock %}

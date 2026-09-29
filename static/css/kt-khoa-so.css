@@ -1,0 +1,31 @@
+/* kt-khoa-so.css — riêng màn Khoá sổ (#kd-kt-khoa-so). */
+#kd-kt-khoa-so .kt-ct-cot { display: grid; gap: var(--sp-8); align-content: start; }
+/* Đầu thẻ: tiêu đề trên, lời dẫn dưới (dùng chung kt-the-dau xếp ngang làm "Chọn kỳ cần / chốt" gãy 2 dòng). */
+#kd-kt-khoa-so .kd-box__head.kt-the-dau { display: block; }
+#kd-kt-khoa-so .kd-box__head.kt-the-dau .kd-meta { margin-top: var(--sp-2); max-width: 72ch; }
+#kd-kt-khoa-so .kd-bulk { padding: 0 var(--sp-8) var(--sp-8); align-items: flex-end; gap: var(--sp-6); background: none; border: 0; }
+#kd-kt-khoa-so .kd-bulk .kd-field { margin: 0; }
+#ks-xem-tt:not(:empty) { padding: 0 var(--sp-8) var(--sp-8); }
+#ks-xem-ghi-chu { margin: 0; padding: var(--sp-6) var(--sp-8); border-top: 1px solid var(--border-soft); background: var(--bg-page); }
+/* Bảng P&L xem trước: cột chỉ tiêu là <th scope=row> — bỏ nền đầu bảng để không thành 2 dải màu. */
+#ks-pl th[scope="row"] { background: transparent; font-weight: 400; color: var(--text-1); text-align: left; white-space: nowrap; }
+#ks-pl tr.kd-strong th, #ks-pl tr.kd-strong td { font-weight: 700; background: var(--bg-page); }
+#ks-pl td.num { white-space: nowrap; }
+#ks-xem-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-6); }
+#kd-kt-khoa-so #ks-ls-tt:not(:empty) { padding: 0 var(--sp-8) var(--sp-8); }
+#kd-kt-khoa-so .kt-ct-kiem small { display: block; margin-top: var(--sp-2); color: var(--text-3); }
+#ks-dlg, #ks-dlg-mo { width: min(520px, calc(100vw - 32px)); }
+#kd-kt-khoa-so .kd-bulk { margin-top: var(--sp-4); }
+/* Ghi chú đầu bảng P&L: 1 dòng ngắn + ⓘ */
+#ks-xem-ghi-chu { font-size: var(--fs-body); font-weight: 600; color: var(--text-1); }
+/* "Chốt kỳ làm gì?" — thu gọn mặc định, bấm để xem */
+.kt-ks-gt > summary { display: flex; align-items: center; gap: var(--sp-4); min-height: 40px; cursor: pointer; list-style: none; }
+.kt-ks-gt > summary::-webkit-details-marker { display: none; }
+.kt-ks-gt > summary::after { content: "\F282"; font-family: bootstrap-icons; margin-left: auto; font-size: var(--fs-meta); color: var(--text-3); transition: transform .15s; }
+.kt-ks-gt[open] > summary::after { transform: rotate(180deg); }
+.kt-ks-gt[open] > summary { margin-bottom: var(--sp-6); }
+.kt-ks-gt .kt-ks-buoc { margin: 0; padding-left: 1.25em; display: grid; gap: var(--sp-4); line-height: 1.5; }
+/* Dải thẻ số: nhãn và số đủ to cho dễ đọc */
+#ks-kpi .kd-kpi__label { font-size: var(--fs-body); }
+#ks-kpi .kd-kpi__value { font-size: var(--fs-h, 24px); }
+#ks-kpi .kd-kpi__phu { font-size: var(--fs-meta); }

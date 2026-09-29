@@ -1,0 +1,9 @@
+/* kt-bhxh.css — Bảo hiểm xã hội. Tiền tố kt-bh. Chỉ var(--token). */
+.kt-bh-dau { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-7); padding: var(--sp-5) var(--sp-8) 0; }
+.kt-bh-dau .kt-check { min-height: 40px; }
+/* Cột chi tiết từng loại: ẩn mặc định, bật bằng ô chọn */
+.kt-bang:not(.kt-bh-hien) .kt-bh-ct { display: none; }
+.kt-bang .kt-bh-cong { font-weight: 700; color: var(--text-1); }
+.kt-bang td.kt-bh-ct { color: var(--text-2); }
+/* ⓘ cạnh nhãn thẻ số: nút 22px cao hơn dòng chữ → kéo lề để thẻ có/không có ⓘ thẳng hàng nhau */
+.kd-kpi__label .kd-tip { margin-block: -4px; }

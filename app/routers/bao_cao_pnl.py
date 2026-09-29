@@ -23,8 +23,9 @@ from sqlalchemy.orm import Session
 from shared.auth import JWTPayload
 from shared.db import get_db
 
-from ..models import ChiPhiCoDinh, ChiPhiPhatSinh, DoanhThu
+from ..models import ChiPhiPhatSinh, DoanhThu
 from ..services import calc_pl_for_month
+from ..services.pl_calculator import NHOM_DINH_PHI_PL, dinh_phi_phan_bo_thang
 from ._deps import require_ketoan_user
 
 
@@ -37,6 +38,11 @@ _AUTH = Depends(require_ketoan_user)
 TAX_RATE = 0.20                 # Thuế TNDN 20%
 COGS_FALLBACK_RATIO = 0.60      # Khi không có PO Hoàn Thành → ước tính 60% DT
 EXCLUDED_LOAI_CHI_PHI_QUANLY = ("Marketing", "Quảng cáo", "Quảng Cáo", "Quang cao", "Ads")
+# Lãi vay ghi ở chi_phi_phat_sinh phải loại khỏi "chi phí quản lý" — đã tính riêng ở
+# _chi_phi_tai_chinh() (mã 22). Không loại sẽ đếm 2 lần cùng 1 khoản lãi vay thật
+# (bug thật phát hiện 2026-09-25: kỳ 05/2026 đếm trùng ~751.7tr do dữ liệu vừa ghi ở
+# ketoan.khoan_vay_giao_dich VỪA ghi lại ở ketoan.chi_phi_phat_sinh).
+EXCLUDED_LOAI_CHI_PHI_LAI_VAY = ("Lãi vay", "Thanh Toán Lãi Vay", "Thanh toán lãi vay", "Lai vay")
 
 
 # In-process TTL cache cho /pl + /pl/yearly (30s)
@@ -86,6 +92,9 @@ def _previous_range(tu: date_cls, den: date_cls) -> tuple[date_cls, date_cls]:
     prev_den = tu - timedelta(days=1)
     prev_tu = prev_den - timedelta(days=n_days - 1)
     return prev_tu, prev_den
+
+
+_NHAN_NHOM = {"ban_hang": "bán hàng", "quan_ly": "quản lý"}
 
 
 def _months_in_range(tu: date_cls, den: date_cls) -> list[str]:
@@ -273,47 +282,33 @@ def _luong(db: Session, tu: date_cls, den: date_cls) -> dict[str, Any]:
 
 
 def _dinh_phi(db: Session, tu: date_cls, den: date_cls) -> dict[str, Any]:
-    """Định phí KT × số tháng overlap."""
+    """Định phí phân bổ theo ĐÚNG cách của KQKD (pl_calculator.dinh_phi_phan_bo_thang —
+    tôn trọng so_thang_phan_bo) cho từng tháng chạm khoảng, mỗi tháng tính trọn tháng.
+
+    QA 25/09/2026: bản trước lấy so_tien_thang × số tháng overlap, bỏ qua so_thang_phan_bo
+    → "Thuê showroom T6–8" 127,5tr/3 tháng bị cộng nguyên 127,5tr MỖI tháng (kể cả sau T8).
+    `items` nay là từng (tháng, nhóm) có số — không còn từng dòng chi_phi_co_dinh.
+    """
     months_in = _months_in_range(tu, den)
-    n_months = len(months_in)
-    if n_months == 0:
-        return {"total": 0.0, "items": [], "n_months": 0}
-
-    rows = db.execute(
-        select(ChiPhiCoDinh).order_by(ChiPhiCoDinh.thang_bat_dau)
-    ).scalars().all()
-
     items: list[dict[str, Any]] = []
-    total = 0.0
-    for r in rows:
-        if not r.so_tien_thang:
-            continue
-        start_ym = r.thang_bat_dau.strftime("%Y-%m") if r.thang_bat_dau else None
-        if not start_ym:
-            continue
-        if r.lap_lai:
-            applicable = [m for m in months_in if m >= start_ym]
-        else:
-            applicable = [m for m in months_in if m == start_ym]
-        if not applicable:
-            continue
-        amount = float(r.so_tien_thang) * len(applicable)
-        total += amount
-        items.append({
-            "id": r.id,
-            "loai_chi_phi": r.loai_chi_phi or "Khác",
-            "so_tien_thang": float(r.so_tien_thang),
-            "n_months": len(applicable),
-            "so_tien": amount,
-        })
-
+    for thang in months_in:
+        pb = dinh_phi_phan_bo_thang(db, thang)
+        for nhom in NHOM_DINH_PHI_PL:
+            if pb[nhom]:
+                items.append({
+                    "thang": thang, "nhom": nhom,
+                    "loai_chi_phi": f"Định phí {_NHAN_NHOM.get(nhom, nhom)} {thang}",
+                    "so_tien": pb[nhom],
+                })
+    total = round(sum(x["so_tien"] for x in items), 2)
     items.sort(key=lambda x: x["so_tien"], reverse=True)
-    return {"total": round(total, 2), "items": items, "n_months": n_months}
+    return {"total": total, "items": items, "n_months": len(months_in)}
 
 
 def _bien_phi(db: Session, tu: date_cls, den: date_cls) -> dict[str, Any]:
-    """Biến phí KT trong kỳ, loại trừ Marketing/Quảng cáo (đã ở chi_phi_ban_hang)."""
-    excluded = list(EXCLUDED_LOAI_CHI_PHI_QUANLY)
+    """Biến phí KT trong kỳ, loại trừ Marketing/Quảng cáo (đã ở chi_phi_ban_hang)
+    và Lãi vay (đã tính riêng ở _chi_phi_tai_chinh — mã 22)."""
+    excluded = list(EXCLUDED_LOAI_CHI_PHI_QUANLY) + list(EXCLUDED_LOAI_CHI_PHI_LAI_VAY)
     total = float(
         db.execute(
             select(func.coalesce(func.sum(ChiPhiPhatSinh.so_tien), 0))
@@ -343,7 +338,21 @@ def _bien_phi(db: Session, tu: date_cls, den: date_cls) -> dict[str, Any]:
 
 
 def _chi_phi_tai_chinh(db: Session, tu: date_cls, den: date_cls) -> dict[str, Any]:
-    """Chi phí tài chính = lãi vay đã trả trong kỳ."""
+    """Chi phí tài chính = lãi vay đã trả trong kỳ.
+
+    Nguồn 1 (chuẩn): ketoan.khoan_vay_giao_dich (loai=tra_lai/tra_goc_lai) — sổ vay thật.
+    Nguồn 2: ketoan.chi_phi_phat_sinh có loai_chi_phi ∈ EXCLUDED_LOAI_CHI_PHI_LAI_VAY —
+    nhiều khoản lãi vay được KT ghi trực tiếp ở đây thay vì qua sổ vay (vd 07-08/2026
+    không có giao dịch nào ở khoan_vay_giao_dich dù thực trả lãi). `_bien_phi()` đã loại
+    các dòng này khỏi "chi phí quản lý" để khỏi đếm 2 lần — nên phải cộng chúng lại ở
+    đây, KHÔNG được bỏ sót.
+
+    Dùng MAX(nguồn 1, nguồn 2) thay vì CỘNG: 2 nguồn có thể ghi TRÙNG cùng 1 khoản lãi
+    vay thật (bug thật phát hiện 2026-09-25 — kỳ 05/2026 cả 2 bảng cùng ghi các khoản
+    lãi vay VPBank giống hệt ngày + số tiền) — cộng thẳng sẽ đếm trùng; lấy MAX coi
+    nguồn nào ghi đầy đủ hơn trong kỳ là số đúng (cùng nguyên tắc `_max_pos` đã dùng ở
+    bao_cao_can_doi.py cho vấn đề tương tự).
+    """
     sql_vay = """
         SELECT COALESCE(SUM(
             CASE
@@ -355,7 +364,7 @@ def _chi_phi_tai_chinh(db: Session, tu: date_cls, den: date_cls) -> dict[str, An
         FROM ketoan.khoan_vay_giao_dich gd
         WHERE gd.ngay >= :tu AND gd.ngay <= :den
     """
-    total = _safe_scalar(db, sql_vay, tu=tu, den=den)
+    total_vay = _safe_scalar(db, sql_vay, tu=tu, den=den)
 
     sql_breakdown = """
         SELECT kv.nguon_vay AS nguon,
@@ -379,8 +388,33 @@ def _chi_phi_tai_chinh(db: Session, tu: date_cls, den: date_cls) -> dict[str, An
         ) > 0
         ORDER BY 2 DESC
     """
-    rows = _safe_rows(db, sql_breakdown, tu=tu, den=den)
-    items = [{"nguon": str(k or "Khác"), "so_tien": float(v or 0)} for k, v in rows]
+    rows_vay = _safe_rows(db, sql_breakdown, tu=tu, den=den)
+
+    placeholders = ",".join(f":lv{i}" for i in range(len(EXCLUDED_LOAI_CHI_PHI_LAI_VAY)))
+    lv_params = {f"lv{i}": v for i, v in enumerate(EXCLUDED_LOAI_CHI_PHI_LAI_VAY)}
+    sql_phat_sinh = f"""
+        SELECT COALESCE(SUM(so_tien), 0)
+        FROM ketoan.chi_phi_phat_sinh
+        WHERE ngay >= :tu AND ngay <= :den
+          AND loai_chi_phi IN ({placeholders})
+    """
+    total_phat_sinh = _safe_scalar(db, sql_phat_sinh, tu=tu, den=den, **lv_params)
+
+    sql_phat_sinh_breakdown = f"""
+        SELECT COALESCE(NULLIF(ten_khoan, ''), loai_chi_phi) AS nguon, so_tien
+        FROM ketoan.chi_phi_phat_sinh
+        WHERE ngay >= :tu AND ngay <= :den
+          AND loai_chi_phi IN ({placeholders})
+        ORDER BY so_tien DESC
+    """
+    rows_phat_sinh = _safe_rows(db, sql_phat_sinh_breakdown, tu=tu, den=den, **lv_params)
+
+    if total_phat_sinh > total_vay:
+        total = total_phat_sinh
+        items = [{"nguon": str(k or "Khác"), "so_tien": float(v or 0)} for k, v in rows_phat_sinh]
+    else:
+        total = total_vay
+        items = [{"nguon": str(k or "Khác"), "so_tien": float(v or 0)} for k, v in rows_vay]
     return {"total": total, "items": items}
 
 

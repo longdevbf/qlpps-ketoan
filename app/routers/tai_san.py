@@ -36,6 +36,7 @@ from ..schemas import (
 from ..services.tscd_calc import (
     chay_khau_hao_thang, mua_tscd, next_ma_tscd, thanh_ly_tscd,
 )
+from ..services.tim_kiem import khop_mot_trong
 from ._deps import require_ketoan_user
 
 
@@ -146,13 +147,9 @@ def list_tscd(
         stmt = stmt.where(TaiSanCoDinh.trang_thai == trang_thai)
     if bo_phan:
         stmt = stmt.where(TaiSanCoDinh.bo_phan == bo_phan)
-    if q:
-        like = f"%{q}%"
-        stmt = stmt.where(
-            (TaiSanCoDinh.ma_tscd.ilike(like))
-            | (TaiSanCoDinh.ten_tscd.ilike(like))
-            | (TaiSanCoDinh.ncc.ilike(like))
-        )
+    if q and q.strip():
+        # Không phân biệt dấu + hoa/thường — services/tim_kiem.py.
+        stmt = stmt.where(khop_mot_trong((TaiSanCoDinh.ma_tscd, TaiSanCoDinh.ten_tscd, TaiSanCoDinh.ncc), q))
     rows = db.execute(stmt).scalars().all()
     return [_serialize(t, db) for t in rows]
 

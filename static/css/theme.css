@@ -142,7 +142,7 @@
      2.56:1, trượt cả ngưỡng chữ lớn).                                      */
   --text-1: #101C44;   /* 16.51 the · 14.90 nen · 15.37 lom · 14.65 soft · 13.78 band */
   --text-2: #334166;   /* 10.05 the ·  9.07 nen ·  9.36 lom ·  8.92 soft ·  8.39 band */
-  --text-3: #5B6A80;   /*  5.50 the ·  4.96 nen ·  5.12 lom ·  4.88 soft ·  4.59 band */
+  --text-3: #46546B;   /*  5.50 the ·  4.96 nen ·  5.12 lom ·  4.88 soft ·  4.59 band */
 
   /* ═══ 6. MÀU SỐ LIỆU — tô số KPI theo loại ═════════════════════════════
      Một hàng thẻ không quá 3 màu. Từ 11/09/2026 --kpi-brand và --kpi-data
@@ -237,15 +237,17 @@
      và tổng xê dịch 1 510px — ít nhất trong cả 5. Bản đầu tiên tôi đặt
      (…16/20…) bắt 1 301 chỗ và xê dịch 1 647px, vì nó chọn theo lý thuyết
      chứ không theo số đếm: 15px dùng 571 lần nhưng bị bỏ ra ngoài thang.     */
-  --fs-micro:    10px;  /* nhãn nhóm trong menu, chữ siêu nhỏ */
-  --fs-eyebrow:  11px;  /* nhãn IN HOA: header bảng, nhãn thẻ số liệu */
-  --fs-meta:     12px;  /* meta, tên người dùng, chú thích */
-  --fs-body:     13px;  /* nội dung, nav, ô nhập — MẶC ĐỊNH */
-  --fs-body-lg:  14px;  /* nội dung app mật độ thấp (ketoan đã duyệt 08/08) */
-  --fs-title:    15px;  /* tiêu đề thẻ / khối */
-  --fs-h:        18px;  /* tiêu đề trang */
+  /* 25/09/2026 anh Quang: "cho người già dễ nhìn" — cả thang chữ tăng ~2px, chữ phụ (--text-3) đậm hơn.
+     Bản cũ: micro 10 · eyebrow 11 · meta 12 · body 13 · body-lg 14 · title 15 · h 18 · kpi 29. */
+  --fs-micro:    12px;  /* nhãn nhóm trong menu, chữ siêu nhỏ */
+  --fs-eyebrow:  13px;  /* nhãn IN HOA: header bảng, nhãn thẻ số liệu */
+  --fs-meta:     14px;  /* meta, tên người dùng, chú thích */
+  --fs-body:     15px;  /* nội dung, nav, ô nhập — MẶC ĐỊNH */
+  --fs-body-lg:  16px;  /* nội dung app mật độ thấp (ketoan đã duyệt 08/08) */
+  --fs-title:    18px;  /* tiêu đề thẻ / khối */
+  --fs-h:        24px;  /* tiêu đề trang */
   --fs-glyph:    22px;  /* icon glyph ☰ ✕ — KHÔNG dùng cho chữ người đọc */
-  --fs-kpi:      29px;  /* số liệu lớn trong thẻ KPI */
+  --fs-kpi:      32px;  /* số liệu lớn trong thẻ KPI */
 
   --lh-tight: 1.2;      /* tiêu đề, số liệu */
   --lh-body:  1.5;      /* nội dung đọc */

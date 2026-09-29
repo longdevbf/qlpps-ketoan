@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Quản lý quỹ nội bộ — cây quỹ (nguồn: nhập tay · % doanh thu tháng · % quỹ cha · Công đoàn từ HCNS), nạp / chi / lịch sử giao dịch từng quỹ.
+   GET /api/quy/tree?thang · POST /api/quy · PUT/DELETE /api/quy/<id> · PUT /api/quy/<id>/config
+   POST /api/quy-dn/<id>/nap · POST /api/quy-dn/<id>/chi · GET /api/quy-dn/<id>/giao-dich · DELETE /api/quy-dn/giao-dich/<id>
+   GET /api/tai-khoan?active_only=true (tài khoản tiền đối ứng — xem README mục 5 đợt 8 về trùng đường dẫn) (README mục 4.40) #}
+{% block title %}Quản lý quỹ{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-quy.css?v=g4">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-quy-nb">
+  {% call ui.dau_trang('Quản lý quỹ', 'Số dư, nạp, chi các quỹ nội bộ') %}
+    <label class="kd-select"><i class="bi bi-calendar3" aria-hidden="true"></i><span class="visually-hidden">Tháng tính trích</span><select id="qy-thang"></select></label>
+    <button type="button" class="kd-btn kd-btn--primary" id="qy-them" hidden><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm quỹ</button>
+  {% endcall %}
+
+  {{ ui.the_so('qy', [('dt', 'Doanh thu đã ghi sổ', '', 'bi-graph-up'), ('trich', 'Trích theo công thức', 'info', 'bi-percent'), ('so_du', 'Tổng số dư quỹ', 'success', 'bi-safe'), ('so_quy', 'Số quỹ', 'neutral', 'bi-diagram-3')], kieu='strip', nhan_vung='Tổng hợp quỹ nội bộ') }}
+
+  <section class="kd-card" aria-labelledby="qy-td">
+    <div class="kd-box__head kt-the-dau"><h2 class="kd-box__title" id="qy-td">Cây quỹ</h2><p class="kd-meta" id="qy-td-phu"></p></div>
+    <div class="kd-table-scroll kd-table-scroll--thanh" id="qy-cuon">
+      <table class="kd-table kt-bang kt-quy-bang"><caption class="visually-hidden">Danh sách quỹ theo cây</caption>
+        <thead><tr><th scope="col">Quỹ</th><th scope="col">Nguồn tiền</th><th scope="col" class="num">Trích tháng<button type="button" class="kd-tip" data-tip="Tính theo công thức nguồn cho tháng đang chọn, để tham khảo khi nạp. Số dư chỉ đổi khi có giao dịch nạp, chi. Quỹ Công Đoàn đọc từ HCNS, không nạp chi ở đây." aria-label="Tính theo công thức nguồn cho tháng đang chọn, để tham khảo khi nạp. Số dư chỉ đổi khi có giao dịch nạp, chi. Quỹ Công Đoàn đọc từ HCNS, không nạp chi ở đây."><i class="bi bi-info-circle" aria-hidden="true"></i></button></th><th scope="col" class="num">Số dư</th><th scope="col">Nạp, chi</th><th scope="col" class="kd-col-act">Thao tác</th></tr></thead>
+        <tbody id="qy-tbody"></tbody><tfoot id="qy-tfoot"></tfoot>
+      </table>
+    </div>
+    <div id="qy-tt"></div>
+  </section>
+</main>
+
+{# Nạp / chi #}
+<dialog class="kd-dialog" id="qy-dlg-gd" aria-labelledby="qy-gd-td">
+  <form method="dialog" novalidate id="qy-gd-form">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="qy-gd-td">Nạp tiền vào quỹ</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <dl class="kt-tq" id="qy-gd-tt"></dl>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="qy-gd-ngay">Ngày <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" type="date" id="qy-gd-ngay"></div>
+        <div class="kd-field"><label class="kd-field__label" for="qy-gd-tien">Số tiền (VND) <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input num" id="qy-gd-tien" inputmode="numeric" autocomplete="off" aria-describedby="qy-gd-tien-gy"><p class="kd-meta" id="qy-gd-tien-gy"></p></div>
+      </div>
+      <div class="kd-field"><label class="kd-field__label" for="qy-gd-nd">Nội dung <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="qy-gd-nd" maxlength="200" autocomplete="off"></div>
+      <div class="kd-field"><label class="kd-field__label" for="qy-gd-tk">Tài khoản tiền đối ứng<button type="button" class="kd-tip" data-tip="Tiền mặt hoặc ngân hàng thực nhận, thực chi — để trống nếu chỉ phân bổ nội bộ." aria-label="Tiền mặt hoặc ngân hàng thực nhận, thực chi — để trống nếu chỉ phân bổ nội bộ."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label><select class="kd-input" id="qy-gd-tk"><option value="">— Không đối ứng —</option></select></div>
+      <div class="kd-field"><label class="kd-field__label" for="qy-gd-gc">Ghi chú (không bắt buộc)</label><input class="kd-input" id="qy-gd-gc" maxlength="300" autocomplete="off"></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="qy-gd-ok">Nạp tiền</button></footer>
+  </form>
+</dialog>
+
+{# Lịch sử giao dịch #}
+<dialog class="kd-dialog kt-quy-dlg-rong" id="qy-dlg-ls" aria-labelledby="qy-ls-td">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="qy-ls-td">Lịch sử giao dịch</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <dl class="kt-tq kt-quy-ls-tong" id="qy-ls-tong"></dl>
+      <div class="kt-quy-ls-loc">
+        <div class="kd-seg" role="group" aria-label="Loại giao dịch" id="qy-ls-loai"><button type="button" data-loai="" aria-pressed="true">Tất cả</button><button type="button" data-loai="thu" aria-pressed="false">Nạp</button><button type="button" data-loai="chi" aria-pressed="false">Chi</button></div>
+        <div class="kd-daterange" role="group" aria-label="Khoảng ngày"><i class="bi bi-calendar3" aria-hidden="true"></i><input type="date" id="qy-ls-tu" aria-label="Từ ngày"><span aria-hidden="true">–</span><input type="date" id="qy-ls-den" aria-label="Đến ngày"></div>
+      </div>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="qy-ls-cuon">
+        <table class="kd-table kt-bang"><caption class="visually-hidden">Giao dịch của quỹ</caption>
+          <thead><tr><th scope="col">Ngày</th><th scope="col">Nội dung</th><th scope="col" class="num">Nạp (VND)</th><th scope="col" class="num">Chi (VND)</th><th scope="col" class="kd-col-act">Huỷ</th></tr></thead>
+          <tbody id="qy-ls-tbody"></tbody><tfoot id="qy-ls-tfoot"></tfoot>
+        </table>
+      </div>
+      <div id="qy-ls-tt"></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Đóng</button></footer>
+  </form>
+</dialog>
+
+{# Thêm / sửa quỹ #}
+<dialog class="kd-dialog" id="qy-dlg-quy" aria-labelledby="qy-q-td">
+  <form method="dialog" novalidate id="qy-q-form">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="qy-q-td">Thêm quỹ</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <div class="kd-field"><label class="kd-field__label" for="qy-q-ten">Tên quỹ <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="qy-q-ten" maxlength="120" autocomplete="off" placeholder="Vd: Quỹ bảo hành sản phẩm"></div>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="qy-q-cha">Quỹ cha</label><select class="kd-input" id="qy-q-cha"></select></div>
+        <div class="kd-field"><label class="kd-field__label" for="qy-q-nguon">Nguồn tiền</label>
+          <select class="kd-input" id="qy-q-nguon"><option value="manual">Nạp tay</option><option value="doanh_thu_pct">% doanh thu tháng</option><option value="parent_pct">% của quỹ cha</option></select></div>
+      </div>
+      <div class="kd-row2">
+        <div class="kd-field" id="qy-q-pct-o"><label class="kd-field__label" for="qy-q-pct">Tỷ lệ (%) <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input num" id="qy-q-pct" inputmode="decimal" autocomplete="off" aria-describedby="qy-q-pct-gy"><p class="kd-meta" id="qy-q-pct-gy"></p></div>
+        <div class="kd-field"><label class="kd-field__label" for="qy-q-tt">Thứ tự hiển thị</label><input class="kd-input num" type="number" min="0" step="1" id="qy-q-tt"></div>
+      </div>
+      <div class="kd-field"><label class="kd-field__label" for="qy-q-gc">Ghi chú (không bắt buộc)</label><input class="kd-input" id="qy-q-gc" maxlength="300" autocomplete="off"></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="qy-q-ok"><i class="bi bi-check-lg" aria-hidden="true"></i>Lưu</button></footer>
+  </form>
+</dialog>
+
+{# Chỉnh tỷ lệ % #}
+<dialog class="kd-dialog" id="qy-dlg-pct" aria-labelledby="qy-p-td">
+  <form method="dialog" novalidate id="qy-p-form">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="qy-p-td">Chỉnh tỷ lệ trích</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <dl class="kt-tq" id="qy-p-tt"></dl>
+      <div class="kd-field"><label class="kd-field__label" for="qy-p-pct">Tỷ lệ mới (%) <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input num" id="qy-p-pct" inputmode="decimal" autocomplete="off" aria-describedby="qy-p-gy"><p class="kd-meta" id="qy-p-gy"></p></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="qy-p-ok">Lưu tỷ lệ</button></footer>
+  </form>
+</dialog>
+
+{# Xác nhận xoá quỹ / huỷ giao dịch #}
+<dialog class="kd-dialog" id="qy-dlg-xn" role="alertdialog" aria-labelledby="qy-xn-td" aria-describedby="qy-xn-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="qy-xn-td">Xác nhận</h2></header>
+    <div class="kd-dialog__body"><p id="qy-xn-nd"></p><p class="kd-form-err" role="alert" hidden></p></div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Không</button><button type="button" class="kd-btn kd-btn--danger" id="qy-xn-ok"><i class="bi bi-trash" aria-hidden="true"></i><span id="qy-xn-nut">Xoá</span></button></footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-quy.js?v=loc0928"></script>
+{% endblock %}

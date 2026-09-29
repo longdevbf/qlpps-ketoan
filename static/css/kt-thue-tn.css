@@ -1,0 +1,32 @@
+/* kt-thue-tn.css — màn Thuế TNCN và TNDN. Tiền tố kt-tn. Chỉ var(--token). */
+.kt-tn-cot { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--sp-8); min-width: 0; }
+.kt-tn-nut { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); padding: var(--sp-6) var(--sp-8) 0; }
+.kt-tn-dc td { vertical-align: middle; }
+.kt-tn-dc .kd-input { min-width: 0; }
+.kt-tn-dc .kt-tn-loai { width: 120px; }
+.kt-tn-dc .kt-tn-so { width: 150px; text-align: right; font-variant-numeric: tabular-nums; }
+.kt-tn-quy { display: grid; row-gap: var(--sp-5); margin: 0; padding: 0; list-style: none; }
+.kt-tn-quy li { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-4); align-items: center; font-size: var(--fs-body); color: var(--text-1); }
+.kt-tn-quy li.is-nay { font-weight: 700; }
+.kt-tn-quy small { grid-column: 1 / -1; font-size: var(--fs-meta); color: var(--text-3); }
+.kt-tn-bieu { width: 100%; }
+.kt-bang tr.kt-tn-nhom th { background: var(--bg-page); font-size: var(--fs-eyebrow); text-transform: uppercase; letter-spacing: .04em; color: var(--text-3); }
+#td-than, #td-than > * { min-width: 0; }
+@media (max-width: 1023.98px) { #td-than { grid-template-columns: minmax(0, 1fr); } }
+.kt-tn-cot > .kd-card { min-width: 0; max-width: 100%; }
+.kt-tn-cot > .kd-card > .kd-table-scroll { min-width: 0; max-width: 100%; }
+.kt-tn-cot > .kd-card { position: relative; }
+/* Đầu thẻ bảng TNCN: câu quy định dài → xuống dòng dưới tiêu đề, không bóp tiêu đề thành 3 dòng */
+#kd-kt-thue-tn .kt-the-dau { flex-wrap: wrap; row-gap: var(--sp-2); }
+#kd-kt-thue-tn .kt-the-dau > .kd-meta { flex: 1 1 100%; }
+/* Số người phụ thuộc: dòng phụ mờ dưới ô giảm trừ (thay cột NPT riêng) */
+.kt-tn-phu { display: block; margin-top: var(--sp-1); font-size: var(--fs-meta); font-weight: 400; color: var(--text-3); }
+#tc-pham-vi, #td-pham-vi { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+#tc-pham-vi[hidden] { display: none; }
+/* Dòng "Lợi nhuận + tăng − giảm = …" nằm trong thẻ, cùng lề với nút phía trên */
+#td-dc-chan { margin: 0; padding: var(--sp-4) var(--sp-8) var(--sp-6); }
+/* Điện thoại: bảng KQKD 2 cột + dòng "chưa có điều chỉnh" được xuống dòng để số tiền không bị đẩy ra ngoài màn */
+@media (max-width: 599.98px) {
+  #td-kq td:not(.num), #td-kq th, #td-kq-chan th, #td-dc td[colspan] { white-space: normal; }
+  #td-kq td, #td-kq th, #td-kq-chan th, #td-kq-chan td { padding-left: var(--sp-5); padding-right: var(--sp-5); }
+}

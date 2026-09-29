@@ -1,1 +1,28 @@
 {% include "phe_duyet_core.html" %}
+{#- Ketoan — chi tiết yêu cầu là POPUP GIỮA MÀN (anh Quang 28/09/2026: "khi click vào bản ghi thì hiện popup ở giữa
+    màn hình để view các thông tin cho trực quan và dễ nhìn"), không còn ngăn dính bên phải bóp bảng.
+    phe_duyet_core.html dùng chung 8 app (sinh từ claude-kit — không sửa ở đây) đã có sẵn hộp giữa màn #pd-modal
+    (nền mờ, Esc / bấm nền / ✕ để đóng, giữ Tab trong hộp, ẩn nút chat nổi) cho 4 loại `hop_rong` và màn < 1280px.
+    Ở ketoan bật hộp đó cho MỌI loại: loại dữ liệu phẳng (xin nghỉ, đề xuất, trả NCC, cọc bổ sung…) rộng 820px,
+    loại hop_rong (PO, đơn hàng, ĐNTT, nhập kho) giữ 1040px của core. Không đổi logic duyệt (pdQuyet giữ nguyên).
+    Khối dưới đứng sau </html> của core: trình duyệt đưa vào cuối <body>, chạy SAU script của core nên thay được
+    hàm toàn cục; core đổi tên hàm thì khối tự bỏ qua (trang về lại ngăn bên phải như cũ, không vỡ). -#}
+<style>
+.pd .pd-modal.pd-modal--hep .pd-panel{width:min(820px,100%)}
+</style>
+<script>
+(function () {
+  if (typeof pdChon !== 'function' || typeof _pdDungHop !== 'function' || !document.getElementById('pd-modal')) return;
+  const chonGoc = pdChon;
+  // Mọi hàng mở thành hộp giữa màn. Hệ quả kèm theo: core không còn tự mở sẵn yêu cầu đầu tiên khi vào trang
+  // (core chỉ tự mở hàng KHÔNG dùng hộp — tránh vừa vào trang đã bị phủ màn).
+  window._pdDungHop = function () { return true; };
+  window.pdChon = function (khoa) {
+    const h = (_pd.hang || []).find((x) => x.khoa === khoa);
+    document.getElementById('pd-modal').classList.toggle('pd-modal--hep', !(h && h.hop_rong));
+    const kq = chonGoc(khoa);
+    const than = document.getElementById('pd-p-than'); if (than) than.scrollTop = 0;   // mở yêu cầu khác: về đầu nội dung
+    return kq;
+  };
+})();
+</script>

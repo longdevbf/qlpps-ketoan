@@ -29,7 +29,7 @@
 {# Phải có ?v= giống base.html: 15 trang standalone lấy token màu qua ĐÂY chứ
    không qua base.html. Thiếu version thì sửa theme.css xong trình duyệt vẫn
    phục vụ bản cache và trang trông y như cũ. Tăng số này mỗi lần sửa màu. #}
-<link rel="stylesheet" href="/static/css/theme.css?v=xanh1">
+<link rel="stylesheet" href="/static/css/theme.css?v=xanh2">
 <style>
 /* ─── Khung header ─────────────────────────────────────────────────────── */
 :root{--ab-h:56px}
@@ -335,10 +335,16 @@ body.sb-min .ab-sb-g,body.sb-min .ab-sb-top{position:relative}
   .ab-userbtn{padding:4px 6px;width:auto}
   .ab-umenu{width:240px}
 }
+/* Chuyển trang mượt (Chrome/Edge 126+): sidebar + thanh trên đứng yên, chỉ vùng nội dung mờ chuyển nhanh.
+   Đi cùng static/js/dieu-huong.js (tải sẵn trang khi rê chuột). Trình duyệt cũ bỏ qua, không ảnh hưởng. */
+.appbar{view-transition-name:ab-appbar}
+.ab-sb{view-transition-name:ab-sidebar}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.14s}
+@media (prefers-reduced-motion:reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}
 </style>
 
 <div class="appbar">
-  <a class="ab-logo" href="/app" title="Về Kế Toán">
+  <a class="ab-logo" href="/ketoan/tong-quan" title="Về Tổng quan kế toán">
     <img src="https://papasanvietnam.vn/wp-content/uploads/2025/11/Ch%C6%B0a-c%C3%B3-t%C3%AAn-250-x-67-px-2.png"
          alt="Papasan Việt Nam"
          onerror="this.outerHTML='<span class=\'ab-logo-txt\'>Papasan</span>'">
@@ -402,71 +408,96 @@ body.sb-min .ab-sb-g,body.sb-min .ab-sb-top{position:relative}
 
 <aside class="ab-sb" id="ab-sb" aria-label="Điều hướng chính">
   <nav class="ab-sb-nav">
-  <a class="ab-sb-a ab-sb-top" data-page="bao-cao" href="/app#bao-cao" title="Tổng quan"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="2.5" width="5" height="5" rx="1"/><rect x="8.5" y="2.5" width="5" height="5" rx="1"/><rect x="2.5" y="8.5" width="5" height="5" rx="1"/><rect x="8.5" y="8.5" width="5" height="5" rx="1"/></svg></span><span class="ab-sb-tx">Tổng quan</span></a>
-  <div class="ab-sb-g" data-g="thuchi">
-    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Thu — Chi"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 10.5V3M4.5 3 2 5.5M4.5 3 7 5.5"/><path d="M11.5 5.5V13M11.5 13 9 10.5M11.5 13 14 10.5"/></svg></span><span class="ab-sb-tx">Thu — Chi</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+  {# 2026-09-25: menu Kế toán = 8 nhóm giao diện mới (42 màn) + nhóm "Tiện ích khác" cho các trang chưa có bản mới. #}
+  <div class="ab-sb-g" data-g="moi">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="true" title="Tổng quan & Sổ sách"><span class="ab-sb-ic"><i class="bi bi-grid-1x2-fill" aria-hidden="true"></i></span><span class="ab-sb-tx">Tổng quan & Sổ sách</span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
     <div class="ab-sb-sub">
-    <a class="ab-sb-a ab-sb-child" href="/chi-tap-trung" title="Chi Tập Trung — gom mọi khoản chờ chi, bấm Chi ở từng tab"><span class="ab-sb-tx">💸 Chi Tập Trung</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="doanh-thu" href="/app#doanh-thu" title="Doanh thu"><span class="ab-sb-tx">Doanh thu</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="chi-phi" href="/app#chi-phi" title="Chi phí phát sinh"><span class="ab-sb-tx">Chi phí phát sinh</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="co-dinh" href="/app#co-dinh" title="Chi phí cố định"><span class="ab-sb-tx">Chi phí cố định</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="so-quy" href="/app#so-quy" title="Sổ quỹ"><span class="ab-sb-tx">Sổ quỹ</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/tong-quan" title="Tổng quan kế toán"><span class="ab-sb-tx">Tổng quan</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/so-cai" title="Sổ nhật ký chung / sổ cái"><span class="ab-sb-tx">Sổ kế toán</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/can-doi" title="Cân đối phát sinh"><span class="ab-sb-tx">Cân đối phát sinh</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/tai-khoan" title="Danh mục tài khoản"><span class="ab-sb-tx">Danh mục tài khoản</span></a>
     </div>
   </div>
-  <div class="ab-sb-g" data-g="congno">
-    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Công nợ"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 2.5h9v11l-2-1.2-2 1.2-2-1.2-2 1.2z"/><path d="M6 6h4M6 8.8h4"/></svg></span><span class="ab-sb-tx">Công nợ</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+  <div class="ab-sb-g" data-g="moi2">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Công nợ"><span class="ab-sb-ic"><i class="bi bi-receipt" aria-hidden="true"></i></span><span class="ab-sb-tx">Công nợ</span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
     <div class="ab-sb-sub">
-    <a class="ab-sb-a ab-sb-child" data-page="cong-no" href="/app#cong-no" title="Công nợ khách"><span class="ab-sb-tx">Công nợ khách</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="cong-no-ncc" href="/app#cong-no-ncc" title="Công nợ NCC"><span class="ab-sb-tx">Công nợ NCC</span></a>
-    {% if _mgr %}<a class="ab-sb-a ab-sb-child" href="/duyet-ncc" title="Duyệt ĐX trả NCC"><span class="ab-sb-tx">Duyệt ĐX trả NCC</span><span class="ab-sb-bd" id="ab-sb-bd-ncc" hidden>0</span></a>{% endif %}
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/cong-no-kh" title="Công nợ khách hàng"><span class="ab-sb-tx">Công nợ khách hàng</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/cong-no-ncc" title="Công nợ nhà cung cấp"><span class="ab-sb-tx">Công nợ NCC</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/bu-tru" title="Bù trừ công nợ"><span class="ab-sb-tx">Bù trừ công nợ</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/doi-tuong" title="Chi tiết công nợ một KH/NCC"><span class="ab-sb-tx">Chi tiết đối tượng</span></a>
     </div>
   </div>
-  <div class="ab-sb-g" data-g="kho">
-    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Kho & giá vốn"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 5.5 8 2.5l5.5 3v5L8 13.5l-5.5-3z"/><path d="M2.5 5.5 8 8.5l5.5-3M8 8.5v5"/></svg></span><span class="ab-sb-tx">Kho & giá vốn</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+  <div class="ab-sb-g" data-g="moi3">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Báo cáo tài chính"><span class="ab-sb-ic"><i class="bi bi-bar-chart-fill" aria-hidden="true"></i></span><span class="ab-sb-tx">Báo cáo tài chính</span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
     <div class="ab-sb-sub">
-    <a class="ab-sb-a ab-sb-child" data-page="san-pham" href="/app#san-pham" title="Sản phẩm"><span class="ab-sb-tx">Sản phẩm</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="thuoc-tinh" href="/app#thuoc-tinh" title="Thuộc tính SP"><span class="ab-sb-tx">Thuộc tính SP</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="ton-kho" href="/app#ton-kho" title="Tồn kho"><span class="ab-sb-tx">Tồn kho</span></a>
-    <a class="ab-sb-a ab-sb-child" href="/products" title="Trang SP đầy đủ"><span class="ab-sb-tx">Trang SP đầy đủ</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/bao-cao/kqkd" title="Kết quả kinh doanh (B02)"><span class="ab-sb-tx">Kết quả kinh doanh</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/bao-cao/cdkt" title="Cân đối kế toán (B01)"><span class="ab-sb-tx">Cân đối kế toán</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/bao-cao/lctt" title="Lưu chuyển tiền tệ (B03-DN)"><span class="ab-sb-tx">Lưu chuyển tiền tệ</span></a>
     </div>
   </div>
-  <div class="ab-sb-g" data-g="von">
-    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Vốn & tài sản"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6.5 8 2.5l6 4"/><path d="M3.5 6.5v6M6.5 6.5v6M9.5 6.5v6M12.5 6.5v6"/><path d="M2 13.5h12"/></svg></span><span class="ab-sb-tx">Vốn & tài sản</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+  <div class="ab-sb-g" data-g="moi4">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Vốn & Tài sản"><span class="ab-sb-ic"><i class="bi bi-building" aria-hidden="true"></i></span><span class="ab-sb-tx">Vốn & Tài sản</span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
     <div class="ab-sb-sub">
-    <a class="ab-sb-a ab-sb-child" data-page="khoan-vay" href="/app#khoan-vay" title="Vốn vay"><span class="ab-sb-tx">Vốn vay</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="quan-ly-quy" href="/app#quan-ly-quy" title="Quản lý quỹ"><span class="ab-sb-tx">Quản lý quỹ</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="phan-phoi-ln" href="/app#phan-phoi-ln" title="Phân phối LN"><span class="ab-sb-tx">Phân phối LN</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="tscd" href="/app#tscd" title="TSCĐ & khấu hao"><span class="ab-sb-tx">TSCĐ & khấu hao</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="tai-khoan-nh" href="/app#tai-khoan-nh" title="Tài khoản NH"><span class="ab-sb-tx">Tài khoản NH</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/tscd" title="Tài sản cố định"><span class="ab-sb-tx">TSCĐ</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/tscd/phieu" title="Phiếu TSCĐ (ghi tăng/sửa/thanh lý)"><span class="ab-sb-tx">Phiếu TSCĐ</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/tscd/chi-tiet" title="Chi tiết TSCĐ"><span class="ab-sb-tx">Chi tiết TSCĐ</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/khoan-vay" title="Khoản vay"><span class="ab-sb-tx">Khoản vay</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/khoan-vay/phieu" title="Hợp đồng vay"><span class="ab-sb-tx">Hợp đồng vay</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/phan-phoi-ln" title="Phân phối lợi nhuận"><span class="ab-sb-tx">Phân phối LN</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/quy" title="Quản lý quỹ"><span class="ab-sb-tx">Quỹ</span></a>
     </div>
   </div>
-  <div class="ab-sb-g" data-g="baocao">
-    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Báo cáo"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 13.5h11"/><path d="M4.5 13.5V8M8 13.5V4M11.5 13.5v-3.5"/></svg></span><span class="ab-sb-tx">Báo cáo</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+  <div class="ab-sb-g" data-g="moi5">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Thu chi & Ngân hàng"><span class="ab-sb-ic"><i class="bi bi-bank" aria-hidden="true"></i></span><span class="ab-sb-tx">Thu chi & Ngân hàng</span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
     <div class="ab-sb-sub">
-    <a class="ab-sb-a ab-sb-child" data-page="can-doi" href="/app#can-doi" title="Cân đối tài chính"><span class="ab-sb-tx">Cân đối tài chính</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="pnl" href="/app#pnl" title="P&L (kết quả KD)"><span class="ab-sb-tx">P&L (kết quả KD)</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="cashflow" href="/app#cashflow" title="Cashflow"><span class="ab-sb-tx">Cashflow</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="cpa-ads" href="/app#cpa-ads" title="ROI / CPA Ads"><span class="ab-sb-tx">ROI / CPA Ads</span></a>
-    <a class="ab-sb-a ab-sb-child" href="/bao-cao/duyet-chi" title="Báo cáo duyệt chi"><span class="ab-sb-tx">Báo cáo duyệt chi</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/so-quy" title="Sổ quỹ"><span class="ab-sb-tx">Sổ quỹ</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/ngan-hang" title="Ngân hàng + đối soát"><span class="ab-sb-tx">Ngân hàng</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/thu-chi" title="Doanh thu và chi phí"><span class="ab-sb-tx">Doanh thu & Chi phí</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/chung-tu" title="Chứng từ (phiếu thu/chi/bút toán khác)"><span class="ab-sb-tx">Chứng từ</span></a>
     </div>
   </div>
-  <div class="ab-sb-g" data-g="lienphong">
-    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Liên phòng ban"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.5" r="2.2"/><path d="M2.5 13c0-2 1.6-3.4 3.5-3.4S9.5 11 9.5 13"/><path d="M11 5.6a2 2 0 0 1 0 3.9M11.8 13c0-1.4-.4-2.4-1-3.1"/></svg></span><span class="ab-sb-tx">Liên phòng ban</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+  <div class="ab-sb-g" data-g="moi6">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Duyệt & Đề nghị"><span class="ab-sb-ic"><i class="bi bi-check2-square" aria-hidden="true"></i></span><span class="ab-sb-tx">Duyệt & Đề nghị</span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
     <div class="ab-sb-sub">
-    <a class="ab-sb-a ab-sb-child" data-page="don-hang" href="/app#don-hang" title="Đơn hàng"><span class="ab-sb-tx">Đơn hàng</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="luong" href="/app#luong" title="Lương HCNS"><span class="ab-sb-tx">Lương HCNS</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="bhxh" href="/app#bhxh" title="BHXH"><span class="ab-sb-tx">BHXH</span></a>
-    <a class="ab-sb-a ab-sb-child" data-page="ads" href="/app#ads" title="Chi phí ADS"><span class="ab-sb-tx">Chi phí ADS</span></a>
-    <a class="ab-sb-a ab-sb-child" href="/duyet-chi" title="Duyệt chi"><span class="ab-sb-tx">Duyệt chi</span><span class="ab-sb-bd" id="ab-sb-bd-chi" hidden>0</span></a>
-    <a class="ab-sb-a ab-sb-child" href="/de-nghi-tt" title="Đề nghị TT"><span class="ab-sb-tx">Đề nghị TT</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/kt-duyet" title="Duyệt chi — gồm chi tập trung + báo cáo duyệt chi"><span class="ab-sb-tx">Duyệt chi</span><span class="ab-sb-bd" id="ab-sb-bd-chi" hidden>0</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/kt-duyet" title="Xác nhận cọc đơn hàng từ Kinh doanh"><span class="ab-sb-tx">Xác nhận cọc</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/de-nghi-tt" title="Đề nghị thanh toán"><span class="ab-sb-tx">Đề nghị TT</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/de-xuat-ncc" title="Đề xuất thanh toán NCC"><span class="ab-sb-tx">Đề xuất NCC</span><span class="ab-sb-bd" id="ab-sb-bd-ncc" hidden>0</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/khoa-so" title="Kết chuyển & khoá sổ"><span class="ab-sb-tx">Khoá sổ</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/in" title="Trang in A4 dùng chung"><span class="ab-sb-tx">Trang in</span></a>
+    </div>
+  </div>
+  <div class="ab-sb-g" data-g="moi7">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Thuế & Kỳ kế toán"><span class="ab-sb-ic"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span><span class="ab-sb-tx">Thuế & Kỳ kế toán</span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+    <div class="ab-sb-sub">
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/thue-gtgt" title="Thuế GTGT"><span class="ab-sb-tx">Thuế GTGT</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/thue-tncn-tndn" title="Thuế TNCN và TNDN"><span class="ab-sb-tx">Thuế TNCN/TNDN</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/tam-ung" title="Tạm ứng (TK 141)"><span class="ab-sb-tx">Tạm ứng</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/phan-bo" title="Chi phí chờ phân bổ (TK 242)"><span class="ab-sb-tx">Chi phí chờ phân bổ</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/so-du-dau-ky" title="Số dư đầu kỳ"><span class="ab-sb-tx">Số dư đầu kỳ</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/cai-dat" title="Cài đặt kế toán"><span class="ab-sb-tx">Cài đặt</span></a>
+    </div>
+  </div>
+  <div class="ab-sb-g" data-g="moi8">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Đơn hàng, Lương & Khác"><span class="ab-sb-ic"><i class="bi bi-box-seam" aria-hidden="true"></i></span><span class="ab-sb-tx">Đơn hàng, Lương & Khác</span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+    <div class="ab-sb-sub">
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/don-hang" title="Đơn hàng — tài chính (3 tab)"><span class="ab-sb-tx">Đơn hàng</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/san-pham" title="Sản phẩm"><span class="ab-sb-tx">Sản phẩm</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/ton-kho" title="Tồn kho"><span class="ab-sb-tx">Tồn kho</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/thuoc-tinh" title="Thuộc tính sản phẩm"><span class="ab-sb-tx">Thuộc tính SP</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/luong" title="Lương và BHXH"><span class="ab-sb-tx">Lương</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/bhxh" title="Bảo hiểm xã hội"><span class="ab-sb-tx">BHXH</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/quang-cao" title="Chi phí quảng cáo"><span class="ab-sb-tx">Quảng cáo</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/ketoan/loai-chi-phi" title="Loại chi phí"><span class="ab-sb-tx">Loại chi phí</span></a>
+    </div>
+  </div>
+  {# Menu SPA cũ (/app#...) đã có màn tương ứng trong 8 nhóm mới ở trên — bỏ để khỏi trùng.
+     Chỉ giữ các trang CHƯA có bản mới, gom vào nhóm "Tiện ích khác". #}
+  <div class="ab-sb-g" data-g="khac">
+    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Tiện ích khác"><span class="ab-sb-ic"><i class="bi bi-three-dots" aria-hidden="true"></i></span><span class="ab-sb-tx">Tiện ích khác</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
+    <div class="ab-sb-sub">
     {% if _mgr %}<a class="ab-sb-a ab-sb-child" href="/phe-duyet" title="Phê duyệt"><span class="ab-sb-tx">Phê duyệt</span><span class="ab-sb-bd" id="ab-sb-bd-pd" hidden>0</span></a>{% endif %}
-    </div>
-  </div>
-    <a class="ab-sb-a ab-sb-top" href="/giao-viec" title="Giao việc"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="5.3" r="2.6"/><path d="M3 13.5c0-2.5 2.2-4.2 5-4.2s5 1.7 5 4.2"/></svg></span><span class="ab-sb-tx">Giao việc</span></a>
-  <div class="ab-sb-g" data-g="danhmuc">
-    <button type="button" class="ab-sb-gb" onclick="abSbGroup(this)" aria-expanded="false" title="Danh mục"><span class="ab-sb-ic"><svg class="ab-sb-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h8M6 8h8M6 12h8"/><circle cx="3" cy="4" r=".9"/><circle cx="3" cy="8" r=".9"/><circle cx="3" cy="12" r=".9"/></svg></span><span class="ab-sb-tx">Danh mục</span><span class="ab-sb-gbd" hidden></span><span class="ab-sb-cv" aria-hidden="true">›</span></button>
-    <div class="ab-sb-sub">
-    <a class="ab-sb-a ab-sb-child" data-page="loai-cp" href="/app#loai-cp" title="Loại chi phí"><span class="ab-sb-tx">Loại chi phí</span></a>
+    <a class="ab-sb-a ab-sb-child" href="/giao-viec" title="Giao việc"><span class="ab-sb-tx">Giao việc</span></a>
     </div>
   </div>
   </nav>
@@ -485,6 +516,24 @@ body.sb-min .ab-sb-g,body.sb-min .ab-sb-top{position:relative}
 {# Helper dùng chung (esc / escHtml / initials) — nạp ở đây nên MỌI trang
    include _header.html đều có sẵn, khỏi khai báo lại trong từng template. #}
 <script src="/static/js/ui-common.js?v=3"></script>
+{# 2026-09-25: toast.js tồn tại sẵn trong static/ từ trước nhưng chưa từng được include ở đâu
+   — mọi lời gọi toast() trong app im lặng không hiện gì. Bộ giao diện kế toán mới (kt-*.js)
+   dùng toast() làm phản hồi chính cho lưu/xoá/lỗi nên bắt buộc phải nạp toàn cục ở đây. #}
+<script src="/static/js/toast.js?v=1"></script>
+<script src="/static/js/dieu-huong.js?v=1"></script>
+<script src="/static/js/ten-nhan-vien.js?v=1"></script>
+{# Quyền ghi sổ tay (khớp _CEO_THUCHI_ROLES trong app/routers/_deps.py): phần tử gắn data-quyen="ceo" chỉ hiện
+   với admin/ceo/assistant_ceo — tránh để Kế toán bấm rồi mới bị API từ chối 403. JS dùng KD.coQuyen('ceo'). #}
+<script>
+(function(){
+  var VAI_TRO_GHI_SO = ['admin', 'ceo', 'assistant_ceo'];
+  var r = {{ _role | tojson }};
+  var goc = {{ ((user.role if user else '') or '') | lower | tojson }};
+  document.documentElement.setAttribute('data-vai-tro', r);
+  document.documentElement.setAttribute('data-vai-tro-goc', goc);
+  if (VAI_TRO_GHI_SO.indexOf(goc) >= 0 || VAI_TRO_GHI_SO.indexOf(r) >= 0) document.documentElement.setAttribute('data-quyen-ceo', '');
+})();
+</script>
 <script src="/static/js/notifications_bell.js?v=20260828b"></script>
 <script>
 (function(){
@@ -805,6 +854,21 @@ body.sb-min .ab-sb-g,body.sb-min .ab-sb-top{position:relative}
   /* Số việc CHỜ DUYỆT trên mục — lý do chính đổi sang sidebar.
      Fail-soft: endpoint hỏng thì badge ở nguyên trạng thái ẩn, không chặn nav. */
   function abSbBadge(){
+    /* Số badge đổi chậm — cache 60s trong sessionStorage để chuyển trang không bắn lại 7 request. */
+    var BADGE_TTL_MS = 60000;
+    function layJson(u){
+      var k = 'ab-bd:' + u;
+      try {
+        var c = JSON.parse(sessionStorage.getItem(k) || 'null');
+        if (c && Date.now() - c.t < BADGE_TTL_MS) return Promise.resolve(c.d);
+      } catch (e) {}
+      return fetch(u, {credentials:'include'})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){
+          if (d !== null) { try { sessionStorage.setItem(k, JSON.stringify({t: Date.now(), d: d})); } catch (e) {} }
+          return d;
+        });
+    }
     function dat(id, n){
       var el = document.getElementById('ab-sb-bd-' + id);
       if (!el) return;
@@ -820,15 +884,16 @@ body.sb-min .ab-sb-g,body.sb-min .ab-sb-top{position:relative}
       }
     }
     /* 1) Duyệt ĐX trả NCC — số đề xuất chờ KT duyệt */
-    fetch('/api/ncc-de-xuat/summary', {credentials:'include'})
-      .then(function(r){ return r.ok ? r.json() : null; })
+    layJson('/api/ncc-de-xuat/summary')
       .then(function(d){ if (d) dat('ncc', d.cho_duyet || 0); })
       .catch(function(){});
 
     /* 2) Duyệt chi — số đơn chi đang chờ MÌNH duyệt */
-    fetch('/api/duyet-chi/stats', {credentials:'include'})
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(d){ if (d) dat('chi', d.pending_for_me || 0); })
+    /* Đếm GIỐNG thẻ "Chờ tôi duyệt" của màn Duyệt chi (kt-duyet.js): hàng chờ của mình + đề nghị TT
+       + đề xuất trả NCC đang chờ KT. /api/duyet-chi/stats.pending_for_me trả 0 sai (queue/me có 4). */
+    Promise.all(['/api/duyet-chi/queue/me', '/api/de-nghi-tt?trang_thai=cho_duyet', '/api/ncc-de-xuat?trang_thai=cho_duyet']
+      .map(function(u){ return layJson(u).then(function(a){ return Array.isArray(a) ? a.length : 0; }).catch(function(){ return 0; }); }))
+      .then(function(ns){ dat('chi', ns[0] + ns[1] + ns[2]); })
       .catch(function(){});
 
     /* 3) Phê duyệt — tổng mọi việc chờ duyệt, gộp 5 hàng đợi giống trang
@@ -843,8 +908,7 @@ body.sb-min .ab-sb-g,body.sb-min .ab-sb-top{position:relative}
       '/api/ncc-de-xuat?trang_thai=cho_duyet'
     ];
     Promise.all(_pdUrls.map(function(u){
-      return fetch(u, {credentials:'include'})
-        .then(function(r){ return r.ok ? r.json() : []; })
+      return layJson(u)
         .then(function(a){ return Array.isArray(a) ? a.length : 0; })
         .catch(function(){ return 0; });
     })).then(function(ns){

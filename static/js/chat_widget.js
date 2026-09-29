@@ -4182,7 +4182,7 @@ window.zV2_renderTabThongTin = function (room, pinned) {
         '<span class="zV2_pinned_icon"></span>' +
         '<div class="zV2_pinned_body">' +
           '<div class="zV2_pinned_text">' + zV2_escapeHtml(preview) + '</div>' +
-          '<div class="zV2_pinned_meta">Ghim bởi ' + zV2_escapeHtml(p.pinned_by_ten || p.pinned_by || p.sender_name || '') + '</div>' +
+          '<div class="zV2_pinned_meta">Ghim bởi ' + zV2_escapeHtml(p.pinned_by || p.sender_name || '') + '</div>' +
         '</div>' +
       '</div>';
     }).join('');

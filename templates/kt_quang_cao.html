@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Chi phí quảng cáo — gộp 2 màn cũ #page-ads + #page-cpa-ads thành 2 tab, cùng ô chọn tháng.
+   GET /api/external/ads?tu_ngay&den_ngay (nguồn app Marketing) · GET /api/bao-cao/cpa?thang · /api/bao-cao/cpa/per-don?thang_hoan_thanh · /api/bao-cao/cpa/cohort?from&to
+   POST /api/ads-phan-bo/recalc/<thang> (README mục 4.38) #}
+{% block title %}Chi phí quảng cáo{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-quang-cao.css?v=h6">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-quang-cao">
+  {% call ui.dau_trang('Chi phí quảng cáo', 'Chi tiêu theo ngày và phân bổ về đơn hàng') %}
+    <label class="kd-select"><i class="bi bi-calendar3" aria-hidden="true"></i><span class="visually-hidden">Tháng</span><select id="qc-thang"></select></label>
+    <button type="button" class="kd-btn" id="qc-recalc" hidden><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Tính lại phân bổ</button>
+    <button type="button" class="kd-btn kd-btn--primary" id="qc-xuat"><i class="bi bi-download" aria-hidden="true"></i>Xuất Excel</button>
+  {% endcall %}
+
+  <div class="kd-tabs kd-tabs--lon kt-tabs-trang" role="tablist" aria-label="Góc nhìn chi phí quảng cáo" id="qc-tabs">
+    <button type="button" role="tab" id="qc-tab-ngay" data-tab="ngay" aria-controls="qc-p-ngay" aria-selected="true">Chi phí theo ngày</button>
+    <button type="button" role="tab" id="qc-tab-cpa" data-tab="cpa" aria-controls="qc-p-cpa" aria-selected="false" tabindex="-1">Phân bổ về đơn hàng (CPA)</button>
+  </div>
+
+  {# ── Tab 1: chi phí theo ngày × kênh ── #}
+  <div class="kt-tab-pane" role="tabpanel" id="qc-p-ngay" aria-labelledby="qc-tab-ngay">
+    {{ ui.the_so('ad', [('chi', 'Chi phí quảng cáo', '', 'bi-megaphone'), ('inbox', 'Tin nhắn (inbox)', 'info', 'bi-chat-dots'), ('data', 'Data khách hàng', 'success', 'bi-person-lines-fill'), ('cpd', 'Chi phí mỗi data (CPD)', 'warning', 'bi-calculator')], kieu='strip', nhan_vung='Tổng hợp quảng cáo tháng') }}
+    <div class="kd-detail kt-qc-khung">
+      <section class="kd-card" aria-labelledby="ad-td">
+        <div class="kd-box__head kt-the-dau"><h2 class="kd-box__title" id="ad-td">Chi phí theo ngày <button type="button" class="kd-tip" data-tip="Số liệu nhập ở app Marketing, kế toán chỉ xem. Chi phí ads ghi sổ theo hoá đơn nền tảng (TK 6418) có thể lệch với số Marketing khai theo ngày." aria-label="Nguồn số liệu"><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+        <div class="kd-table-scroll kd-table-scroll--thanh" id="ad-cuon">
+          <table class="kd-table kt-bang"><caption class="visually-hidden">Chi phí quảng cáo theo ngày</caption>
+            <thead><tr><th scope="col">Ngày</th><th scope="col">Chi tiết kênh</th><th scope="col" class="num">Chi phí (VND)</th><th scope="col" class="num">Inbox</th><th scope="col" class="num">Data</th><th scope="col" class="num" title="Chi phí chia số data">CPD (VND)</th></tr></thead>
+            <tbody id="ad-tbody"></tbody><tfoot id="ad-tfoot"></tfoot>
+          </table>
+        </div>
+        <div id="ad-tt"></div>
+      </section>
+      <aside class="kd-side">
+        <section class="kd-box" aria-labelledby="ak-td">
+          <div class="kd-box__head"><h2 class="kd-box__title" id="ak-td">Theo kênh</h2></div>
+          <div id="ak-noi-dung"></div>
+        </section>
+      </aside>
+    </div>
+  </div>
+
+  {# ── Tab 2: phân bổ CPA ── #}
+  <div class="kt-tab-pane" role="tabpanel" id="qc-p-cpa" aria-labelledby="qc-tab-cpa" hidden>
+    {{ ui.the_so('cp', [('tong', 'Chi ads trong tháng', '', 'bi-megaphone'), ('pb', 'Đã phân bổ vào đơn', 'success', 'bi-diagram-3'), ('don', 'Đơn nhận phân bổ', 'info', 'bi-receipt'), ('cpa', 'CPA bình quân', 'warning', 'bi-calculator')], kieu='strip', nhan_vung='Tổng hợp phân bổ quảng cáo tháng') }}
+    <section class="kd-card" aria-labelledby="cn-td">
+      <div class="kd-box__head kt-the-dau"><h2 class="kd-box__title" id="cn-td">Quỹ quảng cáo theo nhóm hàng</h2><p class="kd-meta" id="cn-phu"></p></div>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="cn-cuon">
+        <table class="kd-table kt-bang"><caption class="visually-hidden">Phân bổ quảng cáo theo nhóm hàng</caption>
+          <thead><tr><th scope="col">Nhóm hàng</th><th scope="col" class="num">Quỹ ads (VND)</th><th scope="col" class="num">Số đơn</th><th scope="col" class="num">CPA bình quân (VND)</th><th scope="col">Hoàn thành</th></tr></thead>
+          <tbody id="cn-tbody"></tbody><tfoot id="cn-tfoot"></tfoot>
+        </table>
+      </div>
+      <div id="cn-tt"></div>
+    </section>
+    <section class="kd-card" aria-labelledby="cd-td">
+      <div class="kd-box__head kt-the-dau"><h2 class="kd-box__title" id="cd-td">Ads theo từng đơn hoàn thành <button type="button" class="kd-tip" data-tip="Đơn hoàn thành trong tháng và phần ads mỗi đơn gánh. Còn lại = doanh thu đơn − ads, chưa trừ giá vốn, chưa phải lãi." aria-label="Cách tính"><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+      <div class="kd-filter kt-qc-loc">
+        <label class="kd-field"><span class="kd-field__label">Tìm</span><input class="kd-input" type="search" id="cd-q" placeholder="Mã báo giá hoặc khách…" autocomplete="off"></label>
+        <label class="kd-field"><span class="kd-field__label">Nhóm hàng</span><select class="kd-input" id="cd-nhom"><option value="">Tất cả nhóm</option><option value="ads_go">Đồ Gỗ</option><option value="ads_may">Đồ Mây</option><option value="ads_du_an">Dự Án</option></select></label>
+      </div>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="cd-cuon">
+        <table class="kd-table kt-bang"><caption class="visually-hidden">Phân bổ quảng cáo theo đơn</caption>
+          <thead><tr><th scope="col">Đơn hàng</th><th scope="col" class="num">Doanh thu đơn</th><th scope="col" class="num" title="Dòng nhỏ: tách theo nhóm hàng">Tổng ads</th><th scope="col" class="num" title="Doanh thu đơn − tổng ads. Dòng nhỏ: ads / doanh thu">Còn lại sau ads</th></tr></thead>
+          <tbody id="cd-tbody"></tbody><tfoot id="cd-tfoot"></tfoot>
+        </table>
+      </div>
+      <div id="cd-tt"></div>
+    </section>
+    <details class="kd-card kt-qc-cohort" id="ch-khoi">
+      <summary class="kt-qc-cohort__dau"><span class="kd-box__title"><i class="bi bi-calendar-range" aria-hidden="true"></i> Ads tháng nào ra đơn tháng nào</span><i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="ch-cuon">
+        <table class="kd-table kt-bang"><caption class="visually-hidden">Phân bổ ads theo tháng hoàn thành đơn</caption>
+          <thead><tr><th scope="col">Tháng chi ads <button type="button" class="kd-tip" data-tip="Chi phí ads của mỗi tháng đã gắn vào đơn hoàn thành cùng tháng (T0) hay các tháng sau." aria-label="Cách đọc"><i class="bi bi-info-circle" aria-hidden="true"></i></button></th><th scope="col" class="num">Tổng chi (VND)</th><th scope="col" class="num" title="Đơn hoàn thành cùng tháng">T0</th><th scope="col" class="num">T+1</th><th scope="col" class="num">T+2</th><th scope="col" class="num">T+3</th><th scope="col" class="num">Từ T+4</th><th scope="col" class="num" title="Phần ads của đơn chưa hoàn thành hoặc nhóm không có đơn">Chưa hoàn thành</th><th scope="col" class="num" title="Phần ads đã vào đơn hoàn thành / tổng chi">Đã vào đơn HT</th></tr></thead>
+          <tbody id="ch-tbody"></tbody>
+        </table>
+      </div>
+      <div id="ch-tt"></div>
+    </details>
+  </div>
+</main>
+
+<dialog class="kd-dialog" id="qc-dlg" role="alertdialog" aria-labelledby="qc-dlg-td" aria-describedby="qc-dlg-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="qc-dlg-td">Tính lại phân bổ quảng cáo?</h2></header>
+    <div class="kd-dialog__body"><p id="qc-dlg-nd"></p><p class="kd-form-err" role="alert" hidden></p></div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="button" class="kd-btn kd-btn--primary" id="qc-dlg-ok"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Tính lại</button></footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-bao-cao.js?v=loc0928b"></script>
+<script src="/static/js/kt-quang-cao.js?v=tk0928a"></script>
+{% endblock %}

@@ -28,7 +28,7 @@ from ..schemas.ky_ke_toan import (
 )
 from ..schemas.pl_snapshot import PLSnapshotOut
 from ..services.period_close import (
-    PeriodCloseError, chot_ky, get_ln_giu_lai_luy_ke, mo_ky,
+    PeriodCloseError, chot_ky, get_ln_giu_lai_luy_ke, mo_ky, preview_chot_ky,
 )
 from ._deps import require_ketoan_user
 
@@ -97,6 +97,19 @@ def get_ky(
     out = KyKeToanDetailOut.model_validate(ky, from_attributes=True)
     out.pl_snapshot = snap_out
     return out
+
+
+# ─── Xem trước + kiểm tra trước khi chốt ──────────────────────────────────────
+
+@router.get("/{thang}/xem-truoc")
+def xem_truoc(
+    thang: str,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+):
+    """Checklist + P&L ước tính trước khi chốt kỳ `thang` — KHÔNG ghi gì xuống DB."""
+    _validate_thang(thang)
+    return preview_chot_ky(db, thang)
 
 
 # ─── Chốt kỳ ─────────────────────────────────────────────────────────────────

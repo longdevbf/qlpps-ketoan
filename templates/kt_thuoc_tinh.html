@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Thuộc tính sản phẩm — master-detail 3 bước (biến thể L4: cột phụ bên TRÁI). Bước 1 chọn nhóm master → Bước 2 chọn sản phẩm (hoặc Mặc định nhóm)
+   → Bước 3 quản lý 7 thuộc tính (+ thuộc tính tuỳ chỉnh, + lựa chọn cộng thêm của sản phẩm).
+   GET/POST /api/product-attributes · POST …/bulk · POST …/copy-defaults · POST …/key/rename · DELETE …/key · PUT/DELETE …/<id>
+   GET /api/products?nhom_master= · GET /api/products/<id> · POST/PUT/DELETE /api/products/<id>/addons[/<aid>] (README mục 4.34) #}
+{% block title %}Thuộc tính sản phẩm{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}{{ ui.css('') }}<link rel="stylesheet" href="/static/css/kt-san-pham.css?v=g4">{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-thuoc-tinh">
+  {% call ui.dau_trang('Thuộc tính sản phẩm', 'Giá trị chọn khi báo giá', tip='Phân khúc, phong cách (có hệ số giá), vật liệu, màu gỗ, màu vải, màu da, loại sơn — theo nhóm hoặc riêng từng sản phẩm.') %}
+    <button type="button" class="kd-btn" id="tt-them-nhom"><i class="bi bi-folder-plus" aria-hidden="true"></i>Thêm nhóm master</button>
+    <button type="button" class="kd-btn kd-btn--primary" id="tt-them-key"><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm thuộc tính tuỳ chỉnh</button>
+  {% endcall %}
+
+  {{ ui.the_so('tt', [('gia_tri', 'Giá trị trong nhóm', '', 'bi-list-ul', 'Sản phẩm chưa khai báo riêng dùng giá trị Mặc định nhóm. Hệ số của phân khúc và phong cách nhân vào giá cơ bản khi báo giá.'), ('san_pham', 'Sản phẩm trong nhóm', 'info', 'bi-box'), ('rieng', 'Sản phẩm khai báo riêng', 'success', 'bi-person-gear'), ('trong', 'Thuộc tính còn trống', 'warning', 'bi-exclamation-circle')], kieu='strip', nhan_vung='Tình trạng thuộc tính của nhóm đang chọn') }}
+
+  <div>
+    <p class="kt-tt-buoc">Bước 1 · Chọn nhóm master</p>
+    <div class="kd-tabs kd-tabs--lon kt-tabs-trang" role="tablist" aria-label="Nhóm master" id="tt-tabs"></div>
+  </div>
+
+  <div id="tt-tt"></div>
+  <div class="kt-tt-khung" id="tt-khung" hidden>
+    <section class="kd-card kt-tt-trai" aria-labelledby="tt-sp-td">
+      <div class="kd-box__head"><p class="kt-tt-buoc">Bước 2 · Chọn sản phẩm</p><h2 class="kd-box__title" id="tt-sp-td">Sản phẩm trong nhóm</h2></div>
+      <div class="kt-tt-tim"><label class="visually-hidden" for="tt-sp-tim">Tìm sản phẩm</label><input class="kd-input" type="search" id="tt-sp-tim" placeholder="Tìm tên, mã…" autocomplete="off"></div>
+      <ul class="kt-tt-ds" id="tt-sp-ds" aria-label="Chọn sản phẩm để xem thuộc tính"></ul>
+    </section>
+    <div class="kt-tt-phai" role="tabpanel" id="tt-phai" aria-live="polite">
+      <section class="kd-card" aria-labelledby="tt-ngu-td">
+        <div class="kd-box__head kt-the-dau kt-tt-ngu">
+          <div><p class="kt-tt-buoc">Bước 3 · Quản lý thuộc tính</p><h2 class="kd-box__title" id="tt-ngu-td"></h2><p class="kd-meta" id="tt-ngu-phu"></p></div>
+          <div class="kt-dh-xl" id="tt-ngu-nut"></div>
+        </div>
+      </section>
+      <div class="kt-tt-luoi" id="tt-the"></div>
+      <div id="tt-tuy-chinh"></div>
+    </div>
+  </div>
+</main>
+
+<dialog class="kd-dialog" id="tt-dlg-nhom" aria-labelledby="tt-nhom-td">
+  <form method="dialog" novalidate id="tt-form-nhom">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="tt-nhom-td">Thêm nhóm master</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <div class="kd-field"><label class="kd-field__label" for="tt-nhom-ten">Tên nhóm <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="tt-nhom-ten" maxlength="64" autocomplete="off" placeholder="Vd: Đồ Nhựa ngoài trời"><p class="kd-meta">Nhóm hiện thành tab ở Bước 1 và chỉ được lưu khi đã có ít nhất một giá trị thuộc tính.</p></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary">Tạo và chuyển sang nhóm</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="tt-dlg-key" aria-labelledby="tt-key-td">
+  <form method="dialog" novalidate id="tt-form-key">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="tt-key-td">Thêm thuộc tính tuỳ chỉnh</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body">
+      <p class="kd-meta" id="tt-key-ngu"></p>
+      <div class="kd-field"><label class="kd-field__label" for="tt-key-ten">Tên thuộc tính <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="tt-key-ten" maxlength="64" autocomplete="off" placeholder="Vd: Vân gỗ, Loại nan mây, Kích thước"></div>
+      <div class="kd-field"><label class="kd-field__label" for="tt-key-gt">Giá trị — mỗi dòng một giá trị</label><textarea class="kd-input kd-textarea" id="tt-key-gt" rows="5" placeholder="Walnut&#10;Oak&#10;Teak"></textarea><p class="kd-meta">Để trống thì thêm sau. Thuộc tính tuỳ chỉnh không tự hiện trên app Báo giá.</p></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="tt-key-ok">Lưu thuộc tính</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="tt-dlg-doi" aria-labelledby="tt-doi-td">
+  <form method="dialog" novalidate id="tt-form-doi">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="tt-doi-td">Đổi tên thuộc tính</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body"><div class="kd-field"><label class="kd-field__label" for="tt-doi-ten">Tên mới</label><input class="kd-input" id="tt-doi-ten" maxlength="64" autocomplete="off"></div><p class="kd-form-err" role="alert" hidden></p></div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary">Đổi tên</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="tt-dlg-xoa" role="alertdialog" aria-labelledby="tt-xoa-td" aria-describedby="tt-xoa-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="tt-xoa-td">Xoá?</h2></header>
+    <div class="kd-dialog__body"><p id="tt-xoa-nd"></p><p class="kd-form-err" role="alert" hidden></p></div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="button" class="kd-btn kd-btn--danger" id="tt-xoa-ok"><i class="bi bi-trash" aria-hidden="true"></i>Xoá</button></footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}{# = ui.js('kt-thuoc-tinh') nhưng tự đặt ?v= cho JS riêng để trình duyệt không dùng bản cache cũ #}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-thuoc-tinh.js?v=tk0928a"></script>{% endblock %}

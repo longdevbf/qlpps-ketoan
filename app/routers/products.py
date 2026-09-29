@@ -31,6 +31,7 @@ from ..schemas import (
     ProductAddonCreate, ProductAddonOut, ProductAddonUpdate,
     ProductCreate, ProductOut, ProductUpdate,
 )
+from ..services.tim_kiem import khop_mot_trong
 from ._deps import require_ketoan_user
 
 
@@ -60,9 +61,9 @@ def list_products(
         stmt = stmt.where(Product.nhom_hang == nhom_hang)
     if nhom_master:
         stmt = stmt.where(Product.nhom_master == nhom_master)
-    if q:
-        like = f"%{q}%"
-        stmt = stmt.where((Product.ten_sp.ilike(like)) | (Product.ma_sp.ilike(like)))
+    if q and q.strip():
+        # Không phân biệt dấu + hoa/thường — services/tim_kiem.py.
+        stmt = stmt.where(khop_mot_trong((Product.ten_sp, Product.ma_sp), q))
     return db.execute(stmt).scalars().all()
 
 

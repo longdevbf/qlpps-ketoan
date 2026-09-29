@@ -8,10 +8,11 @@ Fail-soft — caller không bị block nếu sync SoQuy fail.
 """
 from __future__ import annotations
 
+from datetime import date as _date
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from ..models import ChiPhiPhatSinh, CongNo, DoanhThu, SoQuy
@@ -26,6 +27,78 @@ def _net_so_quy(db: Session, tai_khoan_ten: str, tu_ngay=None) -> Decimal:
         sql += " AND ngay >= :tu"
         params["tu"] = tu_ngay
     return Decimal(str(db.execute(text(sql), params).scalar() or 0))
+
+
+def _net_so_quy_range(
+    db: Session, tai_khoan_ten: str, loai: str, tu=None, den=None,
+) -> Decimal:
+    """SUM(so_tien) trên so_quy của TK, theo `loai` ('thu'|'chi'), trong [tu, den)."""
+    stmt = select(func.coalesce(func.sum(SoQuy.so_tien), 0)).where(
+        SoQuy.tai_khoan == tai_khoan_ten, SoQuy.loai == loai,
+    )
+    if tu is not None:
+        stmt = stmt.where(SoQuy.ngay >= tu)
+    if den is not None:
+        stmt = stmt.where(SoQuy.ngay < den)
+    return Decimal(str(db.scalar(stmt) or 0))
+
+
+def so_du_dau_ky(db: Session, tai_khoan_id: int, tai_khoan_ten: str, sm: _date) -> Decimal:
+    """Số dư đầu THÁNG chứa `sm` (`sm` = ngày 1 đầu tháng) của 1 tài khoản.
+
+    Thuật toán neo (anchor) dùng chung cho Sổ Quỹ (`so_quy.py:so_quy_summary`) và
+    Ngân Hàng (`tai_khoan_nh_giao_dich.py:list_giao_dich`) — trước đây 2 nơi tự
+    tính riêng (Ngân Hàng còn không tính tồn đầu, xem `so_du_truoc_ngay`), nên
+    "Số dư sau" hiển thị lệch hẳn so với thực tế mỗi khi lọc theo kỳ. Anh Quang
+    2026-06-05: Số dư cuối kỳ tháng (X-1) = đầu kỳ tháng X — liên tục.
+        1) Anchor = SoDuDauKy gần nhất ≤ sm → cộng dồn giao dịch [anchor, sm).
+        2) Không có anchor ≤ sm → lùi tìm anchor TƯƠNG LAI gần nhất, trừ ngược
+           giao dịch [sm, anchor tương lai).
+        3) Không có anchor nào → TaiKhoanNH.so_du_dau + giao dịch trước sm (all-time).
+    """
+    from ..models import SoDuDauKy, TaiKhoanNH
+
+    anchor_back = db.execute(
+        select(SoDuDauKy.thang, SoDuDauKy.so_du)
+        .where(SoDuDauKy.tai_khoan_id == tai_khoan_id, SoDuDauKy.thang <= sm)
+        .order_by(SoDuDauKy.thang.desc()).limit(1)
+    ).first()
+    if anchor_back:
+        anchor_date, so_du_anchor = anchor_back[0], Decimal(anchor_back[1] or 0)
+        thu = _net_so_quy_range(db, tai_khoan_ten, "thu", anchor_date, sm)
+        chi = _net_so_quy_range(db, tai_khoan_ten, "chi", anchor_date, sm)
+        return so_du_anchor + thu - chi
+
+    anchor_fwd = db.execute(
+        select(SoDuDauKy.thang, SoDuDauKy.so_du)
+        .where(SoDuDauKy.tai_khoan_id == tai_khoan_id, SoDuDauKy.thang > sm)
+        .order_by(SoDuDauKy.thang.asc()).limit(1)
+    ).first()
+    if anchor_fwd:
+        fwd_date, so_du_fwd = anchor_fwd[0], Decimal(anchor_fwd[1] or 0)
+        thu_giua = _net_so_quy_range(db, tai_khoan_ten, "thu", sm, fwd_date)
+        chi_giua = _net_so_quy_range(db, tai_khoan_ten, "chi", sm, fwd_date)
+        return so_du_fwd - thu_giua + chi_giua
+
+    tk = db.get(TaiKhoanNH, tai_khoan_id)
+    so_du_dau = Decimal(str(tk.so_du_dau or 0)) if tk else Decimal("0")
+    thu_truoc = _net_so_quy_range(db, tai_khoan_ten, "thu", None, sm)
+    chi_truoc = _net_so_quy_range(db, tai_khoan_ten, "chi", None, sm)
+    return so_du_dau + thu_truoc - chi_truoc
+
+
+def so_du_truoc_ngay(db: Session, tai_khoan_id: int, tai_khoan_ten: str, ngay: _date) -> Decimal:
+    """Số dư NGAY TRƯỚC `ngay` — dùng làm tồn đầu kỳ khi lọc sổ giao dịch từ `ngay`.
+
+    = so_du_dau_ky(tháng chứa `ngay`) + net giao dịch [đầu tháng, `ngay`).
+    """
+    sm = ngay.replace(day=1)
+    dau_thang = so_du_dau_ky(db, tai_khoan_id, tai_khoan_ten, sm)
+    if ngay == sm:
+        return dau_thang
+    thu = _net_so_quy_range(db, tai_khoan_ten, "thu", sm, ngay)
+    chi = _net_so_quy_range(db, tai_khoan_ten, "chi", sm, ngay)
+    return dau_thang + thu - chi
 
 
 def so_du_hien_tai(db: Session, tai_khoan_ten: Optional[str]) -> Decimal:

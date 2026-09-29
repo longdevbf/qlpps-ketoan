@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -18,6 +18,7 @@ from ..models import InvProduct, InvProductCategory, InventoryBalance, Inventory
 from ..schemas import (
     InvProductCreate, InvProductUpdate, InvProductOut, InvProductPage,
 )
+from ..services.tim_kiem import khop_mot_trong
 from ._deps import require_ketoan_user
 
 
@@ -68,9 +69,9 @@ def list_products(
     if category_id:
         stmt = stmt.where(InvProduct.category_id == category_id)
         cnt_stmt = cnt_stmt.where(InvProduct.category_id == category_id)
-    if q:
-        like = f"%{q.strip()}%"
-        cond = or_(InvProduct.ma_sp.ilike(like), InvProduct.ten_sp.ilike(like))
+    if q and q.strip():
+        # Không phân biệt dấu + hoa/thường — services/tim_kiem.py.
+        cond = khop_mot_trong((InvProduct.ma_sp, InvProduct.ten_sp), q)
         stmt = stmt.where(cond)
         cnt_stmt = cnt_stmt.where(cond)
 

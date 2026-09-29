@@ -68,7 +68,6 @@ class VonCSHOut(VonCSHBase):
     loai_giao_dich: str
     quy_id: Optional[int] = None
     created_by: Optional[str] = None
-    created_by_ten: Optional[str] = None  # tên NV tra từ username, router gắn thêm khi list
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 

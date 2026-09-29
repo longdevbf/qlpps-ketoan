@@ -16,7 +16,6 @@ from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
 from shared.events import emit_event
-from shared.services.employees import ten_nv
 
 from ..models import (
     ChiPhiCoDinh, ChiPhiPhatSinh, CongNo, LoaiChiPhi,
@@ -24,6 +23,7 @@ from ..models import (
 )
 from ..schemas import ChiPhiCreate, ChiPhiOut, ChiPhiUpdate
 from ..services.journal import post_journal
+from ..services.tai_khoan_tien import tk_tien_cua
 from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
@@ -81,7 +81,10 @@ def _nguon_chi_phi(obj) -> str:
         return "Vận chuyển (auto)"
     if getattr(obj, "ref_ads_thang_kenh", None):
         return "Ads (auto)"
-    if getattr(obj, "ref_payroll_thang_pb", None):
+    # 'YYYY-MM' = kỳ lương KT chọn cho khoản Ứng Lương nhập tay (xem create_chi_phi), KHÔNG phải cầu nối
+    # lương tự sinh 'PAYROLL-…' — trước 28/09/2026 bị gắn nhầm nhãn "Lương (auto)".
+    _ref_luong = getattr(obj, "ref_payroll_thang_pb", None) or ""
+    if _ref_luong and not re.match(r"^\d{4}-\d{2}$", _ref_luong):
         return "Lương (auto)"
     if getattr(obj, "ref_phatsinh", None):
         return "Phát sinh (auto)"
@@ -117,15 +120,12 @@ def list_chi_phi(
         stmt = stmt.where(ChiPhiPhatSinh.nhom_chi_phi == nhom)
     stmt = stmt.limit(limit).offset(offset)
     rows = db.execute(stmt).scalars().all()
-    # `nguoi_chi` lưu lẫn mã/tên — tra tên một lượt, gắn transient `nguoi_chi_ten` cùng kiểu `nguon`.
-    ten = ten_nv(db, [r.nguoi_chi for r in rows]) if rows else {}
     for r in rows:
         # gán nhãn nguồn (transient attr) để ChiPhiOut trả về FE hiển thị badge
         try:
             r.nguon = _nguon_chi_phi(r)
         except Exception:
             r.nguon = None
-        r.nguoi_chi_ten = ten.get(r.nguoi_chi, r.nguoi_chi)
     return rows
 
 
@@ -327,7 +327,7 @@ def create_chi_phi(
                 status.HTTP_400_BAD_REQUEST,
                 f"tai_khoan_id={tai_khoan_id} không tồn tại",
             )
-        cash_acc = "111" if (tk.loai or "").strip() == "tien_mat" else "112"
+        cash_acc = tk_tien_cua(tk)
         gd = TaiKhoanNHGiaoDich(
             ngay=obj.ngay, tai_khoan_id=tk.id, loai="chi",
             so_tien=obj.so_tien, doi_tac=obj.nguoi_chi,

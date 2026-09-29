@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{# Phiếu tài sản cố định — L4 dùng chung 3 chế độ:
+   /ketoan/tscd/phieu              → ghi tăng tài sản mới (có thể ghi luôn bút toán ghi tăng)
+   /ketoan/tscd/phieu?id=<id>      → sửa thông tin (khoá nguyên giá / thời gian khi đã trích khấu hao)
+   /ketoan/tscd/phieu?id=<id>&che_do=thanh_ly → ghi giảm do thanh lý, nhượng bán
+   API thật: app/routers/tai_san.py (prefix /api/tai-san) — model khác README (xem đầu static/js/kt-tscd-phieu.js):
+   không có tk_hao_mon/tk_cp riêng từng tài sản (auto suy từ bo_phan/loai), không hỗ trợ mua chịu (331)/VAT.
+   Đủ ô như form cũ /app#tscd: nhóm (chữ tự do), loại, bộ phận, NCC, ngày mua, ngày dùng, nguyên giá, chi phí lắp đặt, số tháng, ghi chú. #}
+{% block title %}Phiếu tài sản cố định{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-chung-tu.css?v=dot4">
+<link rel="stylesheet" href="/static/css/kt-tscd.css?v=g4">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-tscd-phieu">
+  <nav aria-label="Đường dẫn">
+    <ol class="kd-crumb">
+      <li><a href="/ketoan/tscd"><i class="bi bi-arrow-left" aria-hidden="true"></i>Tài sản cố định</a></li>
+      <li aria-current="page" id="tp-crumb">Ghi tăng tài sản</li>
+    </ol>
+  </nav>
+
+  <header class="kd-dhead">
+    <div class="kd-dhead__id">
+      <span class="ico-tile ico-tile--lg" id="tp-ico" aria-hidden="true"><i class="bi bi-building-add"></i></span>
+      <div class="kd-dhead__main">
+        <div class="kd-dhead__title"><h1 class="kd-h1" id="tp-h1">Ghi tăng tài sản cố định</h1><span id="tp-pill"></span></div>
+        <p class="kd-dhead__code num" id="tp-ma"><span class="kd-skel kd-skel--ngan"></span></p>
+        <p class="kd-dhead__meta" id="tp-meta"></p>
+      </div>
+    </div>
+  </header>
+
+  <div id="tp-tt"></div>
+
+  <div class="kd-detail" id="tp-than" hidden>
+    <div class="kt-ct-cot">
+      <!-- Ghi tăng / sửa -->
+      <section class="kd-card kt-ct-the" aria-labelledby="tp-h-tt" id="tp-the-tt">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="tp-h-tt">Thông tin tài sản</h2></div>
+        <div class="kt-ct-luoi">
+          <div class="kd-field kt-ct-rong2">
+            <label class="kd-field__label" for="tp-ten">Tên tài sản <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input" id="tp-ten" maxlength="150" autocomplete="off" placeholder="VD: Máy dán cạnh tự động KDT-468">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-nhom">Nhóm tài sản<button type="button" class="kd-tip" data-tip="Nên chọn lại nhóm đã có để lọc, tổng hợp cho khớp." aria-label="Nên chọn lại nhóm đã có để lọc, tổng hợp cho khớp."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+            <input class="kd-input" id="tp-nhom" list="tp-nhom-dl" maxlength="64" autocomplete="off" placeholder="VD: Xe vận chuyển">
+            <datalist id="tp-nhom-dl"></datalist>
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-loai">Loại tài sản</label>
+            <select class="kd-input" id="tp-loai"><option value="huu_hinh">Hữu hình (TK 211)</option><option value="vo_hinh">Vô hình (TK 213)</option></select>
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-bp">Bộ phận sử dụng</label>
+            <select class="kd-input" id="tp-bp"><option value="ban_hang">Bán hàng</option><option value="quan_ly">Quản lý</option><option value="tai_chinh">Tài chính</option><option value="khac">Khác</option></select>
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-ncc">Nhà cung cấp</label>
+            <input class="kd-input" id="tp-ncc" maxlength="255" autocomplete="off" placeholder="Tên nhà cung cấp (chữ tự do)">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-ngay-mua">Ngày mua <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input" type="date" id="tp-ngay-mua">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-ngay">Ngày đưa vào dùng <span class="kd-field__req" aria-hidden="true">*</span><button type="button" class="kd-tip" data-tip="Bắt đầu trích khấu hao từ tháng này. Không được trước ngày mua." aria-label="Bắt đầu trích khấu hao từ tháng này. Không được trước ngày mua."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+            <input class="kd-input" type="date" id="tp-ngay">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-ng">Nguyên giá (VND) <span class="kd-field__req" aria-hidden="true">*</span><button type="button" class="kd-tip kd-tip--trai" data-tip="Chưa thuế. Gồm giá mua, vận chuyển, lắp đặt, chạy thử. Từ 30 triệu mới ghi nhận là TSCĐ." aria-label="Chưa thuế. Gồm giá mua, vận chuyển, lắp đặt, chạy thử. Từ 30 triệu mới ghi nhận là TSCĐ."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+            <input class="kd-input num" id="tp-ng" inputmode="numeric" autocomplete="off" placeholder="0" aria-describedby="tp-ng-gy">
+            <p class="kd-meta kt-o-tk__canh" id="tp-ng-gy" hidden></p>
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-thang">Số tháng khấu hao <span class="kd-field__req" aria-hidden="true">*</span><button type="button" class="kd-tip" data-tip="Khấu hao đều mỗi tháng (đường thẳng), theo khung thời gian của Bộ Tài chính." aria-label="Khấu hao đều mỗi tháng (đường thẳng), theo khung thời gian của Bộ Tài chính."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+            <input class="kd-input num" id="tp-thang" type="number" min="1" max="600" placeholder="VD: 60">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-cpld">Trong đó lắp đặt (VND)<button type="button" class="kd-tip" data-tip="Đã nằm trong nguyên giá, không được lớn hơn nguyên giá." aria-label="Đã nằm trong nguyên giá, không được lớn hơn nguyên giá."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+            <input class="kd-input num" id="tp-cpld" inputmode="numeric" autocomplete="off" placeholder="0">
+          </div>
+          <div class="kd-field" id="tp-thang-da-o" hidden>
+            <label class="kd-field__label" for="tp-thang-da">Số tháng đã khấu hao</label>
+            <input class="kd-input num" id="tp-thang-da" type="number" min="0" max="600" value="0" readonly>
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-tk-ng">TK nguyên giá<button type="button" class="kd-tip" data-tip="Tự chọn theo loại: 211 hữu hình · 213 vô hình." aria-label="Tự chọn theo loại: 211 hữu hình · 213 vô hình."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+            <input class="kd-input" id="tp-tk-ng" readonly>
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-tk-hm">TK hao mòn</label>
+            <input class="kd-input" id="tp-tk-hm" readonly value="214 — Hao mòn TSCĐ">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-tk-cp">TK chi phí khấu hao<button type="button" class="kd-tip kd-tip--trai" data-tip="Tự chọn theo bộ phận: Bán hàng 641 · Quản lý 642 · Tài chính 635 · Khác 811." aria-label="Tự chọn theo bộ phận: Bán hàng 641 · Quản lý 642 · Tài chính 635 · Khác 811."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+            <input class="kd-input" id="tp-tk-cp" readonly>
+          </div>
+          <div class="kd-field kt-ct-rong">
+            <label class="kd-field__label" for="tp-gc">Ghi chú</label>
+            <input class="kd-input" id="tp-gc" maxlength="500" autocomplete="off">
+          </div>
+        </div>
+      </section>
+
+      <!-- Bút toán ghi tăng (chỉ khi thêm mới) -->
+      <section class="kd-card kt-ct-the" aria-labelledby="tp-h-gt" id="tp-the-gt">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="tp-h-gt">Bút toán ghi tăng</h2></div>
+        <div class="kt-ct-luoi">
+          <span class="kt-ct-rong"><label class="kt-check"><input type="checkbox" id="tp-ghi" checked> Ghi luôn bút toán ghi tăng vào sổ</label><button type="button" class="kd-tip" data-tip="Bỏ chọn nếu đã hạch toán việc mua ở chứng từ khác." aria-label="Bỏ chọn nếu đã hạch toán việc mua ở chứng từ khác."><i class="bi bi-info-circle" aria-hidden="true"></i></button></span>
+          <div class="kd-field" data-ghi>
+            <label class="kd-field__label" for="tp-tk-du">Chi tiền từ tài khoản <span class="kd-field__req" aria-hidden="true">*</span><button type="button" class="kd-tip" data-tip="Chỉ hỗ trợ mua trả ngay bằng tiền mặt, ngân hàng — chưa hỗ trợ mua chịu (331) hay khấu trừ VAT (1332)." aria-label="Chỉ hỗ trợ mua trả ngay bằng tiền mặt, ngân hàng — chưa hỗ trợ mua chịu (331) hay khấu trừ VAT (1332)."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+            <select class="kd-input" id="tp-tk-du"><option value="">— Chọn tài khoản —</option></select>
+          </div>
+        </div>
+      </section>
+
+      <!-- Thanh lý -->
+      <section class="kd-card kt-ct-the" aria-labelledby="tp-h-tl" id="tp-the-tl" hidden>
+        <div class="kd-box__head"><h2 class="kd-box__title" id="tp-h-tl">Thông tin thanh lý, nhượng bán</h2></div>
+        <div class="kt-ct-luoi">
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-tl-ngay">Ngày thanh lý <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input" type="date" id="tp-tl-ngay">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-tl-ban">Tiền thanh lý thu được (VND) <span class="kd-field__req" aria-hidden="true">*</span><button type="button" class="kd-tip" data-tip="Số tiền thực nhận, đã gồm mọi khoản (chưa tách thuế GTGT đầu ra hay chi phí thanh lý)." aria-label="Số tiền thực nhận, đã gồm mọi khoản (chưa tách thuế GTGT đầu ra hay chi phí thanh lý)."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+            <input class="kd-input num" id="tp-tl-ban" inputmode="numeric" autocomplete="off" placeholder="0">
+          </div>
+          <div class="kd-field" id="tp-tl-vat-o" hidden>
+            <label class="kd-field__label" for="tp-tl-vat">Thuế GTGT đầu ra</label>
+            <input class="kd-input num" id="tp-tl-vat" inputmode="numeric" autocomplete="off" placeholder="0" disabled>
+          </div>
+          <div class="kd-field" id="tp-tl-cp-o" hidden>
+            <label class="kd-field__label" for="tp-tl-cp">Chi phí thanh lý</label>
+            <input class="kd-input num" id="tp-tl-cp" inputmode="numeric" autocomplete="off" placeholder="0" disabled>
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-tl-tk">TK nhận tiền</label>
+            <select class="kd-input" id="tp-tl-tk"><option value="">— Không nhận tiền —</option></select>
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="tp-tl-ly">Ghi chú thanh lý</label>
+            <input class="kd-input" id="tp-tl-ly" maxlength="200" autocomplete="off" placeholder="VD: Biên bản thanh lý số 03/2026">
+          </div>
+        </div>
+      </section>
+
+      <!-- Định khoản xem trước -->
+      <section class="kd-card kt-ct-the" aria-labelledby="tp-h-dk">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="tp-h-dk">Định khoản sẽ ghi</h2><p class="kd-meta" id="tp-dk-gy"></p></div>
+        <div class="kd-table-scroll">
+          <table class="kd-table kt-bang"><caption class="visually-hidden">Định khoản sẽ ghi khi lưu</caption>
+            <thead><tr><th scope="col">Tài khoản</th><th scope="col">Nội dung</th><th scope="col" class="num">Nợ (VND)</th><th scope="col" class="num">Có (VND)</th></tr></thead>
+            <tbody id="tp-dk"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <aside class="kd-side">
+      <section class="kd-box" aria-labelledby="tp-h-kh">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="tp-h-kh">Khấu hao dự kiến</h2></div>
+        <div id="tp-kh"></div>
+      </section>
+      <section class="kd-box" aria-labelledby="tp-h-lq">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="tp-h-lq">Liên quan</h2></div>
+        <ul class="kd-related" id="tp-lq"></ul>
+      </section>
+    </aside>
+  </div>
+
+  <div class="kd-stickybar" role="group" aria-label="Thao tác với phiếu tài sản" id="tp-thanh" hidden>
+    <a class="kd-btn" href="/ketoan/tscd"><i class="bi bi-arrow-left" aria-hidden="true"></i>Quay lại</a>
+    <span class="kd-stickybar__grow"></span>
+    <p class="kd-form-err" id="tp-loi" role="alert" hidden></p>
+    <button type="button" class="kd-btn kd-btn--primary" id="tp-luu"><i class="bi bi-check2-circle" aria-hidden="true"></i><span id="tp-luu-chu">Ghi tăng tài sản</span></button>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-tscd-phieu.js?v=g4"></script>
+{% endblock %}

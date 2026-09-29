@@ -16,6 +16,7 @@ Lazy-import muahang.app.models để tránh side-effect khi muahang chưa migrat
 Auth: chỉ admin/ceo/manager/kt (require_ketoan_user) — kế toán mới xem được.
 """
 from datetime import date
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -43,73 +44,86 @@ def _safe_rows(db: Session, sql: str, **params) -> list[dict[str, Any]]:
         return []
 
 
-# Aggregate tổng theo NCC, chia 2 NHÓM theo trạng thái PO:
+# Aggregate tổng theo NCC, chia 2 NHÓM (cùng quy tắc với /ncc-module bên dưới):
 #
-#   📋 Nhóm 1 — NỢ DỰ KIẾN     : PO ∈ ('Đặt hàng','Đang SX','Đã có hàng')
-#                                 Hàng đang trên đường — số nợ có thể đổi.
-#   💰 Nhóm 2 — NỢ THỰC PHẢI TRẢ: PO = 'Hoàn Thành'
-#                                 KT đã confirm hoàn tất — số nợ chốt.
+#   💰 NỢ THỰC PHẢI TRẢ: quote.tien_trinh_mh = 'Hoàn thành' (mọi kiểu hoa/thường)
+#                        ➕ nợ KHÔNG gắn PO (nhập tay / đầu kỳ) — đã chốt phải trả.
+#   📋 NỢ DỰ KIẾN      : còn gắn PO nhưng đơn CHƯA hoàn thành — MỌI trạng thái còn lại
+#                        (Đặt hàng, Đang SX, Đã có hàng, Đã lấy hàng, chưa có báo giá…).
 #
-# Còn nợ (cash flow chốt) = Nợ thực phải trả - Đã trả (KHÔNG cộng dự kiến).
-# - total_paid: SUM de_xuat_tra đã duyệt
-# - n_orders: count distinct PO ở cả 2 nhóm
-_SQL_SUMMARY = """
-WITH no_du_kien AS (
-    -- Phân nhóm theo baogia.quotes.tien_trinh_mh (KHÔNG dùng po.status vì
-    -- muahang.purchase_orders KHÔNG có status='Hoàn thành' — đó là chỉ báo
-    -- ở phía baogia/sale admin chứ không phải PO MH).
-    SELECT
-        cn.ncc_id,
-        SUM(cn.so_tien) AS amt,
-        COUNT(DISTINCT cn.ref_order_id) AS n
-    FROM muahang.congno cn
-    JOIN muahang.purchase_orders po ON po.id = cn.ref_order_id
-    LEFT JOIN baogia.quotes q ON q.quote_number = po.ref_bao_gia
-    WHERE cn.loai = 'no_phai_tra' AND cn.ncc_id IS NOT NULL
-      AND COALESCE(LOWER(q.tien_trinh_mh), '') IN ('đặt hàng','đang sx','đã có hàng')
-    GROUP BY cn.ncc_id
-),
-no_thuc AS (
-    SELECT
-        cn.ncc_id,
-        SUM(cn.so_tien) AS amt,
-        COUNT(DISTINCT cn.ref_order_id) AS n,
-        MAX(cn.ngay) AS last_date
-    FROM muahang.congno cn
-    JOIN muahang.purchase_orders po ON po.id = cn.ref_order_id
-    LEFT JOIN baogia.quotes q ON q.quote_number = po.ref_bao_gia
-    WHERE cn.loai = 'no_phai_tra' AND cn.ncc_id IS NOT NULL
-      AND LOWER(COALESCE(q.tien_trinh_mh, '')) = 'hoàn thành'
-    GROUP BY cn.ncc_id
-),
-da_tra AS (
-    -- "Đã trả" = ĐÃ CHI thực (da_chi=TRUE), KHÔNG phải chỉ mới CEO duyệt.
-    SELECT ncc_id, SUM(so_tien) AS amt
-    FROM muahang.congno
-    WHERE loai = 'de_xuat_tra' AND da_chi = TRUE AND ncc_id IS NOT NULL
-    GROUP BY ncc_id
-)
-SELECT
-    s.id                                               AS supplier_id,
-    s.name                                             AS supplier_name,
-    s.short_code                                       AS supplier_code,
-    s.phone                                            AS supplier_phone,
-    s.group_id                                         AS supplier_group_id,
-    COALESCE(dk.amt, 0)                                AS no_du_kien,
-    COALESCE(t.amt,  0)                                AS no_thuc_phai_tra,
-    COALESCE(p.amt,  0)                                AS total_paid,
-    -- Còn nợ = nợ thực - đã trả (clamp >=0; nếu trả nhiều hơn nợ thực → còn 0)
-    GREATEST(COALESCE(t.amt, 0) - COALESCE(p.amt, 0), 0) AS balance,
-    COALESCE(dk.n, 0) + COALESCE(t.n, 0)               AS n_orders,
-    t.last_date                                        AS last_order_date,
-    -- Backward compat: total_orders giờ = dự kiến + thực (= tổng cũ)
-    COALESCE(dk.amt, 0) + COALESCE(t.amt, 0)           AS total_orders
-FROM muahang.suppliers s
-LEFT JOIN no_du_kien dk ON dk.ncc_id = s.id
-LEFT JOIN no_thuc    t  ON t.ncc_id  = s.id
-LEFT JOIN da_tra     p  ON p.ncc_id  = s.id
-ORDER BY balance DESC, no_thuc_phai_tra DESC, s.name
+# BUG FIX 2026-09-25: trước đây lọc bằng SQL `LOWER(q.tien_trinh_mh) IN ('đặt hàng','đang sx',
+# 'đã có hàng')`. DB dùng collation "C" nên LOWER() KHÔNG hạ chữ có dấu viết hoa ('Đ' giữ nguyên:
+# LOWER('Đang SX') = 'Đang sx') → nhóm dự kiến LUÔN = 0; thêm nữa 'Đã lấy hàng' và nợ không gắn PO
+# (INNER JOIN purchase_orders) rơi ra ngoài cả 2 nhóm. Hậu quả: total_orders của summary thấp hơn
+# /ncc/<id>/detail (vd CHUNG XINH ncc_d0e28de0: 247.560.354 / 9 đơn vs 274.610.354 / 12 đơn).
+# Nay đọc từng dòng rồi phân nhóm trong Python bằng str.casefold() (chuẩn hoá Unicode đúng) —
+# mọi dòng no_phai_tra đều vào đúng 1 nhóm ⇒ total_orders = SUM(so_tien) = đúng số của detail.
+#
+# Còn nợ (cash flow chốt) = Nợ thực phải trả - Đã trả (KHÔNG cộng dự kiến), clamp >= 0.
+_SQL_SUMMARY_SUPPLIERS = """
+SELECT id AS supplier_id, name AS supplier_name, short_code AS supplier_code,
+       phone AS supplier_phone, group_id AS supplier_group_id
+FROM muahang.suppliers
 """
+
+_SQL_SUMMARY_NO = """
+SELECT cn.ncc_id, cn.so_tien, cn.ngay, cn.ref_order_id,
+       po.id AS po_id, q.tien_trinh_mh
+FROM muahang.congno cn
+LEFT JOIN muahang.purchase_orders po ON po.id = cn.ref_order_id
+LEFT JOIN baogia.quotes q ON q.quote_number = po.ref_bao_gia
+WHERE cn.loai = 'no_phai_tra' AND cn.ncc_id IS NOT NULL
+"""
+
+# "Đã trả" = ĐÃ CHI thực (da_chi=TRUE), KHÔNG phải chỉ mới CEO duyệt.
+_SQL_SUMMARY_DA_TRA = """
+SELECT ncc_id, SUM(so_tien) AS amt
+FROM muahang.congno
+WHERE loai = 'de_xuat_tra' AND da_chi = TRUE AND ncc_id IS NOT NULL
+GROUP BY ncc_id
+"""
+
+_TIEN_TRINH_HOAN_THANH = "hoàn thành"
+
+
+def _nhom_no(row: dict[str, Any]) -> str:
+    """'thuc' | 'du_kien' cho 1 dòng no_phai_tra (xem quy tắc ở chú thích trên)."""
+    if (row.get("tien_trinh_mh") or "").strip().casefold() == _TIEN_TRINH_HOAN_THANH:
+        return "thuc"
+    return "du_kien" if row.get("po_id") else "thuc"
+
+
+def _tong_hop_ncc(db: Session) -> list[dict[str, Any]]:
+    """Gộp nợ dự kiến / nợ thực / đã trả theo NCC, sắp như SQL cũ (balance, thực, tên)."""
+    zero = Decimal("0")
+    agg: dict[str, dict[str, Any]] = {}
+    for r in _safe_rows(db, _SQL_SUMMARY_NO):
+        a = agg.setdefault(r["ncc_id"], {"du_kien": zero, "thuc": zero, "orders": set(), "last": None})
+        so_tien = Decimal(str(r.get("so_tien") or 0))
+        nhom = _nhom_no(r)
+        a[nhom] += so_tien
+        if r.get("ref_order_id"):
+            a["orders"].add(r["ref_order_id"])
+        if nhom == "thuc" and r.get("ngay") and (a["last"] is None or r["ngay"] > a["last"]):
+            a["last"] = r["ngay"]
+    paid = {r["ncc_id"]: Decimal(str(r.get("amt") or 0)) for r in _safe_rows(db, _SQL_SUMMARY_DA_TRA)}
+
+    rows: list[dict[str, Any]] = []
+    for s in _safe_rows(db, _SQL_SUMMARY_SUPPLIERS):
+        a = agg.get(s["supplier_id"], {"du_kien": zero, "thuc": zero, "orders": set(), "last": None})
+        p = paid.get(s["supplier_id"], zero)
+        rows.append({
+            **s,
+            "no_du_kien": a["du_kien"],
+            "no_thuc_phai_tra": a["thuc"],
+            "total_paid": p,
+            "balance": max(a["thuc"] - p, zero),
+            "n_orders": len(a["orders"]),
+            "last_order_date": a["last"],
+            "total_orders": a["du_kien"] + a["thuc"],
+        })
+    rows.sort(key=lambda r: (-r["balance"], -r["no_thuc_phai_tra"], r["supplier_name"] or ""))
+    return rows
 
 
 @router.get("/ncc-summary")
@@ -136,7 +150,7 @@ def ncc_summary(
           ]
         }
     """
-    rows = _safe_rows(db, _SQL_SUMMARY)
+    rows = _tong_hop_ncc(db)
 
     items: list[dict[str, Any]] = []
     total_payable = 0
@@ -150,7 +164,7 @@ def ncc_summary(
             "supplier_code": r.get("supplier_code"),
             "supplier_phone": r.get("supplier_phone"),
             "supplier_group_id": r.get("supplier_group_id"),
-            # 2 nhóm mới: dự kiến (PO Đặt hàng/SX/Đã có hàng) + thực (PO Hoàn Thành)
+            # 2 nhóm: dự kiến (còn gắn PO, chưa hoàn thành) + thực (hoàn thành / nhập tay)
             "no_du_kien": str(r.get("no_du_kien") or 0),
             "no_thuc_phai_tra": str(r.get("no_thuc_phai_tra") or 0),
             "total_orders": str(r.get("total_orders") or 0),  # = dự kiến + thực
@@ -260,15 +274,22 @@ def ncc_detail(
     no_rows = [_serialize_row(r) for r in _safe_rows(db, _SQL_NO_PHAI_TRA, ncc_id=supplier_id)]
     tt_rows = [_serialize_row(r) for r in _safe_rows(db, _SQL_THANH_TOAN, ncc_id=supplier_id)]
 
-    # Aggregate summary client-side để khỏi query thêm (nhỏ).
-    total_orders = sum(int(float(r.get("so_tien") or 0)) for r in no_rows)
+    # Aggregate summary client-side để khỏi query thêm (nhỏ). Cộng bằng Decimal
+    # rồi mới làm tròn 1 LẦN duy nhất ở tổng — trước dùng int(float(so_tien))
+    # per-row (Decimal → float → int CẮT CỤT phần lẻ, vd 32497424.89 →
+    # 32497424) khiến total_orders/balance lệch so với SUM thật trong DB khi
+    # có dòng congno mang số lẻ đồng — vi phạm quy tắc "tiền dùng Decimal,
+    # không dùng float" của dự án.
+    def _sum_so_tien(rows: list[dict[str, Any]]) -> int:
+        total = sum(
+            (Decimal(str(r.get("so_tien") or 0)) for r in rows), Decimal("0")
+        )
+        return int(total.to_integral_value(rounding=ROUND_HALF_UP))
+
+    total_orders = _sum_so_tien(no_rows)
     # "Đã trả" = ĐÃ CHI thực (da_chi=TRUE) — thống nhất với summary (2026-08-31, L7).
     # Trước dùng trang_thai='duyet' → detail báo đã trả NHIỀU hơn thực chi.
-    total_paid = sum(
-        int(float(r.get("so_tien") or 0))
-        for r in tt_rows
-        if r.get("da_chi") is True
-    )
+    total_paid = _sum_so_tien([r for r in tt_rows if r.get("da_chi") is True])
     n_orders = len({r.get("po_id") for r in no_rows if r.get("po_id")})
 
     return {

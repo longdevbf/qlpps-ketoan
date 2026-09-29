@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{# Công nợ khách hàng — Tổng hợp. Khung chung ở _kt_cong_no.html (đã có sẵn trong app, không sửa).
+   Đợt 1 — dữ liệu THẬT: GET /api/cong-no?loai=phai_thu (app/routers/cong_no.py), gộp theo khách
+   ở trình duyệt. Xem chú thích đầy đủ ở đầu kt-cong-no.js (khác README mục 4.3, vốn giả định
+   /api/bao-cao/cong-no đã gộp sẵn theo khách + hoá đơn + lịch sử thu). #}
+{% block title %}Công nợ khách hàng{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+
+{% block head_extra %}
+{# GHI CHÚ (gap dùng chung mọi màn kt-): chưa có font Bootstrap Icons trong static/ của app này —
+   nạp tạm từ CDN, phiên điều phối trung tâm nên thay bằng bản vendor cục bộ (xem kt_tong_quan.html). #}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-cong-no.css?v=popup0928">
+<link rel="stylesheet" href="/static/css/kt-ghi-nhan-tra.css?v=r4a">
+{% endblock %}
+
+{% block content %}
+{% with ben='kh', h1='Công nợ khách hàng', sub='Số còn phải thu theo từng khách hàng',
+        tim_ph='Tên khách hàng hoặc mã đơn…', api='/api/cong-no', lap='Ghi nhận thu',
+        dt_day='Khách hàng', dt_ngan='khách', nv_nhan='NV Kinh Doanh', hd='hoá đơn bán hàng', thu='thu', da_thu='Đã thu',
+        kpis=[('tong_no', 'Tổng nợ phát sinh', '', 'bi-receipt'),
+              ('da_thu', 'Đã thu', '--success', 'bi-box-arrow-in-down'),
+              ('con_lai', 'Còn phải thu', '--brand', 'bi-cash-stack'),
+              ('qua_han', 'Đã quá hạn', '--danger', 'bi-exclamation-triangle')] %}
+{% include "_kt_cong_no.html" %}
+{% endwith %}
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-ghi-nhan-tra.js?v=r4a"></script>
+<script src="/static/js/kt-cong-no.js?v=tk0928a"></script>
+{% endblock %}

@@ -1,1 +1,53 @@
 {% include "duyet_chi_core.html" %}
+{#- Ketoan — chi tiết đề xuất chi là POPUP GIỮA MÀN (anh Quang 28/09/2026: "khi click vào bản ghi thì hiện popup ở giữa
+    màn hình để view các thông tin cho trực quan và dễ nhìn"). duyet_chi_core.html dùng chung nhiều app (sinh từ
+    claude-kit — không sửa ở đây) đặt #dc-panel dính cạnh bảng từ 1280px, trượt từ phải dưới 1280px; ở ketoan đổi thành
+    hộp giữa màn rộng 820px có nền mờ (#dc-man), đóng bằng Esc / bấm nền / ✕. Hộp xác nhận Phê duyệt / Từ chối (#dc-hop,
+    z-index 1075) vẫn nằm TRÊN popup (1055). Không đổi logic duyệt (doReview, dcVePanel giữ nguyên).
+    Khối dưới đứng sau </html> của core: trình duyệt đưa vào cuối <body>, chạy SAU script của core nên thay được hàm
+    toàn cục; core đổi tên hàm thì phần JS tự bỏ qua. -#}
+<style>
+.dc .dc-than.co-panel{grid-template-columns:minmax(0,1fr)}
+.dc .dc-panel{position:fixed;top:50%;left:50%;right:auto;bottom:auto;z-index:1055;transform:translate(-50%,-50%);
+  width:min(820px,calc(100vw - 32px));max-height:min(88vh,960px);border-width:1px;border-radius:var(--r-lg);
+  box-shadow:var(--shadow-pop, var(--shadow-lg))}
+.dc:has(#dc-panel:not([hidden])) .dc-man{display:block;position:fixed;inset:0;z-index:1050;background:rgba(15,23,42,.45)}
+body:has(#dc-panel:not([hidden])) #_chat_fab{display:none !important}
+.dc .dc-panel-than{overscroll-behavior:contain}
+@media(min-width:768px){
+  .dc .dc-panel-than{padding:var(--sp-8) var(--sp-9)}
+  .dc .dc-kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-5) var(--sp-10)}
+  .dc .dc-panel-chan{display:flex;justify-content:flex-end}
+  .dc .dc-panel-chan > button{min-width:168px}
+}
+@media(max-width:767px){
+  .dc .dc-panel{width:calc(100vw - 16px);max-height:92vh;max-height:92dvh}
+}
+</style>
+<script>
+(function () {
+  if (typeof dcChon !== 'function' || typeof dcDongPanel !== 'function' || !document.getElementById('dc-panel')) return;
+  const chonGoc = dcChon, $ = (id) => document.getElementById(id);
+  $('dc-panel').setAttribute('role', 'dialog'); $('dc-panel').setAttribute('aria-modal', 'true');
+  // imLang = core tự mở sẵn đơn đầu tiên khi tải trang (ngăn cạnh bảng) — popup thì không tự bật phủ màn.
+  window.dcChon = function (id, imLang) {
+    if (imLang) return;
+    chonGoc(id);
+    const dong = $('dc-panel').querySelector('.dc-dong'); if (dong) dong.focus({ preventScroll: true });
+  };
+  const coLopTren = () => !$('dc-hop').hidden || document.querySelector('.dc .dc-noi:not([hidden])') || !$('dc-keo').hidden
+    || (window._zV2 && window._zV2.open);
+  // Bắt ở pha capture (trước bộ Esc của core): core chỉ đóng ngăn dưới 1280px, và nếu hộp xác nhận đang mở thì
+  // core đóng hộp trước — kiểm trước khi core đổi trạng thái để một lần Esc chỉ đóng một lớp.
+  window.addEventListener('keydown', function (e) {
+    const p = $('dc-panel');
+    if (!p || p.hidden || e.isComposing || (e.key !== 'Escape' && e.key !== 'Tab') || coLopTren()) return;
+    if (e.key === 'Escape') { dcDongPanel(); return; }
+    const ds = [...p.querySelectorAll('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((x) => !x.disabled && x.getClientRects().length);
+    if (!ds.length) return;
+    const dau = ds[0], cuoi = ds[ds.length - 1], o = document.activeElement;
+    if (e.shiftKey && (o === dau || !p.contains(o))) { e.preventDefault(); cuoi.focus(); }
+    else if (!e.shiftKey && (o === cuoi || !p.contains(o))) { e.preventDefault(); dau.focus(); }
+  }, true);
+})();
+</script>

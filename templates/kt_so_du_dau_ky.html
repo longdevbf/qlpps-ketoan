@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Số dư đầu kỳ — số dư các tài khoản chi tiết và chi tiết công nợ theo đối tượng tại ngày bắt đầu dùng phần mềm.
+   API thật: app/routers/so_du_dau_ky_gl.py — GET/PUT /api/so-du-dau-ky-gl · GET /api/so-du-dau-ky-gl/doi-tuong?tk=&q=
+   (/api/so-du-dau-ky là số dư TK ngân hàng, khác khái niệm). Lưu = 1 bút toán journal source_type='so_du_dau_ky'.
+   Tiền nhập theo TK con từng tài khoản tiền (1111, 1121… — danh sách do API trả). Khoá khi sổ đã khoá qua ngày số dư, hoặc người xem không phải CEO/admin. #}
+{% block title %}Số dư đầu kỳ{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}{{ ui.css('kt-cai-dat') }}<link rel="stylesheet" href="/static/css/kt-so-du-dau-ky.css?v=g4a">{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-so-du">
+  {% call ui.dau_trang('Số dư đầu kỳ', 'Số dư tại ngày bắt đầu dùng phần mềm', tip='Số dư tài khoản và công nợ từng đối tượng — nền của mọi sổ sách và báo cáo. Tài khoản dư Nợ nhập bên Nợ, dư Có nhập bên Có (vd 214 hao mòn, 411 vốn góp).') %}
+    <a class="kd-btn" href="/ketoan/can-doi"><i class="bi bi-table" aria-hidden="true"></i>Cân đối phát sinh</a>
+  {% endcall %}
+
+  {{ ui.the_so('sd', [('no', 'Tổng dư Nợ', '', 'bi-arrow-down-left'), ('co', 'Tổng dư Có', 'info', 'bi-arrow-up-right'), ('lech', 'Chênh lệch Nợ − Có', 'success', 'bi-plus-slash-minus'), ('ngay', 'Ngày số dư', 'warning', 'bi-calendar3')], kieu='strip', nhan_vung='Kiểm tra cân đối số dư đầu kỳ') }}
+
+  <p class="kd-note" id="sd-khoa" hidden></p>
+
+  <div class="kd-tabs kd-tabs--lon kt-tabs-trang" role="tablist" aria-label="Loại số dư" id="sd-tabs">
+    <button type="button" role="tab" id="sd-tab-tk" data-tab="tk" aria-controls="sd-p-tk" aria-selected="true">Số dư tài khoản</button>
+    <button type="button" role="tab" id="sd-tab-dt" data-tab="dt" aria-controls="sd-p-dt" aria-selected="false" tabindex="-1">Chi tiết theo đối tượng <span class="kd-muted" id="sd-dem-dt"></span></button>
+  </div>
+
+  <div id="sd-tt"></div>
+  <div class="kt-tab-pane" role="tabpanel" id="sd-p-tk" aria-labelledby="sd-tab-tk">
+    <section class="kd-card" aria-labelledby="sd-tk-td">
+      <h2 class="visually-hidden" id="sd-tk-td">Số dư đầu kỳ theo tài khoản chi tiết</h2>
+      <form class="kd-filter" role="search" novalidate id="sd-loc">
+        <label class="kd-field"><span class="kd-field__label">Tìm</span><input class="kd-input" type="search" id="sd-tim" placeholder="Số hiệu hoặc tên tài khoản…" autocomplete="off"></label>
+        <label class="kd-field"><span class="kd-field__label">Loại tài khoản</span><select class="kd-input" id="sd-loai"><option value="">Tất cả</option><option value="1">Loại 1 — Tài sản ngắn hạn</option><option value="2">Loại 2 — Tài sản dài hạn</option><option value="3">Loại 3 — Nợ phải trả</option><option value="4">Loại 4 — Vốn chủ sở hữu</option></select></label>
+        <label class="kt-check"><input type="checkbox" id="sd-co-so"> Chỉ tài khoản có số dư</label>
+      </form>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="sd-cuon">
+        <table class="kd-table kt-bang kt-cd-bang"><caption class="visually-hidden">Số dư đầu kỳ theo tài khoản</caption>
+          <thead><tr><th scope="col">Tài khoản</th><th scope="col">Tính chất</th><th scope="col" class="num">Dư Nợ (VND)</th><th scope="col" class="num">Dư Có (VND)</th><th scope="col">Chi tiết đối tượng</th></tr></thead>
+          <tbody id="sd-tbody"></tbody><tfoot id="sd-tfoot"></tfoot>
+        </table>
+      </div>
+      <div id="sd-tt-bang"></div>
+    </section>
+  </div>
+  <div class="kt-tab-pane" role="tabpanel" id="sd-p-dt" aria-labelledby="sd-tab-dt" hidden>
+    <section class="kd-card" aria-labelledby="sd-dt-td">
+      <div class="kd-box__head kt-the-dau"><h2 class="kd-box__title" id="sd-dt-td">Công nợ đầu kỳ từng đối tượng<button type="button" class="kd-tip" data-tip="Tổng chi tiết phải bằng số dư tài khoản tương ứng ở tab bên cạnh." aria-label="Tổng chi tiết phải bằng số dư tài khoản tương ứng ở tab bên cạnh."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+      <div class="kd-filter">
+        <label class="kd-field" id="sd-dt-them"><span class="kd-field__label">Thêm đối tượng</span><input class="kd-input" type="search" id="sd-dt-tim" placeholder="Tên hoặc mã / số điện thoại…" autocomplete="off" aria-describedby="sd-dt-goi-y"></label>
+        <div class="kd-seg" role="group" aria-label="Tài khoản công nợ" id="sd-dt-tk">
+          <button type="button" data-tk="131" aria-pressed="true">131 Phải thu khách hàng</button>
+          <button type="button" data-tk="331" aria-pressed="false">331 Phải trả người bán</button>
+          <button type="button" data-tk="141" aria-pressed="false">141 Tạm ứng</button>
+        </div>
+      </div>
+      <div class="kt-sd-goi-y" id="sd-dt-goi-y" aria-live="polite"></div>
+      <div class="kd-table-scroll kd-table-scroll--thanh">
+        <table class="kd-table kt-bang kt-cd-bang"><caption class="visually-hidden">Công nợ đầu kỳ theo đối tượng</caption>
+          <thead><tr><th scope="col">Mã</th><th scope="col">Đối tượng</th><th scope="col" class="num">Dư Nợ (VND)</th><th scope="col" class="num">Dư Có (VND)</th></tr></thead>
+          <tbody id="sd-dt-tbody" data-giu-ma></tbody><tfoot id="sd-dt-tfoot"></tfoot>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="kd-stickybar" role="group" aria-label="Lưu số dư đầu kỳ" id="sd-thanh" hidden>
+    <p class="kt-cd-tt" id="sd-tt-luu" aria-live="polite">Chưa có thay đổi.</p>
+    <span class="kd-stickybar__grow"></span>
+    <p class="kd-form-err" id="sd-loi" role="alert" hidden></p>
+    <button type="button" class="kd-btn" id="sd-huy" disabled><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>Huỷ thay đổi</button>
+    <button type="button" class="kd-btn kd-btn--primary" id="sd-luu" disabled><i class="bi bi-check2" aria-hidden="true"></i>Lưu số dư</button>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}{{ ui.js('kt-so-du-dau-ky', v='tk0928d') }}{% endblock %}

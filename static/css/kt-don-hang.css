@@ -1,0 +1,70 @@
+/* kt-don-hang.css — riêng màn Đơn hàng 3 tab. Tiền tố kt-dh / kt-bg / kt-tu. Chỉ var(--token). */
+
+/* Hàng tiêu đề nhóm cột (ĐƠN HÀNG | PHẢI THU | PHẢI TRẢ | TIẾN TRÌNH) */
+.kt-bang .kt-nhom-cot th { padding-top: var(--sp-4); padding-bottom: var(--sp-3); text-align: center; font-size: var(--fs-eyebrow); letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); border-bottom: 1px solid var(--border); }
+.kt-bang .kt-nhom-cot th + th { border-left: 1px solid var(--border-soft); }
+/* Ẩn cả nhóm cột Phải trả (th nhóm + th cột + td + ô chân) */
+.kt-an-pt .kt-cot-pt { display: none; }
+.kt-dh-bat { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-6); padding: var(--sp-6) var(--sp-8) 0; }
+.kt-dh-bat .kd-meta { margin: 0; }
+
+/* Ô "Giá công thức": dòng chênh lệch nhỏ dưới số */
+.kt-dh-lech { display: block; font-size: var(--fs-meta); font-weight: 400; }
+.kt-dh-tin { display: inline-flex; align-items: center; gap: var(--sp-2); margin-left: var(--sp-3); font-size: var(--fs-meta); color: var(--text-3); }
+.kt-dh-tin.is-moi { color: var(--brand); font-weight: 600; }
+.kt-dh-xl { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+
+/* Tab Bàn giao: thanh lọc ngày trong đầu thẻ, nhóm theo ngày giao */
+.kt-the-dau.kd-box__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--sp-6); }
+.kt-bg-loc { display: flex; align-items: flex-end; gap: var(--sp-4); }
+.kt-bg-loc .kd-field { margin: 0; }
+.kt-bg-bang .kt-bg-nhom th { padding-top: var(--sp-7); background: var(--bg-page); text-align: left; font-weight: 400; }
+.kt-bg-bang .kt-bg-nhom th > span { display: inline-block; margin-right: var(--sp-7); }
+.kt-bg-ngay__td { font-size: var(--fs-body); font-weight: 700; color: var(--text-1); }
+.kt-bg-ngay__so { font-size: var(--fs-meta); color: var(--text-2); }
+.kt-bg-xl { flex-wrap: nowrap; }
+.kt-bg-bang td { vertical-align: middle; }
+.kt-bg-bang .kt-bg-tien { width: 130px; text-align: right; font-variant-numeric: tabular-nums; }
+.kt-bg-bang .kt-bg-tk { width: 160px; }
+
+/* Tab Tối ưu: dòng tổng hợp theo nhân viên nổi hơn */
+.kt-tu-am { color: var(--danger-fg); font-weight: 600; }
+.kt-dh-ky { display: contents; }
+.kt-dh-ky[hidden] { display: none; }
+/* Tên khách: xuống dòng, không cắt "…" (người lớn tuổi cần đọc đủ tên) */
+.kt-bang .kt-dh-kh { display: block; min-width: 140px; max-width: 240px; white-space: normal; overflow-wrap: anywhere; font-weight: 600; color: var(--text-1); }
+.kt-dh-vc { display: grid; justify-items: start; row-gap: var(--sp-3); }
+.kt-dh-vc .kt-khach__ma { margin-top: calc(-1 * var(--sp-2)); }
+
+/* Dải 5 ô (Đối chiếu: Tổng đơn · VAT · Đã cọc · Đã thu · Còn thu; Tối ưu: tổng hợp CK). Luật gốc .kd-strip chỉ
+   tính cho 4 ô → 768–1023px ô thứ 5 phủ hết hàng, ≥1024px xếp 5 cột. */
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  #dh-kpi.kd-strip > .kd-strip__o:nth-child(5), #tu2-kpi.kd-strip > .kd-strip__o:nth-child(5) { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--border-soft); }
+}
+@media (min-width: 1024px) {
+  #dh-kpi.kd-strip, #tu2-kpi.kd-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+#tu2-kpi { margin-top: var(--sp-6); }
+.kt-dh-tn__anh { display: block; max-width: 240px; max-height: 180px; margin-top: var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-md); }
+/* Đầu thẻ có ô lọc (Bàn giao, Tối ưu): tách khỏi hàng tiêu đề bảng bên dưới */
+.kd-card > .kt-the-dau.kd-box__head { padding-bottom: var(--sp-6); border-bottom: 1px solid var(--border-soft); }
+/* Hộp thu tiền: chân/khung kết quả dùng [hidden] để chuyển bước — .kd-dialog__foot/.kd-dialog__body đặt display
+   nên [hidden] mặc định bị đè (hiện cả nút "Đóng" và khoảng trống). Hai ô cùng hàng canh mép trên. */
+#dh-dlg-thu [hidden] { display: none; }
+#dh-dlg-thu .kd-row2 { align-items: start; }
+/* Panel chi tiết: danh sách tin nhắn trao đổi */
+.kt-dh-tn { display: grid; gap: var(--sp-5); margin: 0; padding: 0; list-style: none; }
+.kt-dh-tn li { padding-bottom: var(--sp-5); border-bottom: 1px solid var(--border-soft); }
+.kt-dh-tn li:last-child { padding-bottom: 0; border-bottom: 0; }
+.kt-dh-tn p { margin: 0; }
+
+/* Bảng phụ thu gọn (Tổng hợp theo nhân viên) */
+.kt-dh-gap__dau { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-6); min-height: 56px; padding: var(--sp-6) var(--sp-8); cursor: pointer; list-style: none; }
+.kt-dh-gap__dau::-webkit-details-marker { display: none; }
+.kt-dh-gap__dau .kd-box__title { display: inline-flex; align-items: center; gap: var(--sp-3); margin: 0; }
+.kt-dh-gap__dau:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: var(--r-sm); }
+.kt-dh-gap__mui { flex: none; color: var(--text-3); transition: transform .15s; }
+.kt-dh-gap[open] .kt-dh-gap__mui { transform: rotate(180deg); }
+.kt-dh-gap[open] .kt-dh-gap__dau { border-bottom: 1px solid var(--border-soft); }
+/* ⓘ cạnh nhãn thẻ số: nút 22px cao hơn dòng chữ → kéo lề để thẻ có/không có ⓘ thẳng hàng nhau */
+.kd-kpi__label .kd-tip { margin-block: -4px; }

@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{# Chứng từ kế toán — trang L4 dùng chung cho 3 loại + 2 chế độ:
+   /ketoan/chung-tu?loai=phieu_thu|phieu_chi|khac[&kh=|&ncc=|&mau=…]  → lập mới
+   /ketoan/chung-tu?id=<id>                                             → xem (đảo được); nháp không hỗ trợ ở backend thật
+   API thật: app/routers/journal.py (prefix /api/journal) — xem ghi chú mismatch ở đầu static/js/kt-chung-tu.js #}
+{% block title %}Chứng từ kế toán{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-chung-tu.css?v=g4b">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-chung-tu">
+  <nav aria-label="Đường dẫn">
+    <ol class="kd-crumb">
+      <li><a href="/ketoan/so-cai" id="ct-ve"><i class="bi bi-arrow-left" aria-hidden="true"></i>Sổ kế toán</a></li>
+      <li aria-current="page" id="ct-crumb">Chứng từ</li>
+    </ol>
+  </nav>
+
+  <header class="kd-dhead">
+    <div class="kd-dhead__id">
+      <span class="ico-tile ico-tile--lg" id="ct-ico" aria-hidden="true"><i class="bi bi-journal-plus"></i></span>
+      <div class="kd-dhead__main">
+        <div class="kd-dhead__title">
+          <h1 class="kd-h1" id="ct-h1">Chứng từ kế toán</h1>
+          <span id="ct-pill"></span>
+        </div>
+        <p class="kd-dhead__code num" id="ct-ma"><span class="kd-skel kd-skel--ngan"></span></p>
+        <p class="kd-dhead__meta" id="ct-meta"></p>
+      </div>
+    </div>
+    <div class="kd-dhead__tools" id="ct-cong-cu">
+      <div class="kd-seg" role="group" aria-label="Loại chứng từ" id="ct-loai" hidden>
+        <button type="button" data-loai="phieu_thu" aria-pressed="false">Phiếu thu</button>
+        <button type="button" data-loai="phieu_chi" aria-pressed="false">Phiếu chi</button>
+        <button type="button" data-loai="khac" aria-pressed="false">Bút toán khác</button>
+      </div>
+      <a class="kd-btn" id="ct-in" href="#" hidden><i class="bi bi-printer" aria-hidden="true"></i>In chứng từ</a>
+    </div>
+  </header>
+
+  {# Quyền (F3 28/09): POST /api/journal + /void chỉ cho admin/ceo/assistant_ceo (journal.py _ROLES_POST). Kế toán (manager/kt)
+     vẫn XEM được chứng từ — nút ghi/đảo/sao chép gắn data-quyen="ceo" (tự ẩn), câu dưới do kt-chung-tu.js bật cho người không có quyền. #}
+  <p class="kd-note" id="ct-chi-xem" role="note" hidden></p>
+
+  <div id="ct-tt"></div>
+
+  <div class="kd-detail" id="ct-than" hidden>
+    <div class="kt-ct-cot">
+      <!-- Thông tin chung -->
+      <section class="kd-card kt-ct-the" aria-labelledby="ct-h-tt">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="ct-h-tt">Thông tin chứng từ</h2></div>
+        <div class="kt-ct-luoi" id="ct-form">
+          <div class="kd-field">
+            <label class="kd-field__label" for="ct-ngay-ct">Ngày chứng từ <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input" type="date" id="ct-ngay-ct">
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="ct-ngay-ht">Ngày hạch toán <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input" type="date" id="ct-ngay-ht" aria-describedby="ct-ngay-ht-gy">
+            <p class="kd-meta" id="ct-ngay-ht-gy"></p>
+          </div>
+          <div class="kd-field">
+            <label class="kd-field__label" for="ct-so">Số chứng từ</label>
+            <input class="kd-input num" id="ct-so" maxlength="20" autocomplete="off" readonly>
+          </div>
+          <div class="kd-field kt-ct-tien" data-chi="phieu_thu phieu_chi">
+            <label class="kd-field__label" for="ct-quy" id="ct-quy-nhan">Quỹ tiền mặt</label>
+            <div class="kt-o-tk"><input class="kd-input" type="search" id="ct-quy" placeholder="Gõ 111…"></div>
+          </div>
+          <div class="kd-field kt-ct-rong2" data-chi="phieu_thu phieu_chi">
+            <label class="kd-field__label" for="ct-dt-loai">Đối tượng<button type="button" class="kd-tip" data-tip="Chưa có danh mục khách hàng / nhà cung cấp / nhân viên để chọn — ghi tên đối tượng vào ô lý do." aria-label="Chưa có danh mục khách hàng / nhà cung cấp / nhân viên để chọn — ghi tên đối tượng vào ô lý do."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+            <div class="kt-ct-dt">
+              <select class="kd-input" id="ct-dt-loai" aria-label="Loại đối tượng" disabled><option value="">Không</option><option value="kh">Khách hàng</option><option value="ncc">Nhà cung cấp</option><option value="nv">Nhân viên</option></select>
+              <select class="kd-input" id="ct-dt" aria-label="Chọn đối tượng" disabled><option value="">—</option></select>
+            </div>
+          </div>
+          <div class="kd-field" data-chi="phieu_thu phieu_chi">
+            <label class="kd-field__label" for="ct-nguoi" id="ct-nguoi-nhan">Người nộp tiền</label>
+            <input class="kd-input" id="ct-nguoi" maxlength="120" autocomplete="off" placeholder="Họ tên người trực tiếp nộp / nhận tiền">
+          </div>
+          <div class="kd-field kt-ct-rong">
+            <label class="kd-field__label" for="ct-dg" id="ct-dg-nhan">Diễn giải <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <input class="kd-input" id="ct-dg" maxlength="250" autocomplete="off">
+          </div>
+          <div class="kd-field" hidden>
+            <label class="kd-field__label" for="ct-kem">Kèm theo (số chứng từ gốc)</label>
+            <input class="kd-input num" id="ct-kem" type="number" min="0" max="99" value="0" disabled>
+          </div>
+        </div>
+        <dl class="kt-ct-xem" id="ct-tt-xem" hidden></dl>
+      </section>
+
+      <!-- Định khoản -->
+      <section class="kd-card kt-ct-the" aria-labelledby="ct-h-dk">
+        <div class="kd-box__head">
+          <h2 class="kd-box__title"><span id="ct-h-dk">Định khoản</span><span id="ct-dk-gy"></span></h2>
+        </div>
+        <div class="kd-table-scroll kd-table-scroll--thanh">
+          <table class="kd-table kt-bang kt-ct-bang">
+            <caption class="visually-hidden">Các dòng định khoản Nợ / Có của chứng từ</caption>
+            <thead><tr>
+              <th scope="col" class="kt-ct-stt">#</th><th scope="col">Tài khoản</th><th scope="col">Diễn giải dòng</th>
+              <th scope="col" class="num">Nợ (VND)</th><th scope="col" class="num">Có (VND)</th><th scope="col" class="kd-col-act"><span class="visually-hidden">Xoá dòng</span></th>
+            </tr></thead>
+            <tbody id="ct-dong"></tbody>
+            <tfoot id="ct-cong"></tfoot>
+          </table>
+        </div>
+        <div class="kt-ct-them"><button type="button" class="kd-btn kd-btn--sm" id="ct-them-dong" data-quyen="ceo"><i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm dòng</button></div>
+        <div class="kd-foot2 kt-ct-chan">
+          <div class="kd-box kd-box--phang" id="ct-mau-box" hidden><p class="kd-meta" id="ct-mau-gy"></p></div>
+          <div class="kt-ct-tong">
+            <dl class="kd-totals" id="ct-tong"></dl>
+            <div class="kd-grand">
+              <div class="kd-grand__row"><span id="ct-grand-nhan">Số tiền</span><span id="ct-grand-so">0 VND</span></div>
+              <p class="kd-grand__chu" id="ct-grand-chu"></p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="kd-side">
+      <section class="kd-box" aria-labelledby="ct-h-kiem">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="ct-h-kiem">Kiểm tra trước khi ghi sổ</h2></div>
+        <ul class="kt-ct-kiem" id="ct-kiem"></ul>
+      </section>
+      <section class="kd-box" aria-labelledby="ct-h-nk" id="ct-nk-box" hidden>
+        <div class="kd-box__head"><h2 class="kd-box__title" id="ct-h-nk">Nhật ký chứng từ</h2></div>
+        <div id="ct-nk"></div>
+      </section>
+      <section class="kd-box" aria-labelledby="ct-h-lq">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="ct-h-lq">Liên quan</h2></div>
+        <ul class="kd-related" id="ct-lq"></ul>
+      </section>
+    </aside>
+  </div>
+
+  <div class="kd-stickybar" role="group" aria-label="Thao tác với chứng từ" id="ct-thanh" hidden>
+    <a class="kd-btn" href="/ketoan/so-cai" id="ct-quay-lai"><i class="bi bi-arrow-left" aria-hidden="true"></i>Quay lại</a>
+    <span class="kd-stickybar__grow"></span>
+    <p class="kd-form-err" id="ct-loi" role="alert" hidden></p>
+    <button type="button" class="kd-btn" id="ct-dao" data-quyen="ceo" hidden><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Lập bút toán đảo</button>
+    <a class="kd-btn" id="ct-sao" href="#" data-quyen="ceo" hidden><i class="bi bi-copy" aria-hidden="true"></i>Sao chép thành chứng từ mới</a>
+    <button type="button" class="kd-btn" id="ct-nhap" data-quyen="ceo" hidden><i class="bi bi-floppy" aria-hidden="true"></i>Lưu nháp</button>
+    <button type="button" class="kd-btn kd-btn--primary" id="ct-ghi" data-quyen="ceo"><i class="bi bi-check2-circle" aria-hidden="true"></i>Ghi sổ</button>
+  </div>
+</main>
+
+<dialog class="kd-dialog" id="ct-dlg-dao" role="alertdialog" aria-labelledby="ct-dao-td" aria-describedby="ct-dao-nd">
+  <form method="dialog" novalidate id="ct-form-dao">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="ct-dao-td">Lập bút toán đảo?</h2></header>
+    <div class="kd-dialog__body">
+      <p id="ct-dao-nd"></p>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="ct-dao-ngay">Ngày hạch toán bút toán đảo</label><input class="kd-input" type="date" id="ct-dao-ngay" disabled></div>
+        <div class="kd-field"><label class="kd-field__label" for="ct-dao-ly-do">Lý do <span class="kd-field__req" aria-hidden="true">*</span><button type="button" class="kd-tip kd-tip--trai" data-tip="Chỉ để đối chiếu nội bộ, không được lưu. Bút toán đảo luôn lấy ngày hôm nay." aria-label="Chỉ để đối chiếu nội bộ, không được lưu. Bút toán đảo luôn lấy ngày hôm nay."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label><input class="kd-input" id="ct-dao-ly-do" maxlength="200" placeholder="VD: Ghi nhầm tài khoản đối ứng" autocomplete="off"></div>
+      </div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot">
+      <button type="button" class="kd-btn" data-dong>Huỷ</button>
+      <button type="submit" class="kd-btn kd-btn--primary" id="ct-dao-ok">Ghi bút toán đảo</button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-chung-tu.js?v=tk0928b"></script>
+{% endblock %}

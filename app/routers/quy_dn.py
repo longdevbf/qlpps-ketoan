@@ -37,7 +37,6 @@ from sqlalchemy.orm import Session
 from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
-from shared.services.employees import ten_nv
 
 from ..models import DoanhThu, QuyDN, QuyDNGiaoDich
 from ..schemas.quy_dn_giao_dich import QuyDNGiaoDichCreate
@@ -82,6 +81,12 @@ class QuyChiIn(BaseModel):
 # ──────────────────────── Helpers ────────────────────────
 
 def _serialize(q: QuyDN, thanh_tien: float = 0.0) -> dict[str, Any]:
+    # Quỹ Công Đoàn: không nạp/chi qua ketoan (chặn ở nap_tien_quy/chi_tien_quy/
+    # chi_quy) nên cột so_du nội bộ đứng yên ở 0 vĩnh viễn — số dư thật do HCNS
+    # quản lý (hcns.cong_doan_fund.so_du_luy_ke, đã lũy kế sẵn, đọc qua
+    # _cong_doan_thang() và truyền vào đây làm `thanh_tien`). Hiển thị "Số dư"
+    # = 0đ cho quỹ có tiền thật là sai/không real → dùng giá trị HCNS làm so_du.
+    so_du = float(thanh_tien) if q.nguon_compute == "hcns_cong_doan" else float(q.so_du or 0)
     return {
         "id": q.id,
         "ten_quy": q.ten_quy,
@@ -89,7 +94,7 @@ def _serialize(q: QuyDN, thanh_tien: float = 0.0) -> dict[str, Any]:
         "nguon_compute": q.nguon_compute,
         "ty_le_pct": float(q.ty_le_pct or 0),
         "thu_tu": int(q.thu_tu or 0),
-        "so_du": float(q.so_du or 0),
+        "so_du": so_du,
         "ghi_chu": q.ghi_chu or "",
         "active": bool(q.active),
         "thanh_tien": round(thanh_tien, 2),
@@ -551,8 +556,6 @@ def list_giao_dich_quy(
 
     stmt = stmt.order_by(QuyDNGiaoDich.ngay.desc(), QuyDNGiaoDich.id.desc()).limit(limit).offset(offset)
     items = db.execute(stmt).scalars().all()
-    # `created_by` lưu username — tra tên một lượt cho cả trang, gắn THÊM `created_by_ten`.
-    ten = ten_nv(db, [g.created_by for g in items]) if items else {}
 
     # Tổng thu / chi tổng quỹ (không filter theo from/to/loai — để header header summary)
     tong_thu = db.execute(
@@ -570,7 +573,7 @@ def list_giao_dich_quy(
         "so_du": float(quy.so_du or 0),
         "tong_thu": float(tong_thu),
         "tong_chi": float(tong_chi),
-        "items": [{**_serialize_gd(g), "created_by_ten": ten.get(g.created_by, g.created_by) or ""} for g in items],
+        "items": [_serialize_gd(g) for g in items],
         "can_admin": _can_admin(user),
     }
 

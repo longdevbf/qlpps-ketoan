@@ -25,7 +25,8 @@ from ..schemas import (
     AccountInfo, JournalEntryIn, JournalEntryOut, JournalEntrySummary,
 )
 from ..services.journal import (
-    ACCOUNTS, get_balance_sheet_aggregates, post_journal, void_journal,
+    NGHIEP_VU, danh_muc_tk, get_balance_sheet_aggregates, ledger, post_journal, tom_tat_dinh_khoan,
+    trial_balance, void_journal,
 )
 from ._deps import require_ketoan_user
 
@@ -43,13 +44,22 @@ _ROLES_POST = ("admin", "ceo", "assistant_ceo")
 
 @router.get("/accounts", response_model=list[AccountInfo])
 def list_accounts(
+    db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
 ):
-    """Trả Chart of Accounts (TT200 — 22 mã Papasan dùng)."""
+    """Chart of Accounts (TT200 Papasan) + TK con của từng tài khoản tiền (1111, 1121…)."""
     return [
         AccountInfo(code=code, name=name)
-        for code, name in sorted(ACCOUNTS.items())
+        for code, name in sorted(danh_muc_tk(db).items())
     ]
+
+
+@router.get("/nghiep-vu")
+def list_nghiep_vu(
+    user: Annotated[JWTPayload, _AUTH],
+):
+    """Các loại nghiệp vụ (mã → nhãn) cho cột "Loại" và ô lọc Thu / Chi của Sổ kế toán."""
+    return [{"ma": ma, "nhan": nhan} for ma, nhan in NGHIEP_VU.items()]
 
 
 # ─── Balance summary aggregate ───────────────────────────────────────────────
@@ -72,6 +82,41 @@ def balance_summary(
         "den_ngay": str(den),
         "accounts": aggregates,
     }
+
+
+# ─── Cân đối phát sinh + Sổ cái theo TK ──────────────────────────────────────
+
+def _khoang(tu: Optional[date_cls], den: Optional[date_cls]) -> tuple[date_cls, date_cls]:
+    den = den or date_cls.today()
+    tu = tu or den.replace(day=1)
+    if tu > den:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "tu_ngay phải ≤ den_ngay")
+    return tu, den
+
+
+@router.get("/can-doi-phat-sinh")
+def can_doi_phat_sinh(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+    tu: Optional[date_cls] = Query(None, alias="tu_ngay"),
+    den: Optional[date_cls] = Query(None, alias="den_ngay"),
+):
+    """Bảng cân đối phát sinh: dư đầu / phát sinh Nợ-Có / dư cuối từng TK (chỉ 'da_post')."""
+    tu, den = _khoang(tu, den)
+    return {"tu_ngay": tu, "den_ngay": den, "tai_khoan": trial_balance(db, tu, den)}
+
+
+@router.get("/so-cai")
+def so_cai(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+    tk: str = Query(..., min_length=3, max_length=20, pattern=r"^\d+$"),
+    tu: Optional[date_cls] = Query(None, alias="tu_ngay"),
+    den: Optional[date_cls] = Query(None, alias="den_ngay"),
+):
+    """Sổ cái 1 TK (gồm TK chi tiết cùng đầu số) — dư luỹ kế tính ở máy chủ."""
+    tu, den = _khoang(tu, den)
+    return ledger(db, tk, tu, den)
 
 
 # ─── List ────────────────────────────────────────────────────────────────────
@@ -99,7 +144,10 @@ def list_journal(
     if trang_thai:
         stmt = stmt.where(JournalEntry.trang_thai == trang_thai)
     stmt = stmt.limit(limit).offset(offset)
-    return db.execute(stmt).scalars().all()
+    return [
+        JournalEntrySummary.model_validate(je).model_copy(update=tom_tat_dinh_khoan(je))
+        for je in db.execute(stmt).scalars().all()
+    ]
 
 
 # ─── Detail ──────────────────────────────────────────────────────────────────

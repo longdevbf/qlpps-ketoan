@@ -7,7 +7,7 @@ Hai vế:
   TÀI SẢN
     1. Tiền & tương đương: tk_ngan_hang (M4 tai_khoan_nh_giao_dich) + tien_mat_so_quy
     2. Phải thu KH (cong_no loai='phai_thu', còn lại)
-    3. Hàng tồn kho (M1 inventory_balance.gia_tri_ton)
+    3. Hàng tồn kho (sổ ketoan.inventory_movement nhập − xuất đến ngày xem)
     4. TSCĐ ròng (phase 2 — 0)
   NGUỒN VỐN
     1. Nợ phải trả: phai_tra_ncc + vay_ngan_han + vay_dai_han + phai_tra_nv (phase 2 = 0)
@@ -16,7 +16,8 @@ Hai vế:
 Cross-app reads (M1/M4 bảng có thể chưa migrate) dùng raw SQL `text()` fail-soft.
 """
 from calendar import monthrange
-from datetime import date as date_cls
+from datetime import date as date_cls, timedelta
+from decimal import Decimal
 from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -30,6 +31,7 @@ from shared.db import get_db
 
 from ..models import CongNo, KyKeToan
 from ..services.journal import get_balance_sheet_aggregates
+from ..services.so_quy_auto import so_du_truoc_ngay
 from ._deps import require_ketoan_user
 
 
@@ -80,72 +82,29 @@ def _resolve_thang(thang: Optional[str]) -> tuple[str, date_cls, date_cls]:
 # ─── TÀI SẢN ─────────────────────────────────────────────────────────────────
 
 def _balance_by_loai(db: Session, on_date: date_cls, loai: str) -> float:
-    """Số dư cuối ngày `on_date` của tất cả TK theo `loai` (ngan_hang/tien_mat).
+    """Số dư HẾT NGÀY `on_date` của tất cả TK theo `loai` (ngan_hang/tien_mat).
 
-    Cùng logic với `/api/so-quy/summary` per-account → chốt 1 source of truth:
-        per_TK_balance = COALESCE(SoDuDauKy của tháng on_date, so_du_dau ban đầu)
-                       + Σ SoQuy(thu - chi) trong khoảng (đầu_tháng .. on_date)
-        Trường hợp KHÔNG có SoDuDauKy của tháng đó → cộng dồn TẤT CẢ SoQuy
-        từ trước cho tới on_date.
+    Một nguồn sự thật với màn Sổ quỹ / Ngân hàng / LCTT (mã 60, 70):
+    `so_quy_auto.so_du_truoc_ngay(tk, on_date + 1)` — thuật toán neo SoDuDauKy
+    (neo gần nhất ≤ tháng → cộng dồn; không có → neo tương lai trừ ngược; không có
+    neo nào → so_du_dau + toàn bộ giao dịch).
 
-    Tổng = Σ per_TK. KHÔNG cộng `tai_khoan_nh_giao_dich` (M4) vì M4 mirror
-    SoQuy → double-count làm số dư phồng lên gấp đôi (root cause user
-    report 2026-05-07: tk_ngan_hang ở Cân Đối ≠ tổng TK NH page).
+    QA 25/09/2026: bản trước chỉ dùng SoDuDauKy khi có snapshot ĐÚNG tháng của
+    on_date, còn lại cộng dồn MỌI giao dịch từ đầu (bỏ qua snapshot 01/05/2026)
+    → tiền cuối 09/2026 trên Cân đối = 1,36 tỷ trong khi Sổ quỹ / LCTT = 97 triệu.
+    KHÔNG cộng `tai_khoan_nh_giao_dich` (M4) vì M4 mirror SoQuy → double-count.
     """
-    sm = date_cls(on_date.year, on_date.month, 1)
     rows = _safe_rows(
         db,
         """
-        SELECT id, ten_tk, COALESCE(so_du_dau, 0) AS so_du_dau
+        SELECT id, ten_tk
         FROM ketoan.tai_khoan_nh
         WHERE COALESCE(active, true) = true AND loai = :loai
         """,
         loai=loai,
     )
-    total = 0.0
-    for tk_id, ten_tk, so_du_dau_init in rows:
-        # 1. Số dư đầu tháng on_date — ưu tiên SoDuDauKy nếu có
-        sddk = _safe_scalar(
-            db,
-            """
-            SELECT so_du::float FROM ketoan.so_du_dau_ky
-            WHERE tai_khoan_id = :tk_id AND thang = :sm
-            """,
-            tk_id=tk_id, sm=sm,
-        )
-        if sddk:
-            so_du_dau_thang = float(sddk)
-        else:
-            # Fallback: so_du_dau ban đầu + Σ SoQuy(thu - chi) trước tháng
-            net_truoc = _safe_scalar(
-                db,
-                """
-                SELECT COALESCE(SUM(
-                    CASE WHEN loai='thu' THEN so_tien
-                         WHEN loai='chi' THEN -so_tien ELSE 0 END
-                ), 0)::float
-                FROM ketoan.so_quy
-                WHERE tai_khoan = :ten_tk AND ngay < :sm
-                """,
-                ten_tk=ten_tk, sm=sm,
-            )
-            so_du_dau_thang = float(so_du_dau_init or 0) + float(net_truoc)
-
-        # 2. Net flow trong tháng tới on_date (inclusive)
-        net_in_month = _safe_scalar(
-            db,
-            """
-            SELECT COALESCE(SUM(
-                CASE WHEN loai='thu' THEN so_tien
-                     WHEN loai='chi' THEN -so_tien ELSE 0 END
-            ), 0)::float
-            FROM ketoan.so_quy
-            WHERE tai_khoan = :ten_tk AND ngay >= :sm AND ngay <= :on_date
-            """,
-            ten_tk=ten_tk, sm=sm, on_date=on_date,
-        )
-        total += so_du_dau_thang + float(net_in_month)
-    return total
+    ngay_sau = on_date + timedelta(days=1)
+    return float(sum((so_du_truoc_ngay(db, tk_id, ten_tk, ngay_sau) for tk_id, ten_tk in rows), Decimal("0")))
 
 
 def _tk_ngan_hang_net(db: Session, on_date: date_cls) -> float:
@@ -169,41 +128,71 @@ def _phai_thu(db: Session, on_date: date_cls) -> float:
     return _f(rows)
 
 
-def _hang_ton_kho(db: Session) -> float:
-    """SUM(inventory_balance.gia_tri_ton) — M1 fail-soft."""
-    sql = """
-        SELECT COALESCE(SUM(gia_tri_ton), 0)::float
-        FROM ketoan.inventory_balance
+def _hang_ton_kho(db: Session, on_date: date_cls) -> float:
+    """Giá trị tồn kho TẠI `on_date` = Σ(nhập − xuất) của sổ `inventory_movement` đến ngày đó.
+
+    Trước 2026-09-25 lấy SUM(inventory_balance.gia_tri_ton) — số HIỆN TẠI bất kể ngày xem
+    → xem tháng cũ / "số đầu năm" bị sai. Ngoài ra bảng balance KHÔNG trừ 5 phiếu xuất
+    giá vốn từ saleadmin (VH-*-COGS, 19.255.000đ) dù sổ movement + bút toán 632/156 đã ghi
+    → balance đang cao hơn sổ kho đúng bằng số đó (giá vốn đã vào P&L mà tài sản vẫn còn).
+    Sản phẩm có tồn trong balance nhưng CHƯA có dòng movement nào (tồn đầu kỳ nhập tay)
+    không dựng được lịch sử → cộng số hiện tại của nó (hiện DB không có SP nào như vậy).
     """
-    return _safe_scalar(db, sql)
+    sql = """
+        SELECT
+          COALESCE((SELECT SUM(CASE WHEN loai = 'nhap' THEN thanh_tien
+                                    WHEN loai = 'xuat' THEN -thanh_tien
+                                    -- điều chỉnh (kiểm kê) ghi thanh_tien CÓ DẤU
+                                    WHEN loai = 'dieu_chinh' THEN thanh_tien ELSE 0 END)
+                    FROM ketoan.inventory_movement WHERE ngay <= :on_date), 0)
+          + COALESCE((SELECT SUM(b.gia_tri_ton) FROM ketoan.inventory_balance b
+                      WHERE NOT EXISTS (SELECT 1 FROM ketoan.inventory_movement m
+                                        WHERE m.product_id = b.product_id)), 0)
+    """
+    return _safe_scalar(db, sql, on_date=on_date)
 
 
 def _tscd_breakdown(db: Session, on_date: date_cls) -> tuple[float, float]:
-    """Phase 3 — TSCĐ ròng từ bảng `tai_san_co_dinh` (legacy fail-soft).
+    """TSCĐ tại `on_date` từ `tai_san_co_dinh` + `khau_hao_log`. Returns (nguyen_gia, hao_mon).
 
-    Returns (nguyen_gia, hao_mon) — tscd_rong = nguyen_gia - hao_mon.
-    Chỉ tính các TSCĐ trang_thai='dang_su_dung' và đã đi vào sử dụng
-    (ngay_su_dung <= on_date).
+    - Phạm vi: TS đã đưa vào sử dụng (ngay_su_dung <= on_date) và CHƯA thanh lý tại ngày đó
+      (đang dùng, hoặc ngay_thanh_ly > on_date).
+    - Hao mòn luỹ kế TẠI on_date = hao_mon_luy_ke_sau của dòng khấu hao cuối cùng có
+      thang <= tháng của on_date. Chưa tới dòng log đầu → phần hao mòn có sẵn trước log
+      (log đầu: hao_mon_luy_ke_sau − so_tien). TS không có log nào → dùng số hiện tại
+      (không có lịch sử để lùi). Trước 2026-09-25 luôn lấy hao_mon_luy_ke HIỆN TẠI.
     """
-    nguyen_gia = _safe_scalar(
-        db,
-        """
-        SELECT COALESCE(SUM(nguyen_gia), 0)::float
-        FROM ketoan.tai_san_co_dinh
-        WHERE trang_thai = 'dang_su_dung' AND ngay_su_dung <= :on_date
-        """,
-        on_date=on_date,
-    )
-    hao_mon = _safe_scalar(
-        db,
-        """
-        SELECT COALESCE(SUM(hao_mon_luy_ke), 0)::float
-        FROM ketoan.tai_san_co_dinh
-        WHERE trang_thai = 'dang_su_dung' AND ngay_su_dung <= :on_date
-        """,
-        on_date=on_date,
-    )
-    return nguyen_gia, hao_mon
+    sql = """
+        WITH ts AS (
+            SELECT id, nguyen_gia, hao_mon_luy_ke
+            FROM ketoan.tai_san_co_dinh
+            WHERE ngay_su_dung <= :on_date
+              AND (trang_thai = 'dang_su_dung'
+                   OR (ngay_thanh_ly IS NOT NULL AND ngay_thanh_ly > :on_date))
+        )
+        SELECT
+            COALESCE(SUM(ts.nguyen_gia), 0)::float,
+            COALESCE(SUM(
+                CASE
+                  WHEN den.hm IS NOT NULL THEN den.hm
+                  WHEN dau.hm0 IS NOT NULL THEN dau.hm0
+                  ELSE ts.hao_mon_luy_ke
+                END), 0)::float
+        FROM ts
+        LEFT JOIN LATERAL (
+            SELECT hao_mon_luy_ke_sau AS hm FROM ketoan.khau_hao_log l
+            WHERE l.tscd_id = ts.id AND l.thang <= to_char(CAST(:on_date AS date), 'YYYY-MM')
+            ORDER BY l.thang DESC, l.id DESC LIMIT 1
+        ) den ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT hao_mon_luy_ke_sau - so_tien AS hm0 FROM ketoan.khau_hao_log l
+            WHERE l.tscd_id = ts.id ORDER BY l.thang, l.id LIMIT 1
+        ) dau ON TRUE
+    """
+    rows = _safe_rows(db, sql, on_date=on_date)
+    if not rows:
+        return 0.0, 0.0
+    return float(rows[0][0] or 0), float(rows[0][1] or 0)
 
 
 # ─── NGUỒN VỐN ───────────────────────────────────────────────────────────────
@@ -363,7 +352,7 @@ def bao_cao_can_doi(
         tscd_rong = tscd_nguyen_gia - tscd_hao_mon
     else:
         legacy_phai_thu = _phai_thu(db, den)
-        legacy_ton_kho = _hang_ton_kho(db)
+        legacy_ton_kho = _hang_ton_kho(db, den)
         legacy_tscd_ng, legacy_tscd_hm = _tscd_breakdown(db, den)
         legacy_tscd = max(0.0, legacy_tscd_ng - legacy_tscd_hm)
         if source == "auto":
@@ -391,6 +380,12 @@ def bao_cao_can_doi(
     # (2026-06-20: bỏ catch-all "chưa phân loại" — tiền vay đã gán đúng TK Tiền Mặt;
     #  nếu phát sinh so_quy thiếu TK thì sửa ở nguồn, không gom ẩn vào cân đối.)
     tien_va_td_tong = tk_nh + tien_mat
+    # Tạm ứng nhân viên (TK 141, màn /ketoan/tam-ung, 2026-09-25) — chỉ có trên
+    # journal. Theo B01-DN, 141 nằm trong "Các khoản phải thu ngắn hạn" (mã 130)
+    # nên gộp vào phai_thu; thiếu dòng này thì tiền chi tạm ứng (sổ quỹ giảm)
+    # làm tổng tài sản hụt đúng bằng số dư 141 → bảng cân đối lệch.
+    tam_ung = _agg("141")
+    phai_thu += tam_ung
     tong_tai_san = tien_va_td_tong + phai_thu + hang_ton_kho + tscd_rong
 
     # ─── NGUỒN VỐN — Nợ phải trả ──────────────────────────
@@ -475,6 +470,7 @@ def bao_cao_can_doi(
                 "tong": tien_va_td_tong,
             },
             "phai_thu": phai_thu,
+            "tam_ung": tam_ung,  # đã nằm trong phai_thu
             "hang_ton_kho": hang_ton_kho,
             "tscd_nguyen_gia": tscd_nguyen_gia,
             "tscd_hao_mon_luy_ke": tscd_hao_mon,

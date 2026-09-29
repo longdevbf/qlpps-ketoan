@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Cài đặt Kế toán — thông tin đơn vị, năm tài chính & chính sách, duyệt chi, đánh số chứng từ, phân quyền.
+   GET /api/cai-dat · PUT /api/cai-dat/<don_vi|ke_toan|duyet_chi|danh_so|phan_quyen> (README mục 4.30) #}
+{% block title %}Cài đặt Kế toán{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}{{ ui.css('') }}<link rel="stylesheet" href="/static/css/kt-cai-dat.css?v=5">{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-cai-dat">
+  {% call ui.dau_trang('Cài đặt Kế toán', 'Thông tin đơn vị, chính sách và phân quyền') %}
+    <a class="kd-btn" href="/ketoan/khoa-so"><i class="bi bi-lock" aria-hidden="true"></i>Khoá sổ</a>
+  {% endcall %}
+
+  <div class="kd-tabs kd-tabs--lon kt-tabs-trang" role="tablist" aria-label="Nhóm cài đặt" id="cd-tabs">
+    <button type="button" role="tab" id="cd-tab-don_vi" data-tab="don_vi" aria-controls="cd-p-don_vi" aria-selected="true">Thông tin đơn vị</button>
+    <button type="button" role="tab" id="cd-tab-ke_toan" data-tab="ke_toan" aria-controls="cd-p-ke_toan" aria-selected="false" tabindex="-1">Năm tài chính &amp; chính sách</button>
+    <button type="button" role="tab" id="cd-tab-duyet_chi" data-tab="duyet_chi" aria-controls="cd-p-duyet_chi" aria-selected="false" tabindex="-1">Duyệt chi</button>
+    <button type="button" role="tab" id="cd-tab-danh_so" data-tab="danh_so" aria-controls="cd-p-danh_so" aria-selected="false" tabindex="-1">Đánh số chứng từ</button>
+    <button type="button" role="tab" id="cd-tab-phan_quyen" data-tab="phan_quyen" aria-controls="cd-p-phan_quyen" aria-selected="false" tabindex="-1">Phân quyền</button>
+  </div>
+
+  <div id="cd-tt"></div>
+
+  <div id="cd-than" hidden>
+    <!-- 1. Thông tin đơn vị -->
+    <div class="kt-tab-pane" role="tabpanel" id="cd-p-don_vi" aria-labelledby="cd-tab-don_vi" data-phan="don_vi">
+      <section class="kd-card kt-cd-the" aria-labelledby="cd-h-dv">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="cd-h-dv">Đơn vị kế toán <button type="button" class="kd-tip" data-tip="In lên đầu phiếu thu, phiếu chi, báo cáo tài chính và tờ khai thuế." aria-label="In lên đầu phiếu thu, phiếu chi, báo cáo tài chính và tờ khai thuế."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+        <p class="kd-note" id="cd-dv-rong" hidden><i class="bi bi-info-circle" aria-hidden="true"></i> Chưa khai báo đơn vị — điền tên, mã số thuế, địa chỉ rồi bấm "Lưu thay đổi".</p>
+        <div class="kt-cd-luoi">
+          <div class="kd-field kt-cd-rong"><label class="kd-field__label" for="cd-ten">Tên đơn vị <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" id="cd-ten" data-k="ten" maxlength="200" autocomplete="organization"></div>
+          <div class="kd-field"><label class="kd-field__label" for="cd-ten-ngan">Tên viết tắt</label><input class="kd-input" id="cd-ten-ngan" data-k="ten_ngan" maxlength="40"></div>
+          <div class="kd-field"><label class="kd-field__label" for="cd-mst">Mã số thuế</label><input class="kd-input" id="cd-mst" data-k="mst" inputmode="numeric" maxlength="14" placeholder="10 chữ số" aria-describedby="cd-mst-gy"><p class="kd-meta" id="cd-mst-gy">Chi nhánh: 10 số + "-" + 3 số.</p></div>
+          <div class="kd-field"><label class="kd-field__label" for="cd-dt">Điện thoại</label><input class="kd-input" id="cd-dt" data-k="dien_thoai" type="tel" maxlength="20" autocomplete="tel"></div>
+          <div class="kd-field kt-cd-rong"><label class="kd-field__label" for="cd-dc">Địa chỉ</label><input class="kd-input" id="cd-dc" data-k="dia_chi" maxlength="240" autocomplete="street-address"></div>
+          <div class="kd-field"><label class="kd-field__label" for="cd-email">Email</label><input class="kd-input" id="cd-email" data-k="email" type="email" maxlength="120" autocomplete="email"></div>
+        </div>
+      </section>
+      <section class="kd-card kt-cd-the" aria-labelledby="cd-h-ky">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="cd-h-ky">Người ký trên chứng từ <button type="button" class="kd-tip" data-tip="Tên in ở ô chữ ký phiếu thu, phiếu chi và báo cáo." aria-label="Tên in ở ô chữ ký phiếu thu, phiếu chi và báo cáo."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+        <div class="kt-cd-luoi">
+          <div class="kd-field"><label class="kd-field__label" for="cd-gd">Giám đốc</label><input class="kd-input" id="cd-gd" data-k="giam_doc" maxlength="80"></div>
+          <div class="kd-field"><label class="kd-field__label" for="cd-ktt">Kế toán trưởng</label><input class="kd-input" id="cd-ktt" data-k="ke_toan_truong" maxlength="80"></div>
+          <div class="kd-field"><label class="kd-field__label" for="cd-tq">Thủ quỹ</label><input class="kd-input" id="cd-tq" data-k="thu_quy" maxlength="80"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 2. Năm tài chính & chính sách -->
+    <div class="kt-tab-pane" role="tabpanel" id="cd-p-ke_toan" aria-labelledby="cd-tab-ke_toan" data-phan="ke_toan" hidden>
+      <section class="kd-card kt-cd-the" aria-labelledby="cd-h-kt">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="cd-h-kt">Chế độ và kỳ kế toán</h2><p class="kd-meta" id="cd-kt-meta"></p></div>
+        <div class="kt-cd-luoi">
+          <div class="kd-field"><label class="kd-field__label" for="cd-che-do">Chế độ kế toán</label>
+            <select class="kd-input" id="cd-che-do" data-k="che_do" aria-describedby="cd-che-do-gy"><option value="tt99">Thông tư 99/2025/TT-BTC</option><option value="tt133">Thông tư 133/2016/TT-BTC (DN nhỏ và vừa)</option></select>
+            <p class="kd-meta" id="cd-che-do-gy">Chỉ đổi được từ đầu năm tài chính kế tiếp.</p></div>
+          <div class="kd-field"><label class="kd-field__label" for="cd-nam">Năm tài chính bắt đầu từ</label><select class="kd-input" id="cd-nam" data-k="nam_tc_bat_dau"></select></div>
+          <div class="kd-field"><label class="kd-field__label" for="cd-tien">Đồng tiền ghi sổ</label><input class="kd-input" id="cd-tien" data-k="tien_te" readonly aria-describedby="cd-tien-gy"><p class="kd-meta" id="cd-tien-gy">Cố định sau khi đã có số liệu.</p></div>
+          <div class="kd-field"><label class="kd-field__label" for="cd-bd">Ngày bắt đầu dùng phần mềm</label><input class="kd-input" id="cd-bd" data-k="ngay_bat_dau_dung" type="date" readonly></div>
+        </div>
+      </section>
+      <section class="kd-card kt-cd-the" aria-labelledby="cd-h-cs">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="cd-h-cs">Chính sách kế toán <button type="button" class="kd-tip" data-tip="Áp dụng nhất quán trong năm; thay đổi phải thuyết minh trên báo cáo tài chính." aria-label="Áp dụng nhất quán trong năm; thay đổi phải thuyết minh trên báo cáo tài chính."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+        <div class="kt-cd-luoi">
+          <div class="kd-field"><label class="kd-field__label" for="cd-gxk">Tính giá xuất kho</label>
+            <select class="kd-input" id="cd-gxk" data-k="gia_xuat_kho"><option value="binh_quan_cuoi_ky">Bình quân gia quyền cuối kỳ</option><option value="binh_quan_tuc_thoi">Bình quân gia quyền sau mỗi lần nhập</option><option value="fifo">Nhập trước, xuất trước (FIFO)</option><option value="dich_danh">Thực tế đích danh</option></select></div>
+          <div class="kd-field"><label class="kd-field__label" for="cd-kh">Phương pháp khấu hao TSCĐ</label>
+            <select class="kd-input" id="cd-kh" data-k="khau_hao"><option value="duong_thang">Đường thẳng</option><option value="so_du_giam_dan">Số dư giảm dần có điều chỉnh</option><option value="san_luong">Theo số lượng, khối lượng sản phẩm</option></select></div>
+          <div class="kd-field"><label class="kd-field__label" for="cd-kk">Kỳ kê khai thuế GTGT <button type="button" class="kd-tip" data-tip="Theo NĐ 126/2020/NĐ-CP." aria-label="Theo NĐ 126/2020/NĐ-CP."><i class="bi bi-info-circle" aria-hidden="true"></i></button></label>
+            <select class="kd-input" id="cd-kk" data-k="ky_ke_khai_thue" aria-describedby="cd-kk-gy"><option value="thang">Theo tháng</option><option value="quy">Theo quý</option></select>
+            <p class="kd-meta" id="cd-kk-gy">Theo quý nếu doanh thu năm trước ≤ 50 tỷ đồng.</p></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 3. Duyệt chi -->
+    <div class="kt-tab-pane" role="tabpanel" id="cd-p-duyet_chi" aria-labelledby="cd-tab-duyet_chi" data-phan="duyet_chi" hidden>
+      <section class="kd-card kt-cd-the" aria-labelledby="cd-h-dc">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="cd-h-dc">Quy trình duyệt đề nghị chi <span id="cd-dc-tip"></span></h2></div>
+        <ol class="kt-cd-luong" id="cd-dc-cap" aria-label="Các cấp duyệt"></ol>
+      </section>
+      <section class="kd-card kt-cd-the" aria-labelledby="cd-h-dc2">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="cd-h-dc2">Quyền ghi sổ và sửa chứng từ <button type="button" class="kd-tip" data-tip="Kiểm soát nội bộ: ai được ghi thẳng vào sổ, ai được sửa/xoá lệnh thu chi đã lập." aria-label="Kiểm soát nội bộ: ai được ghi thẳng vào sổ, ai được sửa/xoá lệnh thu chi đã lập."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+        <div class="kt-cd-luoi" id="cd-dc-quyen"></div>
+      </section>
+    </div>
+
+    <!-- 4. Đánh số chứng từ -->
+    <div class="kt-tab-pane" role="tabpanel" id="cd-p-danh_so" aria-labelledby="cd-tab-danh_so" data-phan="danh_so" hidden>
+      <section class="kd-card kt-cd-the" aria-labelledby="cd-h-ds">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="cd-h-ds">Quy tắc đánh số <button type="button" class="kd-tip" data-tip="Số chứng từ liên tục, không trùng. Đổi quy tắc chỉ áp dụng cho chứng từ lập sau khi lưu. Hiện hệ thống mới tự đánh số bút toán (BT-năm-4 chữ số); các loại khác áp dụng khi nối chức năng lập chứng từ tương ứng." aria-label="Số chứng từ liên tục, không trùng. Đổi quy tắc chỉ áp dụng cho chứng từ lập sau khi lưu. Hiện hệ thống mới tự đánh số bút toán (BT-năm-4 chữ số); các loại khác áp dụng khi nối chức năng lập chứng từ tương ứng."><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2></div>
+        <div class="kd-table-scroll kd-table-scroll--thanh">
+          <table class="kd-table kt-bang kt-cd-bang"><caption class="visually-hidden">Quy tắc đánh số theo loại chứng từ</caption>
+            <thead><tr><th scope="col">Loại chứng từ</th><th scope="col">Tiền tố</th><th scope="col">Số chữ số</th><th scope="col">Đánh lại từ 1</th><th scope="col">Ví dụ số</th></tr></thead>
+            <tbody id="cd-ds"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- 5. Phân quyền -->
+    <div class="kt-tab-pane" role="tabpanel" id="cd-p-phan_quyen" aria-labelledby="cd-tab-phan_quyen" data-phan="phan_quyen" hidden>
+      <section class="kd-card kt-cd-the" aria-labelledby="cd-h-pq">
+        <div class="kd-box__head"><h2 class="kd-box__title" id="cd-h-pq">Vai trò và quyền trong Kế toán <span id="cd-pq-tip"></span></h2></div>
+        <div class="kd-table-scroll kd-table-scroll--thanh">
+          <table class="kd-table kt-bang kt-cd-bang kt-cd-pq"><caption class="visually-hidden">Vai trò và quyền thực tế</caption>
+            <thead><tr><th scope="col">Vai trò</th><th scope="col">Người đang giữ</th><th scope="col">Được làm gì</th></tr></thead>
+            <tbody id="cd-pq"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="kd-stickybar" role="group" aria-label="Lưu cài đặt" id="cd-thanh" hidden>
+    <p class="kt-cd-tt" id="cd-tt-luu" aria-live="polite">Chưa có thay đổi.</p>
+    <span class="kd-stickybar__grow"></span>
+    <p class="kd-form-err" id="cd-loi" role="alert" hidden></p>
+    <button type="button" class="kd-btn" id="cd-huy" disabled><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>Huỷ thay đổi</button>
+    <button type="button" class="kd-btn kd-btn--primary" id="cd-luu" disabled><i class="bi bi-check2" aria-hidden="true"></i>Lưu thay đổi</button>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-cai-dat.js?v=f3q"></script>
+{% endblock %}

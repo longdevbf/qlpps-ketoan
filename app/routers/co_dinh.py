@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session
 from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
-from shared.services.employees import ten_nv
 
 from ..models import (
     ChiPhiCoDinh, CongNo, LoaiChiPhi, TaiKhoanNH, TaiKhoanNHGiaoDich,
@@ -21,6 +20,7 @@ from ..models import (
 from ..schemas import CoDinhCreate, CoDinhOut, CoDinhUpdate
 from ..schemas.co_dinh import VALID_PHUONG_PHAP_PHAN_BO
 from ..services.journal import post_journal
+from ..services.tai_khoan_tien import tk_tien_cua
 from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
@@ -102,13 +102,7 @@ def list_co_dinh(
             )
         stmt = stmt.where(ChiPhiCoDinh.phuong_phap_phan_bo == phuong_phap)
     stmt = stmt.limit(limit).offset(offset)
-    rows = db.execute(stmt).scalars().all()
-    # `created_by` lưu username — tra tên một lượt cho cả trang, gắn `created_by_ten`
-    # lên ORM object để `CoDinhOut` (from_attributes) đọc được; giữ nguyên `created_by`.
-    ten = ten_nv(db, [r.created_by for r in rows]) if rows else {}
-    for r in rows:
-        setattr(r, "created_by_ten", ten.get(r.created_by, r.created_by))
-    return rows
+    return db.execute(stmt).scalars().all()
 
 
 @router.post("", response_model=CoDinhOut, status_code=status.HTTP_201_CREATED)
@@ -145,7 +139,7 @@ def create_co_dinh(
                 status.HTTP_400_BAD_REQUEST,
                 f"tai_khoan_id={tai_khoan_id} không tồn tại",
             )
-        cash_acc = "111" if (tk.loai or "").strip() == "tien_mat" else "112"
+        cash_acc = tk_tien_cua(tk)
         gd = TaiKhoanNHGiaoDich(
             ngay=obj.thang_bat_dau, tai_khoan_id=tk.id, loai="chi",
             so_tien=so_tien, ghi_chu=f"Chi phí cố định — {obj.mo_ta or ''}",

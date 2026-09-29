@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Báo cáo tình hình tài chính (Bảng cân đối kế toán) — mẫu B01-DN.
+   Dữ liệu thật: GET /api/bao-cao/can-doi?thang=YYYY-MM (app/routers/bao_cao_can_doi.py, cùng API màn cũ #can-doi).
+   API chốt số theo THÁNG → kt-cdkt.js quy ngày chọn về tháng; "Số đầu năm" = snapshot tháng 12 năm trước.
+   In = in trang; Xuất Excel = CSV từ bảng đang xem (backend không có endpoint xuất). #}
+{% block title %}Tình hình tài chính{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-bao-cao.css?v=d4">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-cdkt">
+  {% call ui.dau_trang('Báo cáo tình hình tài chính', 'Tài sản và nguồn vốn, mẫu B01-DN') %}
+    {{ ui.den_ngay('cd') }}
+    <button type="button" class="kd-btn" id="cd-in"><i class="bi bi-printer" aria-hidden="true"></i>In</button>
+    <button type="button" class="kd-btn kd-btn--primary" id="cd-xuat"><i class="bi bi-download" aria-hidden="true"></i>Xuất Excel</button>
+  {% endcall %}
+
+  {{ ui.the_so('cd', [('ts', 'Tổng tài sản', 'info', 'bi-building'), ('no', 'Nợ phải trả', 'danger', 'bi-credit-card'),
+                       ('vcsh', 'Vốn chủ sở hữu', 'success', 'bi-person-badge'), ('kiem', 'Kiểm tra cân đối', 'tim', 'bi-check2-square')], nhan_vung='Tổng hợp tại ngày chọn') }}
+
+  {{ ui.the_bao_cao('cd', 'Báo cáo tình hình tài chính', 'Mẫu B01-DN', [('Mã số', False), ('Số cuối kỳ', True), ('Số đầu năm', True)]) }}
+
+  <details class="kd-card kt-gap" id="cc-khoi" hidden>
+    <summary class="kt-gap__dau">
+      <span class="kt-gap__ten"><i class="bi bi-pie-chart" aria-hidden="true"></i><b>Phân tích thêm: cơ cấu tài sản và nguồn vốn</b></span>
+      <span class="kt-gap__mo" aria-hidden="true"></span><i class="bi bi-chevron-down" aria-hidden="true"></i>
+    </summary>
+    <div class="kt-bc-doi kt-gap__luoi">
+      <section class="kd-box" aria-labelledby="cc-ts-td">
+        <div class="kd-box__head"><h3 class="kd-box__title" id="cc-ts-td">Cơ cấu tài sản</h3></div>
+        <div id="cc-ts"></div>
+      </section>
+      <section class="kd-box" aria-labelledby="cc-nv-td">
+        <div class="kd-box__head"><h3 class="kd-box__title" id="cc-nv-td">Cơ cấu nguồn vốn</h3></div>
+        <div id="cc-nv"></div>
+      </section>
+    </div>
+  </details>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-bao-cao.js?v=loc0928b"></script>
+<script src="/static/js/kt-cdkt.js?v=d4"></script>
+{% endblock %}

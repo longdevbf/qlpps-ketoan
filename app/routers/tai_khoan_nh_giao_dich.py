@@ -6,7 +6,18 @@ Endpoints:
     POST   /api/tai-khoan/{tk_id}/giao-dich      (manual ghi nhận thu/chi)
     DELETE /api/tai-khoan/giao-dich/{gd_id}      (admin only)
 
-Số dư TK = SUM(thu) - SUM(chi) — bỏ pattern lưu cột so_du cứng.
+Audit dữ liệu 2026-09-25 (màn "Ngân hàng"): 2 endpoint GET trước đây đọc bảng
+`ketoan.tai_khoan_nh_giao_dich`, nhưng bảng này CHỈ được vài luồng lẻ (khoản vay,
+TSCĐ...) ghi tay khi có `tai_khoan_id` — không phải sổ giao dịch đầy đủ của tài
+khoản: đối chiếu với DB thấy nó THIẾU toàn bộ phần thu từ Doanh Thu (tài khoản
+ACB/BIDV có hàng trăm giao dịch thật trong `ketoan.so_quy` nhưng 0 dòng ở đây),
+và có cả bản ghi trùng lặp (vd 2 dòng "Giải ngân vay" giống hệt nhau cho VPB).
+→ 2 endpoint GET bên dưới đổi sang đọc `ketoan.so_quy` (lọc theo
+`tai_khoan = TaiKhoanNH.ten_tk`) — đúng là sổ quỹ tổng hợp auto-sync từ Doanh
+Thu/Chi Phí/Công Nợ/chuyển nội bộ/vay (xem `services/so_quy_auto.py`), đã được
+màn Sổ Quỹ dùng và đối chiếu khớp DB. Endpoint POST/DELETE bên dưới GIỮ NGUYÊN
+(ghi vào tai_khoan_nh_giao_dich, do các router khác — chi_phi/khoan_vay/tscd...
+— còn phụ thuộc), chỉ không còn được 2 endpoint GET đọc lại nữa.
 """
 from datetime import date as date_cls
 from decimal import Decimal
@@ -20,11 +31,13 @@ from shared.audit import log_action
 from shared.auth import JWTPayload
 from shared.db import get_db
 
-from ..models import TaiKhoanNH, TaiKhoanNHGiaoDich
+from ..models import SoQuy, TaiKhoanNH, TaiKhoanNHGiaoDich
 from ..schemas import (
     TaiKhoanNHGiaoDichCreate, TaiKhoanNHGiaoDichOut, TaiKhoanSoDuOut,
 )
-from ..services.journal import ACCOUNTS, post_journal
+from ..services.journal import danh_muc_tk, post_journal
+from ..services.tai_khoan_tien import tk_tien_cua
+from ..services.so_quy_auto import so_du_hien_tai, so_du_truoc_ngay
 from ._deps import require_ketoan_user
 
 
@@ -49,31 +62,39 @@ def list_giao_dich(
     limit: int = 1000,
     offset: int = 0,
 ):
-    """List giao dịch của TK + computed so_du_sau (running balance theo ngày + id)."""
-    _ensure_tai_khoan(db, tk_id)
+    """List giao dịch của TK (nguồn: `ketoan.so_quy`, xem docstring đầu file) +
+    computed so_du_sau (running balance theo ngày + id).
+
+    `so_du_sau` cộng dồn từ tồn đầu kỳ THẬT tại `from_date` (qua
+    `so_quy_auto.so_du_truoc_ngay`, cùng thuật toán neo với màn Sổ Quỹ) — trước
+    đây luôn cộng dồn từ 0 bất kể `from_date`, nên lọc theo tháng/kỳ bất kỳ đều
+    ra "Số dư sau" sai (không khớp KPI "Số dư trên sổ" lấy từ /so-du).
+    """
+    tk = _ensure_tai_khoan(db, tk_id)
 
     stmt = (
-        select(TaiKhoanNHGiaoDich)
-        .where(TaiKhoanNHGiaoDich.tai_khoan_id == tk_id)
-        .order_by(TaiKhoanNHGiaoDich.ngay.asc(), TaiKhoanNHGiaoDich.id.asc())
+        select(SoQuy)
+        .where(SoQuy.tai_khoan == tk.ten_tk)
+        .order_by(SoQuy.ngay.asc(), SoQuy.id.asc())
     )
     if from_date:
-        stmt = stmt.where(TaiKhoanNHGiaoDich.ngay >= from_date)
+        stmt = stmt.where(SoQuy.ngay >= from_date)
     if to_date:
-        stmt = stmt.where(TaiKhoanNHGiaoDich.ngay <= to_date)
+        stmt = stmt.where(SoQuy.ngay <= to_date)
     stmt = stmt.limit(limit).offset(offset)
 
     items = db.execute(stmt).scalars().all()
+    so_du = so_du_truoc_ngay(db, tk_id, tk.ten_tk, from_date) if from_date else Decimal("0")
     out: list[dict] = []
-    so_du = Decimal("0")
     for g in items:
         delta = Decimal(g.so_tien) if g.loai == "thu" else -Decimal(g.so_tien)
         so_du += delta
         out.append({
-            "id": g.id, "ngay": g.ngay, "tai_khoan_id": g.tai_khoan_id,
-            "loai": g.loai, "so_tien": g.so_tien, "doi_tac": g.doi_tac,
-            "ghi_chu": g.ghi_chu, "source_app": g.source_app,
-            "source_doc_id": g.source_doc_id,
+            "id": g.id, "ngay": g.ngay, "tai_khoan_id": tk_id,
+            "loai": g.loai, "so_tien": g.so_tien,
+            "doi_tac": (g.noi_dung or g.mo_ta or "").strip() or None,
+            "ghi_chu": g.nhan_vien_ten or g.ma_don or g.ghi_chu,
+            "source_app": g.lien_quan, "source_doc_id": g.ref_id,
             "created_by": g.created_by, "created_at": g.created_at,
             "so_du_sau": so_du,
         })
@@ -86,30 +107,34 @@ def get_so_du(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
 ):
-    """Tổng số dư TK = SUM(thu) - SUM(chi)."""
-    _ensure_tai_khoan(db, tk_id)
+    """Tổng số dư TK (nguồn: `ketoan.so_quy`, xem docstring đầu file).
+
+    `so_du` tôn trọng snapshot `SoDuDauKy` qua `so_quy_auto.so_du_hien_tai` —
+    khớp với màn Sổ Quỹ và chặn-chi (`assert_du_chi`) dùng cùng hàm này.
+    """
+    tk = _ensure_tai_khoan(db, tk_id)
     sums = db.execute(
         select(
             func.coalesce(
                 func.sum(case(
-                    (TaiKhoanNHGiaoDich.loai == "thu", TaiKhoanNHGiaoDich.so_tien),
+                    (SoQuy.loai == "thu", SoQuy.so_tien),
                     else_=0,
                 )), 0,
             ).label("thu"),
             func.coalesce(
                 func.sum(case(
-                    (TaiKhoanNHGiaoDich.loai == "chi", TaiKhoanNHGiaoDich.so_tien),
+                    (SoQuy.loai == "chi", SoQuy.so_tien),
                     else_=0,
                 )), 0,
             ).label("chi"),
-            func.count(TaiKhoanNHGiaoDich.id).label("n"),
-        ).where(TaiKhoanNHGiaoDich.tai_khoan_id == tk_id)
+            func.count(SoQuy.id).label("n"),
+        ).where(SoQuy.tai_khoan == tk.ten_tk)
     ).one()
     thu = Decimal(str(sums.thu or 0))
     chi = Decimal(str(sums.chi or 0))
     return TaiKhoanSoDuOut(
         tai_khoan_id=tk_id,
-        so_du=thu - chi,
+        so_du=so_du_hien_tai(db, tk.ten_tk),
         tong_thu=thu,
         tong_chi=chi,
         so_giao_dich=int(sums.n or 0),
@@ -148,14 +173,15 @@ def create_giao_dich(
 
     # Phase 2 — optional journal entry generation
     if body.gen_journal:
-        if not body.counter_account or body.counter_account not in ACCOUNTS:
+        # TK đối ứng: TK trong danh mục hoặc TK con của tài khoản tiền (1111, 1121…)
+        if not body.counter_account or body.counter_account not in danh_muc_tk(db):
             db.rollback()
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 "gen_journal=true → cần truyền counter_account hợp lệ "
                 "(411/421/711/811/...)",
             )
-        cash_acc = "111" if (tk.loai or "").strip() == "tien_mat" else "112"
+        cash_acc = tk_tien_cua(tk)
         if body.loai == "thu":
             no_acc, co_acc = cash_acc, body.counter_account
         else:

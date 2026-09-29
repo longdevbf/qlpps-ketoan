@@ -57,6 +57,9 @@ def get_tree(
     by_id: dict[int, InvProductCategoryNode] = {}
     for r in rows:
         node = InvProductCategoryNode.model_validate(r)
+        # model_validate đã nạp sẵn quan hệ ORM `children` (nút con thiếu product_count) —
+        # xoá đi để chỉ dựng cây một lần bên dưới, tránh nhóm con hiện 2 lần.
+        node.children = []
         node.product_count = int(pcounts.get(r.id, 0))
         by_id[r.id] = node
 

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Đơn hàng — tài chính (bản đợt 3b, 3 tab), GIỮ NGUYÊN nghiệp vụ màn cũ (index.html
+   #page-don-hang), gọi đúng API thật external.py:
+     GET /api/external/orders-overview · orders-optimization · orders-kd-list · order-detail/<ma_bg>
+     GET /api/meta · POST /api/external/vanchuyen/<ma_vh>/hoan-thanh | hoan-sla | ketoan-approve
+   LƯU Ý cho phiên nối main.py: đây là bản đợt 3, cố ý đặt route /ketoan/don-hang-tai-chinh
+   (KHÔNG phải /ketoan/don-hang) để tránh đụng route của bản đợt 7 — xem báo cáo bàn giao
+   dot3b mục #5: gói thiết kế CHỈ còn giữ 1 bản của màn này (đã là bản 3-tab đọc API thật),
+   không có bản đơn giản hơn nào khác để dùng thay. #}
+{% block title %}Đơn hàng — tài chính{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-don-hang.css?v=h6">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page kt-l3-rong" id="kd-kt-don-hang">
+  {% call ui.dau_trang('Đơn hàng — tài chính', 'Đối chiếu thu – chi, thu tiền và chiết khấu') %}
+    <div class="kt-dh-ky" id="dh-ky-o">{{ ui.chon_ky('dh', 'Thời gian') }}</div>
+    {{ ui.nut_loc('dh') }}
+    <a class="kd-btn kd-btn--primary" id="dh-xuat" href="#" aria-disabled="true"><i class="bi bi-download" aria-hidden="true"></i>Xuất Excel</a>
+  {% endcall %}
+
+  <div class="kd-tabs kd-tabs--lon kt-tabs-trang" role="tablist" aria-label="Nghiệp vụ đơn hàng" id="dh-tabs">
+    <button type="button" role="tab" id="dh-tab-doi_chieu" data-tab="doi_chieu" aria-controls="dh-p-doi_chieu" aria-selected="true">Đối chiếu kế toán</button>
+    <button type="button" role="tab" id="dh-tab-ban_giao" data-tab="ban_giao" aria-controls="dh-p-ban_giao" aria-selected="false" tabindex="-1">Bàn giao trong ngày <span class="kd-muted" id="dh-dem-bg"></span></button>
+    <button type="button" role="tab" id="dh-tab-toi_uu" data-tab="toi_uu" aria-controls="dh-p-toi_uu" aria-selected="false" tabindex="-1">Tối ưu chiết khấu</button>
+  </div>
+
+  <!-- ═══ Tab 1: Đối chiếu kế toán ═══ -->
+  <div class="kt-tab-pane" role="tabpanel" id="dh-p-doi_chieu" aria-labelledby="dh-tab-doi_chieu">
+    {{ ui.the_so('dh', [('tong_don', 'Tổng đơn', '', 'bi-receipt'), ('vat', 'Tiền VAT', 'info', 'bi-percent'), ('dat_coc', 'Đã cọc', 'info', 'bi-piggy-bank'),
+                         ('da_thu', 'Đã thu', 'success', 'bi-cash-coin'), ('con_thu', 'Còn phải thu', 'warning', 'bi-hourglass-split')], kieu='strip', nhan_vung='Phải thu của các đơn đang lọc') }}
+    <div id="dh-pt-khoi" hidden>
+      {{ ui.the_so('dp', [('cn_phai_tra', 'Phải trả NCC', '', 'bi-truck'), ('cn_da_tra', 'Đã trả NCC', 'success', 'bi-check2-circle'),
+                           ('phi_vc', 'Phí vận chuyển', 'info', 'bi-signpost'), ('tong_phai_tra', 'Còn phải trả', 'danger', 'bi-exclamation-circle')], kieu='strip', nhan_vung='Phải trả của các đơn đang lọc') }}
+    </div>
+    {% set dau_the %}
+      <div class="kt-dh-bat">
+        <label class="kt-check"><input type="checkbox" id="dh-pt"> <span>Hiện thêm cột: giá công thức, cọc, phải trả</span></label>
+      </div>
+    {% endset %}
+    {% call ui.the_bang('dh', 'Đối chiếu kế toán theo đơn', panel='Chi tiết đơn hàng', dau_the=dau_the) %}
+      {{ ui.o_tim('dh', 'tim', 'Tìm', 'Mã báo giá, khách, số điện thoại…') }}
+      {{ ui.o_chon('dh', 'filter', 'Trạng thái', [('all', 'Tất cả đơn đã duyệt'), ('active', 'Đang chạy (chưa hoàn thành)'), ('pending', 'Chờ đối chiếu (đã giao)'), ('done', 'Đã xong (kế toán đã duyệt)')]) }}
+      {{ ui.o_chon('dh', 'salesperson', 'Nhân viên kinh doanh', [('', 'Tất cả')]) }}
+      {{ ui.o_chon('dh', 'date_basis', 'Lọc thời gian theo', [('duyet', 'Ngày duyệt (doanh số)'), ('created', 'Ngày tạo đơn'), ('ketoan', 'Ngày KT hoàn thành')]) }}
+      {{ ui.o_chon('dh', 'thue', 'Thuế GTGT', [('', 'Tất cả'), ('co_thue', 'Có thuế'), ('khong_thue', 'Không thuế')]) }}
+    {% endcall %}
+  </div>
+
+  <!-- ═══ Tab 2: Bàn giao trong ngày ═══ -->
+  <div class="kt-tab-pane" role="tabpanel" id="dh-p-ban_giao" aria-labelledby="dh-tab-ban_giao" hidden>
+    <section class="kd-card" aria-labelledby="bg-td">
+      <div class="kd-box__head kt-the-dau">
+        <h2 class="kd-box__title" id="bg-td">Đơn đã giao chờ thu tiền <button type="button" class="kd-tip" data-tip="Nhập số thực thu, chọn nơi nhận rồi bấm Hoàn thành và thu: hệ thống ghi sổ quỹ, doanh thu, trừ kho và chuyển đơn sang Hoàn thành." aria-label="Cách xử lý"><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2>
+        <div class="kt-bg-loc">
+          <label class="kd-field"><span class="kd-field__label">Ngày giao</span><input class="kd-input" type="date" id="bg-ngay"></label>
+          <button type="button" class="kd-btn kd-btn--sm" id="bg-tat-ca">Tất cả ngày</button>
+        </div>
+      </div>
+      <div id="bg-noi-dung"></div>
+    </section>
+  </div>
+
+  <!-- ═══ Tab 3: Tối ưu chiết khấu ═══ -->
+  <div class="kt-tab-pane" role="tabpanel" id="dh-p-toi_uu" aria-labelledby="dh-tab-toi_uu" hidden>
+    {{ ui.the_so('tu', [('may', 'Tối ưu Đồ Mây', 'success', 'bi-flower1'), ('go', 'Tối ưu Đồ Gỗ', 'warning', 'bi-tree'), ('tong', 'Tổng tối ưu', '', 'bi-bullseye')], kieu='strip', nhan_vung='Số tiền tối ưu theo loại đơn') }}
+    {{ ui.the_so('tu2', [('so_don', 'Số đơn', '', 'bi-receipt'), ('tam_tinh', 'Trước chiết khấu', '', 'bi-calculator'), ('sau_ck', 'Sau chiết khấu', 'info', 'bi-cash'),
+                         ('ck_tb', 'CK trung bình', 'warning', 'bi-percent'), ('toi_uu', 'Tối ưu ròng', 'success', 'bi-graph-up')], kieu='strip', nhan_vung='Tổng hợp chiết khấu các đơn trong kỳ') }}
+    <section class="kd-card" aria-labelledby="tu-td">
+      <div class="kd-box__head kt-the-dau"><h2 class="kd-box__title" id="tu-td">Tối ưu chiết khấu theo đơn <span id="tu-chinh-sach"></span></h2></div>
+      <form class="kd-filter" id="tu-loc" role="search" novalidate>
+        <label class="kd-field"><span class="kd-field__label">Tìm</span><input class="kd-input" type="search" id="tu-tim" placeholder="Mã báo giá, khách, nhân viên…" autocomplete="off"></label>
+        <label class="kd-field"><span class="kd-field__label">Nhân viên kinh doanh</span><select class="kd-input" id="tu-nv"><option value="">Tất cả</option></select></label>
+        <label class="kt-check"><input type="checkbox" id="tu-vuot"> Chỉ đơn vượt trần</label>
+      </form>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="tu-cuon">
+        <table class="kd-table kt-bang"><caption class="visually-hidden">Tối ưu chiết khấu theo đơn</caption>
+          <thead><tr><th scope="col">Mã báo giá · NV KD</th><th scope="col">Khách</th><th scope="col">Ngày duyệt</th><th scope="col">Loại đơn · trần</th>
+            <th scope="col" class="num">Tạm tính</th><th scope="col" class="num">Đã giảm</th>
+            <th scope="col" class="num" title="Dòng nhỏ: còn dư so với trần">CK thực tế</th><th scope="col" class="num" title="Trần × tạm tính − số đã giảm; âm là vượt trần">Tối ưu</th></tr></thead>
+          <tbody id="tu-tbody"></tbody><tfoot id="tu-tfoot"></tfoot>
+        </table>
+      </div>
+      <div id="tu-tt"></div>
+    </section>
+    <details class="kd-card kt-dh-gap" id="tu-nv-khoi">
+      <summary class="kt-dh-gap__dau"><span class="kd-box__title" id="tu-nv-td"><i class="bi bi-people" aria-hidden="true"></i> Tổng hợp theo nhân viên (cơ sở thưởng)</span><i class="bi bi-chevron-down kt-dh-gap__mui" aria-hidden="true"></i></summary>
+      <div class="kd-table-scroll kd-table-scroll--thanh" id="tu-nv-cuon">
+        <table class="kd-table kt-bang"><caption class="visually-hidden">Tối ưu chiết khấu theo nhân viên</caption>
+          <thead><tr><th scope="col">Nhân viên KD</th><th scope="col" class="num">Số đơn</th><th scope="col" class="num">Đơn vượt trần</th><th scope="col" class="num">Tạm tính</th><th scope="col" class="num">CK trung bình</th>
+            <th scope="col" class="num">Tính thưởng <button type="button" class="kd-tip kd-tip--trai" data-tip="Chỉ cộng đơn còn dư trần — cách HCNS chia thưởng, khớp thẻ Tổng tối ưu." aria-label="Tối ưu tính thưởng"><i class="bi bi-info-circle" aria-hidden="true"></i></button></th><th scope="col" class="num">Tối ưu ròng <button type="button" class="kd-tip kd-tip--trai" data-tip="Trừ cả số âm của đơn vượt trần." aria-label="Tối ưu ròng"><i class="bi bi-info-circle" aria-hidden="true"></i></button></th></tr></thead>
+          <tbody id="tu-nv-tbody"></tbody><tfoot id="tu-nv-tfoot"></tfoot>
+        </table>
+      </div>
+      <div id="tu-nv-tt"></div>
+    </details>
+  </div>
+</main>
+
+<!-- Thu tiền + hoàn thành đơn (dùng cho "Nhận thực" ở tab 1 và "Hoàn thành và thu" ở tab 2) -->
+<dialog class="kd-dialog" id="dh-dlg-thu" aria-labelledby="dh-thu-td">
+  <form method="dialog" novalidate id="dh-form-thu">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="dh-thu-td">Hoàn thành đơn và thu tiền</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="kd-dialog__body" id="dh-thu-than">
+      <dl class="kt-tq" id="dh-thu-tt"></dl>
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="dh-thu-tien">Số tiền thực thu (VND)</label><input class="kd-input num" id="dh-thu-tien" inputmode="numeric" autocomplete="off"><p class="kd-meta" id="dh-thu-tien-gy"></p></div>
+        <div class="kd-field"><label class="kd-field__label" for="dh-thu-tk">Nhận vào</label><select class="kd-input" id="dh-thu-tk"></select></div>
+      </div>
+      <p class="kd-note" id="dh-thu-gy"></p>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <div class="kd-dialog__body" id="dh-thu-kq" hidden></div>
+    <footer class="kd-dialog__foot" id="dh-thu-chan"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="dh-thu-ok"><i class="bi bi-check2-circle" aria-hidden="true"></i>Hoàn thành và thu</button></footer>
+    <footer class="kd-dialog__foot" id="dh-thu-chan2" hidden><button type="button" class="kd-btn kd-btn--primary" data-dong>Đóng</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="dh-dlg-duyet" role="alertdialog" aria-labelledby="dh-duyet-td" aria-describedby="dh-duyet-nd">
+  <form method="dialog" novalidate>
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="dh-duyet-td">Duyệt kế toán?</h2></header>
+    <div class="kd-dialog__body"><p id="dh-duyet-nd"></p><p class="kd-form-err" role="alert" hidden></p></div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="button" class="kd-btn kd-btn--primary" id="dh-duyet-ok"><i class="bi bi-check2" aria-hidden="true"></i>Duyệt</button></footer>
+  </form>
+</dialog>
+
+<dialog class="kd-dialog" id="dh-dlg-hoan" aria-labelledby="dh-hoan-td">
+  <form method="dialog" novalidate id="dh-form-hoan">
+    <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="dh-hoan-td">Hoãn đơn khỏi tính SLA</h2></header>
+    <div class="kd-dialog__body">
+      <p id="dh-hoan-nd"></p>
+      <div class="kd-field" id="dh-hoan-ly-o"><label class="kd-field__label" for="dh-hoan-ly">Lý do</label><input class="kd-input" id="dh-hoan-ly" maxlength="200" value="Đã giao nhưng chưa thu tiền"></div>
+      <p class="kd-form-err" role="alert" hidden></p>
+    </div>
+    <footer class="kd-dialog__foot"><button type="button" class="kd-btn" data-dong>Huỷ</button><button type="submit" class="kd-btn kd-btn--primary" id="dh-hoan-ok">Hoãn</button></footer>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
+<script src="/static/js/kt-don-hang.js?v=tk0928c"></script>
+{% endblock %}
