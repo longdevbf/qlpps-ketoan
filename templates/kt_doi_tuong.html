@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
 <link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
 <link rel="stylesheet" href="/static/css/kt-chung-tu.css?v=dot4">
-<link rel="stylesheet" href="/static/css/kt-doi-tuong.css?v=r4a">
+<link rel="stylesheet" href="/static/css/kt-doi-tuong.css?v=r4b">
 <link rel="stylesheet" href="/static/css/kt-ghi-nhan-tra.css?v=r4a">
 {% endblock %}
 
@@ -57,9 +57,13 @@
           <div id="dt-so-tt"></div>
         </section>
         <section class="kd-card" aria-labelledby="dt-h-hd">
-          <div class="kd-box__head kt-the-dau"><h2 class="kd-box__title" id="dt-h-hd">Hoá đơn còn nợ</h2><p class="kd-meta" id="dt-hd-gy"></p></div>
+          <div class="kd-box__head kt-the-dau">
+            <div><h2 class="kd-box__title" id="dt-h-hd">Hoá đơn</h2><p class="kd-meta" id="dt-hd-gy"></p></div>
+            {# Nhãn + số đếm do kt-doi-tuong.js ghi (Chưa trả/Đã trả đổi thành Chưa thu/Đã thu ở bên khách hàng). #}
+            <div class="kd-seg" role="group" aria-label="Lọc hoá đơn theo tình trạng thanh toán" id="dt-loc"><button type="button" data-loc="tat_ca" aria-pressed="true">Tất cả</button><button type="button" data-loc="chua" aria-pressed="false">Chưa trả</button><button type="button" data-loc="da" aria-pressed="false">Đã trả</button></div>
+          </div>
           <div class="kd-table-scroll kd-table-scroll--thanh" id="dt-hd-cuon">
-            <table class="kd-table kt-bang"><caption class="visually-hidden">Hoá đơn còn nợ của đối tượng</caption>
+            <table class="kd-table kt-bang"><caption class="visually-hidden">Hoá đơn của đối tượng, lọc được theo tình trạng thanh toán</caption>
               <thead><tr><th scope="col">Số hoá đơn</th><th scope="col">Ngày</th><th scope="col">Hạn thanh toán</th><th scope="col" class="num">Giá trị</th><th scope="col" class="num" id="dt-cot-da">Đã thu</th><th scope="col" class="num">Còn lại</th><th scope="col">Tình trạng</th></tr></thead>
               <tbody id="dt-hd"></tbody><tfoot id="dt-hd-cong"></tfoot></table>
           </div>
@@ -80,5 +84,5 @@
 <script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
 <script src="/static/js/kt-chung.js?v=tk0928b"></script>
 <script src="/static/js/kt-ghi-nhan-tra.js?v=r4a"></script>
-<script src="/static/js/kt-doi-tuong.js?v=r4c"></script>
+<script src="/static/js/kt-doi-tuong.js?v=r4i"></script>
 {% endblock %}

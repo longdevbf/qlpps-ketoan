@@ -43,6 +43,9 @@
 .kt-in-bang tr.is-nhom td { font-weight: 700; text-transform: uppercase; }
 .kt-in-bang td.kt-in-con { padding-left: var(--sp-9); }
 .kt-in-bang td.kt-in-con2 { padding-left: calc(var(--sp-9) * 2); font-style: italic; }
+/* 30/09/2026 (Bước 3, quyết định người dùng): khoản trả trước trong bảng chi tiết — tiền Bên B
+   đang giữ, không phải nợ âm. Màu trung tính --info (bản in đen trắng, không phụ thuộc màu). */
+.kt-in-tra-truoc { color: var(--info-fg); font-style: italic; }
 
 /* Chữ ký: các cột chia đều, chừa chỗ ký. */
 .kt-in-ngay { margin: var(--sp-8) 0 var(--sp-4); text-align: right; font-style: italic; }

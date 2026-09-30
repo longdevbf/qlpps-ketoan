@@ -495,9 +495,14 @@
     /* Phải trả — GHI CHÚ đợt 3: bản trước cộng con_lai > 0 TỪNG DÒNG /api/cong-no?loai=phai_tra = 1.625.293.200,
        trong khi màn Công nợ NCC (ncc-module, ròng theo NCC) báo "Còn phải trả" 827.348.200: 797.945.000 là phần
        trả dư ghi trên các dòng khác của CÙNG NCC (con_lai âm) bị bỏ qua khi kẹp từng dòng về 0. Nay lấy đúng số
-       ròng của màn Công nợ NCC (mặc định "Tất cả"). */
+       ròng của màn Công nợ NCC (mặc định "Tất cả").
+       GHI CHÚ 29/09/2026: dùng con_lai_thuc (CHỈ đơn nhóm thực/cần kiểm), KHÔNG dùng con_lai (mọi đơn kể
+       cả dự kiến) — quyết định người dùng: "còn nợ/phải trả" không cộng nợ dự kiến. Xem cong_no_ncc.py.
+       BƯỚC 3 30/09/2026: đổi sang stats.con_lai_thuc_duong (Σ chỉ NCC còn nợ dương — không bị 1 NCC
+       trả trước kéo âm cả tổng, mỗi NCC là quan hệ độc lập) — CÙNG SỐ với thẻ "Còn phải trả" ở
+       Công nợ NCC (kt-cong-no.js::veKpi). Dùng field backend tính sẵn thay vì tự reduce items. */
     const nccItems = r.phaiTra ? (r.phaiTra.items || []) : null;
-    const phaiTraRong = nccItems ? nccItems.reduce((a, it) => a + (KD.so(it.con_lai) || 0), 0) : null;
+    const phaiTraRong = r.phaiTra && r.phaiTra.stats ? (KD.so(r.phaiTra.stats.con_lai_thuc_duong) || 0) : null;
     const soDu = r.soDu;
     const soKhachNo = r.phaiThu ? new Set(r.phaiThu.filter((x) => conLaiCua(x) > 0).map((x) => x.doi_tac)).size : 0;
     const kpi = {
