@@ -66,6 +66,9 @@
     const kh = u.ben !== 'ncc';
     $('in-ve').href = '/ketoan/doi-tuong?ben=' + (kh ? 'kh' : 'ncc') + '&id=' + encodeURIComponent(u.id);
     let ben, tong = 0, daTra = 0, conLai = 0, phieu = [];
+    // 29/09/2026 (quyết định người dùng): biên bản gửi NCC ký VẪN kèm nợ dự kiến, nhưng tách
+    // riêng — KHÔNG cộng vào khối "Công nợ đã chốt" chính. phieuDuKien/tongDuKien chỉ dùng cho NCC.
+    let phieuDuKien = [], tongDuKien = 0;
     if (kh) {
       // Bỏ dòng "thu hộ qua ĐVVC" (saleadmin_vc_phai_thu) như Công nợ KH + Chi tiết đối tượng — trước đây biên bản
       // cộng cả dòng này nên lệch màn (vd Anh Tùng: màn 13.094.800 · biên bản 24.094.800).
@@ -80,27 +83,62 @@
       const r = await KD.api('/api/cong-no/ncc-module?filter=all');
       const g = (r.items || []).find((x) => x.doi_tac === u.id) || (r.items || []).find((x) => (x.doi_tac || '').toLowerCase() === String(u.id).toLowerCase());
       if (!g) throw { rong: ['Không có công nợ phải trả', 'Nhà cung cấp "' + u.id + '" không có trong công nợ phải trả.'] };
-      tong = +g.tong_no || 0; daTra = +g.da_tra || 0; conLai = +g.con_lai || 0;
+      // SỬA 30/09/2026: tong PHẢI cùng phạm vi với conLai (đều CHỈ thực/cần kiểm) — bản trước lấy
+      // tong = g.tong_no (gồm cả dự kiến) trong khi conLai = con_lai_thuc → tong - daTra != conLai
+      // (lệch đúng bằng phần dự kiến). g.don_list dùng field `nhom` (không phải `nhom_no`).
+      tong = +g.no_thuc_phai_tra || 0; daTra = +g.da_tra || 0; conLai = +g.con_lai_thuc || 0;
       ben = { ten: g.doi_tac, ma: '', mst: '' };
-      phieu = (g.don_list || []).filter((x) => +x.con_lai > 0).map((x) => ({ so: x.ma_don || x.id, ngay: x.ngay, han: x.han_thanh_toan, tong: +x.so_tien || 0, con: +x.con_lai || 0 }));
+      const dsThuc = (g.don_list || []).filter((x) => x.nhom !== 'du_kien');
+      // BƯỚC 3 30/09/2026 (quyết định người dùng, lỗi 4 kiểm chứng độc lập): bản trước CHỈ liệt
+      // kê con_lai > 0 nên khi có khoản trả trước (con_lai < 0), tổng cột "Còn nợ" của bảng LỚN
+      // HƠN Kết luận (thiếu phần âm) — bảng không tự đối chiếu được. Giữ CẢ dòng con_lai < 0.
+      phieu = dsThuc.filter((x) => +x.con_lai !== 0).map((x) => ({ so: x.ma_don || x.id, ngay: x.ngay, han: x.han_thanh_toan, tong: +x.so_tien || 0, con: +x.con_lai || 0 }));
+      const dsDuKien = (g.don_list || []).filter((x) => x.nhom === 'du_kien');
+      tongDuKien = dsDuKien.reduce((a, x) => a + (+x.so_tien || 0), 0);
+      phieuDuKien = dsDuKien.map((x) => ({ so: x.ma_don || x.id, ngay: x.ngay, han: x.han_thanh_toan, tong: +x.so_tien || 0, con: +x.con_lai || 0 }));
     } else {
       const r = await KD.api('/api/cong-no/ncc/' + encodeURIComponent(u.id) + '/detail'), s = r.summary || {};
-      tong = +s.total_orders || 0; daTra = +s.total_paid || 0; conLai = +s.balance || 0;
+      // total_orders_thuc (đơn nhóm thực/cần kiểm) thay total_orders — "công nợ đã chốt" không
+      // cộng dự kiến. total_paid không tách theo đơn được nên trừ thẳng vào total_orders_thuc.
+      tong = +s.total_orders_thuc || 0; daTra = +s.total_paid || 0; conLai = tong - daTra;
       ben = { ten: r.supplier.name, ma: r.supplier.short_code || '', mst: '' };
-      phieu = (r.no_phai_tra || []).map((x) => ({ so: x.po_ten_don || ('PO-' + x.po_id), ngay: x.ngay, han: null, tong: +x.so_tien || 0, con: null }));
+      const noRows = r.no_phai_tra || [];
+      phieu = noRows.filter((x) => x.nhom_no !== 'du_kien').map((x) => ({ so: x.po_ten_don || ('PO-' + x.po_id), ngay: x.ngay, han: null, tong: +x.so_tien || 0, con: null }));
+      const duKienRows = noRows.filter((x) => x.nhom_no === 'du_kien');
+      tongDuKien = duKienRows.reduce((a, x) => a + (+x.so_tien || 0), 0);
+      phieuDuKien = duKienRows.map((x) => ({ so: x.po_ten_don || ('PO-' + x.po_id), ngay: x.ngay, han: null, tong: +x.so_tien || 0, con: null }));
     }
     datTieuDe('BIÊN BẢN ĐỐI CHIẾU CÔNG NỢ', 'Tính đến ngày ' + KD.ngay(dv.hom_nay)); $('in-dau').innerHTML = dau(dv, '', '');
     const coCon = phieu.some((p) => p.con != null);
+    const khoiDuKien = (!kh && phieuDuKien.length)
+      ? '<p><b>Nợ dự kiến — chưa chốt, không tính vào công nợ ở trên (' + KD.tienVnd(tongDuKien) + '):</b></p>'
+        + '<table class="kt-in-bang"><thead><tr><th scope="col">Chứng từ</th><th scope="col">Ngày</th><th scope="col">Giá trị</th></tr></thead><tbody>'
+        + phieuDuKien.map((p) => '<tr><td>' + esc(p.so) + '</td><td class="kt-in-giua">' + KD.ngay(p.ngay) + '</td><td class="num">' + KD.tien(p.tong) + '</td></tr>').join('')
+        + '<tr class="is-dam"><td colspan="2">Cộng nợ dự kiến</td><td class="num">' + KD.tien(tongDuKien) + '</td></tr></tbody></table>'
+      : '';
+    // BƯỚC 3 30/09/2026 (quyết định người dùng, chỉ NCC): conLai < 0 = đã trả nhiều hơn hoá đơn
+    // thực — TÀI SẢN (Bên B đang GIỮ tiền của Bên A), không phải "nợ âm". Dòng "Còn nợ" hiện 0,
+    // Kết luận đổi câu, KHÔNG đổi cách TÍNH conLai/tong/daTra.
+    const laTraTruocIn = !kh && conLai < 0;
+    const traTruocIn = laTraTruocIn ? -conLai : 0;
+    const dongConNo = laTraTruocIn
+      ? '<tr class="is-dam"><td>Còn nợ đến ngày ' + KD.ngay(dv.hom_nay) + '</td><td class="num">' + KD.tien(0) + '</td></tr>'
+        + '<tr><td>Trả trước còn lại (Bên B đang giữ)</td><td class="num">' + KD.tien(traTruocIn) + '</td></tr>'
+      : '<tr class="is-dam"><td>Còn nợ đến ngày ' + KD.ngay(dv.hom_nay) + '</td><td class="num">' + KD.tien(conLai) + '</td></tr>';
+    const ketLuan = laTraTruocIn
+      ? '<p><b>Kết luận:</b> Tính đến ngày ' + KD.ngay(dv.hom_nay) + ', Bên B đang giữ khoản trả trước của Bên A số tiền <b>' + KD.tienVnd(traTruocIn) + '</b> (bằng chữ: ' + esc(KT.bangChu(traTruocIn)) + '), chưa có hoá đơn để trừ.' + (khoiDuKien ? ' Chưa gồm nợ dự kiến ' + KD.tienVnd(tongDuKien) + ' nêu trên.' : '') + '</p>'
+      : '<p><b>Kết luận:</b> Tính đến ngày ' + KD.ngay(dv.hom_nay) + ', ' + (kh ? 'Bên B còn nợ Bên A' : 'Bên A còn nợ Bên B') + ' số tiền <b>' + KD.tienVnd(conLai) + '</b> (bằng chữ: ' + esc(KT.bangChu(conLai)) + ')' + (khoiDuKien ? ' — CHƯA gồm nợ dự kiến ' + KD.tienVnd(tongDuKien) + ' nêu trên' : '') + '.</p>';
     return '<p>Hôm nay, ' + ngayChu(dv.hom_nay).toLowerCase() + ', chúng tôi gồm:</p>'
       + dong('Bên A', esc(dv.ten)) + dong('Đại diện', dv.giam_doc ? esc(dv.giam_doc) + ' — Giám đốc' : '')
       + dong('Bên B', esc(ben.ten) + (ben.ma ? ' (' + esc(ben.ma) + ')' : '')) + dong('Mã số thuế bên B', '') + dong('Đại diện', '')
-      + '<p>Cùng đối chiếu công nợ ' + (kh ? 'phải thu (TK 131)' : 'phải trả (TK 331)') + ' như sau:</p>'
+      + '<p>Cùng đối chiếu công nợ ' + (kh ? 'phải thu (TK 131)' : 'phải trả (TK 331)') + (kh ? '' : ' đã chốt') + ' như sau:</p>'
       + '<table class="kt-in-bang"><thead><tr><th scope="col">Chỉ tiêu</th><th scope="col">Số tiền (VND)</th></tr></thead><tbody>'
       + [[kh ? 'Tổng giá trị hàng bán' : 'Tổng giá trị hàng mua', tong], [kh ? 'Đã thu' : 'Đã trả', daTra]].map((x) => '<tr><td>' + esc(x[0]) + '</td><td class="num">' + KD.tien(x[1]) + '</td></tr>').join('')
-      + '<tr class="is-dam"><td>Còn nợ đến ngày ' + KD.ngay(dv.hom_nay) + '</td><td class="num">' + KD.tien(conLai) + '</td></tr></tbody></table>'
+      + dongConNo + '</tbody></table>'
       + (phieu.length ? '<p>' + (coCon ? 'Chi tiết khoản còn nợ:' : 'Chi tiết đơn hàng phát sinh công nợ:') + '</p><table class="kt-in-bang"><thead><tr><th scope="col">Chứng từ</th><th scope="col">Ngày</th>' + (coCon ? '<th scope="col">Hạn thanh toán</th>' : '') + '<th scope="col">Giá trị</th>' + (coCon ? '<th scope="col">Còn nợ</th>' : '') + '</tr></thead><tbody>'
-        + phieu.map((p) => '<tr><td>' + esc(p.so) + '</td><td class="kt-in-giua">' + KD.ngay(p.ngay) + '</td>' + (coCon ? '<td class="kt-in-giua">' + (p.han && /^\d{4}-/.test(p.han) ? KD.ngay(p.han) : '') + '</td>' : '') + '<td class="num">' + KD.tien(p.tong) + '</td>' + (coCon ? '<td class="num">' + KD.tien(p.con) + '</td>' : '') + '</tr>').join('') + '</tbody></table>' : '')
-      + '<p><b>Kết luận:</b> Tính đến ngày ' + KD.ngay(dv.hom_nay) + ', ' + (kh ? 'Bên B còn nợ Bên A' : 'Bên A còn nợ Bên B') + ' số tiền <b>' + KD.tienVnd(conLai) + '</b> (bằng chữ: ' + esc(KT.bangChu(conLai)) + ').</p>'
+        + phieu.map((p) => '<tr><td>' + esc(p.so) + '</td><td class="kt-in-giua">' + KD.ngay(p.ngay) + '</td>' + (coCon ? '<td class="kt-in-giua">' + (p.han && /^\d{4}-/.test(p.han) ? KD.ngay(p.han) : '') + '</td>' : '') + '<td class="num">' + KD.tien(p.tong) + '</td>' + (coCon ? '<td class="num">' + (p.con < 0 ? '<span class="kt-in-tra-truoc">Trả trước ' + KD.tien(-p.con) + '</span>' : KD.tien(p.con)) + '</td>' : '') + '</tr>').join('') + '</tbody></table>' : '')
+      + khoiDuKien
+      + ketLuan
       + '<p class="kt-in-ghi">Biên bản lập thành 02 bản, mỗi bên giữ 01 bản có giá trị như nhau. Trong 07 ngày kể từ ngày nhận, nếu Bên B không có ý kiến thì coi như xác nhận số liệu trên.</p>'
       + ky([['Đại diện Bên A', dv.giam_doc, true], ['Kế toán Bên A', dv.ke_toan_truong], ['Đại diện Bên B', '', true], ['Kế toán Bên B', '']]);
   }
@@ -154,7 +192,9 @@
     const den = k.den || KD.iso(new Date()), thang = den.slice(0, 7);
     const d = await KD.api('/api/bao-cao/can-doi?thang=' + thang), ts = d.tai_san, nv = d.nguon_von;
     const [y, m] = d.thang.split('-').map(Number), c = (ma, ct, cap, x) => ({ ma, chi_tieu: ct, cap, cuoi_ky: x, dau_nam: null });
-    return { den_ngay: KD.iso(new Date(y, m, 0)), dong: [
+    // 30/09/2026: 311 không gồm nợ dự kiến/cần kiểm NCC (xem kt-cdkt.js) — mang theo để bản in
+    // ghi chú cùng câu với màn, không để số in khác số trên màn.
+    return { den_ngay: KD.iso(new Date(y, m, 0)), ncc_du_kien: nv.no_phai_tra.phai_tra_ncc_du_kien || 0, ncc_can_kiem: nv.no_phai_tra.phai_tra_ncc_can_kiem || 0, dong: [
       { ma: '', chi_tieu: 'TÀI SẢN', cap: 'nhom' },
       c('110', 'Tiền và các khoản tương đương tiền', 'tong', ts.tien_va_td.tong), c('111', 'Tiền mặt', 'con', ts.tien_va_td.tien_mat_so_quy), c('112', 'Tiền gửi ngân hàng', 'con', ts.tien_va_td.tk_ngan_hang),
       c('130', 'Các khoản phải thu ngắn hạn', 'tong', ts.phai_thu), c('140', 'Hàng tồn kho', 'tong', ts.hang_ton_kho),
@@ -212,10 +252,17 @@
     // cdkt: API chỉ có số cuối kỳ (không có số đầu năm) → in 1 cột, không để trống cột giả.
     const cot = cd ? ['cuoi_ky'] : ['ky_nay', 'ky_truoc'], nhan = cd ? ['Số cuối kỳ'] : ['Kỳ này', 'Kỳ trước'];
     const soCot = 2 + (u.mau === 'kqkd' ? 1 : 0) + cot.length;
+    // 30/09/2026: cùng ghi chú với màn Cân đối kế toán (kt-cdkt.js ghiChu) — số in phải khớp số
+    // trên màn, KHÔNG tính lại công thức, chỉ đọc lại d.ncc_du_kien/d.ncc_can_kiem đã có sẵn.
+    const ghiChuDuKien = (cd && d.ncc_du_kien > 0)
+      ? '<p class="kt-in-ghi">Nợ dự kiến (chưa chốt) — không tính vào Phải trả người bán: ' + KD.tienVnd(d.ncc_du_kien) + '.'
+        + (d.ncc_can_kiem > 0 ? ' Trong Phải trả người bán có ' + KD.tienVnd(d.ncc_can_kiem) + ' cần kiểm (khoản gắn đơn mua đã mất).' : '') + '</p>'
+      : '';
     return '<p class="kt-in-ghi">Đơn vị tính: VND</p><table class="kt-in-bang"><thead><tr><th scope="col">Chỉ tiêu</th><th scope="col">Mã số</th>' + (u.mau === 'kqkd' ? '<th scope="col">Thuyết minh</th>' : '') + nhan.map((n) => '<th scope="col">' + n + '</th>').join('') + '</tr></thead><tbody>'
       + d.dong.map((r) => r.cap === 'nhom' ? '<tr class="is-nhom"><td colspan="' + soCot + '">' + esc(r.chi_tieu) + '</td></tr>'
         : '<tr class="' + (r.cap === 'tong' || r.cap === 'dam' ? 'is-dam' : '') + '"><td class="' + (r.cap === 'con' ? 'kt-in-con' : r.cap === 'con2' ? 'kt-in-con2' : '') + '">' + esc(r.chi_tieu.trim()) + '</td><td class="kt-in-giua">' + esc(r.ma) + '</td>' + (u.mau === 'kqkd' ? '<td class="kt-in-giua">' + esc(r.thuyet_minh || '') + '</td>' : '')
           + cot.map((key) => '<td class="num">' + soBc(r[key]) + '</td>').join('') + '</tr>').join('') + '</tbody></table>'
+      + ghiChuDuKien
       + ky([['Người lập biểu', ''], ['Kế toán trưởng', dv.ke_toan_truong], ['Giám đốc', dv.giam_doc, true]], dv.hom_nay);
   }
 

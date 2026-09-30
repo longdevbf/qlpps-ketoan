@@ -79,7 +79,26 @@
       // Dùng tên hiển thị (ncc-module đã gộp theo tên chuẩn hoá nên duy nhất trong một lần tải);
       // kt-doi-tuong.js tra lại đúng nhóm này trong ncc-module theo tên.
       const id = it.doi_tac || ('ncc' + i);
-      const donConNo = (it.don_list || []).filter((p) => (p.con_lai || 0) > 0);
+      // 30/09/2026 (quyết định người dùng, ĐỔI từ "ẩn hoàn toàn" 29/09 sang "tách bạch"): nợ dự
+      // kiến (đơn/PO chưa hoàn thành) KHÔNG cộng vào "phải trả" chính (donList lọc bỏ, dùng cho
+      // tongNo/con_lai/bảng con/quá hạn — không đổi cách tính so với trước), nhưng vẫn tính RIÊNG
+      // để hiện dòng "Ngoài số trên — Nợ dự kiến" (xem tong.no_du_kien ở dưới + veKpi/dòng pham-vi).
+      // KHÔNG dùng it.tong_no/it.con_lai (backend vẫn gộp cả 2 nhóm, xem cong_no_ncc.py) cho phần
+      // "phải trả" để KPI/bảng con/quá hạn luôn khớp nhau.
+      const donList = (it.don_list || []).filter((p) => p.nhom !== 'du_kien');
+      const donListDuKien = (it.don_list || []).filter((p) => p.nhom === 'du_kien');
+      const tongNo = donList.reduce((a, p) => a + (Number(p.so_tien) || 0), 0);
+      const daTra = donList.reduce((a, p) => a + (Number(p.da_tra) || 0), 0);
+      const conLai = donList.reduce((a, p) => a + (Number(p.con_lai) || 0), 0);
+      const tongDuKien = donListDuKien.reduce((a, p) => a + (Number(p.so_tien) || 0), 0);
+      // 30/09/2026: cọc/trả trước cho đơn dự kiến (so_tien=0, da_tra>0) — tiền THẬT đã chi,
+      // hiện riêng trong dòng "Ngoài số trên" để không giấu (xem cong_no_ncc.py SỬA LỖI 3).
+      // Đếm TÁCH hoá đơn dự kiến thật (so_tien>0) và dòng cọc (so_tien=0) — gộp chung vào
+      // "so_don_du_kien" làm câu "N khoản" mập mờ (10 hoá đơn + 1 cọc đọc như 11 hoá đơn).
+      const donDuKienHoaDon = donListDuKien.filter((p) => (Number(p.so_tien) || 0) > 0);
+      const donDuKienDaUng = donListDuKien.filter((p) => (Number(p.so_tien) || 0) === 0 && (Number(p.da_tra) || 0) > 0);
+      const duKienDaUng = donListDuKien.reduce((a, p) => a + (Number(p.da_tra) || 0), 0);
+      const donConNo = donList.filter((p) => (p.con_lai || 0) > 0);
       let quaHan = 0, denHan7 = 0, maxQuaHanNgay = 0;
       donConNo.forEach((p) => {
         const han = parseNgayLinhHoat(p.han_thanh_toan);
@@ -93,16 +112,26 @@
       else if (maxQuaHanNgay > 60) nhomTuoi = 'qh_tren_60';
       else if (maxQuaHanNgay > 30) nhomTuoi = 'qh_31_60';
       else if (maxQuaHanNgay > 0) nhomTuoi = 'qh_1_30';
+      // BƯỚC 3 30/09/2026 (quyết định người dùng): conLai < 0 = đã trả NHIỀU hơn hoá đơn thực
+      // (tiền ỨNG TRƯỚC cho NCC, chưa có hoá đơn để trừ) — tài sản, không phải "nợ âm". Tách
+      // traTruoc dương + conLaiDuong, GIỮ NGUYÊN conLai (ròng, có thể âm) cho nơi cần đối chiếu.
+      const traTruoc = Math.max(0, -conLai);
+      const conLaiDuong = Math.max(0, conLai);
       const r = {
         khach: { id, ma: '', ten: it.doi_tac || '(Chưa rõ NCC)', sdt: '', nv_kd: '' },
-        so_phieu: donConNo.length, tong_no: Number(it.tong_no) || 0, da_thu: Number(it.da_tra) || 0,
-        con_lai: Number(it.con_lai) || 0, qua_han: quaHan, den_han_7_ngay: denHan7,
+        so_phieu: donConNo.length, tong_no: tongNo, da_thu: daTra,
+        con_lai: conLai, con_lai_duong: conLaiDuong, tra_truoc: traTruoc,
+        qua_han: quaHan, den_han_7_ngay: denHan7,
         tuoi_no_max_ngay: maxQuaHanNgay, nhom_tuoi: nhomTuoi,
-        // 2 nhóm của màn cũ (/app#cong-no-ncc): Nợ thực (đơn xong + nhập tay) / Dự kiến (còn gắn đơn chưa xong).
-        no_thuc: Number(it.no_thuc_phai_tra) || 0, no_du_kien: Number(it.no_du_kien) || 0,
-        so_don_tat_ca: it.so_don || 0, so_don_thuc: it.so_don_thuc || 0, so_don_nhap_tay: it.so_don_nhap_tay || 0, so_don_du_kien: it.so_don_du_kien || 0,
+        // "Phải trả" chính KHÔNG gồm dự kiến (không đổi so với 29/09). no_du_kien/so_don_du_kien
+        // nay là số THẬT (không còn ép 0) để dòng "Ngoài số trên — Nợ dự kiến" hiện đúng (30/09).
+        no_thuc: tongNo, no_du_kien: tongDuKien, no_can_kiem: Number(it.no_can_kiem) || 0,
+        du_kien_da_ung: duKienDaUng,
+        so_don_tat_ca: donList.length + donListDuKien.length, so_don_thuc: it.so_don_thuc || 0,
+        so_don_nhap_tay: it.so_don_nhap_tay || 0, so_don_du_kien: donListDuKien.length,
+        so_hoa_don_du_kien: donDuKienHoaDon.length, so_khoan_da_ung: donDuKienDaUng.length,
       };
-      _rawByKey[id] = { r, don_list: it.don_list || [] };
+      _rawByKey[id] = { r, don_list: donList };
       return r;
     });
     const tatCa = tongRong(mapped);
@@ -122,10 +151,16 @@
 
     const tong = ds.reduce((a, r) => ({
       tong_no: a.tong_no + r.tong_no, da_thu: a.da_thu + r.da_thu, con_lai: a.con_lai + r.con_lai,
+      con_lai_duong: a.con_lai_duong + (r.con_lai_duong || 0), tra_truoc: a.tra_truoc + (r.tra_truoc || 0),
       qua_han: a.qua_han + r.qua_han, den_han_7_ngay: a.den_han_7_ngay + r.den_han_7_ngay,
-      no_thuc: a.no_thuc + r.no_thuc, no_du_kien: a.no_du_kien + r.no_du_kien,
+      no_thuc: a.no_thuc + r.no_thuc, no_du_kien: a.no_du_kien + r.no_du_kien, no_can_kiem: a.no_can_kiem + r.no_can_kiem,
+      du_kien_da_ung: a.du_kien_da_ung + (r.du_kien_da_ung || 0),
+      so_don_du_kien: a.so_don_du_kien + r.so_don_du_kien,
+      so_hoa_don_du_kien: a.so_hoa_don_du_kien + (r.so_hoa_don_du_kien || 0),
+      so_khoan_da_ung: a.so_khoan_da_ung + (r.so_khoan_da_ung || 0),
       so_khach_con_no: a.so_khach_con_no + (r.con_lai > 0 ? 1 : 0), so_khach_qua_han: a.so_khach_qua_han + (r.qua_han > 0 ? 1 : 0),
-    }), { tong_no: 0, da_thu: 0, con_lai: 0, qua_han: 0, den_han_7_ngay: 0, no_thuc: 0, no_du_kien: 0, so_khach_con_no: 0, so_khach_qua_han: 0 });
+      so_ncc_tra_truoc: a.so_ncc_tra_truoc + ((r.tra_truoc || 0) > 0 ? 1 : 0),
+    }), { tong_no: 0, da_thu: 0, con_lai: 0, con_lai_duong: 0, tra_truoc: 0, qua_han: 0, den_han_7_ngay: 0, no_thuc: 0, no_du_kien: 0, no_can_kiem: 0, du_kien_da_ung: 0, so_don_du_kien: 0, so_hoa_don_du_kien: 0, so_khoan_da_ung: 0, so_khach_con_no: 0, so_khach_qua_han: 0, so_ncc_tra_truoc: 0 });
 
     const page = Math.max(1, +q.page || 1), size = Math.max(1, +q.size || 10);
     const soTrang = Math.max(1, Math.ceil(ds.length / size)), trangHopLe = Math.min(page, soTrang);
@@ -160,8 +195,9 @@
       .sort((a, b) => (a.ngay < b.ngay ? 1 : -1));
     return Promise.resolve({
       khach: x.r.khach, tong_no: x.r.tong_no, da_thu: x.r.da_thu, con_lai: x.r.con_lai,
+      con_lai_duong: x.r.con_lai_duong, tra_truoc: x.r.tra_truoc,
       qua_han: x.r.qua_han, nhom_tuoi: x.r.nhom_tuoi, phieu,
-      no_thuc: x.r.no_thuc, no_du_kien: x.r.no_du_kien,
+      no_thuc: x.r.no_thuc, no_du_kien: x.r.no_du_kien, du_kien_da_ung: x.r.du_kien_da_ung,
       so_don: { thuc: x.r.so_don_thuc, nhap_tay: x.r.so_don_nhap_tay, du_kien: x.r.so_don_du_kien },
       lich_su_thu: lichSu,
     });
@@ -341,7 +377,10 @@
     const t = d.tong, all = d.tat_ca;
     const ghi = { tong_no: ['', ''], da_thu: ['', ''], con_lai: ['', ''], qua_han: ['', ''] };
     ghi.tong_no[1] = BEN === 'ncc'
-      ? 'Nợ thực ' + KD.tienVnd(t.no_thuc) + ' (đơn đã xong + nhập tay) + Nợ dự kiến ' + KD.tienVnd(t.no_du_kien) + ' (đơn chưa xong).'
+      // 30/09/2026: thẻ "Tổng phát sinh" chỉ tính nợ thực (không cộng dự kiến) — nợ dự kiến
+      // TÁCH BẠCH sang dòng riêng "Ngoài số trên — Nợ dự kiến" ở #cnk-du-kien (xem hàm tai()),
+      // không giấu, chỉ không gộp vào số này.
+      ? 'Nợ thực phải trả (đơn đã xong + nhập tay).'
       : 'Tổng nợ = ' + CFG.daThu + ' + ' + CFG.conLai + '.';
     ghi.da_thu[0] = t.tong_no ? KD.phanTram((t.da_thu / t.tong_no) * 100) + ' tổng nợ' : '';
     ghi.con_lai[0] = KD.soDem(t.so_khach_con_no) + ' ' + CFG.dt + ' còn nợ';
@@ -356,7 +395,11 @@
       ? (t.so_khach_qua_han ? KD.soDem(t.so_khach_qua_han) + ' NCC có khoản quá hạn.' : 'Không có khoản nào quá hạn.') + ' Đến hạn trong 7 ngày tới (chưa quá hạn): ' + KD.tienVnd(t.den_han_7_ngay) + '.'
       : 'Hoá đơn không ghi hạn: hạn = ngày phát sinh + ' + HAN_NO_MAC_DINH + ' ngày.';
     trang.querySelectorAll('#cnk-kpi [data-kpi]').forEach((the) => {
-      const k = the.dataset.kpi, v = t[k], g = ghi[k] || ['', ''];
+      const k = the.dataset.kpi;
+      // BƯỚC 3 30/09/2026: thẻ "Còn phải trả" (NCC) dùng con_lai_duong (chỉ NCC còn nợ dương,
+      // không bị 1 NCC trả trước kéo âm) thay vì con_lai ròng — cùng số với cột bảng/tổng quan.
+      const v = (BEN === 'ncc' && k === 'con_lai') ? t.con_lai_duong : t[k];
+      const g = ghi[k] || ['', ''];
       the.querySelector('[data-v]').innerHTML = KD.tienGonHtml(v);
       the.querySelector('[data-v]').title = KD.tienVnd(v);
       the.querySelector('[data-phu]').textContent = g[0];
@@ -375,13 +418,21 @@
   function dongKhach(r) {
     const k = r.khach, mo = dangMo.has(String(k.id));
     const phuTen = [k.ma, k.sdt, k.nv_kd ? 'NV ' + k.nv_kd : '', KD.soDem(r.so_phieu) + ' HĐ còn nợ'].filter(Boolean).map(esc).join(' · ');
+    // BƯỚC 3 30/09/2026 (quyết định người dùng, chỉ bên NCC): con_lai < 0 = đã trả nhiều hơn
+    // hoá đơn hiện có — TÀI SẢN (tiền ứng trước), không phải "nợ âm". Cột "Còn nợ" hiện "—",
+    // cột Tuổi nợ hiện nhãn xám "Trả trước X" thay vì số âm + nhãn "Đã trả đủ" gây hiểu nhầm.
+    const laTraTruoc = BEN === 'ncc' && r.con_lai < 0;
+    const oConLai = laTraTruoc ? '<span class="kd-muted">—</span>' : KT.tienSo(r.con_lai);
+    const oTuoiNo = laTraTruoc
+      ? '<span class="pill pill--muted" title="Đã chi ' + KD.tienVnd(r.tra_truoc) + ' cho ' + esc(k.ten) + ', chưa có hoá đơn để trừ">Trả trước ' + KD.tienGon(r.tra_truoc) + '</span>'
+      : '<span title="' + (r.tuoi_no_max_ngay ? 'Hoá đơn quá hạn lâu nhất: ' + KD.soDem(r.tuoi_no_max_ngay) + ' ngày' : '') + '">' + pillTuoi(r.nhom_tuoi) + '</span>';
     return '<tr data-id="' + esc(k.id) + '" tabindex="0"' + (mo ? ' class="is-mo"' : '') + '>'
       + '<td class="kt-col-mo"><button type="button" class="kd-icon-btn kt-mo" data-mo="' + esc(k.id) + '" aria-expanded="' + mo + '" aria-controls="cnk-con-' + esc(k.id) + '" aria-label="Xem hoá đơn còn nợ của ' + esc(k.ten) + '"><i class="bi bi-chevron-right" aria-hidden="true"></i></button></td>'
       + '<td><span class="kt-khach__ten">' + esc(k.ten) + '</span><span class="kt-khach__ma">' + phuTen + '</span></td>'
       + '<td class="num">' + KD.tien(r.tong_no) + '</td>'
       + '<td class="num">' + KT.tienSo(r.da_thu) + '</td>'
-      + '<td class="num kt-so--con">' + KT.tienSo(r.con_lai) + '</td>'
-      + '<td><span title="' + (r.tuoi_no_max_ngay ? 'Hoá đơn quá hạn lâu nhất: ' + KD.soDem(r.tuoi_no_max_ngay) + ' ngày' : '') + '">' + pillTuoi(r.nhom_tuoi) + '</span>'
+      + '<td class="num kt-so--con">' + oConLai + '</td>'
+      + '<td>' + oTuoiNo
       + (r.qua_han ? '<span class="kt-khach__ma kt-so--qua-han">Quá hạn ' + KD.tien(r.qua_han) + '</span>' : '') + '</td>'
       + '<td class="kd-col-act"><button type="button" class="kd-icon-btn" data-menu="' + esc(k.id) + '" aria-haspopup="menu" aria-expanded="false" aria-label="Thao tác với ' + esc(k.ten) + '"><i class="bi bi-three-dots" aria-hidden="true"></i></button></td>'
       + '</tr>'
@@ -442,7 +493,17 @@
         + nutSuaXoa(p) + '</span></td></tr>').join('')
       + '</tbody></table></div>'
       + '<p class="kt-con__chan"><span>' + KD.soDem(ds.length) + ' khoản · ' + KD.soDem(soCon) + ' còn nợ · tính đến ' + KD.ngay(ngayTinh()) + '</span>'
-      + (ncc ? '<span>Nợ thực <b class="num">' + KD.tien(ct.no_thuc) + '</b> · Dự kiến <b class="num">' + KD.tien(ct.no_du_kien) + '</b> · ' + moTaSoDon(ct.so_don) + '</span>' : '')
+      // 30/09/2026: bảng con này chỉ liệt kê đơn THỰC (nợ dự kiến không vào ds — xem donList lọc
+      // trong chuyenNCC), nên chân bảng không nhắc "Dự kiến" — số tổng dự kiến hiện riêng ở dòng
+      // "Ngoài số trên" cấp toàn màn (#cnk-du-kien), không phải ở đây (per-NCC, đã có ⓘ tooltip).
+      + (ncc ? '<span>Nợ thực phải trả <b class="num">' + KD.tien(ct.no_thuc) + '</b> · ' + KD.soDem(ct.so_don.thuc) + ' đơn' + (ct.so_don.nhap_tay ? ' (' + KD.soDem(ct.so_don.nhap_tay) + ' nhập tay)' : '') + '</span>' : '')
+      // BƯỚC 3 30/09/2026 (quyết định người dùng): con_lai < 0 (đã trả nhiều hơn hoá đơn thực) =
+      // "Trả trước còn lại", KHÔNG hiện "Còn phải trả −X" gây hiểu nhầm là nợ âm. Công thức ghi
+      // rõ nguồn: Cộng hoá đơn còn nợ (no_thuc) − Trả trước/ứng chưa cấn trừ (da_thu) = kết quả.
+      + (ncc && ct.con_lai < 0
+          ? '<span class="kt-so--tra-truoc">Cộng hoá đơn còn nợ ' + KD.tien(ct.no_thuc) + ' − Trả trước/ứng chưa cấn trừ ' + KD.tien(ct.da_thu)
+            + ' = Trả trước còn lại <b class="num">' + KD.tien(ct.tra_truoc) + '</b></span>'
+          : '')
       + '<a class="kd-link kd-link--sm" href="' + soChiTiet(ct.khach) + '">Xem sổ chi tiết công nợ<i class="bi bi-arrow-right" aria-hidden="true"></i></a></p>';
   }
   /* NCC: số đơn theo nhóm như màn cũ — "65 thực (10 nhập tay) · 4 dự kiến". */
@@ -479,8 +540,15 @@
   }
 
   function chanBang(t, soDong) {
+    // LỖI 7 (kiểm chứng độc lập 30/09/2026, ảnh thật): ô "Còn nợ" của chân bảng in t.con_lai
+    // (ròng, có thể âm khi 1 NCC trả trước) — cộng không khớp cột "Còn nợ" từng dòng (đã đổi
+    // sang con_lai_duong/"—" ở dongKhach) lẫn thẻ KPI (đã dùng con_lai_duong). Bên KH không có
+    // field con_lai_duong (chuyenKH không set) → fallback t.con_lai giữ nguyên hành vi cũ.
+    const conNoChan = t.con_lai_duong != null ? t.con_lai_duong : t.con_lai;
+    const traTruocChan = t.tra_truoc || 0;
     return '<tr><td></td><th scope="row">Cộng ' + KD.soDem(soDong) + ' ' + CFG.dt + (soDong !== t.so_khach_con_no ? ' (' + KD.soDem(t.so_khach_con_no) + ' còn nợ)' : '') + ' · mọi trang</th>'
-      + '<td class="num">' + KD.tien(t.tong_no) + '</td><td class="num">' + KD.tien(t.da_thu) + '</td><td class="num">' + KD.tien(t.con_lai) + '</td>'
+      + '<td class="num">' + KD.tien(t.tong_no) + '</td><td class="num">' + KD.tien(t.da_thu) + '</td><td class="num">' + KD.tien(conNoChan)
+      + (traTruocChan ? '<span class="kt-khach__ma">Trả trước ' + KD.tien(traTruocChan) + '</span>' : '') + '</td>'
       + '<td class="kt-cong-qh"><span class="kt-khach__ma">Quá hạn</span><span class="num' + (t.qua_han ? ' kt-so--qua-han' : '') + '">' + KD.tien(t.qua_han) + '</span></td><td class="kd-col-act"></td></tr>';
   }
 
@@ -518,6 +586,30 @@
       $('cnk-pham-vi').innerHTML = 'Tính đến ' + KD.ngay(d.den_ngay) + esc(ky) + KD.tip('Từ ' + CFG.hd + ' đã ghi sổ (TK ' + CFG.tk + ').'
         + (BEN === 'kh' ? ' Hạn thu theo hoá đơn; không ghi hạn = ngày phát sinh + ' + HAN_NO_MAC_DINH + ' ngày.' : ' Hạn thanh toán theo từng hoá đơn.')
         + (d.thu_ho && d.thu_ho.so ? ' Không gồm ' + KD.soDem(d.thu_ho.so) + ' khoản thu hộ ĐVVC (' + KD.tienVnd(d.thu_ho.con_lai) + ', trùng phải thu đơn báo giá).' : ''));
+      // 30/09/2026 (quyết định người dùng): nợ dự kiến TÁCH BẠCH — hiện riêng, không giấu, không
+      // cộng vào "Tổng phải trả". Chỉ NCC có khái niệm này (nhóm theo đơn mua, xem chuyenNCC()).
+      // 30/09/2026 (phiên gốc đo ảnh thật): "N khoản" gộp cả hoá đơn lẫn dòng cọc đọc mập mờ
+      // ("11 khoản" ≈ 10 hoá đơn + 1 khoản đã ứng trước, tưởng 11 hoá đơn) — tách rõ 2 số.
+      const soHD = d.tong.so_hoa_don_du_kien || 0, soUng = d.tong.so_khoan_da_ung || 0;
+      const dongSoDon = soHD ? ' · ' + KD.soDem(soHD) + ' hoá đơn' + (soUng ? ' (+' + soUng + ' khoản đã ứng trước)' : '') : '';
+      const coDuKien = d.tong.no_du_kien || d.tong.no_can_kiem;
+      const khoiDuKien = coDuKien
+        ? 'Ngoài số trên — Nợ dự kiến (chưa chốt): <b class="num">' + KD.tienVnd(d.tong.no_du_kien) + '</b>'
+          + dongSoDon + ', không tính vào Tổng phải trả'
+          + (d.tong.du_kien_da_ung ? ' · đã ứng trước <b class="num">' + KD.tienVnd(d.tong.du_kien_da_ung) + '</b>' : '')
+          + (d.tong.no_can_kiem ? ' · Cần kiểm: <b class="num">' + KD.tienVnd(d.tong.no_can_kiem) + '</b>' : '')
+          + KD.tip('Đơn còn đang chạy (đặt hàng/đang SX/đã có hàng) chưa được coi là nợ đã chốt. "Cần kiểm" là đơn không còn PO hoặc nhãn trạng thái lạ. "Đã ứng trước" là tiền cọc THẬT đã chi cho đơn dự kiến — chưa trừ vào hoá đơn vì hoá đơn chưa chốt.')
+        : '';
+      // BƯỚC 3 30/09/2026 (quyết định người dùng): NCC nào (đã trả) > (hoá đơn thực) = tiền ứng
+      // trước, KHÔNG trừ vào "Còn phải trả" (mỗi NCC là quan hệ độc lập, không bù trừ giữa các
+      // NCC khác nhau) — hiện riêng để không giấu. Tự ẩn khi tong_tra_truoc = 0 (dev hôm nay).
+      const traTruoc = d.tong.tra_truoc || 0;
+      const khoiTraTruoc = traTruoc
+        ? (coDuKien ? ' · ' : '') + 'Trả trước cho NCC (chưa có hoá đơn): <b class="num">' + KD.tienVnd(traTruoc) + '</b>'
+          + ', ' + KD.soDem(d.tong.so_ncc_tra_truoc || 0) + ' NCC — không trừ vào Còn phải trả'
+          + KD.tip('Đã chi nhiều hơn hoá đơn hiện có cho (các) NCC này — là tiền ứng trước, một khoản phải thu lại/trừ vào hoá đơn sau, không phải nợ.')
+        : '';
+      $('cnk-du-kien').innerHTML = BEN === 'ncc' ? (khoiDuKien + khoiTraTruoc) : '';
       dsDong = d.dong;
       if (!d.dong.length) {
         $('cnk-cuon').hidden = true;
@@ -601,11 +693,17 @@
       + ' · ' + KD.soDem(s.bo_qua || 0) + ' khoản không đổi.';
     const nguon = 'Báo giá: tạo ' + KD.soDem(bg.tao_moi || 0) + ', cập nhật ' + KD.soDem(bg.cap_nhat || 0)
       + ' · Mua hàng: tạo ' + KD.soDem(mh.tao_moi || 0) + ' (' + KD.soDem(mh.bo_qua || 0) + ' đơn mua đã có công nợ).';
+    // 29/09/2026: "(ròng)" = TỔNG mọi đơn kể cả dự kiến/cần kiểm — con số kỹ thuật đo kết quả
+    // đồng bộ, đổi nhãn cho rõ không phải "phải trả" nghiệp vụ. Thêm 3 dòng tách nhóm (view
+    // ketoan.v_nhom_no_don) để KT thấy phần nào thực sự "phải trả" — không cộng dự kiến.
     const bang = '<div class="kd-table-scroll"><table class="kd-table kd-table--gon kt-cn-xt__bang"><caption class="visually-hidden">Số trước và sau đồng bộ</caption><thead><tr>'
       + '<th scope="col">Chỉ tiêu</th><th scope="col" class="num">' + (daChay ? 'Trước' : 'Hiện tại') + '</th><th scope="col" class="num">Sau đồng bộ</th><th scope="col" class="num">Chênh</th></tr></thead><tbody>'
       + dongSo('Còn phải thu khách hàng', soN(pt.truoc.con_lai_doi_tac_con_no), soN(pt.sau.con_lai_doi_tac_con_no), true)
       + dongSo('Số khách còn nợ', pt.truoc.so_doi_tac_con_no, pt.sau.so_doi_tac_con_no, false)
-      + dongSo('Còn phải trả NCC (ròng)', soN(pr.truoc.con_lai_rong), soN(pr.sau.con_lai_rong), true)
+      + dongSo('Tổng ròng NCC (gồm cả dự kiến)', soN(pr.truoc.con_lai_rong), soN(pr.sau.con_lai_rong), true)
+      + dongSo('— Còn phải trả NCC (thực + cần kiểm)', soN(pr.truoc.con_lai_thuc), soN(pr.sau.con_lai_thuc), true)
+      + dongSo('— Nợ dự kiến NCC (chưa chốt)', soN(pr.truoc.con_lai_du_kien), soN(pr.sau.con_lai_du_kien), true)
+      + dongSo('— Trong đó cần kiểm', soN(pr.truoc.con_lai_can_kiem), soN(pr.sau.con_lai_can_kiem), true)
       + '</tbody></table></div>';
     const loai = BEN === 'kh' ? 'phai_thu' : 'phai_tra';
     const top = (r.theo_doi_tac || []).filter((x) => x.loai === loai).slice(0, 6);
@@ -648,6 +746,125 @@
       tai();
     } catch (e) { nut.disabled = false; KD.baoLoiHopThoai(dlgDb, 'Chưa đồng bộ được (không ghi gì): ' + e.message); }
   });
+
+  /* ── Đối chiếu Mua hàng (30/09/2026, quyết định người dùng — phương án B) ──
+     GET /api/cong-no/doi-chieu-mh: chỉ đọc, trả {ap_dung_duoc:[...], can_xu_ly:[...]}.
+     POST .../ap-dung: chỉ gửi (po_id, ncc_id, loai) của dòng đã CHỌN — máy chủ tự tính lại số
+     tiền SỐNG (không tin số client), nên không cần gửi kèm số tiền. CHỈ bên NCC (nút/dialog
+     không tồn tại trong DOM bên KH — xem điều kiện {% if ben == 'ncc' %} ở _kt_cong_no.html). */
+  const dlgDcMh = $('cnk-dlg-dcmh');
+  if (BEN === 'ncc' && dlgDcMh) {
+    let dsDeXuat = [];
+    // 30/09/2026 (giám đốc chốt): chỉ CEO được áp dụng — GET vẫn cho mọi vai trò Kế toán xem,
+    // cờ này tắt ô chọn + nút, KHÔNG chặn ở FE thay cho BE (POST vẫn tự kiểm quyền, đây chỉ để
+    // kế toán không thấy nút chết khó hiểu).
+    let duocApDung = true;
+    const khoaDong = (d) => d.po_id + '\u0001' + (d.ncc_id || '') + '\u0001' + d.loai;
+
+    function veHangDx(d, coO) {
+      const soTien = (v) => (v == null ? '<span class="kd-muted">—</span>' : KD.tienVnd(+v));
+      const hienO = coO && duocApDung;
+      return '<tr' + (coO ? '' : ' class="kt-dc-mh__khong-ap"') + '>'
+        + (hienO ? '<td><input type="checkbox" class="kt-dc-mh__chon" data-khoa="' + esc(khoaDong(d)) + '" aria-label="Chọn dòng ' + esc(d.ncc_ten) + '"></td>' : '<td></td>')
+        + '<td>' + esc(d.po_id) + (d.ma_don ? '<span class="kt-khach__ma">' + esc(d.ma_don) + '</span>' : '') + '</td>'
+        + '<td>' + esc(d.ncc_ten || '—') + '</td>'
+        + '<td class="num">' + soTien(d.mh_so_tien) + '</td>'
+        + '<td class="num">' + soTien(d.kt_so_tien) + '</td>'
+        + '<td>' + (d.loai === 'tao_dong' ? 'Tạo mới' : d.loai === 'cap_nhat_so_tien' ? 'Cập nhật số tiền' : 'Không áp dụng được')
+          + (d.ly_do ? '<span class="kt-khach__ma">' + esc(d.ly_do) + '</span>' : '') + '</td>'
+        + '</tr>';
+    }
+
+    function veDcMh() {
+      const apDuoc = dsDeXuat.filter((d) => d.ap_dung_duoc);
+      const canXuLy = dsDeXuat.filter((d) => !d.ap_dung_duoc);
+      if (!apDuoc.length && !canXuLy.length) {
+        $('cnk-dcmh-nd').innerHTML = KD.khoiRong('Không có gì để đối chiếu', 'Sổ Kế toán và sổ Mua hàng đang khớp nhau cho các đơn đã có hàng trở đi.');
+        return;
+      }
+      const oChonTat = duocApDung ? '<th scope="col"><input type="checkbox" id="cnk-dcmh-chon-tat" aria-label="Chọn tất cả"></th>' : '<th scope="col"></th>';
+      const bangApDuoc = apDuoc.length
+        ? '<div class="kd-table-scroll"><table class="kd-table kd-table--gon kt-dc-mh__bang"><caption class="visually-hidden">Đề xuất áp dụng được</caption><thead><tr>'
+          + oChonTat
+          + '<th scope="col">Đơn</th><th scope="col">NCC</th><th scope="col" class="num">Mua hàng</th><th scope="col" class="num">Kế toán</th><th scope="col">Đề xuất</th>'
+          + '</tr></thead><tbody>' + apDuoc.map((d) => veHangDx(d, true)).join('') + '</tbody></table></div>'
+        : '<p class="kd-note">Không có đề xuất nào áp dụng được.</p>';
+      const khoiCanXuLy = canXuLy.length
+        ? '<h3 class="kd-box__title kt-dc-mh__phu">Cần người xử lý (' + KD.soDem(canXuLy.length) + ')</h3>'
+          + '<div class="kd-table-scroll"><table class="kd-table kd-table--gon kt-dc-mh__bang"><caption class="visually-hidden">Cần người xử lý</caption><thead><tr>'
+          + '<th scope="col"></th><th scope="col">Đơn</th><th scope="col">NCC</th><th scope="col" class="num">Mua hàng</th><th scope="col" class="num">Kế toán</th><th scope="col">Lý do</th>'
+          + '</tr></thead><tbody>' + canXuLy.map((d) => veHangDx(d, false)).join('') + '</tbody></table></div>'
+        : '';
+      // 30/09/2026 (giám đốc chốt): kế toán xem được đề xuất nhưng không áp dụng được — một dòng
+      // chữ nhỏ giải thích, không phải chỉ ẩn nút không rõ lý do.
+      const ghiChuQuyen = (apDuoc.length && !duocApDung) ? '<p class="kd-note">Chỉ CEO được áp dụng đối chiếu.</p>' : '';
+      $('cnk-dcmh-nd').innerHTML = bangApDuoc + ghiChuQuyen + khoiCanXuLy;
+      const chonTat = $('cnk-dcmh-chon-tat');
+      if (chonTat) chonTat.addEventListener('change', () => {
+        document.querySelectorAll('.kt-dc-mh__chon').forEach((o) => { o.checked = chonTat.checked; });
+        capNhatNutOk();
+      });
+      document.querySelectorAll('.kt-dc-mh__chon').forEach((o) => o.addEventListener('change', capNhatNutOk));
+      capNhatNutOk();
+    }
+    function capNhatNutOk() {
+      const ok = $('cnk-dcmh-ok');
+      if (!duocApDung) { ok.hidden = true; ok.disabled = true; return; }
+      ok.hidden = false;
+      const soChon = document.querySelectorAll('.kt-dc-mh__chon:checked').length;
+      ok.disabled = !soChon;
+      ok.textContent = '';
+      ok.innerHTML = '<i class="bi bi-check2" aria-hidden="true"></i>Áp dụng đã chọn' + (soChon ? ' (' + soChon + ')' : '');
+    }
+    async function taiDcMh() {
+      $('cnk-dcmh-nd').innerHTML = '<p class="kd-meta">Đang tính đề xuất (chỉ đọc, chưa ghi gì)…</p>';
+      $('cnk-dcmh-ok').disabled = true;
+      try {
+        const r = await KD.api('/api/cong-no/doi-chieu-mh');
+        dsDeXuat = (r.ap_dung_duoc || []).concat(r.can_xu_ly || []);
+        duocApDung = r.duoc_ap_dung !== false; // field mới, mặc định true nếu BE cũ chưa có
+        veDcMh();
+      } catch (e) {
+        $('cnk-dcmh-nd').innerHTML = '';
+        KD.baoLoiHopThoai(dlgDcMh, 'Chưa tính được đề xuất: ' + e.message);
+      }
+    }
+    async function napNutDcMh() {
+      // Nút "Đối chiếu Mua hàng (N)" tự ẩn khi N=0 — gọi âm thầm lúc tải trang, không chặn màn chính.
+      try {
+        const r = await KD.api('/api/cong-no/doi-chieu-mh');
+        const n = r.so_ap_dung_duoc || 0;
+        const nut = $('cnk-dc-mh-nut');
+        nut.hidden = !n;
+        $('cnk-dc-mh-dem').textContent = n ? ' (' + n + ')' : '';
+      } catch (e) { /* fail-soft — nút vẫn ẩn, không chặn màn Công nợ NCC */ }
+    }
+    $('cnk-dc-mh-nut').addEventListener('click', () => { KD.moHopThoai(dlgDcMh); taiDcMh(); });
+    $('cnk-dcmh-ok').addEventListener('click', async () => {
+      const chon = Array.from(document.querySelectorAll('.kt-dc-mh__chon:checked')).map((o) => {
+        const [po_id, ncc_id, loai] = o.dataset.khoa.split('\u0001');
+        return { po_id, ncc_id: ncc_id || null, loai };
+      });
+      if (!chon.length) return;
+      if (!confirm('Áp dụng ' + chon.length + ' dòng đã chọn vào sổ Kế toán? Thao tác này KHÔNG xoá dòng nào, chỉ cập nhật số tiền hoặc tạo dòng mới — không hoàn tác tự động, cần sửa tay nếu sai.')) return;
+      const nut = $('cnk-dcmh-ok');
+      nut.disabled = true;
+      try {
+        const r = await KD.api('/api/cong-no/doi-chieu-mh/ap-dung', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chon }),
+        });
+        window.showToast && window.showToast('ok', 'Đã áp dụng ' + KD.soDem(r.so_ap_dung || 0) + ' dòng'
+          + (r.so_loi ? ' · ' + KD.soDem(r.so_loi) + ' dòng lỗi' : ''));
+        await taiDcMh();
+        napNutDcMh();
+        tai();
+      } catch (e) {
+        nut.disabled = false;
+        KD.baoLoiHopThoai(dlgDcMh, 'Chưa áp dụng được: ' + e.message);
+      }
+    });
+    napNutDcMh();
+  }
 
   /* ── Thêm / sửa / xoá một khoản công nợ (cơ chế màn cũ /app#cong-no) ──
      Thêm: POST /api/cong-no {loai theo màn, doi_tac, ma_don, ngay, so_tien, da_tra, tai_khoan, han_thanh_toan, ghi_chu}
@@ -780,24 +997,42 @@
       // hoá đơn còn nợ cộng 728.717.049 vì có 378.000.000 trả trước/ứng (dòng so_tien 0, da_tra > 0)
       // chưa cấn trừ vào hoá đơn cụ thể. Hiện dòng cộng + phần bù trừ để hai số khớp nhau.
       const tongCon = con.reduce((a, p) => a + p.con_lai, 0), traTruoc = ct.phieu.reduce((a, p) => a + (p.con_lai < 0 ? p.con_lai : 0), 0);
-      const chanCon = con.length && traTruoc ? '<p class="kt-p-doi-chieu">Cộng hoá đơn còn nợ <b class="num">' + KD.tienVnd(tongCon) + '</b><br>Trả trước/ứng chưa cấn trừ vào hoá đơn <b class="num">' + KD.tienVnd(traTruoc) + '</b><br>= ' + CFG.conLai + ' <b class="num">' + KD.tienVnd(tongCon + traTruoc) + '</b></p>' : '';
+      // LỖI 8 (kiểm chứng độc lập 30/09/2026, ảnh thật, chỉ NCC): ct.con_lai < 0 = trả trước
+      // THUẦN (không còn hoá đơn nợ nào, con.length=0) — công thức cũ chỉ hiện khi con.length &&
+      // traTruoc nên panel chỉ thấy số âm trần, không có công thức giải thích. Hiện công thức cả
+      // khi con.length=0 (0 − traTruoc = trả trước còn lại), và bên KH giữ nguyên hành vi cũ.
+      const laTraTruocP = BEN === 'ncc' && ct.con_lai < 0;
+      const chanCon = (con.length || (laTraTruocP && traTruoc))
+        ? '<p class="kt-p-doi-chieu">Cộng hoá đơn còn nợ <b class="num">' + KD.tienVnd(tongCon) + '</b><br>Trả trước/ứng chưa cấn trừ vào hoá đơn <b class="num">' + KD.tienVnd(traTruoc) + '</b><br>= ' + (laTraTruocP ? 'Trả trước còn lại' : CFG.conLai) + ' <b class="num">' + KD.tienVnd(laTraTruocP ? -(tongCon + traTruoc) : tongCon + traTruoc) + '</b></p>'
+        : '';
+      const chipTraTruoc = laTraTruocP ? '<span class="pill pill--muted">Trả trước</span>' : pillTuoi(ct.nhom_tuoi);
       nd.innerHTML = '<div class="kt-p-khach"><span class="kd-avatar" aria-hidden="true">' + esc(initials(k.ten)) + '</span><div>'
-        + '<p class="kt-p-ten">' + esc(k.ten) + '</p><div class="kd-chips">' + (k.ma ? '<span class="kd-chip kd-chip--xam">' + esc(k.ma) + '</span>' : '') + pillTuoi(ct.nhom_tuoi) + '</div></div></div>'
+        + '<p class="kt-p-ten">' + esc(k.ten) + '</p><div class="kd-chips">' + (k.ma ? '<span class="kd-chip kd-chip--xam">' + esc(k.ma) + '</span>' : '') + chipTraTruoc + '</div></div></div>'
         + (k.sdt || k.nv_kd ? '<dl class="kd-kv">'
           + (k.sdt ? '<dt><i class="bi bi-telephone kd-kv__icon" aria-hidden="true"></i><span class="kd-kv__label">Điện thoại</span></dt><dd><a class="kd-tel" href="tel:' + esc(k.sdt) + '">' + esc(k.sdt) + '</a></dd>' : '')
           + (k.nv_kd ? '<dt><i class="bi bi-person-badge kd-kv__icon" aria-hidden="true"></i><span class="kd-kv__label">' + (BEN === 'ncc' ? 'NV Mua Hàng' : 'NV Kinh Doanh') + '</span></dt><dd>' + esc(k.nv_kd) + '</dd>' : '')
           + '</dl>' : '')
         + '<section class="kd-block" aria-labelledby="cnk-p-h1"><h3 class="kd-block__title" id="cnk-p-h1"><i class="bi bi-cash-stack" aria-hidden="true"></i>Tổng quan đến ' + KD.ngay(ngayTinh()) + '</h3>'
         + '<dl class="kt-tq"><dt>Tổng nợ phát sinh</dt><dd>' + KD.tienVnd(ct.tong_no) + '</dd><dt>' + CFG.daThu + '</dt><dd>' + KD.tienVnd(ct.da_thu) + '</dd>'
-        + '<dt class="is-dam">' + CFG.conLai + '</dt><dd>' + KD.tienVnd(ct.con_lai) + '</dd>'
+        + (laTraTruocP
+          ? '<dt class="is-dam">Trả trước còn lại</dt><dd>' + KD.tienVnd(-ct.con_lai) + '</dd>'
+          : '<dt class="is-dam">' + CFG.conLai + '</dt><dd>' + KD.tienVnd(ct.con_lai) + '</dd>')
         + '<dt>Trong đó quá hạn</dt><dd class="' + (ct.qua_han ? 'kt-so--qua-han' : '') + '">' + KD.tienVnd(ct.qua_han) + '</dd>'
-        + (BEN === 'ncc' ? '<dt>Nợ thực phải trả</dt><dd>' + KD.tienVnd(ct.no_thuc) + '</dd><dt>Nợ dự kiến</dt><dd>' + KD.tienVnd(ct.no_du_kien) + '</dd><dt>Số đơn</dt><dd>' + moTaSoDon(ct.so_don) + '</dd>' : '')
+        // 30/09/2026: panel này chỉ hiện đơn/nợ THỰC của riêng NCC đang xem — dòng "Ngoài số
+        // trên — Nợ dự kiến" (cấp toàn màn, #cnk-du-kien) đã đảm nhận việc thông báo dự kiến.
+        + (BEN === 'ncc' ? '<dt>Số đơn</dt><dd>' + KD.soDem(ct.so_don.thuc) + ' đơn thực' + (ct.so_don.nhap_tay ? ' (' + KD.soDem(ct.so_don.nhap_tay) + ' nhập tay)' : '') + '</dd>' : '')
         + '</dl></section>'
         + '<section class="kd-block" aria-labelledby="cnk-p-h2"><h3 class="kd-block__title" id="cnk-p-h2"><i class="bi bi-receipt" aria-hidden="true"></i>Hoá đơn còn nợ <span class="kd-muted">' + KD.soDem(con.length) + '</span></h3>'
-        + (con.length ? '<ul class="kd-lines kt-lines-2">' + con.map((p) => '<li><span class="kd-strong">' + esc(p.so_phieu) + '</span><b class="num">' + KD.tienVnd(p.con_lai) + '</b>'
-          + '<span class="kd-lines__sub">Hạn ' + (p.han_tt ? KD.ngay(p.han_tt) : '—') + ' · ' + pillPhieu(p.trang_thai, p.trang_thai === 'qua_han' ? 'Quá hạn ' + KD.soDem(p.qua_han_ngay) + ' ngày' : '')
-          + ' <button type="button" class="kd-link kd-link--sm" data-gnt-dt="' + esc(k.id) + '" data-gnt-khoan="' + esc(String(p.id)) + '">' + CFG.lap + '</button></span></li>').join('') + '</ul>' + chanCon
+        // SỬA (đợt 2 kiểm chứng độc lập 30/09/2026): chanCon được TÍNH đúng cả khi con.length=0
+        // (case ứng thừa thuần) nhưng trước đây chỉ được CHÈN vào HTML trong nhánh con.length
+        // truthy — case ứng thừa thuần rơi vào nhánh khoiRong() nên chanCon không bao giờ hiện
+        // dù đã tính đúng giá trị. Tách chanCon ra khỏi ternary, luôn nối vào cuối section.
+        + (con.length
+          ? '<ul class="kd-lines kt-lines-2">' + con.map((p) => '<li><span class="kd-strong">' + esc(p.so_phieu) + '</span><b class="num">' + KD.tienVnd(p.con_lai) + '</b>'
+            + '<span class="kd-lines__sub">Hạn ' + (p.han_tt ? KD.ngay(p.han_tt) : '—') + ' · ' + pillPhieu(p.trang_thai, p.trang_thai === 'qua_han' ? 'Quá hạn ' + KD.soDem(p.qua_han_ngay) + ' ngày' : '')
+            + ' <button type="button" class="kd-link kd-link--sm" data-gnt-dt="' + esc(k.id) + '" data-gnt-khoan="' + esc(String(p.id)) + '">' + CFG.lap + '</button></span></li>').join('') + '</ul>'
           : KD.khoiRong('Không còn hoá đơn nào phải ' + CFG.thu, ''))
+        + chanCon
         + '</section>'
         + '<section class="kd-block" aria-labelledby="cnk-p-h3"><h3 class="kd-block__title" id="cnk-p-h3"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i>' + CFG.lsTieuDe + '</h3>'
         + (ct.lich_su_thu.length ? '<ul class="kd-lines">' + ct.lich_su_thu.map((t) => '<li><span>' + esc(t.so_ct) + '</span><b class="num">' + KD.tienVnd(t.so_tien) + '</b><span class="kd-lines__sub">' + KD.ngay(t.ngay) + ' · ' + esc(t.hinh_thuc || '—') + '</span></li>').join('') + '</ul>'

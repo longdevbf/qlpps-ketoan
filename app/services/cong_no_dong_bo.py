@@ -263,17 +263,51 @@ def _dong_bo_phai_tra(db: Session, username: str, kq: dict[str, Any]) -> None:
 
 
 def _tong_hop(db: Session) -> dict[str, dict[str, dict[str, Decimal]]]:
-    """Số dư theo loại → đối tác (phải thu đã loại dòng thu hộ ĐVVC — cùng định nghĩa màn Công nợ KH)."""
+    """Số dư theo loại → đối tác (phải thu đã loại dòng thu hộ ĐVVC — cùng định nghĩa màn Công nợ KH).
+
+    PHAI_TRA có thêm SUM theo nhóm thực/dự kiến/cần kiểm (ketoan.v_nhom_no_don, quyết định người
+    dùng 29/09/2026 — xem migration q6_2026_09_30) để modal "Đồng bộ công nợ" tách được 3 dòng
+    riêng, không gộp dự kiến vào "phải trả". Nối theo PO trích từ ref_id bằng REGEXP_MATCH — cùng
+    cách đã sửa ở cong_no_ncc.py (regex cũ bỏ sót dòng ref_id không có hậu tố '-NCC').
+
+    SỬA LỖI 2026-09-30: "cần kiểm" CHỈ tính cho dòng THỰC SỰ gắn đơn Mua hàng (ref_id LIKE 'MH-%')
+    mà không nối được PO nào (đơn mồ côi/nhãn lạ). Bản trước gán can_kiem cho MỌI dòng ref_id
+    không nối được view — gồm cả 46 dòng nhập tay/đầu kỳ (ref_id NULL, ref_source rỗng) và dòng
+    ĐVVC (ref_source saleadmin_vc_phai_tra) → "cần kiểm" ra âm 746 triệu, sai hoàn toàn ý nghĩa.
+    Nợ không gắn đơn Mua hàng vẫn là nợ THỰC (giữ đúng hành vi cũ: đã chốt, KT phải trả).
+
+    REFACTOR 2026-09-30 (migration q7): nối PO gộp vào view theo dòng
+    ketoan.v_cong_no_phai_tra_phan_loai (thay 2 JOIN muahang.purchase_orders + v_nhom_no_don
+    lặp lại ở đây và ở cong_no_ncc.py/bao_cao_can_doi.py) — đã kiểm SQL trực tiếp trên dev:
+    0 dòng lệch nhom_no so với công thức cũ trước khi đổi. View chỉ phủ loai='phai_tra' nên
+    dòng phai_thu vẫn LEFT JOIN ra NULL, giữ đúng hành vi cũ (nhom_no NULL khi loai != phai_tra).
+    """
     rows = db.execute(text("""
-        SELECT loai, doi_tac, SUM(so_tien) AS so_tien, SUM(da_tra) AS da_tra, COUNT(*) AS so_dong
-        FROM ketoan.cong_no
-        WHERE NOT (loai = :pt AND COALESCE(ref_source, '') = :thu_ho)
-        GROUP BY loai, doi_tac
+        SELECT cn.loai, cn.doi_tac, cn.so_tien, cn.da_tra, vw.nhom_no
+        FROM ketoan.cong_no cn
+        LEFT JOIN ketoan.v_cong_no_phai_tra_phan_loai vw ON vw.id = cn.id
+        WHERE NOT (cn.loai = :pt AND COALESCE(cn.ref_source, '') = :thu_ho)
     """), {"pt": PHAI_THU, "thu_ho": REF_THU_HO}).mappings().all()
     out: dict[str, dict[str, dict[str, Decimal]]] = {PHAI_THU: {}, PHAI_TRA: {}}
     for r in rows:
-        out.setdefault(r["loai"], {})[r["doi_tac"]] = {
-            "so_tien": _D(r["so_tien"]), "da_tra": _D(r["da_tra"]), "so_dong": int(r["so_dong"])}
+        loai = r["loai"]
+        g = out.setdefault(loai, {}).setdefault(r["doi_tac"], {
+            "so_tien": _0, "da_tra": _0, "so_dong": 0,
+            "so_tien_du_kien": _0, "da_tra_du_kien": _0,
+            "so_tien_can_kiem": _0, "da_tra_can_kiem": _0,
+        })
+        so_tien, da_tra = _D(r["so_tien"]), _D(r["da_tra"])
+        g["so_tien"] += so_tien
+        g["da_tra"] += da_tra
+        g["so_dong"] += 1
+        if loai == PHAI_TRA:
+            nhom = r["nhom_no"] or "can_kiem"
+            if nhom == "du_kien":
+                g["so_tien_du_kien"] += so_tien
+                g["da_tra_du_kien"] += da_tra
+            elif nhom == "can_kiem":
+                g["so_tien_can_kiem"] += so_tien
+                g["da_tra_can_kiem"] += da_tra
     return out
 
 
@@ -281,9 +315,21 @@ def _cong_loai(theo_dt: dict[str, dict[str, Decimal]]) -> dict[str, Any]:
     so_tien = sum((v["so_tien"] for v in theo_dt.values()), _0)
     da_tra = sum((v["da_tra"] for v in theo_dt.values()), _0)
     con_lai_dt = [v["so_tien"] - v["da_tra"] for v in theo_dt.values()]
+    # Nhóm dự kiến/cần kiểm (chỉ có giá trị thật cho PHAI_TRA — PHAI_THU luôn 0 vì _tong_hop
+    # không phân nhóm nợ phải thu). "Thực" = so_tien - (dự kiến + cần kiểm), CHƯA trừ đã trả.
+    so_tien_du_kien = sum((v.get("so_tien_du_kien", _0) for v in theo_dt.values()), _0)
+    da_tra_du_kien = sum((v.get("da_tra_du_kien", _0) for v in theo_dt.values()), _0)
+    so_tien_can_kiem = sum((v.get("so_tien_can_kiem", _0) for v in theo_dt.values()), _0)
+    da_tra_can_kiem = sum((v.get("da_tra_can_kiem", _0) for v in theo_dt.values()), _0)
     return {
         "so_dong": sum(v["so_dong"] for v in theo_dt.values()),
-        "so_tien": so_tien, "da_tra": da_tra, "con_lai_rong": so_tien - da_tra,
+        "so_tien": so_tien, "da_tra": da_tra,
+        # "(ròng)" = TỔNG mọi đơn kể cả dự kiến/cần kiểm — con số kỹ thuật đo kết quả đồng bộ,
+        # KHÔNG phải "phải trả" theo nghĩa nghiệp vụ. Xem con_lai_thuc bên dưới cho số nghiệp vụ.
+        "con_lai_rong": so_tien - da_tra,
+        "con_lai_thuc": (so_tien - so_tien_du_kien) - (da_tra - da_tra_du_kien),
+        "con_lai_du_kien": so_tien_du_kien - da_tra_du_kien,
+        "con_lai_can_kiem": so_tien_can_kiem - da_tra_can_kiem,
         # = thẻ "Còn phải thu/trả" lọc "Còn nợ" (cộng đối tác có số ròng > 0)
         "con_lai_doi_tac_con_no": sum((c for c in con_lai_dt if c > 0), _0),
         "so_doi_tac_con_no": sum(1 for c in con_lai_dt if c > 0),

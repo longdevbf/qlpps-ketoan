@@ -17,6 +17,9 @@
 /* Số theo nghĩa, bản -fg (đọc được cả trên nền dòng đang chọn brand-soft). */
 .kt-so--qua-han { color: var(--danger-fg); font-weight: 600; }
 .kt-so--con { font-weight: 700; }
+/* 30/09/2026 (Bước 3, quyết định người dùng): "Trả trước còn lại" — tiền ứng cho NCC chưa có
+   hoá đơn để trừ, là TÀI SẢN không phải nợ âm. Màu trung tính --info (xám), không phải danger. */
+.kt-so--tra-truoc { color: var(--info-fg); }
 
 /* Dòng khách đang mở rộng: nền lõm nối liền với khối hoá đơn bên dưới. */
 .kt-cn-bang tbody tr.is-mo td { background: var(--bg-page); border-bottom-color: transparent; }
@@ -58,6 +61,15 @@
 .kt-cn-bang tfoot .kt-cong-qh > span { display: inline; margin: 0 var(--sp-2) 0 0; text-align: left; }
 .kt-cn-bang tfoot .kt-cong-qh .num { font-weight: 700; }
 .kt-cong-no .kt-pham-vi { display: flex; align-items: center; }
+/* 30/09/2026: dòng "Ngoài số trên — Nợ dự kiến" (tách bạch, không giấu) — rỗng thì tự ẩn.
+   display:block (KHÔNG kế thừa flex của .kt-pham-vi) để nội dung chảy như một đoạn văn bình
+   thường — flex biến <b> thành flex item riêng, vỡ dòng trên mobile + mất khoảng trắng quanh số.
+   SỬA 30/09/2026 (phiên gốc đo getComputedStyle trên ảnh thật): selector PHẢI cùng tiền tố
+   `.kt-cong-no` như dòng .kt-pham-vi ở trên — 2 lớp thắng 1 lớp bất kể thứ tự trong file, nên
+   bản trước (.kt-pham-vi--du-kien 1 lớp) bị .kt-cong-no .kt-pham-vi (2 lớp) đè, computed vẫn "flex". */
+.kt-cong-no .kt-pham-vi--du-kien:empty { display: none; }
+.kt-cong-no .kt-pham-vi--du-kien { display: block; color: var(--warning-fg); font-size: var(--fs-meta); margin-top: var(--sp-2); }
+.kt-cong-no .kt-pham-vi--du-kien b { font-weight: 700; }
 .kt-con__chan b { color: var(--text-1); }
 .kt-con__nhom { display: block; margin-top: var(--sp-2); }
 .kt-con-bang td { vertical-align: top; }
@@ -73,3 +85,17 @@
 
 /* Cột thao tác bảng con: Ghi nhận + Sửa/Xoá (Sửa/Xoá chỉ hiện với quyền CEO — data-quyen). */
 .kt-con__nut { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); white-space: nowrap; }
+
+/* 30/09/2026: Đối chiếu Mua hàng (phương án B — đề xuất + duyệt). Dòng "không áp dụng được"
+   mờ nhẹ giống .kt-con--xong (khoản đã xong) — không phải lỗi, chỉ là chưa có nút áp. */
+.kt-dc-mh__khong-ap td { color: var(--text-3); }
+.kt-dc-mh__khong-ap td:first-child { opacity: .4; }
+.kt-dc-mh__bang td, .kt-dc-mh__bang th { vertical-align: top; }
+.kt-dc-mh__phu { margin-top: var(--sp-6); font-size: var(--fs-body-lg, var(--fs-body)); font-weight: 600; color: var(--text-1); }
+/* SỬA LỖI 3 (kiểm chứng độc lập 30/09/2026): .kd-dialog__body là grid dùng CHUNG mọi dialog
+   (kd-man-hinh.css) — con của grid mặc định min-width:auto nên co theo NỘI DUNG lớn nhất bên
+   trong (ở đây là bảng .kd-table-scroll rộng ~825px) thay vì co theo khung dialog, làm cả dialog
+   tràn ngang trên desktop lẫn mobile. min-width:0 cho phép item grid co nhỏ hơn nội dung, để
+   .kd-table-scroll bên trong tự cuộn ngang đúng vai trò của nó. CHỈ sửa #cnk-dcmh-nd (không sửa
+   .kd-dialog__body dùng chung) để không ảnh hưởng dialog khác. */
+#cnk-dcmh-nd { min-width: 0; }

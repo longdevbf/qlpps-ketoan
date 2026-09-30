@@ -86,6 +86,11 @@
         thanh_toan_hien_hanh: noNganHan ? tsNganHan / noNganHan : 0,
       },
       kiem: { lech: d0.check.lech, can_bang: d0.check.can_bang, canh_bao: d0.check.warning },
+      // 30/09/2026 (quyết định người dùng): 311 CHỈ cộng nợ NCC thực+cần kiểm — dự kiến (chưa
+      // chốt) và cần kiểm (khoản mất PO) không lộ ra ở dòng 311 nào cả, phải ghi chú riêng dưới
+      // bảng để người dùng không tưởng nợ NCC chỉ có 311. Giá trị lấy thẳng từ API, KHÔNG tính lại.
+      ncc_du_kien: nv.no_phai_tra.phai_tra_ncc_du_kien || 0,
+      ncc_can_kiem: nv.no_phai_tra.phai_tra_ncc_can_kiem || 0,
     };
   }
 
@@ -120,6 +125,22 @@
     },
     phuDe: (d) => 'Cuối tháng ' + d.thang.slice(5) + '/' + d.thang.slice(0, 4) + (d.thang_dau_nam ? ' · đầu năm = 31/12/' + d.thang_dau_nam.slice(0, 4) : ''),
     phamVi: () => 'Số dư chốt cuối tháng chứa ngày đã chọn; tồn kho theo sổ nhập − xuất, hao mòn theo nhật ký khấu hao. Mã số theo mẫu B01-DN để tham khảo.',
+    // 30/09/2026 (quyết định người dùng): 311 "Phải trả người bán" CHỈ cộng nợ NCC thực + cần
+    // kiểm — dự kiến (đơn NCC chưa chốt) tách hẳn, không cộng vào 311/300/440. Ghi chú này là nơi
+    // DUY NHẤT trên màn giải thích số đó đi đâu — thiếu nó người dùng tưởng nợ NCC chỉ có 311.
+    // Câu lệch chỉ hiện khi ncc_du_kien > 0, vì lệch tăng thêm đúng bằng phần dự kiến bị tách ra
+    // (không phải lỗi mới) — không đổi cách TÍNH lệch, chỉ giải thích thêm.
+    ghiChu: (d) => {
+      const phanDuKien = d.ncc_du_kien > 0
+        ? 'Nợ dự kiến (chưa chốt) — không tính vào Phải trả người bán: <b class="num">' + KD.tienVnd(d.ncc_du_kien) + '</b>.'
+          + (d.ncc_can_kiem > 0 ? ' Trong Phải trả người bán có <b class="num">' + KD.tienVnd(d.ncc_can_kiem) + '</b> cần kiểm (khoản gắn đơn mua đã mất).' : '')
+        : '';
+      const coLech = d.kiem.lech && Math.abs(d.kiem.lech) >= 1;
+      const phanLech = (coLech && d.ncc_du_kien > 0)
+        ? 'Đã tách nợ dự kiến khỏi Phải trả người bán (' + KD.tienVnd(d.ncc_du_kien) + ') nên lệch tăng tương ứng; nguyên nhân lệch gốc có từ trước.'
+        : '';
+      return [phanDuKien, phanLech].filter(Boolean).join(' ');
+    },
     sauTai: (d) => {
       if (!$('cd-den-ngay').value) $('cd-den-ngay').value = d.den_ngay;
       const ts = d.raw.tai_san, nv = d.raw.nguon_von, no = nv.no_phai_tra;

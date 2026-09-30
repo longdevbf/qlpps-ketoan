@@ -26,6 +26,14 @@
       <button type="button" class="kd-btn" id="cnk-dong-bo">
         <i class="bi bi-arrow-repeat" aria-hidden="true"></i>Đồng bộ công nợ
       </button>
+      {% if ben == 'ncc' %}
+      {# 30/09/2026 (quyết định người dùng, phương án B): "Đối chiếu Mua hàng" — hệ thống ĐỀ
+         XUẤT (GET /api/cong-no/doi-chieu-mh, chỉ đọc), Kế toán DUYỆT TỪNG DÒNG rồi mới ghi
+         (POST .../ap-dung). CHỈ bên NCC vì hai sổ Kế toán/Mua hàng chỉ tồn tại ở phải trả NCC. #}
+      <button type="button" class="kd-btn" id="cnk-dc-mh-nut" hidden>
+        <i class="bi bi-arrow-left-right" aria-hidden="true"></i>Đối chiếu Mua hàng<span class="kt-dem-loc num" id="cnk-dc-mh-dem"></span>
+      </button>
+      {% endif %}
       {# "Thêm công nợ" = nút "+ Thêm Nợ" màn cũ /app#cong-no (POST /api/cong-no, require_ketoan_user). #}
       <button type="button" class="kd-btn" id="cnk-them">
         <i class="bi bi-plus-lg" aria-hidden="true"></i>Thêm công nợ
@@ -58,6 +66,25 @@
       </footer>
     </form>
   </dialog>
+
+  {% if ben == 'ncc' %}
+  {# 30/09/2026: "Đối chiếu Mua hàng" — phương án B (đề xuất + duyệt từng dòng). Bảng đề xuất áp
+     dụng được (ô chọn) + khối "Cần người xử lý" (chỉ đọc, không có ô chọn, kèm lý do). #}
+  <dialog class="kd-dialog kt-cn-db-dlg" id="cnk-dlg-dcmh" aria-labelledby="cnk-dcmh-td">
+    <form method="dialog" novalidate>
+      <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="cnk-dcmh-td">Đối chiếu với Mua hàng</h2>
+        <button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+      <div class="kd-dialog__body">
+        <p class="kd-meta">So công nợ phải trả NCC giữa sổ Mua hàng (nguồn nghiệp vụ) và sổ Kế toán (sổ chuẩn) — cho các đơn đã có hàng trở đi. Chọn dòng muốn áp dụng rồi bấm "Áp dụng đã chọn"; hệ thống KHÔNG tự sửa số.</p>
+        <div id="cnk-dcmh-nd" aria-live="polite"></div>
+      </div>
+      <footer class="kd-dialog__foot">
+        <button type="button" class="kd-btn" data-dong id="cnk-dcmh-huy">Đóng</button>
+        <button type="button" class="kd-btn kd-btn--primary" id="cnk-dcmh-ok" disabled><i class="bi bi-check2" aria-hidden="true"></i>Áp dụng đã chọn</button>
+      </footer>
+    </form>
+  </dialog>
+  {% endif %}
 
   {# Thêm / sửa một khoản công nợ — form "Thêm Công Nợ" màn cũ (modal-cn): loại cố định theo màn. Sửa = PUT (chỉ CEO). #}
   <dialog class="kd-dialog" id="cnk-dlg-f" aria-labelledby="cnk-f-td">
@@ -119,6 +146,7 @@
       {% endfor %}
     </section>
     <p class="kt-pham-vi" id="cnk-pham-vi"></p>
+    <p class="kt-pham-vi kt-pham-vi--du-kien" id="cnk-du-kien"></p>
   </div>
 
   <div class="kd-main" id="cnk-main">

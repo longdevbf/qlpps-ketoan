@@ -5,3 +5,6 @@
 }
 /* Tiêu đề thẻ "Hoá đơn còn nợ" dính sát hàng tiêu đề bảng — chừa khoảng như thẻ Sổ chi tiết. */
 #kd-kt-doi-tuong .kd-card > .kd-box__head.kt-the-dau { padding: var(--sp-8) var(--sp-8) var(--sp-6); margin: 0; }
+/* 30/09/2026 (Bước 3, lỗi 9 kiểm chứng độc lập): hoá đơn trả DƯ trong bảng — tiền Bên B đang
+   giữ, không phải nợ âm. Cùng token/nghĩa với .kt-so--tra-truoc của kt-cong-no.css. */
+.kt-so--tra-truoc { color: var(--info-fg); }

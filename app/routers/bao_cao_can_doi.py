@@ -197,14 +197,35 @@ def _tscd_breakdown(db: Session, on_date: date_cls) -> tuple[float, float]:
 
 # ─── NGUỒN VỐN ───────────────────────────────────────────────────────────────
 
-def _phai_tra_ncc(db: Session, on_date: date_cls) -> float:
-    rows = db.execute(
-        select(func.coalesce(func.sum(CongNo.con_lai), 0))
-        .where(CongNo.loai == "phai_tra")
-        .where(CongNo.ngay <= on_date)
-        .where(CongNo.trang_thai != "da_tra")
-    ).scalar()
-    return _f(rows)
+def _phai_tra_ncc(db: Session, on_date: date_cls) -> tuple[float, float, float]:
+    """Trả (thực+cần kiểm, dự kiến, cần kiểm riêng) — quyết định người dùng 30/09/2026:
+    mã 331 CHỈ cộng nợ THỰC; nợ DỰ KIẾN thành dòng ghi chú riêng dưới bảng, không cộng vào
+    tổng nguồn vốn; "cần kiểm" vẫn nằm trong 331 (giữ hành vi cũ) nhưng ghi chú riêng số tiền.
+
+    REFACTOR 2026-09-30 (migration q7): nối PO gộp vào view theo dòng
+    ketoan.v_cong_no_phai_tra_phan_loai (thay 2 JOIN muahang.purchase_orders + v_nhom_no_don
+    lặp lại ở đây và ở cong_no_ncc.py/cong_no_dong_bo.py) — đã kiểm SQL trực tiếp trên dev:
+    0 dòng lệch nhom_no so với công thức cũ (REGEXP_MATCH + tra ma_bao_gia cho dòng cọc/trả
+    trước) trước khi đổi.
+    """
+    rows = db.execute(text("""
+        SELECT vw.nhom_no, cn.con_lai
+        FROM ketoan.cong_no cn
+        JOIN ketoan.v_cong_no_phai_tra_phan_loai vw ON vw.id = cn.id
+        WHERE cn.loai = 'phai_tra' AND cn.ngay <= :on_date AND cn.trang_thai != 'da_tra'
+    """), {"on_date": on_date}).mappings().all()
+    thuc_va_can_kiem = 0.0
+    du_kien = 0.0
+    can_kiem = 0.0
+    for r in rows:
+        con_lai = _f(r["con_lai"])
+        if r["nhom_no"] == "du_kien":
+            du_kien += con_lai
+        else:
+            thuc_va_can_kiem += con_lai
+            if r["nhom_no"] == "can_kiem":
+                can_kiem += con_lai
+    return thuc_va_can_kiem, du_kien, can_kiem
 
 
 def _vay_ngan_han_dai_han(db: Session, on_date: date_cls) -> tuple[float, float]:
@@ -389,13 +410,17 @@ def bao_cao_can_doi(
     tong_tai_san = tien_va_td_tong + phai_thu + hang_ton_kho + tscd_rong
 
     # ─── NGUỒN VỐN — Nợ phải trả ──────────────────────────
+    # 30/09/2026: mã 331 chỉ cộng nợ THỰC (+ cần kiểm, giữ hành vi cũ) — dự kiến tách riêng,
+    # KHÔNG cộng vào tổng nguồn vốn. ncc_du_kien/ncc_can_kiem chỉ để ghi chú, không cộng thêm.
+    ncc_du_kien = 0.0
+    ncc_can_kiem = 0.0
     if source == "journal":
         phai_tra_ncc = _agg("331")
         vay_nh = _agg("311")
         vay_dh = _agg("341")
         phai_tra_nv = _agg("334")
     else:
-        legacy_ncc = _phai_tra_ncc(db, den)
+        legacy_ncc, ncc_du_kien, ncc_can_kiem = _phai_tra_ncc(db, den)
         legacy_vay_nh, legacy_vay_dh = _vay_ngan_han_dai_han(db, den)
         if source == "auto":
             phai_tra_ncc = _max_pos(_agg("331"), legacy_ncc)
@@ -480,6 +505,12 @@ def bao_cao_can_doi(
         "nguon_von": {
             "no_phai_tra": {
                 "phai_tra_ncc": phai_tra_ncc,
+                # 30/09/2026: ghi chú riêng, KHÔNG cộng vào phai_tra_ncc/tong ở trên — đơn NCC
+                # còn đang chạy (đặt hàng/đang SX/đã có hàng), chưa được coi là nợ đã chốt.
+                "phai_tra_ncc_du_kien": ncc_du_kien,
+                # Đã NẰM TRONG phai_tra_ncc (nhóm 'can_kiem' gộp vào thực, giữ hành vi cũ) — trường
+                # này chỉ để hiển thị riêng, không cộng thêm.
+                "phai_tra_ncc_can_kiem": ncc_can_kiem,
                 "vay_ngan_han": vay_nh,
                 "vay_dai_han": vay_dh,
                 "phai_tra_nv": phai_tra_nv,
