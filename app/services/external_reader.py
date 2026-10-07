@@ -10,8 +10,10 @@ from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError, OperationalError
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
+
+from .loi_doc import ghi_loi_doc
 
 
 def _safe_scalar(db: Session, sql: str, **params) -> Decimal:
@@ -19,9 +21,9 @@ def _safe_scalar(db: Session, sql: str, **params) -> Decimal:
     try:
         result = db.execute(text(sql), params).scalar()
         return Decimal(result or 0)
-    except (ProgrammingError, OperationalError):
-        # Bảng chưa có hoặc cột chưa khớp → trả 0, không raise
-        db.rollback()
+    except ProgrammingError as _loi:
+        # Bảng chưa có hoặc cột chưa khớp → trả 0 nhưng ghi lại (loi_doc.py); mất kết nối thì để nổi lên
+        ghi_loi_doc(db, _loi)
         return Decimal(0)
 
 
@@ -89,8 +91,8 @@ def read_don_hang_by_thang(
     """
     try:
         rows = db.execute(text(sql), {"tu": tu_ngay, "den": den_ngay}).all()
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return {}
     return {str(k): Decimal(v or 0) for k, v in rows}
 
