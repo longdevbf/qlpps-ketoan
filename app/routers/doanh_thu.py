@@ -14,6 +14,8 @@ from shared.events import emit_event
 
 from ..models import DoanhThu
 from ..schemas import DoanhThuCreate, DoanhThuUpdate, DoanhThuOut
+from ..schemas.doanh_thu import DoanhThuChiTietOut
+from ..services.thu_chi_chi_tiet import doc_khach_theo_don
 from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
@@ -171,6 +173,28 @@ def doanh_thu_by_month(
     """)).mappings().all()
     return [{"thang": r["thang"], "tong": float(r["tong"] or 0), "coc": float(r["coc"] or 0),
              "tt": float(r["tt"] or 0), "count": int(r["count"] or 0)} for r in rows]
+
+
+@router.get("/{rid}/chi-tiet", response_model=DoanhThuChiTietOut)
+def chi_tiet_doanh_thu(
+    rid: int,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+):
+    """Popup chi tiết một phiếu doanh thu (màn Thu chi): mọi cột + khách của đơn, một lần gọi."""
+    obj = db.get(DoanhThu, rid)
+    if not obj:
+        # Câu này hiện thẳng trong khối lỗi của popup → nói bằng chữ người đọc, không dùng tên class.
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"Không tìm thấy phiếu doanh thu DT-{rid} — có thể vừa bị xoá, tải lại danh sách.",
+        )
+    obj.nguon_hien = _nguon_doanh_thu(obj)
+    # Chụp dữ liệu phiếu ra dict TRƯỚC khi đọc chéo app: đọc lỗi thì savepoint bị huỷ,
+    # không kéo theo đối tượng ORM.
+    du_lieu = DoanhThuChiTietOut.model_validate(obj).model_dump()
+    du_lieu["khach"], du_lieu["khach_doc_duoc"] = doc_khach_theo_don(db, du_lieu["ma_don"])
+    return du_lieu
 
 
 @router.get("/{rid}", response_model=DoanhThuOut)

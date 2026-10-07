@@ -4,10 +4,11 @@ Sprint M3 (2026-04-28): thêm `nhom_chi_phi` để phục vụ P&L
 (ban_hang | quan_ly | tai_chinh | khac).
 """
 import re
-from datetime import date as date_cls
+from datetime import date as date_cls, datetime
 from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
@@ -24,6 +25,7 @@ from ..models import (
 from ..schemas import ChiPhiCreate, ChiPhiOut, ChiPhiUpdate
 from ..services.journal import post_journal
 from ..services.tai_khoan_tien import tk_tien_cua
+from ..services.thu_chi_chi_tiet import doc_de_xuat_cua_chi_phi
 from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
@@ -418,6 +420,59 @@ def get_chi_phi(
     if not obj:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "ChiPhi không tồn tại")
     return obj
+
+
+# ─── Chi tiết cho popup màn Thu chi ──────────────────────────────────────────
+# Hai schema chỉ dùng cho endpoint dưới nên khai ngay tại đây (cùng kiểu de_nghi_tt.py).
+
+class DeXuatChiNguon(BaseModel):
+    """Đề xuất chi (shared.expense_requests) đã sinh ra dòng chi phí qua nút Chi — nơi có người nhận tiền."""
+    id: int
+    tieu_de: Optional[str] = None
+    ho_ten: Optional[str] = None                 # người đề xuất
+    phong_ban: Optional[str] = None
+    ngay_de_xuat: Optional[date_cls] = None
+    nguoi_thu_huong: Optional[str] = None        # người / đơn vị NHẬN tiền
+    so_tk_nhan: Optional[str] = None
+    ngan_hang_nhan: Optional[str] = None
+    hinh_thuc: Optional[str] = None              # 'ck' | 'tm' — giao diện đổi sang nhãn
+    ma_don: Optional[str] = None
+    loai_chi_phi: Optional[str] = None
+    chung_tu_urls: list[str] = []
+    ho_ten_nguoi_duyet: Optional[str] = None
+    ngay_duyet: Optional[datetime] = None
+
+
+class ChiPhiChiTietOut(ChiPhiOut):
+    """Đủ 23 cột của chi_phi_phat_sinh (thêm 3 khoá cầu nối ChiPhiOut chưa trả) + đề xuất chi nguồn."""
+    ref_ads_thang_kenh: Optional[str] = None
+    ref_phatsinh: Optional[str] = None
+    ref_dntt: Optional[str] = None
+    de_xuat: Optional[DeXuatChiNguon] = None
+    # False = không đọc được shared.expense_requests trên máy này → giao diện báo "chưa đọc được".
+    de_xuat_doc_duoc: bool = True
+
+
+@router.get("/{rid}/chi-tiet", response_model=ChiPhiChiTietOut)
+def chi_tiet_chi_phi(
+    rid: int,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+):
+    """Popup chi tiết một dòng chi phí: mọi cột + người nhận tiền từ đề xuất chi, trong một lần gọi."""
+    obj = db.get(ChiPhiPhatSinh, rid)
+    if not obj:
+        # Câu này hiện thẳng trong khối lỗi của popup → nói bằng chữ người đọc, không dùng tên class.
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"Không tìm thấy chi phí CP-{rid} — có thể vừa bị xoá, tải lại danh sách.",
+        )
+    obj.nguon = _nguon_chi_phi(obj)
+    # Chụp dữ liệu ra dict TRƯỚC khi đọc chéo app: đọc lỗi thì savepoint bị huỷ,
+    # không kéo theo đối tượng ORM.
+    du_lieu = ChiPhiChiTietOut.model_validate(obj).model_dump()
+    du_lieu["de_xuat"], du_lieu["de_xuat_doc_duoc"] = doc_de_xuat_cua_chi_phi(db, rid)
+    return du_lieu
 
 
 @router.put("/{rid}", response_model=ChiPhiOut)
