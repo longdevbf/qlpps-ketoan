@@ -15,7 +15,7 @@
 {% block head_extra %}
 <link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
 <link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
-<link rel="stylesheet" href="/static/css/kt-thu-chi.css?v=ct1007a">
+<link rel="stylesheet" href="/static/css/kt-thu-chi.css?v=ct1007b">
 {% endblock %}
 
 {% block content %}
@@ -108,7 +108,7 @@
       {# Người nộp đứng cạnh Mã đơn: gõ mã đơn xong, kt-thu-chi.js điền sẵn tên khách của đơn (sửa được, không đè chữ đã gõ). #}
       <div class="kd-row2">
         <div class="kd-field"><label class="kd-field__label" for="tc-dt-ma">Mã đơn</label><input class="kd-input" id="tc-dt-ma" maxlength="64" placeholder="VD: 10221" autocomplete="off"></div>
-        <div class="kd-field"><label class="kd-field__label" for="tc-dt-nop">Người nộp{{ tip('Người nộp tiền — khách hoặc người nộp thay. Nhập Mã đơn thì tự điền tên khách của đơn bên Báo giá; sửa được, đã tự gõ thì không bị ghi đè.', 'kd-tip--trai') }}</label><input class="kd-input" id="tc-dt-nop" maxlength="128" placeholder="VD: Nguyễn Văn A" autocomplete="off" aria-describedby="tc-dt-nop-gy"><p class="kt-tc-goi-y" id="tc-dt-nop-gy" aria-live="polite"></p></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-dt-nop">Người nộp</label><input class="kd-input" id="tc-dt-nop" maxlength="128" placeholder="VD: Nguyễn Văn A" autocomplete="off" aria-describedby="tc-dt-nop-gy"><p class="kt-tc-goi-y" id="tc-dt-nop-gy" aria-live="polite"></p></div>
       </div>
       <div class="kd-field"><label class="kd-field__label" for="tc-dt-gc">Ghi chú</label><textarea class="kd-input" id="tc-dt-gc" rows="2" placeholder="Ghi chú thêm…"></textarea></div>
       <p class="kd-form-err" role="alert" hidden></p>
@@ -223,6 +223,6 @@
 {% block scripts %}
 <script src="/static/js/kd-man-hinh.js?v=tien1001"></script>
 <script src="/static/js/kt-chung.js?v=tk0928b"></script>
-<script src="/static/js/kt-danh-sach.js?v=dot2a-1007"></script>
-<script src="/static/js/kt-thu-chi.js?v=ct1007b"></script>
+<script src="/static/js/kt-danh-sach.js?v=dot2a-1007b"></script>
+<script src="/static/js/kt-thu-chi.js?v=ct1007c"></script>
 {% endblock %}

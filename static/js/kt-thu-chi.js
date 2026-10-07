@@ -85,14 +85,16 @@
   // Link chứng từ chỉ nhận đường dẫn trong app hoặc http(s) (KD.urlAnToan) — chặn "javascript:…" lọt từ dữ liệu người dùng.
   const linkTep = (u, nhan) => { const s = KD.urlAnToan(u);
     return s ? '<a class="kt-ma" href="' + esc(s) + '" target="_blank" rel="noopener">' + esc(nhan) + ' <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a>'
-      : '<span title="' + esc(u) + '">Có tệp nhưng đường dẫn không mở được</span>'; };
+      : '<span class="kd-muted" title="' + esc(u) + '">Có tệp nhưng đường dẫn lỗi, không mở được</span>'; };
+  // Mã đơn → màn Đơn hàng tìm đúng mã đó trên mọi thời gian (truy ngược từ phiếu về đơn gốc).
+  const linkDon = (ma) => (coGt(ma) ? '<a class="kt-ma" href="/ketoan/don-hang?' + KT.url.qs({ tim: ma }) + '">' + esc(ma) + '</a>' : RONG);
   // Chữ dài (diễn giải, ghi chú) trải hết bề ngang dưới bảng nhãn–giá trị — trong lưới 2 cặp/hàng nó bị bó vào cột hẹp.
   const doanDai = (nhan, v) => (coGt(v) ? '<div class="kt-tc-dai"><p class="kt-tc-dai__nhan">' + esc(nhan) + '</p><p class="kd-note">' + esc(v) + '</p></div>' : '');
   const canhBao = (chu) => '<p class="kt-tc-canh">' + esc(chu) + '</p>';
   const ghiChuPhu = (chu) => '<p class="kt-tc-p-phu">' + esc(chu) + '</p>';
   const chipNguon = (nhan) => (nhan ? '<span class="kd-chip">' + esc(nhan) + '</span>' : H.pill('muted', 'Tự nhập'));   // cùng kiểu cột "Loại / nguồn"
   // created_by là username (ten-nhan-vien.js tự đổi mã NV thành họ tên) hoặc tên tài khoản máy của cầu nối tự sinh.
-  const NGUOI_MAY = { 'auto-bridge': 'Hệ thống (cầu nối tự động)', system: 'Hệ thống' };
+  const NGUOI_MAY = { 'auto-bridge': 'Hệ thống (tự ghi từ app khác)', system: 'Hệ thống' };
   const dauVet = (d) => H.khoi('bi-clock-history', 'Dấu vết', H.kv([
     ['Người tạo', NGUOI_MAY[d.created_by] ? NGUOI_MAY[d.created_by] : oChu(d.created_by)],
     ['Tạo lúc', coGt(d.created_at) ? esc(KD.ngayGio(d.created_at)) : RONG],
@@ -115,11 +117,11 @@
       k && coGt(k.salesperson) && ['NV phụ trách đơn', esc(k.salesperson)],
     ]);
     if (!coGt(d.ma_don)) doiTuong += ghiChuPhu('Phiếu không gắn mã đơn nên không tra được khách bên Báo giá.');
-    else if (!d.khach_doc_duoc) doiTuong += canhBao('Chưa đọc được dữ liệu Báo giá trên máy này — thông tin khách của đơn ' + d.ma_don + ' tạm thiếu.');
+    else if (!d.khach_doc_duoc) doiTuong += canhBao('Không đọc được dữ liệu Báo giá lúc này — thông tin khách của đơn ' + d.ma_don + ' tạm thiếu. Thử mở lại; vẫn thiếu thì báo bộ phận IT.');
     else if (!k) doiTuong += canhBao('Không tìm thấy đơn ' + d.ma_don + ' bên Báo giá — kiểm tra lại mã đơn của phiếu.');
     return H.dauPanel('bi-receipt', 'success', 'DT-' + d.id, esc(KD.ngay(d.ngay)) + ' · ' + esc(d.loai || 'Doanh thu'), chipNguon(d.nguon_hien))
       + H.khoi('bi-file-earmark-text', 'Chứng từ', H.kv([
-        ['Số phiếu', 'DT-' + esc(d.id)], ['Ngày ghi nhận', oNgay(d.ngay)], ['Loại doanh thu', oChu(d.loai)], ['Mã đơn', oChu(d.ma_don)],
+        ['Số phiếu', 'DT-' + esc(d.id)], ['Ngày ghi nhận', oNgay(d.ngay)], ['Loại doanh thu', oChu(d.loai)], ['Mã đơn', linkDon(d.ma_don)],
         ['Chứng từ đính kèm', coGt(d.chung_tu_url) ? linkTep(d.chung_tu_url, 'Mở chứng từ') : '<span class="kd-muted">Chưa đính kèm</span>'],
       ]) + doanDai('Diễn giải', d.mo_ta) + doanDai('Ghi chú', d.ghi_chu))
       + H.khoi('bi-cash-stack', 'Tiền', H.kv([
@@ -155,11 +157,13 @@
       ['Người chi', oChu(d.nguoi_chi)],
       ['Phòng ban', oChu(d.phong_ban)],
     ]);
-    if (!d.de_xuat_doc_duoc) doiTuong += canhBao('Chưa đọc được dữ liệu Đề xuất chi trên máy này — nếu dòng này chi từ đề xuất thì người thụ hưởng, số tài khoản nhận đang tạm thiếu.');
+    // Chỉ cảnh báo ở dòng chi từ Đề xuất chi (máy chủ nhận ra qua ghi chú "Chi đề xuất…", không cần đọc bảng đề xuất) —
+    // dòng nguồn khác không liên quan tới bảng đề xuất, cảnh báo ở đó chỉ gây hoang mang.
+    if (!d.de_xuat_doc_duoc && d.nguon === 'Đề xuất chi') doiTuong += canhBao('Không đọc được dữ liệu Đề xuất chi lúc này — người thụ hưởng, số tài khoản nhận tạm thiếu. Thử mở lại; vẫn thiếu thì báo bộ phận IT.');
     return H.dauPanel('bi-wallet2', '', 'CP-' + d.id, esc(KD.ngay(d.ngay)) + ' · ' + esc(d.ten_khoan || d.loai_chi_phi || 'Chi phí'), chipNguon(tuNhap ? '' : d.nguon))
       + H.khoi('bi-file-earmark-text', 'Chứng từ', H.kv([
         ['Số chứng từ', 'CP-' + esc(d.id)], ['Ngày', oNgay(d.ngay)], ['Tên khoản', oChu(d.ten_khoan)], ['Loại chi phí', oChu(d.loai_chi_phi)],
-        ['Mã đơn', oChu(d.ma_don)], ['Hoá đơn', coGt(d.hoa_don_url) ? linkTep(d.hoa_don_url, 'Mở hoá đơn') : '<span class="kd-muted">Chưa đính kèm</span>'],
+        ['Mã đơn', linkDon(d.ma_don)], ['Hoá đơn', coGt(d.hoa_don_url) ? linkTep(d.hoa_don_url, 'Mở hoá đơn') : '<span class="kd-muted">Chưa đính kèm</span>'],
       ]) + doanDai('Diễn giải', d.mo_ta) + doanDai('Ghi chú', d.ghi_chu))
       + H.khoi('bi-cash-stack', 'Tiền', H.kv([
         ['Số tiền', esc(KD.tienVnd(d.so_tien)), true], ['Chi từ tài khoản', oChu(d.ngan_hang)], ['Quỹ sử dụng', oChu(d.quy)],
@@ -237,7 +241,9 @@
     cot: [
       // Đợt 4: gộp Ngày + Số phiếu; Hình thức TT + Tài khoản nhận → bảng 6 cột thay vì 8.
       { key: 'ngay', nhan: 'Ngày · số phiếu', sort: 'so', ve: (r) => KD.ngay(r.ngay) + '<span class="kt-khach__ma kd-strong">DT-' + esc(r.id) + '</span>' },
-      { key: 'don', nhan: 'Đơn hàng / NV kinh doanh', ve: (r) => (r.ma_don ? esc(r.ma_don) : '<span class="kd-muted">—</span>') + (r.nv_kinh_doanh ? '<span class="kt-khach__ma">' + esc(r.nv_kinh_doanh) + '</span>' : '') },
+      // "Nộp:" — ô Tìm khớp cả người nộp, nên dòng khớp phải cho thấy vì sao nó khớp.
+      { key: 'don', nhan: 'Đơn hàng / NV kinh doanh', ve: (r) => (r.ma_don ? esc(r.ma_don) : '<span class="kd-muted">—</span>') + (r.nv_kinh_doanh ? '<span class="kt-khach__ma">' + esc(r.nv_kinh_doanh) + '</span>' : '')
+        + (r.nguoi_nop ? '<span class="kt-khach__ma">Nộp: ' + esc(r.nguoi_nop) + '</span>' : '') },
       { key: 'nguon', nhan: 'Loại / nguồn', ve: (r) => '<span class="kt-khach__ten">' + esc(r.loai || 'Khác') + '</span>' + (r.nguon_hien ? '<span class="kd-chip">' + esc(r.nguon_hien) + '</span>' : H.pill('muted', 'Tự nhập')) },
       { key: 'dg', nhan: 'Diễn giải', ve: (r) => '<span class="kt-tc-dg" title="' + esc(r.mo_ta || r.ghi_chu || r.loai || '') + '">' + esc(r.mo_ta || r.ghi_chu || r.loai || '—') + '</span>' + (r.mo_ta && r.ghi_chu && r.ghi_chu !== r.mo_ta ? '<span class="kt-khach__ma kt-tc-phu" title="' + esc(r.ghi_chu) + '">' + esc(r.ghi_chu) + '</span>' : '') },
       { key: 'ht', nhan: 'Hình thức · TK nhận', ve: (r) => (r.loai_thanh_toan ? '<span class="kd-chip kd-chip--xam">' + esc(r.loai_thanh_toan) + '</span>' : '—') + '<span class="kt-khach__ma">' + (r.ngan_hang ? esc(r.ngan_hang) : '—') + '</span>' },
@@ -501,34 +507,56 @@
     datChon($('tc-dt-tk'), r ? r.ngan_hang : (coChon($('tc-dt-tk'), nho.doc('tk_thu')) ? nho.doc('tk_thu') : ''));
     datChon($('tc-dt-nv'), r ? r.nv_kinh_doanh : '');
     $('tc-dt-ma').value = (r && r.ma_don) || '';
-    $('tc-dt-nop').value = (r && r.nguoi_nop) || ''; nopTuDien = ''; $('tc-dt-nop-gy').textContent = '';
+    // Mở hộp = ngữ cảnh mới: tăng luotNop để kết quả tra khách của lần mở trước (còn đang chờ) không điền nhầm vào phiếu này.
+    $('tc-dt-nop').value = (r && r.nguoi_nop) || ''; nopTuDien = ''; luotNop += 1; datGoiYNop(GOI_Y_NOP);
     $('tc-dt-gc').value = (r && r.ghi_chu) || '';
     KD.moHopThoai(dlgDt);
-    if (r && r.ma_don && !r.nguoi_nop) goiYNguoiNop();   // phiếu cũ có mã đơn mà chưa ghi người nộp → gợi ý luôn, vẫn sửa được
+    // Phiếu cũ có mã đơn mà chưa ghi người nộp → chỉ GỢI Ý kèm nút "Điền tên này", không tự ghi vào ô: mở Sửa để đổi ghi
+    // chú rồi Lưu thì không được âm thầm ghi một tên đoán vào chứng từ cũ (audit sẽ ghi như người dùng tự nhập).
+    if (r && r.ma_don && !r.nguoi_nop) goiYNguoiNop('goi_y');
   }
   /* Người nộp: gõ Mã đơn → điền sẵn tên khách của đơn (GET /api/doanh-thu/khach-theo-don, đọc baogia.quotes).
      Chỉ điền khi ô đang trống hoặc còn giữ đúng chữ lần trước tự điền — người dùng đã tự gõ thì KHÔNG ghi đè.
-     luotNop: gõ nhanh nhiều mã thì chỉ nhận kết quả của lần tra cuối (kết quả cũ về muộn bị bỏ). */
+     luotNop tăng mỗi lần tra VÀ mỗi lần mở hộp: kết quả về muộn của lần tra / lần mở trước bị bỏ. */
+  const GOI_Y_NOP = 'Nhập Mã đơn thì tự điền tên khách của đơn — sửa được.';
+  const datGoiYNop = (chu, canh) => { const gy = $('tc-dt-nop-gy'); gy.textContent = chu; gy.classList.toggle('kt-tc-goi-y--canh', !!canh); };
   let nopTuDien = '', luotNop = 0;
-  async function goiYNguoiNop() {
-    const o = $('tc-dt-nop'), gy = $('tc-dt-nop-gy'), ma = $('tc-dt-ma').value.trim(), l = ++luotNop;
+  async function goiYNguoiNop(cheDo) {
+    const chiGoiY = cheDo === 'goi_y';   // gọi từ ô Mã đơn (debounce) thì tham số là Event → chế độ tự điền
+    const o = $('tc-dt-nop'), ma = $('tc-dt-ma').value.trim(), l = ++luotNop;
     const daTuGo = () => o.value.trim() !== '' && o.value !== nopTuDien;
     if (daTuGo()) return;
-    if (!ma) { o.value = nopTuDien = ''; gy.textContent = ''; return; }
-    gy.textContent = 'Đang tìm khách của đơn ' + ma + '…';
+    if (!ma) { o.value = nopTuDien = ''; datGoiYNop(GOI_Y_NOP); return; }
+    datGoiYNop('Đang tìm khách của đơn ' + ma + '…');
     try {
       const d = await KD.api('/api/doanh-thu/khach-theo-don?' + KT.url.qs({ ma_don: ma }));
-      if (l !== luotNop || daTuGo()) return;
-      const ten = d.khach && coGt(d.khach.customer_name) ? d.khach.customer_name.trim() : '';
+      // Bỏ kết quả về muộn: đã có lượt tra mới / hộp đã mở lại (luotNop), mã đơn trong ô đã khác, hoặc người dùng đã tự gõ.
+      if (l !== luotNop || $('tc-dt-ma').value.trim() !== ma || daTuGo()) return;
+      // maxlength="128" chỉ chặn chữ gõ tay, không chặn giá trị gán bằng JS → cắt cho vừa cột nguoi_nop (VARCHAR 128).
+      const ten = d.khach && coGt(d.khach.customer_name) ? d.khach.customer_name.trim().slice(0, 128) : '';
+      if (chiGoiY) {
+        if (!ten) { datGoiYNop(GOI_Y_NOP); return; }
+        const gy = $('tc-dt-nop-gy');
+        gy.classList.remove('kt-tc-goi-y--canh');
+        gy.innerHTML = 'Khách của đơn ' + esc(ma) + ': ' + esc(ten) + ' <button type="button" class="kd-btn kd-btn--sm" data-dien-nop>Điền tên này</button>';
+        gy.querySelector('[data-dien-nop]').addEventListener('click', () => {
+          o.value = nopTuDien = ten; datGoiYNop('Đã điền theo khách của đơn ' + ma + ' — sửa được.'); o.focus();
+        });
+        return;
+      }
       o.value = nopTuDien = ten;   // không có tên → xoá luôn tên tự điền của mã đơn trước
-      gy.textContent = ten ? 'Tự điền theo khách của đơn ' + ma + ' — sửa được.'
-        : !d.doc_duoc ? 'Chưa đọc được dữ liệu Báo giá — gõ tay người nộp.'
-          : d.khach ? 'Đơn ' + ma + ' chưa ghi tên khách — gõ tay người nộp.' : 'Không thấy đơn ' + ma + ' bên Báo giá — gõ tay người nộp nếu cần.';
-    } catch (e) { if (l === luotNop) gy.textContent = 'Chưa tra được khách của đơn ' + ma + ': ' + e.message; }
+      if (ten) datGoiYNop('Tự điền theo khách của đơn ' + ma + ' — sửa được.');
+      else datGoiYNop(!d.doc_duoc ? 'Không đọc được dữ liệu Báo giá lúc này — gõ tay người nộp.'
+        : d.khach ? 'Đơn ' + ma + ' chưa ghi tên khách — gõ tay người nộp.'
+          : 'Không thấy đơn ' + ma + ' bên Báo giá — kiểm tra lại Mã đơn, hoặc gõ tay người nộp.', true);
+    } catch (e) {
+      console.warn('[thu-chi] tra khách theo mã đơn lỗi:', e);
+      if (l === luotNop) datGoiYNop('Chưa tra được khách của đơn ' + ma + ' — gõ tay người nộp, hoặc sửa lại Mã đơn để tra lại.', true);
+    }
   }
   $('tc-dt-ma').addEventListener('input', KD.debounce(goiYNguoiNop, 400));
-  // Gõ vào ô Người nộp → câu "Tự điền theo…" không còn đúng nữa thì ẩn đi.
-  $('tc-dt-nop').addEventListener('input', () => { if ($('tc-dt-nop').value !== nopTuDien) $('tc-dt-nop-gy').textContent = ''; });
+  // Gõ vào ô Người nộp → câu "Tự điền theo…" / nút "Điền tên này" không còn đúng → trở về câu hướng dẫn.
+  $('tc-dt-nop').addEventListener('input', () => { if ($('tc-dt-nop').value !== nopTuDien) datGoiYNop(GOI_Y_NOP); });
   $('tc-dt-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const s = suaDt, body = { ngay: $('tc-dt-ngay').value, loai: $('tc-dt-loai').value, so_tien: tienSua($('tc-dt-tien'), s && s.so_tien),

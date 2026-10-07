@@ -569,9 +569,11 @@ def orders_overview(
         # ?tim=<mã> với kỳ mặc định "Tháng này", lọc kỳ trước thì đơn tháng khác không bao giờ hiện (07/10/2026).
         # LIMIT giữ 200: ô tìm gọi API sau mỗi lần ngừng gõ, mẩu "NV2" khớp gần như mọi đơn.
         # Dùng ketoan.bo_dau() (services/tim_kiem.py), không lower(… COLLATE "und-x-icu"): bỏ cả dấu nên gõ "tam"
-        # vẫn ra "Tâm" như bộ lọc trình duyệt KT.khopTim trước đây — không làm người dùng mất kết quả cũ.
+        # vẫn ra "Tâm". Khớp trên CHUỖI NỐI 4 trường bằng dấu cách (bỏ trường rỗng) — đúng cách bộ lọc trình duyệt
+        # KT.khopTim trước đây làm, nên gõ trải qua hai trường ("van a 0912": cuối tên + đầu SĐT) vẫn ra như cũ.
         where_clause += " AND " + sql_khop(
-            ("q.quote_number", "q.customer_name", "q.customer_phone", "q.salesperson"), "ov_tim")
+            ("concat_ws(' ', NULLIF(q.quote_number, ''), NULLIF(q.customer_name, ''), "
+             "NULLIF(q.customer_phone, ''), NULLIF(q.salesperson, ''))",), "ov_tim")
         sp_params["ov_tim"] = mau_like(tu_khoa)
     elif ngay_expr and (tu_ngay or den_ngay):
         limit = _OV_LIMIT_CO_KY
@@ -687,7 +689,8 @@ def orders_overview(
                    delivery_cod_received
             FROM saleadmin.vanchuyen
             WHERE ma_don = q.quote_number
-            ORDER BY created_at DESC LIMIT 1
+            -- ma_vh phá hoà khi hai lệnh trùng created_at — panel order-detail sắp y hệt để hiện CÙNG lệnh.
+            ORDER BY created_at DESC, ma_vh DESC LIMIT 1
         ) v ON TRUE
         LEFT JOIN po_agg po ON po.ref_bao_gia = q.quote_number
         LEFT JOIN doanh_thu_agg dta ON dta.ma_don = q.quote_number
@@ -1097,7 +1100,8 @@ def order_detail(
         ma_bg=ma_bg,
     )
 
-    # Đơn giao nhiều đợt có nhiều lệnh VC: lấy lệnh MỚI NHẤT — đúng lệnh mà dòng của orders-overview đang hiện.
+    # Đơn giao nhiều đợt có nhiều lệnh VC: lấy lệnh MỚI NHẤT — cùng thứ tự sắp (kể cả ma_vh phá hoà) với
+    # LATERAL của orders-overview, để panel hiện đúng lệnh mà dòng trên bảng đang hiện.
     vc = _safe_rows(
         db,
         """
@@ -1105,7 +1109,7 @@ def order_detail(
                chi_phi_vc, da_tra_dvvc, tien_thu_ho, dvvc_da_thu, ghi_chu
         FROM saleadmin.vanchuyen
         WHERE ma_don = :ma_bg
-        ORDER BY created_at DESC
+        ORDER BY created_at DESC, ma_vh DESC
         LIMIT 1
         """,
         ma_bg=ma_bg,

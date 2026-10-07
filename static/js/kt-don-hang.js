@@ -62,6 +62,8 @@
   /* Còn thu (đúng công thức màn cũ, anh Quang 28/07): Tổng − Đã thu thực (đã gồm cọc đã ghi
      doanh thu) − phần cọc HỢP ĐỒNG chưa ghi doanh thu. Không trừ cọc 2 lần. Âm = thu thừa. */
   const conThuDoiChieu = (r) => Number(r.tong_don || 0) - Number(r.thu_thuc_te || 0) - Math.max(0, Number(r.deposit || 0) - Number(r.thu_dat_coc || 0));
+  // Từ khoá tìm đã bỏ khoảng trắng hai đầu — "?tim=%20%20" trên URL không phải đang tìm (máy chủ cũng strip).
+  const timGon = (q) => String(q.tim || '').trim();
   function chuanHoaDon(raw, q) {
     const rawData = raw.data;
     const dateBasis = q.date_basis || 'duyet';
@@ -95,7 +97,7 @@
     const tong_dong = list.length, so_trang = Math.max(1, Math.ceil(tong_dong / size)), trang = Math.min(page, so_trang);
     // _tim: có từ khoá thì máy chủ bỏ lọc kỳ (tìm mọi thời gian) — thẻ số / ghi chú phải nói đúng phạm vi đó.
     return { date_basis: dateBasis, tong, trang, so_trang, tong_dong, dong: list.slice((trang - 1) * size, trang * size), _day_du: (rawData || []).length < (raw.limit || 200),
-      _gioi_han: raw.limit || 200, _tim: q.tim || '', _co_ky: !!q.tu && !q.tim };
+      _gioi_han: raw.limit || 200, _tim: timGon(q), _co_ky: !!q.tu && !timGon(q) };
   }
 
   /* ═════════ Tab 1 — Đối chiếu kế toán ═════════ */
@@ -125,7 +127,7 @@
   const PT = 'kt-cot-pt';
   const ds = KT.danhSach({
     // tim gửi lên máy chủ (ô tìm đã debounce 350ms trong kt-danh-sach.js); có tim thì máy chủ bỏ qua tu_ngay/den_ngay.
-    pfx: 'dh', api: (q) => '/api/external/orders-overview?' + KT.url.qs({ filter: q.date_basis === 'ketoan' ? 'done' : q.filter, salesperson: q.salesperson || undefined, date_basis: q.date_basis || 'duyet', tu_ngay: q.tu || undefined, den_ngay: q.den || undefined, tim: q.tim || undefined }), donVi: 'đơn', kyThem: ['hom_nay', '7_ngay', 'tat_ca'],
+    pfx: 'dh', api: (q) => '/api/external/orders-overview?' + KT.url.qs({ filter: q.date_basis === 'ketoan' ? 'done' : q.filter, salesperson: q.salesperson || undefined, date_basis: q.date_basis || 'duyet', tu_ngay: q.tu || undefined, den_ngay: q.den || undefined, tim: timGon(q) || undefined }), donVi: 'đơn', kyThem: ['hom_nay', '7_ngay', 'tat_ca'],
     dangHien: () => tab === 'doi_chieu',
     // Tab Tối ưu dùng chung ô kỳ: tải lại khi khoảng đổi (sau debounce của ô ngày), luôn ghi URL (bảng đối chiếu đang ẩn thì không tự ghi).
     sauDoiKy: (doiKhoang) => { ghiUrl(); if (doiKhoang && tab === 'toi_uu') taiToiUu(); },
@@ -210,19 +212,24 @@
   function veKhoiAnToan(ten, icon, ve) {
     try { return ve(); } catch (e) {
       console.error('[Đơn hàng] Không vẽ được khối "' + ten + '" của panel chi tiết:', e);
-      return H.khoi(icon, ten, '<p class="kd-note kd-note--danger" role="alert">Không hiển thị được khối ' + esc(ten) + '. Các khối khác của đơn vẫn xem được.</p>');
+      return H.khoi(icon, ten, '<p class="kd-note kd-note--danger" role="alert">Không hiển thị được khối ' + esc(ten) + ' vì dữ liệu từ app khác có dạng lạ — bấm "Mở báo giá" bên dưới để xem phần này. Các khối khác của đơn vẫn xem được.</p>');
     }
   }
   function veKhoiThongTin(d, r) {
     const q = doiTuong(d.quote) || {};
     const duyet = q.duyet_boi ? 'Đã duyệt bởi ' + esc(q.duyet_boi) : q.duyet_status ? esc(nhan(DUYET_BG, q.duyet_status, 'trạng thái duyệt báo giá')) : '—';
     return H.dauPanel('bi-receipt', r.con_thu > 0 ? 'warning' : 'success', r.ma_bg, esc(q.customer_name || r.customer_name || ''), pillVC(r.vc_status))
-      + H.kv([['Khách', esc(q.customer_name || '—') + (q.customer_phone ? ' · ' + esc(q.customer_phone) : '')], ['Địa chỉ', esc(q.customer_address && q.customer_address !== 'None' ? q.customer_address : '—')], ['NV kinh doanh', esc(q.salesperson || '—')], ['Ngày tạo', KD.ngay(q.created_at)], ['Duyệt', duyet], ['Tiến trình', esc(q.tien_trinh_mh || '—')]]);
+      + H.kv([['Khách', esc(q.customer_name || r.customer_name || '—') + (q.customer_phone ? ' · ' + esc(q.customer_phone) : '')], ['Địa chỉ', esc(q.customer_address && q.customer_address !== 'None' ? q.customer_address : '—')], ['NV kinh doanh', esc(q.salesperson || '—')], ['Ngày tạo', KD.ngay(q.created_at)], ['Duyệt', duyet], ['Tiến trình', esc(q.tien_trinh_mh || '—')]]);
   }
   function veKhoiTien(d, r) {
-    const q = doiTuong(d.quote) || {}, ct = +r.gia_cong_thuc || 0, ban = +r.gia_ban_matched || 0, thu = +r.thu_dat_coc || 0, tt = +r.thu_thanh_toan || 0;
-    return H.khoi('bi-cash-stack', 'Tiền', H.kv([['Tổng đơn', KD.tienVnd(q.tong_don)], ['Giảm giá', KD.tienVnd(q.discount_amount || 0)], ['Thuế GTGT', KD.tienVnd(q.tien_thue || 0)], ['Giá công thức', ct > 0 ? KD.tienVnd(ct) + (Math.abs(ban - ct) > 0.5 ? ' · bán ' + (ban > ct ? 'cao' : 'thấp') + ' hơn ' + KD.tienVnd(Math.abs(ban - ct)) : ' · đúng giá') : '—'],
-      ['Cọc hợp đồng', KD.tienVnd(q.deposit || 0)], ['Đã thu', KD.tienVnd(r.thu_thuc_te || 0) + (thu || tt ? '<span class="kt-khach__ma">' + [thu ? 'Cọc ' + KD.tienVnd(thu) : '', tt ? 'Thanh toán ' + KD.tienVnd(tt) : ''].filter(Boolean).join(' · ') + '</span>' : '')], ['Còn phải thu', KD.tienVnd(Math.max(0, +r.con_thu || 0)), true]]));
+    // Tổng đơn / thuế / cọc lấy từ DÒNG BẢNG (r — đã làm tròn đồng ở chuanHoaDon), không từ báo giá thô (q, có lẻ
+    // ,81): cùng con số với bảng và thẻ số, và "Còn phải thu" (tính từ r) khớp các số ngay phía trên nó.
+    const q = doiTuong(d.quote), ct = +r.gia_cong_thuc || 0, ban = +r.gia_ban_matched || 0, thu = +r.thu_dat_coc || 0, tt = +r.thu_thanh_toan || 0;
+    const tien = (v) => (v == null ? '—' : KD.tienVnd(v));
+    return H.khoi('bi-cash-stack', 'Tiền', H.kv([['Tổng đơn', tien(r.tong_don)], ['Giảm giá', q ? KD.tienVnd(q.discount_amount || 0) : '—'], ['Thuế GTGT', tien(r.tien_thue)], ['Giá công thức', ct > 0 ? KD.tienVnd(ct) + (Math.abs(ban - ct) > 0.5 ? ' · bán ' + (ban > ct ? 'cao' : 'thấp') + ' hơn ' + KD.tienVnd(Math.abs(ban - ct)) : ' · đúng giá') : '—'],
+      ['Cọc hợp đồng', tien(r.deposit)], ['Đã thu', KD.tienVnd(r.thu_thuc_te || 0) + (thu || tt ? '<span class="kt-khach__ma">' + [thu ? 'Cọc ' + KD.tienVnd(thu) : '', tt ? 'Thanh toán ' + KD.tienVnd(tt) : ''].filter(Boolean).join(' · ') + '</span>' : '')], ['Còn phải thu', KD.tienVnd(Math.max(0, +r.con_thu || 0)), true]])
+      // Báo giá không đọc được: nói ra, không để các ô hiện "0 VND" như số thật.
+      + (q ? '' : '<p class="kt-dh-canh">Không đọc được chi tiết báo giá của đơn này — số tiền lấy từ bảng đối chiếu, giảm giá chưa có. Bấm "Mở báo giá" để xem bản gốc.</p>'));
   }
   function veKhoiSanPham(d) {
     const ds = mang(d.items, 'items');
@@ -249,7 +256,7 @@
     const ds = mang(d.comments, 'comments');
     // Ảnh do app khác ghi: chỉ nhận đường dẫn nội bộ "/…" hoặc http(s) (KD.urlAnToan) — chặn href="javascript:…".
     return H.khoi('bi-chat-dots', 'Trao đổi đơn hàng (' + KD.soDem(ds.length) + ')', ds.length ? '<ul class="kt-dh-tn">' + ds.map((c) => { const anh = KD.urlAnToan(c.hinh_anh);
-      return '<li><p class="kd-meta"><b>' + esc(c.nguoi_gui_name || c.nguoi_gui || '—') + '</b>' + (c.phong_ban ? ' · ' + esc(c.phong_ban) : '') + ' · ' + KD.ngay(c.thoi_gian) + '</p><p>' + esc(c.noi_dung || '') + '</p>' + (anh ? '<a href="' + esc(anh) + '" target="_blank" rel="noopener"><img class="kt-dh-tn__anh" src="' + esc(anh) + '" alt="Ảnh đính kèm tin nhắn" loading="lazy" onerror="this.parentNode.hidden=true"></a>' : '') + '</li>'; }).join('') + '</ul>' : KD.khoiRong('Chưa có trao đổi nào về đơn này', ''));
+      return '<li><p class="kd-meta"><b>' + esc(c.nguoi_gui_name || c.nguoi_gui || '—') + '</b>' + (KD.nhanPhongBan(c.phong_ban) ? ' · ' + esc(KD.nhanPhongBan(c.phong_ban)) : '') + ' · ' + KD.ngay(c.thoi_gian) + '</p><p>' + esc(c.noi_dung || '') + '</p>' + (anh ? '<a href="' + esc(anh) + '" target="_blank" rel="noopener"><img class="kt-dh-tn__anh" src="' + esc(anh) + '" alt="Ảnh đính kèm tin nhắn" loading="lazy" onerror="this.parentNode.hidden=true"></a>' : '') + '</li>'; }).join('') + '</ul>' : KD.khoiRong('Chưa có trao đổi nào về đơn này', ''));
   }
   function veChiTiet(d, r) {
     const dl = doiTuong(d) || {};
