@@ -68,3 +68,6 @@
 .kt-dh-gap[open] .kt-dh-gap__dau { border-bottom: 1px solid var(--border-soft); }
 /* ⓘ cạnh nhãn thẻ số: nút 22px cao hơn dòng chữ → kéo lề để thẻ có/không có ⓘ thẳng hàng nhau */
 .kd-kpi__label .kd-tip { margin-block: -4px; }
+
+/* Panel chi tiết đơn: báo giá không đọc được — cần chú ý (vàng), cùng kiểu .kt-tc-canh của popup Thu–Chi. */
+.kt-dh-canh { margin: var(--sp-6) 0 0; padding: var(--sp-5) var(--sp-6); border-radius: var(--r); background: var(--warning-soft); color: var(--warning-fg); font-size: var(--fs-meta); }

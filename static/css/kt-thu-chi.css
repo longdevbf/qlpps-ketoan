@@ -39,6 +39,28 @@
 .kt-tc-dlg .kd-dialog__foot .kd-btn { min-height: 44px; padding-inline: var(--sp-8); font-size: var(--fs-body-lg); }
 .kt-tc-goi-y { margin: 0; font-size: var(--fs-meta); color: var(--text-3); }
 .kt-tc-goi-y:empty { display: none; }
+/* Không tra được / không thấy đơn: cần chú ý — khác màu câu hướng dẫn thường để không bị đọc lướt qua. */
+.kt-tc-goi-y--canh { color: var(--warning-fg); }
+/* Nút "Điền tên này": dòng riêng, sát mép trái — để cạnh chữ thì đẩy tên khách gãy đôi ("Nguyễn Văn" / "An [nút]"). */
+.kt-tc-goi-y .kd-btn { display: flex; margin: var(--sp-3) 0 0; }
+/* Tên khách đứng một dòng riêng: chen giữa câu thì màn hẹp cắt đôi tên ("Nguyễn Văn" / "An"). */
+.kt-tc-goi-y__ten { display: block; font-weight: 600; color: var(--text-2); overflow-wrap: anywhere; }
+
+/* Popup chi tiết 3 bảng (kt-thu-chi.js veChiTietDt/Cp/Cd). Chữ dài (diễn giải, ghi chú) đặt dưới bảng nhãn–giá trị,
+   trải hết bề ngang — trong lưới 2 cặp/hàng của .kt-tq nó bị bó vào cột hẹp. */
+.kt-tc-dai { margin-top: var(--sp-6); }
+.kt-tc-dai__nhan { margin: 0 0 var(--sp-3); font-size: var(--fs-meta); color: var(--text-3); }
+/* "Chưa đọc được dữ liệu Báo giá / Đề xuất chi", "Không tìm thấy đơn": cần chú ý (vàng), không phải lỗi. */
+.kt-tc-canh { margin: var(--sp-6) 0 0; padding: var(--sp-5) var(--sp-6); border-radius: var(--r); background: var(--warning-soft); color: var(--warning-fg); font-size: var(--fs-meta); }
+.kt-tc-p-phu { margin: var(--sp-6) 0 0; font-size: var(--fs-meta); color: var(--text-3); }
+.kd-panel .kt-ma .bi { font-size: var(--fs-meta); }
+/* Link trong popup (mở chứng từ, hoá đơn, tệp, mã đơn): vùng bấm ≥ 44px trên màn hẹp (frontend-ui luật 8) — cùng mốc
+   1024px với luật 44px chung ở kd-man-hinh.css; màn rộng giữ mật độ desktop. */
+@media (max-width: 1023px) {
+  /* gap: trong flex, dấu cách giữa chữ và icon ↗ bị bỏ. baseline: link cao 44px không kéo lệch nhãn cùng hàng. */
+  .kd-panel .kt-ma { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: 44px; }
+  .kd-panel .kt-tq { align-items: baseline; }
+}
 /* Tỷ lệ % 12 tháng (phương pháp "Nhập tay % từng tháng"). */
 .kt-tc-12 { margin: 0; padding: var(--sp-5) var(--sp-6) var(--sp-6); border: 1px dashed var(--border); border-radius: var(--r); }
 .kt-tc-12 legend { padding: 0 var(--sp-3); }

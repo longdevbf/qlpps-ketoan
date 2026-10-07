@@ -215,7 +215,10 @@ def get_co_dinh(
 ):
     obj = db.get(ChiPhiCoDinh, rid)
     if not obj:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "CoDinh không tồn tại")
+        # Câu này hiện thẳng trong popup chi tiết ở /ketoan/thu-chi → nói bằng lời, không lộ tên class.
+        raise HTTPException(status.HTTP_404_NOT_FOUND,
+                            f"Không tìm thấy khoản chi phí cố định #{rid} — có thể vừa bị xoá. "
+                            "Đóng cửa sổ này rồi tải lại trang để cập nhật danh sách.")
     return obj
 
 

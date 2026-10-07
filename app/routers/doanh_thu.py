@@ -14,6 +14,8 @@ from shared.events import emit_event
 
 from ..models import DoanhThu
 from ..schemas import DoanhThuCreate, DoanhThuUpdate, DoanhThuOut
+from ..schemas.doanh_thu import DoanhThuChiTietOut, KhachTheoDonOut
+from ..services.thu_chi_chi_tiet import doc_khach_theo_don
 from ._deps import require_ketoan_user, require_ceo_thuchi
 
 
@@ -144,7 +146,7 @@ def create_doanh_thu(
     log_action(
         db, app="ketoan", action="create_doanh_thu", user=user, request=request,
         resource=f"doanh_thu:{obj.id}",
-        payload={"ngay": str(obj.ngay), "so_tien": str(obj.so_tien)},
+        payload={"ngay": str(obj.ngay), "so_tien": str(obj.so_tien), "nguoi_nop": obj.nguoi_nop},
     )
     emit_event("revenue:new", {
         "id": obj.id, "ngay": str(obj.ngay) if obj.ngay else None,
@@ -171,6 +173,42 @@ def doanh_thu_by_month(
     """)).mappings().all()
     return [{"thang": r["thang"], "tong": float(r["tong"] or 0), "coc": float(r["coc"] or 0),
              "tt": float(r["tt"] or 0), "count": int(r["count"] or 0)} for r in rows]
+
+
+# "/khach-theo-don" PHẢI khai trước "/{rid}": FastAPI so đường dẫn theo thứ tự khai báo, đứng sau thì
+# "/{rid}" bắt trước rồi trả 422 vì "khach-theo-don" không phải số nguyên.
+@router.get("/khach-theo-don", response_model=KhachTheoDonOut)
+def khach_theo_don(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+    ma_don: str = Query(..., min_length=1, max_length=64),
+):
+    """Khách của một mã đơn (baogia.quotes) — hộp "Ghi nhận doanh thu" điền sẵn ô Người nộp."""
+    khach, doc_duoc = doc_khach_theo_don(db, ma_don)
+    return {"ma_don": ma_don.strip(), "doc_duoc": doc_duoc, "khach": khach}
+
+
+@router.get("/{rid}/chi-tiet", response_model=DoanhThuChiTietOut)
+def chi_tiet_doanh_thu(
+    rid: int,
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+):
+    """Popup chi tiết một phiếu doanh thu (màn Thu chi): mọi cột + khách của đơn, một lần gọi."""
+    obj = db.get(DoanhThu, rid)
+    if not obj:
+        # Câu này hiện thẳng trong khối lỗi của popup → nói bằng chữ người đọc, không dùng tên class.
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"Không tìm thấy phiếu doanh thu DT-{rid} — có thể vừa bị xoá. "
+            "Đóng cửa sổ này rồi tải lại trang để cập nhật danh sách.",
+        )
+    obj.nguon_hien = _nguon_doanh_thu(obj)
+    # Chụp dữ liệu phiếu ra dict TRƯỚC khi đọc chéo app: đọc lỗi thì savepoint bị huỷ,
+    # không kéo theo đối tượng ORM.
+    du_lieu = DoanhThuChiTietOut.model_validate(obj).model_dump()
+    du_lieu["khach"], du_lieu["khach_doc_duoc"] = doc_khach_theo_don(db, du_lieu["ma_don"])
+    return du_lieu
 
 
 @router.get("/{rid}", response_model=DoanhThuOut)

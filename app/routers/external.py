@@ -481,7 +481,7 @@ def orders_salespeople(
     return {"data": data}
 
 
-# orders-overview: giới hạn dòng khi KHÔNG lọc kỳ (giữ như cũ) / khi có lọc kỳ trong SQL.
+# orders-overview: giới hạn dòng khi KHÔNG lọc kỳ hoặc tìm theo từ khoá (giữ như cũ) / khi có lọc kỳ trong SQL.
 _OV_LIMIT = 200
 _OV_LIMIT_CO_KY = 3000
 _OV_TZ = "Asia/Ho_Chi_Minh"
@@ -501,6 +501,7 @@ def orders_overview(
     date_basis: Optional[str] = Query(None, description="duyet|created|ketoan — cột ngày dùng cho tu_ngay/den_ngay"),
     tu_ngay: Optional[date_cls] = Query(None),
     den_ngay: Optional[date_cls] = Query(None),
+    tim: Optional[str] = Query(None, description="Tìm mã báo giá / khách / SĐT / NV KD — có giá trị thì tìm MỌI kỳ"),
 ):
     """Bảng đối chiếu kế toán — overview mỗi đơn báo giá đã duyệt.
 
@@ -508,6 +509,10 @@ def orders_overview(
     TRONG SQL (trước LIMIT) — màn cũ lọc kỳ phía trình duyệt trên 200 đơn mới nhất nên
     kỳ cũ hơn bị thiếu đơn. `date_basis=ketoan` ép filter=done (giống màn cũ).
     Không truyền → hành vi y như cũ (index.html cũ vẫn dùng).
+
+    `tim` (tuỳ chọn, màn /ketoan/don-hang): lọc trong SQL theo mã báo giá, tên khách, SĐT,
+    NV KD — không phân biệt dấu + hoa/thường. Có `tim` thì BỎ lọc kỳ (`tu_ngay`/`den_ngay`):
+    gõ mã đơn là muốn ra đơn đó dù thuộc tháng nào. `filter`/`salesperson` vẫn áp dụng.
 
     `filter`:
       - `active`:  đơn duyệt + CHƯA Hoàn Thành (case-insensitive trim — bắt cả 'hoàn thành' lowercase)
@@ -558,7 +563,19 @@ def orders_overview(
         where_clause += f" AND LOWER(TRIM(COALESCE(q.salesperson,''))) IN ({', '.join(_ph)})"
 
     limit = _OV_LIMIT
-    if ngay_expr and (tu_ngay or den_ngay):
+    tu_khoa = (tim or "").strip()
+    if tu_khoa:
+        # Có từ khoá → tìm MỌI kỳ, bỏ tu_ngay/den_ngay: link "Xem chi tiết đơn" ở Công nợ / Thuế GTGT mở
+        # ?tim=<mã> với kỳ mặc định "Tháng này", lọc kỳ trước thì đơn tháng khác không bao giờ hiện (07/10/2026).
+        # LIMIT giữ 200: ô tìm gọi API sau mỗi lần ngừng gõ, mẩu "NV2" khớp gần như mọi đơn.
+        # Dùng ketoan.bo_dau() (services/tim_kiem.py), không lower(… COLLATE "und-x-icu"): bỏ cả dấu nên gõ "tam"
+        # vẫn ra "Tâm". Khớp trên CHUỖI NỐI 4 trường bằng dấu cách (bỏ trường rỗng) — đúng cách bộ lọc trình duyệt
+        # KT.khopTim trước đây làm, nên gõ trải qua hai trường ("van a 0912": cuối tên + đầu SĐT) vẫn ra như cũ.
+        where_clause += " AND " + sql_khop(
+            ("concat_ws(' ', NULLIF(q.quote_number, ''), NULLIF(q.customer_name, ''), "
+             "NULLIF(q.customer_phone, ''), NULLIF(q.salesperson, ''))",), "ov_tim")
+        sp_params["ov_tim"] = mau_like(tu_khoa)
+    elif ngay_expr and (tu_ngay or den_ngay):
         limit = _OV_LIMIT_CO_KY
         if tu_ngay:
             where_clause += f" AND {ngay_expr} >= :ov_tu"
@@ -672,7 +689,9 @@ def orders_overview(
                    delivery_cod_received
             FROM saleadmin.vanchuyen
             WHERE ma_don = q.quote_number
-            ORDER BY created_at DESC LIMIT 1
+            -- NULLS LAST: DESC mặc định xếp NULL lên đầu, lệnh thiếu created_at không phải lệnh mới nhất.
+            -- ma_vh phá hoà khi hai lệnh trùng created_at — panel order-detail sắp y hệt để hiện CÙNG lệnh.
+            ORDER BY created_at DESC NULLS LAST, ma_vh DESC LIMIT 1
         ) v ON TRUE
         LEFT JOIN po_agg po ON po.ref_bao_gia = q.quote_number
         LEFT JOIN doanh_thu_agg dta ON dta.ma_don = q.quote_number
@@ -1008,7 +1027,9 @@ def order_detail(
 
     Read-only cross-schema.
     """
-    quote_rows = _safe_rows_silent(
+    # Mọi truy vấn ở đây dùng _safe_rows (vẫn fail-soft trả [] nhưng GHI LOG), không _safe_rows_silent:
+    # bản im lặng từng giấu lỗi cột `han_tra` không tồn tại → khối Công nợ của panel luôn rỗng (07/10/2026).
+    quote_rows = _safe_rows(
         db,
         """
         SELECT q.id, q.quote_number AS ma_bg, q.customer_id, q.customer_name,
@@ -1026,7 +1047,7 @@ def order_detail(
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Báo giá {ma_bg} không tồn tại")
     quote = quote_rows[0]
 
-    items = _safe_rows_silent(
+    items = _safe_rows(
         db,
         """
         SELECT stt, product_name AS ten_sp, ma_don, dvt, so_luong,
@@ -1040,7 +1061,7 @@ def order_detail(
         qid=quote["id"],
     )
 
-    pos = _safe_rows_silent(
+    pos = _safe_rows(
         db,
         """
         SELECT po.id AS po_id, po.ten_don, po.status, po.created_at,
@@ -1054,7 +1075,7 @@ def order_detail(
         ma_bg=ma_bg,
     )
 
-    so_quy = _safe_rows_silent(
+    so_quy = _safe_rows(
         db,
         """
         SELECT id, ngay, loai, so_tien, tai_khoan, noi_dung, lien_quan,
@@ -1066,11 +1087,13 @@ def order_detail(
         ma_bg=ma_bg,
     )
 
-    cong_no = _safe_rows_silent(
+    # Cột thật là han_thanh_toan (model CongNo + migration 0001); `han_tra` không tồn tại nên cả câu
+    # từng lỗi UndefinedColumn. Giữ tên khoá han_tra trong JSON như code cũ định trả.
+    cong_no = _safe_rows(
         db,
         """
         SELECT id, ngay, loai, doi_tac, so_tien, da_tra, con_lai,
-               trang_thai, han_tra, ghi_chu
+               trang_thai, han_thanh_toan AS han_tra, ghi_chu
         FROM ketoan.cong_no
         WHERE ma_don = :ma_bg
         ORDER BY ngay DESC, id DESC
@@ -1078,13 +1101,16 @@ def order_detail(
         ma_bg=ma_bg,
     )
 
-    vc = _safe_rows_silent(
+    # Đơn giao nhiều đợt có nhiều lệnh VC: lấy lệnh MỚI NHẤT — cùng thứ tự sắp (kể cả ma_vh phá hoà) với
+    # LATERAL của orders-overview, để panel hiện đúng lệnh mà dòng trên bảng đang hiện.
+    vc = _safe_rows(
         db,
         """
         SELECT ma_vh, trang_thai, ngay_giao, don_vi_vc,
                chi_phi_vc, da_tra_dvvc, tien_thu_ho, dvvc_da_thu, ghi_chu
         FROM saleadmin.vanchuyen
         WHERE ma_don = :ma_bg
+        ORDER BY created_at DESC NULLS LAST, ma_vh DESC
         LIMIT 1
         """,
         ma_bg=ma_bg,
@@ -1093,7 +1119,7 @@ def order_detail(
     # Thread trao đổi cross-app (KD/MKT/MH/CSKH/VC cùng post vào
     # marketing.lead_comments với prefix `[BG <quote_number>] …`).
     prefix = f"[BG {ma_bg}]"
-    comment_rows = _safe_rows_silent(
+    comment_rows = _safe_rows(
         db,
         """
         SELECT lc.id, lc.thoi_gian, lc.nguoi_gui, lc.phong_ban,

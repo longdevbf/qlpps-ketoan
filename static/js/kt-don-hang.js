@@ -11,8 +11,9 @@
    - `/api/external/orders-overview` trả `{filter, limit, data:[...]}` — KHÔNG có "tong" tổng hợp sẵn,
      KHÔNG phân trang. Kỳ (date_basis + tu_ngay/den_ngay) lọc NGAY TRONG SQL (QA 25/09: trước đó
      màn này không lọc kỳ, "Tháng này" hiện cả 200 đơn mới nhất); không lọc kỳ ("Tất cả") thì API
-     vẫn giới hạn 200 đơn mới nhất như màn cũ. `chuanHoaDon()` tự tính con_thu/con_phai_tra, lọc
-     tim/thue, sắp xếp, phân trang, gộp "tong".
+     vẫn giới hạn 200 đơn mới nhất như màn cũ. Từ khoá `tim` cũng lọc trong SQL và tìm MỌI kỳ (07/10/2026:
+     lọc ở trình duyệt trên tập đã lọc kỳ làm link ?tim=<mã> từ Công nợ ra bảng rỗng). `chuanHoaDon()` tự
+     tính con_thu/con_phai_tra, lọc thue, sắp xếp, phân trang, gộp "tong".
    - `/api/external/orders-optimization` GẦN NHƯ khớp 100% (đã kiểm field-by-field); chỉ thiếu 2
      trường tuỳ chọn `max_ck_go_tram` / `max_ck_go_tram_ap_tu` mà UI đã tự bỏ qua an toàn (không
      sửa gì thêm).
@@ -56,11 +57,13 @@
   function ghiMocXem(maBg, luc) { try { const m = docMocXem(); m[maBg] = luc; localStorage.setItem(KEY_XEM, JSON.stringify(m)); } catch (e) { /* private mode — bỏ qua */ } }
   function coTinMoi(r) { if (!r.comment_count || !r.last_comment_at) return false; const m = docMocXem(); return !m[r.ma_bg] || m[r.ma_bg] < r.last_comment_at; }
 
-  /* ── Chuẩn hoá /api/external/orders-overview (mảng phẳng, LIMIT 200, không tu/den/tim/
-     date_basis/thue/page/size/sort) thành dạng khung kt-danh-sach.js cần ── */
+  /* ── Chuẩn hoá /api/external/orders-overview (mảng phẳng; máy chủ lọc kỳ + tim, không lọc thue/page/
+     size/sort) thành dạng khung kt-danh-sach.js cần ── */
   /* Còn thu (đúng công thức màn cũ, anh Quang 28/07): Tổng − Đã thu thực (đã gồm cọc đã ghi
      doanh thu) − phần cọc HỢP ĐỒNG chưa ghi doanh thu. Không trừ cọc 2 lần. Âm = thu thừa. */
   const conThuDoiChieu = (r) => Number(r.tong_don || 0) - Number(r.thu_thuc_te || 0) - Math.max(0, Number(r.deposit || 0) - Number(r.thu_dat_coc || 0));
+  // Từ khoá tìm đã bỏ khoảng trắng hai đầu — "?tim=%20%20" trên URL không phải đang tìm (máy chủ cũng strip).
+  const timGon = (q) => String(q.tim || '').trim();
   function chuanHoaDon(raw, q) {
     const rawData = raw.data;
     const dateBasis = q.date_basis || 'duyet';
@@ -74,7 +77,7 @@
       con_phai_tra: Math.max(0, (Number(r.cn_phai_tra || 0) - Number(r.cn_da_tra || 0)) + (Number(r.chi_phi_vc || 0) - Number(r.da_tra_dvvc || 0))),
       co_tin_moi: coTinMoi(r),
     }));
-    if (q.tim) list = list.filter((r) => KT.khopTim([r.ma_bg, r.customer_name, r.customer_phone, r.salesperson], q.tim));
+    // Không lọc lại q.tim ở đây: máy chủ đã lọc trên MỌI kỳ (cùng quy tắc bỏ dấu với KT.khopTim).
     if (q.thue === 'co_thue') list = list.filter((r) => Number(r.tien_thue || 0) > 0);
     else if (q.thue === 'khong_thue') list = list.filter((r) => !(Number(r.tien_thue || 0) > 0));
     const [cotSort, chieu] = (q.sort || 'ngay_desc').split('_');
@@ -92,7 +95,9 @@
     };
     const size = +q.size || 20, page = Math.max(1, +q.page || 1);
     const tong_dong = list.length, so_trang = Math.max(1, Math.ceil(tong_dong / size)), trang = Math.min(page, so_trang);
-    return { date_basis: dateBasis, tong, trang, so_trang, tong_dong, dong: list.slice((trang - 1) * size, trang * size), _day_du: (rawData || []).length < (raw.limit || 200), _co_ky: !!q.tu };
+    // _tim: có từ khoá thì máy chủ bỏ lọc kỳ (tìm mọi thời gian) — thẻ số / ghi chú phải nói đúng phạm vi đó.
+    return { date_basis: dateBasis, tong, trang, so_trang, tong_dong, dong: list.slice((trang - 1) * size, trang * size), _day_du: (rawData || []).length < (raw.limit || 200),
+      _gioi_han: raw.limit || 200, _tim: timGon(q), _co_ky: !!q.tu && !timGon(q) };
   }
 
   /* ═════════ Tab 1 — Đối chiếu kế toán ═════════ */
@@ -121,7 +126,8 @@
   }
   const PT = 'kt-cot-pt';
   const ds = KT.danhSach({
-    pfx: 'dh', api: (q) => '/api/external/orders-overview?' + KT.url.qs({ filter: q.date_basis === 'ketoan' ? 'done' : q.filter, salesperson: q.salesperson || undefined, date_basis: q.date_basis || 'duyet', tu_ngay: q.tu || undefined, den_ngay: q.den || undefined }), donVi: 'đơn', kyThem: ['hom_nay', '7_ngay', 'tat_ca'],
+    // tim gửi lên máy chủ (ô tìm đã debounce 350ms trong kt-danh-sach.js); có tim thì máy chủ bỏ qua tu_ngay/den_ngay.
+    pfx: 'dh', api: (q) => '/api/external/orders-overview?' + KT.url.qs({ filter: q.date_basis === 'ketoan' ? 'done' : q.filter, salesperson: q.salesperson || undefined, date_basis: q.date_basis || 'duyet', tu_ngay: q.tu || undefined, den_ngay: q.den || undefined, tim: timGon(q) || undefined }), donVi: 'đơn', kyThem: ['hom_nay', '7_ngay', 'tat_ca'],
     dangHien: () => tab === 'doi_chieu',
     // Tab Tối ưu dùng chung ô kỳ: tải lại khi khoảng đổi (sau debounce của ô ngày), luôn ghi URL (bảng đối chiếu đang ẩn thì không tự ghi).
     sauDoiKy: (doiKhoang) => { ghiUrl(); if (doiKhoang && tab === 'toi_uu') taiToiUu(); },
@@ -146,27 +152,29 @@
       { key: 'act', nhan: 'Thao tác', act: true, nhanDong: (r) => r.ma_bg },
     ],
     kpi: {
-      tong_don: (d) => ({ v: H.tienKpi(d.tong.tong_don), title: KD.tienVnd(d.tong.tong_don), phu: KD.soDem(d.tong.so_don) + ' đơn' + (d._day_du ? '' : ' · 200 đơn gần nhất') }),
+      tong_don: (d) => ({ v: H.tienKpi(d.tong.tong_don), title: KD.tienVnd(d.tong.tong_don), phu: KD.soDem(d.tong.so_don) + ' đơn' + (d._day_du ? '' : ' · ' + KD.soDem(d._gioi_han) + (d._tim ? ' đơn khớp gần nhất' : ' đơn gần nhất')) }),
       vat: (d) => ({ v: H.tienKpi(d.tong.tien_vat), title: KD.tienVnd(d.tong.tien_vat), phu: '' }),
       dat_coc: (d) => ({ v: H.tienKpi(d.tong.dat_coc), title: KD.tienVnd(d.tong.dat_coc), phu: '' }),
       da_thu: (d) => ({ v: H.tienKpi(d.tong.da_thu), title: KD.tienVnd(d.tong.da_thu), phu: d.tong.tong_don ? KD.phanTram(d.tong.da_thu / d.tong.tong_don * 100) + ' tổng đơn' : '' }),
       // Còn phải thu = Tổng − Đã thu − cọc HĐ chưa ghi thu + phần thu thừa (đơn âm không trừ vào tổng — như màn cũ).
       con_thu: (d) => ({ v: H.tienKpi(d.tong.con_thu), title: KD.tienVnd(d.tong.con_thu), phu: d.tong.thu_thua ? 'Thu thừa ' + KD.tienGon(d.tong.thu_thua) + ' (' + KD.soDem(d.tong.so_thu_thua) + ' đơn)' : '' }),
     },
-    phamVi: (d) => (d.date_basis === 'ketoan' ? 'Chỉ gồm đơn kế toán đã duyệt.' : ''),
+    // Ô Thời gian vẫn hiện "Tháng này" khi đang tìm → nói rõ kết quả là của mọi thời gian (textContent, không cần esc).
+    phamVi: (d) => [d._tim ? 'Đang tìm “' + d._tim + '” trong mọi thời gian — ô Thời gian không áp dụng khi tìm.' : '', d.date_basis === 'ketoan' ? 'Chỉ gồm đơn kế toán đã duyệt.' : ''].filter(Boolean).join(' '),
     cong: (d) => { const t = d.tong;
       return [{ html: 'Cộng ' + KD.soDem(t.so_don) + ' đơn', span: 3 }, { html: KD.tien(t.tong_don) + '<span class="kt-dh-lech kd-muted">VAT ' + KD.tien(t.tien_vat) + '</span>', num: true }, { html: giaCT(t.gia_cong_thuc, t.gia_ban_matched), num: true, lop: PT },
         { html: KD.tien(t.dat_coc), num: true, lop: PT }, { html: KD.tien(t.da_thu), num: true }, { html: KD.tien(t.con_thu) + (t.thu_thua ? '<span class="kt-dh-lech kd-muted" title="Tổng các dòng âm (thu thừa) — không trừ vào Còn thu">thu thừa −' + KD.tien(t.thu_thua) + '</span>' : ''), num: true },
         { html: KD.tien(t.cn_phai_tra), num: true, lop: PT }, { html: KD.tien(t.cn_da_tra), num: true, lop: PT }, { html: KD.tien(t.phi_vc), num: true, lop: PT }, { html: KD.tien(t.tong_phai_tra), num: true, lop: PT },
         { html: '' }, { html: '' }]; },
-    rong: (d, coLoc) => (coLoc ? ['Không có đơn nào khớp bộ lọc', 'Thử bỏ bớt điều kiện lọc hoặc đổi Thời gian.'] : ['Chưa có đơn đã duyệt trong thời gian này', 'Đơn hiện ở đây sau khi báo giá được duyệt bên app Báo giá.']),
+    rong: (d, coLoc) => (d._tim ? ['Không tìm thấy đơn nào khớp “' + d._tim + '”', 'Đã tìm trong mọi thời gian. Kiểm tra lại mã báo giá, tên khách hoặc số điện thoại, hoặc bỏ bớt bộ lọc khác.']
+      : coLoc ? ['Không có đơn nào khớp bộ lọc', 'Thử bỏ bớt điều kiện lọc hoặc đổi Thời gian.'] : ['Chưa có đơn đã duyệt trong thời gian này', 'Đơn hiện ở đây sau khi báo giá được duyệt bên app Báo giá.']),
     loi: 'Không tải được bảng đối chiếu đơn hàng',
     sauTai: (d) => {
       const th = document.querySelector('#dh-thead [data-sort="ngay"]'); if (th) th.firstChild.textContent = (NGAY_THEO[d.date_basis] || 'Ngày') + ' ';
       $('dh-filter').disabled = d.date_basis === 'ketoan';
       napNvDoiChieu();
       const ch = d.tong.gia_ban_matched - d.tong.gia_cong_thuc;
-      datTip('dh', 'tong_don', 'Lọc theo ' + NGAY_THEO[d.date_basis || 'duyet'].toLowerCase() + '.' + (d.tong.gia_cong_thuc > 0 ? ' Giá công thức ' + KD.tienVnd(d.tong.gia_cong_thuc) + (Math.abs(ch) > 0.5 ? ' (bán ' + (ch > 0 ? 'cao' : 'thấp') + ' hơn ' + KD.tienVnd(Math.abs(ch)) + ')' : '') + '.' : '') + (d._co_ky ? '' : ' Thời gian "Tất cả" chỉ tải 200 đơn tạo gần nhất.'));
+      datTip('dh', 'tong_don', (d._tim ? 'Kết quả tìm trong mọi thời gian, tối đa ' + KD.soDem(d._gioi_han) + ' đơn tạo gần nhất.' : 'Lọc theo ' + NGAY_THEO[d.date_basis || 'duyet'].toLowerCase() + '.') + (d.tong.gia_cong_thuc > 0 ? ' Giá công thức ' + KD.tienVnd(d.tong.gia_cong_thuc) + (Math.abs(ch) > 0.5 ? ' (bán ' + (ch > 0 ? 'cao' : 'thấp') + ' hơn ' + KD.tienVnd(Math.abs(ch)) + ')' : '') + '.' : '') + (d._co_ky || d._tim ? '' : ' Thời gian "Tất cả" chỉ tải 200 đơn tạo gần nhất.'));
       datTip('dh', 'vat', 'Thuế GTGT nằm trong tổng đơn.');
       datTip('dh', 'dat_coc', 'Cọc ghi trên hợp đồng.');
       datTip('dh', 'con_thu', 'Tổng đơn − đã thu − cọc hợp đồng chưa ghi thu.' + (d.tong.thu_thua ? ' Chưa trừ ' + KD.tienVnd(d.tong.thu_thua) + ' thu thừa của ' + KD.soDem(d.tong.so_thu_thua) + ' đơn.' : ''), true);
@@ -189,20 +197,81 @@
     ].filter(Boolean),
   });
 
-  function veChiTiet(d, r) {
-    const q = d.quote || {}, vc = d.vanchuyen;
-    const bang = (dau, dong, rong) => (dong.length ? '<table class="kt-bang-nho"><thead><tr>' + dau.map(([t, n]) => '<th scope="col"' + (n ? ' class="num"' : '') + '>' + t + '</th>').join('') + '</tr></thead><tbody>' + dong.join('') + '</tbody></table>' : KD.khoiRong(rong, ''));
-    return H.dauPanel('bi-receipt', r.con_thu > 0 ? 'warning' : 'success', r.ma_bg, esc(q.customer_name || r.customer_name), pillVC(r.vc_status))
-      + H.kv([['Khách', esc(q.customer_name || '—') + (q.customer_phone ? ' · ' + esc(q.customer_phone) : '')], ['Địa chỉ', esc(q.customer_address && q.customer_address !== 'None' ? q.customer_address : '—')], ['NV kinh doanh', esc(q.salesperson || '—')], ['Ngày tạo', KD.ngay(q.created_at)], ['Duyệt', q.duyet_boi ? 'Đã duyệt bởi ' + esc(q.duyet_boi) : esc(q.duyet_status || '—')], ['Tiến trình', esc(q.tien_trinh_mh || '—')]])
-      + H.khoi('bi-cash-stack', 'Tiền', H.kv([['Tổng đơn', KD.tienVnd(q.tong_don)], ['Giảm giá', KD.tienVnd(q.discount_amount || 0)], ['Thuế GTGT', KD.tienVnd(q.tien_thue || 0)], ['Giá công thức', +r.gia_cong_thuc > 0 ? KD.tienVnd(r.gia_cong_thuc) + (Math.abs(r.gia_ban_matched - r.gia_cong_thuc) > 0.5 ? ' · bán ' + (r.gia_ban_matched > r.gia_cong_thuc ? 'cao' : 'thấp') + ' hơn ' + KD.tienVnd(Math.abs(r.gia_ban_matched - r.gia_cong_thuc)) : ' · đúng giá') : '—'],
-        ['Cọc hợp đồng', KD.tienVnd(q.deposit || 0)], ['Đã thu', KD.tienVnd(r.thu_thuc_te) + (r.thu_dat_coc || r.thu_thanh_toan ? '<span class="kt-khach__ma">' + [r.thu_dat_coc ? 'Cọc ' + KD.tienVnd(r.thu_dat_coc) : '', r.thu_thanh_toan ? 'Thanh toán ' + KD.tienVnd(r.thu_thanh_toan) : ''].filter(Boolean).join(' · ') + '</span>' : '')],['Còn phải thu', KD.tienVnd(Math.max(0, r.con_thu)), true]]))
-      + H.khoi('bi-box', 'Sản phẩm (' + KD.soDem((d.items || []).length) + ')', bang([['Sản phẩm'], ['SL', 1], ['Đơn giá', 1], ['Thành tiền', 1]], (d.items || []).map((x) => '<tr><td>' + esc(x.ten_sp) + '<span class="kt-khach__ma">' + esc([x.ma_don, x.kich_thuoc, x.mau_go, x.mau_vai, x.mau_da, x.loai_son].filter(Boolean).join(' · ')) + '</span></td><td class="num">' + KD.soDem(x.so_luong) + ' ' + esc(x.dvt || '') + '</td><td class="num">' + KD.tien(x.don_gia || 0) + '</td><td class="num">' + KD.tien(x.thanh_tien) + '</td></tr>'), 'Không có sản phẩm'))
-      + H.khoi('bi-truck', 'Đơn mua nhà cung cấp (' + KD.soDem((d.pos || []).length) + ')', bang([['Mã PO'], ['Nhà cung cấp'], ['Chiết khấu', 1], ['Trạng thái']], (d.pos || []).map((p) => '<tr><td>' + esc(p.po_id) + '<span class="kt-khach__ma">' + (p.created_at ? 'Tạo ' + KD.ngay(p.created_at) : '') + '</span></td><td>' + esc(p.ncc_name || '—') + '</td><td class="num">' + KD.tien(p.discount || 0) + '</td><td>' + esc(p.status || '—') + '</td></tr>'), 'Chưa có PO'))
-      + H.khoi('bi-journal-text', 'Sổ quỹ liên quan (' + KD.soDem((d.so_quy || []).length) + ')', bang([['Ngày'], ['Nội dung'], ['Số tiền', 1]], (d.so_quy || []).map((s) => '<tr><td>' + KD.ngay(s.ngay) + '</td><td>' + (s.loai === 'thu' ? 'Thu' : 'Chi') + ' · ' + esc(s.tai_khoan || '—') + '<span class="kt-khach__ma">' + esc(s.noi_dung || '') + '</span></td><td class="num ' + (s.loai === 'thu' ? 'kt-so--tot' : 'kt-so--xau') + '">' + KD.tien(s.so_tien) + '</td></tr>'), 'Chưa có giao dịch sổ quỹ'))
-      + H.khoi('bi-people', 'Công nợ', bang([['Loại'], ['Đối tác'], ['Còn lại', 1]], (d.cong_no || []).map((c) => '<tr><td>' + (c.loai === 'phai_thu' ? 'Phải thu' : 'Phải trả') + (c.ngay ? '<span class="kt-khach__ma">' + KD.ngay(c.ngay) + '</span>' : '') + '</td><td>' + esc(c.doi_tac || '—') + '<span class="kt-khach__ma">' + KD.tien(c.so_tien) + ' · đã ' + KD.tien(c.da_tra || 0) + (c.trang_thai ? ' · ' + esc(c.trang_thai) : '') + '</span></td><td class="num">' + KD.tien(c.con_lai || 0) + '</td></tr>'), 'Chưa có công nợ'))
-      + H.khoi('bi-signpost', 'Vận chuyển', vc ? H.kv([['Mã vận chuyển', esc(vc.ma_vh)], ['Ngày giao', vc.ngay_giao ? KD.ngay(vc.ngay_giao) : '—'], ['Đơn vị vận chuyển', esc(vc.don_vi_vc || '—')], ['Phí vận chuyển', KD.tienVnd(vc.chi_phi_vc || 0) + ' · đã trả ' + KD.tienVnd(vc.da_tra_dvvc || 0)], ['Tiền thu hộ', KD.tienVnd(vc.tien_thu_ho || 0)], ['Sale Admin báo đã thu', KD.tienVnd(vc.dvvc_da_thu || 0)]]) : KD.khoiRong('Chưa có vận chuyển', ''))
-      + H.khoi('bi-chat-dots', 'Trao đổi đơn hàng (' + KD.soDem((d.comments || []).length) + ')', (d.comments || []).length ? '<ul class="kt-dh-tn">' + d.comments.map((c) => '<li><p class="kd-meta"><b>' + esc(c.nguoi_gui_name || c.nguoi_gui || '—') + '</b>' + (c.phong_ban ? ' · ' + esc(c.phong_ban) : '') + ' · ' + KD.ngay(c.thoi_gian) + '</p><p>' + esc(c.noi_dung || '') + '</p>' + (c.hinh_anh ? '<a href="' + esc(c.hinh_anh) + '" target="_blank" rel="noopener"><img class="kt-dh-tn__anh" src="' + esc(c.hinh_anh) + '" alt="Ảnh đính kèm tin nhắn" loading="lazy" onerror="this.parentNode.hidden=true"></a>' : '') + '</li>').join('') + '</ul>' : KD.khoiRong('Chưa có trao đổi nào về đơn này', ''));
+  /* ── Panel chi tiết đơn: mỗi khối một hàm, tự phòng dữ liệu thiếu và tự bắt lỗi của riêng nó ──
+     Trước 07/10/2026 cả panel là MỘT biểu thức: một trường lồng nhau lạ ném lỗi là mất trắng panel, chỉ còn câu
+     "Không tải được chi tiết" (kt-danh-sach.js bắt chung với lỗi API). Nay khối nào hỏng chỉ mất khối đó. */
+  // Dữ liệu gom từ nhiều app (baogia, muahang, saleadmin, marketing…) — không tin hình dạng: không phải mảng → [],
+  // phần tử null/sai kiểu bị bỏ nhưng luôn console.warn để không âm thầm thiếu dòng.
+  const mang = (v, ten) => { const ds = Array.isArray(v) ? v.filter((x) => x && typeof x === 'object') : [];
+    if ((Array.isArray(v) ? v.length : v == null ? 0 : 1) !== ds.length) console.warn('[Đơn hàng] Bỏ dữ liệu sai dạng ở "' + ten + '":', v); return ds; };
+  const doiTuong = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : null);
+  const bangNho = (dau, dong, rong) => (dong.length ? '<table class="kt-bang-nho"><thead><tr>' + dau.map(([t, n]) => '<th scope="col"' + (n ? ' class="num"' : '') + '>' + t + '</th>').join('') + '</tr></thead><tbody>' + dong.join('') + '</tbody></table>' : KD.khoiRong(rong, ''));
+  // Key trạng thái không bao giờ in thô (luật frontend-ui 2): thiếu nhãn → "Chưa đặt tên" + console.warn.
+  const nhan = (bang, k, loai) => { if (Object.prototype.hasOwnProperty.call(bang, k)) return bang[k]; console.warn('[Đơn hàng] ' + loai + ' chưa có nhãn:', k); return 'Chưa đặt tên'; };
+  const DUYET_BG = { approved: 'Đã duyệt', kt_pending: 'Chờ kế toán xác nhận cọc' };
+  function veKhoiAnToan(ten, icon, ve, buocTiep) {
+    try { return ve(); } catch (e) {
+      console.error('[Đơn hàng] Không vẽ được khối "' + ten + '" của panel chi tiết:', e);
+      return H.khoi(icon, ten, '<p class="kd-note kd-note--danger" role="alert">Không hiển thị được khối ' + esc(ten) + ' vì dữ liệu có dạng lạ — '
+        + esc(buocTiep) + '. Các khối khác của đơn vẫn xem được.</p>');
+    }
   }
+  function veKhoiThongTin(d, r) {
+    const q = doiTuong(d.quote) || {};
+    const duyet = q.duyet_boi ? 'Đã duyệt bởi ' + esc(q.duyet_boi) : q.duyet_status ? esc(nhan(DUYET_BG, q.duyet_status, 'trạng thái duyệt báo giá')) : '—';
+    return H.dauPanel('bi-receipt', r.con_thu > 0 ? 'warning' : 'success', r.ma_bg, esc(q.customer_name || r.customer_name || ''), pillVC(r.vc_status))
+      + H.kv([['Khách', esc(q.customer_name || r.customer_name || '—') + (q.customer_phone ? ' · ' + esc(q.customer_phone) : '')], ['Địa chỉ', esc(q.customer_address && q.customer_address !== 'None' ? q.customer_address : '—')], ['NV kinh doanh', esc(q.salesperson || r.salesperson || '—')], ['Ngày tạo', KD.ngay(q.created_at)], ['Duyệt', duyet], ['Tiến trình', esc(q.tien_trinh_mh || '—')]]);
+  }
+  function veKhoiTien(d, r) {
+    // Tổng đơn / thuế / cọc lấy từ DÒNG BẢNG (r — đã làm tròn đồng ở chuanHoaDon), không từ báo giá thô (q, có lẻ
+    // ,81): cùng con số với bảng và thẻ số, và "Còn phải thu" (tính từ r) khớp các số ngay phía trên nó.
+    const q = doiTuong(d.quote), ct = +r.gia_cong_thuc || 0, ban = +r.gia_ban_matched || 0, thu = +r.thu_dat_coc || 0, tt = +r.thu_thanh_toan || 0;
+    const tien = (v) => (v == null ? '—' : KD.tienVnd(v));
+    return H.khoi('bi-cash-stack', 'Tiền', H.kv([['Tổng đơn', tien(r.tong_don)], ['Giảm giá', q ? KD.tienVnd(q.discount_amount || 0) : '—'], ['Thuế GTGT', tien(r.tien_thue)], ['Giá công thức', ct > 0 ? KD.tienVnd(ct) + (Math.abs(ban - ct) > 0.5 ? ' · bán ' + (ban > ct ? 'cao' : 'thấp') + ' hơn ' + KD.tienVnd(Math.abs(ban - ct)) : ' · đúng giá') : '—'],
+      ['Cọc hợp đồng', tien(r.deposit)], ['Đã thu', KD.tienVnd(r.thu_thuc_te || 0) + (thu || tt ? '<span class="kt-khach__ma">' + [thu ? 'Cọc ' + KD.tienVnd(thu) : '', tt ? 'Thanh toán ' + KD.tienVnd(tt) : ''].filter(Boolean).join(' · ') + '</span>' : '')], ['Còn phải thu', KD.tienVnd(Math.max(0, +r.con_thu || 0)), true]])
+      // Báo giá không đọc được: nói ra, không để các ô hiện "0 VND" như số thật.
+      + (q ? '' : '<p class="kt-dh-canh">Không đọc được chi tiết báo giá của đơn này — số tiền lấy từ bảng đối chiếu, giảm giá chưa có. Bấm "Mở báo giá" để xem bản gốc.</p>'));
+  }
+  function veKhoiSanPham(d) {
+    const ds = mang(d.items, 'items');
+    return H.khoi('bi-box', 'Sản phẩm (' + KD.soDem(ds.length) + ')', bangNho([['Sản phẩm'], ['SL', 1], ['Đơn giá', 1], ['Thành tiền', 1]], ds.map((x) => '<tr><td>' + esc(x.ten_sp || '—') + '<span class="kt-khach__ma">' + esc([x.ma_don, x.kich_thuoc, x.mau_go, x.mau_vai, x.mau_da, x.loai_son].filter(Boolean).join(' · ')) + '</span></td><td class="num">' + KD.soDem(x.so_luong) + ' ' + esc(x.dvt || '') + '</td><td class="num">' + KD.tien(x.don_gia || 0) + '</td><td class="num">' + KD.tien(x.thanh_tien) + '</td></tr>'), 'Không có sản phẩm'));
+  }
+  function veKhoiMuaHang(d) {
+    const ds = mang(d.pos, 'pos');
+    return H.khoi('bi-truck', 'Đơn mua nhà cung cấp (' + KD.soDem(ds.length) + ')', bangNho([['Mã PO'], ['Nhà cung cấp'], ['Chiết khấu', 1], ['Trạng thái']], ds.map((p) => '<tr><td>' + esc(p.po_id == null ? '—' : p.po_id) + '<span class="kt-khach__ma">' + (p.created_at ? 'Tạo ' + KD.ngay(p.created_at) : '') + '</span></td><td>' + esc(p.ncc_name || '—') + '</td><td class="num">' + KD.tien(p.discount || 0) + '</td><td>' + esc(p.status || '—') + '</td></tr>'), 'Chưa có PO'));
+  }
+  function veKhoiSoQuy(d) {
+    const ds = mang(d.so_quy, 'so_quy');
+    return H.khoi('bi-journal-text', 'Sổ quỹ liên quan (' + KD.soDem(ds.length) + ')', bangNho([['Ngày'], ['Nội dung'], ['Số tiền', 1]], ds.map((s) => '<tr><td>' + KD.ngay(s.ngay) + '</td><td>' + (s.loai === 'thu' ? 'Thu' : 'Chi') + ' · ' + esc(s.tai_khoan || '—') + '<span class="kt-khach__ma">' + esc(s.noi_dung || '') + '</span></td><td class="num ' + (s.loai === 'thu' ? 'kt-so--tot' : 'kt-so--xau') + '">' + KD.tien(s.so_tien) + '</td></tr>'), 'Chưa có giao dịch sổ quỹ'));
+  }
+  // Tiền VND nguyên — cùng cách làm tròn với dòng bảng (chuanHoaDon) để khối Công nợ khớp khối Tiền ngay trên.
+  const tronDong = (v) => Math.round(Number(v) || 0);
+  function veKhoiCongNo(d) {
+    // trang_thai chỉ có chua_tra/da_tra cho cả hai chiều → đọc theo loai: phải thu là "thu", phải trả là "trả".
+    const ttCn = (c) => { const thu = c.loai === 'phai_thu'; return c.trang_thai === 'da_tra' ? (thu ? 'Đã thu đủ' : 'Đã trả đủ') : c.trang_thai === 'chua_tra' ? (thu ? 'Chưa thu đủ' : 'Chưa trả đủ') : nhan({}, c.trang_thai, 'trạng thái công nợ'); };
+    return H.khoi('bi-people', 'Công nợ', bangNho([['Loại'], ['Đối tác'], ['Còn lại', 1]], mang(d.cong_no, 'cong_no').map((c) => '<tr><td>' + (c.loai === 'phai_thu' ? 'Phải thu' : 'Phải trả') + (c.ngay ? '<span class="kt-khach__ma">' + KD.ngay(c.ngay) + '</span>' : '') + '</td><td>' + esc(c.doi_tac || '—') + '<span class="kt-khach__ma">' + KD.tien(tronDong(c.so_tien)) + ' · đã ' + KD.tien(tronDong(c.da_tra)) + (c.trang_thai ? ' · ' + esc(ttCn(c)) : '') + '</span></td><td class="num">' + KD.tien(tronDong(c.con_lai)) + '</td></tr>'), 'Chưa có công nợ'));
+  }
+  function veKhoiVanChuyen(d) {
+    const vc = doiTuong(d.vanchuyen);
+    return H.khoi('bi-signpost', 'Vận chuyển', vc ? H.kv([['Mã vận chuyển', esc(vc.ma_vh || '—')], ['Ngày giao', KD.ngay(vc.ngay_giao)], ['Đơn vị vận chuyển', esc(vc.don_vi_vc || '—')], ['Phí vận chuyển', KD.tienVnd(vc.chi_phi_vc || 0) + ' · đã trả ' + KD.tienVnd(vc.da_tra_dvvc || 0)], ['Tiền thu hộ', KD.tienVnd(vc.tien_thu_ho || 0)], ['Sale Admin báo đã thu', KD.tienVnd(vc.dvvc_da_thu || 0)]]) : KD.khoiRong('Chưa có vận chuyển', ''));
+  }
+  function veKhoiTraoDoi(d) {
+    const ds = mang(d.comments, 'comments');
+    // Ảnh do app khác ghi: chỉ nhận đường dẫn nội bộ "/…" hoặc http(s) (KD.urlAnToan) — chặn href="javascript:…".
+    return H.khoi('bi-chat-dots', 'Trao đổi đơn hàng (' + KD.soDem(ds.length) + ')', ds.length ? '<ul class="kt-dh-tn">' + ds.map((c) => { const anh = KD.urlAnToan(c.hinh_anh);
+      return '<li><p class="kd-meta"><b>' + esc(c.nguoi_gui_name || c.nguoi_gui || '—') + '</b>' + (KD.nhanPhongBan(c.phong_ban) ? ' · ' + esc(KD.nhanPhongBan(c.phong_ban)) : '') + ' · ' + KD.ngay(c.thoi_gian) + '</p><p>' + esc(c.noi_dung || '') + '</p>' + (anh ? '<a href="' + esc(anh) + '" target="_blank" rel="noopener"><img class="kt-dh-tn__anh" src="' + esc(anh) + '" alt="Ảnh đính kèm tin nhắn" loading="lazy" onerror="this.parentNode.hidden=true"></a>' : '') + '</li>'; }).join('') + '</ul>' : KD.khoiRong('Chưa có trao đổi nào về đơn này', ''));
+  }
+  function veChiTiet(d, r) {
+    const dl = doiTuong(d) || {};
+    const BG = 'bấm "Mở báo giá" bên dưới để xem phần này';
+    // [tên khối, icon, hàm vẽ, bước tiếp theo khi khối lỗi — chỉ đúng nơi dữ liệu đó thật sự nằm]
+    return [['Thông tin đơn', 'bi-receipt', () => veKhoiThongTin(dl, r), BG], ['Tiền', 'bi-cash-stack', () => veKhoiTien(dl, r), BG],
+      ['Sản phẩm', 'bi-box', () => veKhoiSanPham(dl), BG], ['Đơn mua nhà cung cấp', 'bi-truck', () => veKhoiMuaHang(dl), 'xem đơn mua ở app Mua hàng'],
+      ['Sổ quỹ liên quan', 'bi-journal-text', () => veKhoiSoQuy(dl), 'tìm mã đơn ở màn Sổ quỹ'], ['Công nợ', 'bi-people', () => veKhoiCongNo(dl), 'tìm mã đơn ở màn Công nợ'],
+      ['Vận chuyển', 'bi-signpost', () => veKhoiVanChuyen(dl), 'xem lệnh vận chuyển ở app Sale Admin'], ['Trao đổi đơn hàng', 'bi-chat-dots', () => veKhoiTraoDoi(dl), BG]]
+      .map(([ten, icon, ve, buoc]) => veKhoiAnToan(ten, icon, ve, buoc)).join('');
+  }
+
 
   /* ═════════ Tab 2 — Bàn giao trong ngày ═════════ */
   let bgDs = [], bgLuot = 0;

@@ -2,18 +2,20 @@
 {% import "_kt_macro.html" as ui %}
 {# Doanh thu · Chi phí · Chi phí cố định — 3 tab. Dữ liệu thật:
      GET /api/doanh-thu?tu_ngay&den_ngay&loai&nv_kinh_doanh&limit&offset  (KHÔNG tách VAT,
-       KHÔNG có số chứng từ/khách hàng — model chỉ là "phiếu thu doanh số")
+       KHÔNG có cột khách hàng — tên khách đọc từ Báo giá theo mã đơn ở popup chi tiết)
      GET /api/chi-phi?tu_ngay&den_ngay&loai_chi_phi&quy&nhom&limit&offset
      GET /api/co-dinh?tu_thang&den_thang&loai_chi_phi&lap_lai&nhom&limit&offset (danh mục
        khoản chi lặp — KHÔNG có trạng thái "đã ghi sổ tháng này" như bản thiết kế)
    Cả 3 đều trả MẢNG PHẲNG, không có "tong" tổng hợp sẵn — kt-thu-chi.js (dot3b) tự gộp KPI
-   ở trình duyệt trên tối đa 2000 dòng/kỳ (giới hạn limit của API thật). #}
+   ở trình duyệt trên tối đa 2000 dòng/kỳ (giới hạn limit của API thật).
+   Bấm một dòng → popup chi tiết (panel của ui.the_bang): GET /api/doanh-thu/{id}/chi-tiet,
+   /api/chi-phi/{id}/chi-tiet, /api/co-dinh/{id}. #}
 {% block title %}Doanh thu và chi phí{% endblock %}
 {% block page_mod %}page--full{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
 <link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
-<link rel="stylesheet" href="/static/css/kt-thu-chi.css?v=f1a">
+<link rel="stylesheet" href="/static/css/kt-thu-chi.css?v=ct1007d">
 {% endblock %}
 
 {% block content %}
@@ -38,8 +40,8 @@
   <div class="kt-tab-pane" role="tabpanel" id="tc-pane-dt" aria-labelledby="tc-tab-dt">
     {{ ui.the_so('dt', [('tong', 'Tiền thu từ khách', 'success', 'bi-graph-up-arrow'), ('so_dong', 'Số phiếu', 'info', 'bi-receipt'),
                          ('dat_coc', 'Đặt cọc', '', 'bi-piggy-bank'), ('thanh_toan', 'Thanh toán', 'tim', 'bi-cash-stack')], kieu='strip') }}
-    {% call ui.the_bang('dt', 'Tiền thu từ khách') %}
-      {{ ui.o_tim('dt', 'tim', 'Tìm', 'Mã đơn, nhân viên, tài khoản…') }}
+    {% call ui.the_bang('dt', 'Tiền thu từ khách', panel='Chi tiết doanh thu') %}
+      {{ ui.o_tim('dt', 'tim', 'Tìm', 'Mã đơn, người nộp, nhân viên…') }}
       {{ ui.o_chon('dt', 'loai', 'Loại doanh thu', [('', 'Tất cả')]) }}
       {{ ui.o_chon('dt', 'ht', 'Hình thức TT', [('', 'Tất cả'), ('coc', 'Đặt cọc'), ('tt', 'Thanh toán'), ('khac', 'Khác')]) }}
     {% endcall %}
@@ -69,7 +71,7 @@
   <div class="kt-tab-pane" role="tabpanel" id="tc-pane-cp" aria-labelledby="tc-tab-cp" hidden>
     {{ ui.the_so('cp', [('tong', 'Tổng chi phí', 'danger', 'bi-wallet2'), ('lon_nhat', 'Loại chi lớn nhất', 'warning', 'bi-bar-chart'),
                          ('so_dong', 'Số dòng chi phí', '', 'bi-list-ul')], kieu='strip') }}
-    {% call ui.the_bang('cp', 'Chi phí đã ghi sổ') %}
+    {% call ui.the_bang('cp', 'Chi phí đã ghi sổ', panel='Chi tiết chi phí') %}
       {{ ui.o_tim('cp', 'tim', 'Tìm', 'Diễn giải, người chi, mã đơn…') }}
       {{ ui.o_chon('cp', 'loai', 'Loại chi phí', [('', 'Tất cả')]) }}
     {% endcall %}
@@ -78,7 +80,7 @@
   <div class="kt-tab-pane" role="tabpanel" id="tc-pane-cd" aria-labelledby="tc-tab-cd" hidden>
     {{ ui.the_so('cd', [('tong', 'Chi cố định tháng', '', 'bi-calendar3'), ('so_khoan', 'Số khoản áp dụng', 'info', 'bi-list-check'),
                          ('lap_lai', 'Khoản lặp hằng tháng', 'success', 'bi-arrow-repeat'), ('moi', 'Khai báo mới', 'warning', 'bi-plus-square')], kieu='strip', nhan_vung='Chi phí cố định của tháng') }}
-    {% call ui.the_bang('cd', 'Các khoản chi phí cố định', phan_trang=False) %}{% endcall %}
+    {% call ui.the_bang('cd', 'Các khoản chi phí cố định', panel='Chi tiết chi phí cố định', phan_trang=False) %}{% endcall %}
   </div>
 </main>
 
@@ -103,7 +105,11 @@
         <div class="kd-field"><label class="kd-field__label" for="tc-dt-tk">Tài khoản nhận {{ sao() }}</label><select class="kd-input" id="tc-dt-tk"></select></div>
         <div class="kd-field"><label class="kd-field__label" for="tc-dt-nv">NV kinh doanh</label><select class="kd-input" id="tc-dt-nv"></select></div>
       </div>
-      <div class="kd-field"><label class="kd-field__label" for="tc-dt-ma">Mã đơn</label><input class="kd-input" id="tc-dt-ma" maxlength="64" placeholder="VD: 10221" autocomplete="off"></div>
+      {# Người nộp đứng cạnh Mã đơn: gõ mã đơn xong, kt-thu-chi.js điền sẵn tên khách của đơn (sửa được, không đè chữ đã gõ). #}
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-dt-ma">Mã đơn</label><input class="kd-input" id="tc-dt-ma" maxlength="64" placeholder="VD: 10221" autocomplete="off"></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-dt-nop">Người nộp</label><input class="kd-input" id="tc-dt-nop" maxlength="128" placeholder="VD: Nguyễn Văn A" autocomplete="off" aria-describedby="tc-dt-nop-gy"><p class="kt-tc-goi-y" id="tc-dt-nop-gy" aria-live="polite"></p></div>
+      </div>
       <div class="kd-field"><label class="kd-field__label" for="tc-dt-gc">Ghi chú</label><textarea class="kd-input" id="tc-dt-gc" rows="2" placeholder="Ghi chú thêm…"></textarea></div>
       <p class="kd-form-err" role="alert" hidden></p>
     </div>
@@ -217,6 +223,6 @@
 {% block scripts %}
 <script src="/static/js/kd-man-hinh.js?v=tien1001"></script>
 <script src="/static/js/kt-chung.js?v=tk0928b"></script>
-<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
-<script src="/static/js/kt-thu-chi.js?v=tk0928a"></script>
+<script src="/static/js/kt-danh-sach.js?v=dot2a-1007c"></script>
+<script src="/static/js/kt-thu-chi.js?v=ct1007e"></script>
 {% endblock %}

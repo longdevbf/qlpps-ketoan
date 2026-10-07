@@ -141,12 +141,27 @@
         panel.mo(tr); const nd = $('p-noi-dung'), nut = $('p-nut'), l = ++luotP;
         if (c.panel.tieuDe) $('p-td').textContent = c.panel.tieuDe(r);
         nd.innerHTML = KD.KHUNG_TAI; nut.innerHTML = '';
+        let ct;
         try {
-          const ct = c.panel.tai ? await KD.api(c.panel.tai(r)) : r;
+          ct = c.panel.tai ? await KD.api(c.panel.tai(r)) : r;
+        } catch (e) {   // lỗi TẢI: KD.api đã đổi thành câu cho người đọc (mất mạng, hết phiên, 404…)
           if (l !== luotP) return;
+          console.error('[KT.danhSach] tải panel ' + c.pfx + ' lỗi:', e);
+          KD.khoiLoi(nd, c.panel.loi || 'Không tải được chi tiết', e, () => tr.click()); return;
+        }
+        if (l !== luotP) return;
+        try {
           nd.innerHTML = c.panel.ve(ct, r); nut.innerHTML = c.panel.nut ? c.panel.nut(ct, r) : '';
           if (c.panel.sau) c.panel.sau(nd, ct, r, nut);
-        } catch (e) { if (l !== luotP) return; KD.khoiLoi(nd, c.panel.loi || 'Không tải được chi tiết', e, () => tr.click()); }
+        } catch (e) {
+          // Lỗi VẼ (vd TypeError khi dữ liệu có dạng lạ): câu gốc của trình duyệt là chữ kỹ thuật → chỉ ghi console,
+          // màn hình nói bằng lời kèm bước tiếp theo.
+          console.error('[KT.danhSach] vẽ panel ' + c.pfx + ' lỗi:', e);
+          nut.innerHTML = '';
+          // Khung dùng chung cho mọi màn danh sách (Lương, Tồn kho…) — câu không nhắc "số chứng từ" vì màn nào cũng phải đúng.
+          KD.khoiLoi(nd, 'Không hiển thị được chi tiết', new Error('Dữ liệu của dòng này có dạng lạ nên màn hình chưa vẽ được. '
+            + 'Bấm Thử lại; vẫn lỗi thì báo bộ phận IT dòng đang xem.'), () => tr.click());
+        }
       }, c.chiTiet ? (tr) => { const r = ds.find((x) => String(idDong(x)) === tr.dataset.id); const h = r && c.chiTiet(r); if (h) location.href = h; } : null);
     } else if (c.chiTiet) {
       KT.ganDongBang($('tbody'), (tr) => { const r = ds.find((x) => String(idDong(x)) === tr.dataset.id); const h = r && c.chiTiet(r); if (h) location.href = h; });
