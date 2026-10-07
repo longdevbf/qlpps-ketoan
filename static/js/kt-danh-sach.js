@@ -158,8 +158,9 @@
           // màn hình nói bằng lời kèm bước tiếp theo.
           console.error('[KT.danhSach] vẽ panel ' + c.pfx + ' lỗi:', e);
           nut.innerHTML = '';
-          KD.khoiLoi(nd, 'Không hiển thị được chi tiết', new Error('Dữ liệu của bản ghi này có dạng lạ nên màn hình chưa vẽ được. '
-            + 'Bấm Thử lại; vẫn lỗi thì báo bộ phận IT kèm số chứng từ.'), () => tr.click());
+          // Khung dùng chung cho mọi màn danh sách (Lương, Tồn kho…) — câu không nhắc "số chứng từ" vì màn nào cũng phải đúng.
+          KD.khoiLoi(nd, 'Không hiển thị được chi tiết', new Error('Dữ liệu của dòng này có dạng lạ nên màn hình chưa vẽ được. '
+            + 'Bấm Thử lại; vẫn lỗi thì báo bộ phận IT dòng đang xem.'), () => tr.click());
         }
       }, c.chiTiet ? (tr) => { const r = ds.find((x) => String(idDong(x)) === tr.dataset.id); const h = r && c.chiTiet(r); if (h) location.href = h; } : null);
     } else if (c.chiTiet) {

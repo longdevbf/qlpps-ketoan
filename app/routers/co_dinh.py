@@ -217,7 +217,8 @@ def get_co_dinh(
     if not obj:
         # Câu này hiện thẳng trong popup chi tiết ở /ketoan/thu-chi → nói bằng lời, không lộ tên class.
         raise HTTPException(status.HTTP_404_NOT_FOUND,
-                            f"Không tìm thấy khoản chi phí cố định #{rid} — có thể vừa bị xoá, tải lại danh sách.")
+                            f"Không tìm thấy khoản chi phí cố định #{rid} — có thể vừa bị xoá. "
+                            "Đóng cửa sổ này rồi tải lại trang để cập nhật danh sách.")
     return obj
 
 

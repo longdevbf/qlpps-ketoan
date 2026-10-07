@@ -200,7 +200,8 @@ def chi_tiet_doanh_thu(
         # Câu này hiện thẳng trong khối lỗi của popup → nói bằng chữ người đọc, không dùng tên class.
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
-            f"Không tìm thấy phiếu doanh thu DT-{rid} — có thể vừa bị xoá, tải lại danh sách.",
+            f"Không tìm thấy phiếu doanh thu DT-{rid} — có thể vừa bị xoá. "
+            "Đóng cửa sổ này rồi tải lại trang để cập nhật danh sách.",
         )
     obj.nguon_hien = _nguon_doanh_thu(obj)
     # Chụp dữ liệu phiếu ra dict TRƯỚC khi đọc chéo app: đọc lỗi thì savepoint bị huỷ,

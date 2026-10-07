@@ -15,6 +15,9 @@ MỌI chỗ đọc/ghi DoanhThu qua ORM (cùng kiểu lỗi cột ref_sepay củ
         tải chứng từ doanh thu (uploads.py), bridge doanh thu từ PO (services/revenue_from_order.py);
   ghi — Ghi nhận doanh thu, Duyệt cọc, cọc bổ sung (coc_bo_sung.py), bridge PO, và bấm Hoàn thành vận
         chuyển có thu tiền (external.py — db.flush() không nằm trong try → cả thao tác trả lỗi).
+        RIÊNG Duyệt cọc hỏng ÂM THẦM: báo giá được duyệt + commit trước, phần ghi doanh thu cọc lỗi thì
+        rollback và chỉ log WARNING (kt_duyet.py), tin nhắn nhóm vẫn báo "đã vào sổ quỹ" — lỡ chạy sai thứ
+        tự thì phải đối soát tay các đơn được duyệt cọc trong khoảng đó (chạy migration xong không tự sinh lại).
 Ngược lại code CŨ chạy trên DB đã có cột thì không sao (cột nullable, code cũ không liệt kê nó).
 Downgrade xoá cột — MẤT tên người nộp đã nhập.
 

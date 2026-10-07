@@ -41,7 +41,10 @@
 .kt-tc-goi-y:empty { display: none; }
 /* Không tra được / không thấy đơn: cần chú ý — khác màu câu hướng dẫn thường để không bị đọc lướt qua. */
 .kt-tc-goi-y--canh { color: var(--warning-fg); }
-.kt-tc-goi-y .kd-btn { margin-left: var(--sp-3); }
+/* Nút "Điền tên này": dòng riêng, sát mép trái — để cạnh chữ thì đẩy tên khách gãy đôi ("Nguyễn Văn" / "An [nút]"). */
+.kt-tc-goi-y .kd-btn { display: flex; margin: var(--sp-3) 0 0; }
+/* Tên khách đứng một dòng riêng: chen giữa câu thì màn hẹp cắt đôi tên ("Nguyễn Văn" / "An"). */
+.kt-tc-goi-y__ten { display: block; font-weight: 600; color: var(--text-2); overflow-wrap: anywhere; }
 
 /* Popup chi tiết 3 bảng (kt-thu-chi.js veChiTietDt/Cp/Cd). Chữ dài (diễn giải, ghi chú) đặt dưới bảng nhãn–giá trị,
    trải hết bề ngang — trong lưới 2 cặp/hàng của .kt-tq nó bị bó vào cột hẹp. */
@@ -54,7 +57,9 @@
 /* Link trong popup (mở chứng từ, hoá đơn, tệp, mã đơn): vùng bấm ≥ 44px trên màn hẹp (frontend-ui luật 8) — cùng mốc
    1024px với luật 44px chung ở kd-man-hinh.css; màn rộng giữ mật độ desktop. */
 @media (max-width: 1023px) {
-  .kd-panel .kt-ma { display: inline-flex; align-items: center; min-height: 44px; }
+  /* gap: trong flex, dấu cách giữa chữ và icon ↗ bị bỏ. baseline: link cao 44px không kéo lệch nhãn cùng hàng. */
+  .kd-panel .kt-ma { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: 44px; }
+  .kd-panel .kt-tq { align-items: baseline; }
 }
 /* Tỷ lệ % 12 tháng (phương pháp "Nhập tay % từng tháng"). */
 .kt-tc-12 { margin: 0; padding: var(--sp-5) var(--sp-6) var(--sp-6); border: 1px dashed var(--border); border-radius: var(--r); }

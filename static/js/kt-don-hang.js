@@ -209,17 +209,18 @@
   // Key trạng thái không bao giờ in thô (luật frontend-ui 2): thiếu nhãn → "Chưa đặt tên" + console.warn.
   const nhan = (bang, k, loai) => { if (Object.prototype.hasOwnProperty.call(bang, k)) return bang[k]; console.warn('[Đơn hàng] ' + loai + ' chưa có nhãn:', k); return 'Chưa đặt tên'; };
   const DUYET_BG = { approved: 'Đã duyệt', kt_pending: 'Chờ kế toán xác nhận cọc' };
-  function veKhoiAnToan(ten, icon, ve) {
+  function veKhoiAnToan(ten, icon, ve, buocTiep) {
     try { return ve(); } catch (e) {
       console.error('[Đơn hàng] Không vẽ được khối "' + ten + '" của panel chi tiết:', e);
-      return H.khoi(icon, ten, '<p class="kd-note kd-note--danger" role="alert">Không hiển thị được khối ' + esc(ten) + ' vì dữ liệu từ app khác có dạng lạ — bấm "Mở báo giá" bên dưới để xem phần này. Các khối khác của đơn vẫn xem được.</p>');
+      return H.khoi(icon, ten, '<p class="kd-note kd-note--danger" role="alert">Không hiển thị được khối ' + esc(ten) + ' vì dữ liệu có dạng lạ — '
+        + esc(buocTiep) + '. Các khối khác của đơn vẫn xem được.</p>');
     }
   }
   function veKhoiThongTin(d, r) {
     const q = doiTuong(d.quote) || {};
     const duyet = q.duyet_boi ? 'Đã duyệt bởi ' + esc(q.duyet_boi) : q.duyet_status ? esc(nhan(DUYET_BG, q.duyet_status, 'trạng thái duyệt báo giá')) : '—';
     return H.dauPanel('bi-receipt', r.con_thu > 0 ? 'warning' : 'success', r.ma_bg, esc(q.customer_name || r.customer_name || ''), pillVC(r.vc_status))
-      + H.kv([['Khách', esc(q.customer_name || r.customer_name || '—') + (q.customer_phone ? ' · ' + esc(q.customer_phone) : '')], ['Địa chỉ', esc(q.customer_address && q.customer_address !== 'None' ? q.customer_address : '—')], ['NV kinh doanh', esc(q.salesperson || '—')], ['Ngày tạo', KD.ngay(q.created_at)], ['Duyệt', duyet], ['Tiến trình', esc(q.tien_trinh_mh || '—')]]);
+      + H.kv([['Khách', esc(q.customer_name || r.customer_name || '—') + (q.customer_phone ? ' · ' + esc(q.customer_phone) : '')], ['Địa chỉ', esc(q.customer_address && q.customer_address !== 'None' ? q.customer_address : '—')], ['NV kinh doanh', esc(q.salesperson || r.salesperson || '—')], ['Ngày tạo', KD.ngay(q.created_at)], ['Duyệt', duyet], ['Tiến trình', esc(q.tien_trinh_mh || '—')]]);
   }
   function veKhoiTien(d, r) {
     // Tổng đơn / thuế / cọc lấy từ DÒNG BẢNG (r — đã làm tròn đồng ở chuanHoaDon), không từ báo giá thô (q, có lẻ
@@ -243,10 +244,12 @@
     const ds = mang(d.so_quy, 'so_quy');
     return H.khoi('bi-journal-text', 'Sổ quỹ liên quan (' + KD.soDem(ds.length) + ')', bangNho([['Ngày'], ['Nội dung'], ['Số tiền', 1]], ds.map((s) => '<tr><td>' + KD.ngay(s.ngay) + '</td><td>' + (s.loai === 'thu' ? 'Thu' : 'Chi') + ' · ' + esc(s.tai_khoan || '—') + '<span class="kt-khach__ma">' + esc(s.noi_dung || '') + '</span></td><td class="num ' + (s.loai === 'thu' ? 'kt-so--tot' : 'kt-so--xau') + '">' + KD.tien(s.so_tien) + '</td></tr>'), 'Chưa có giao dịch sổ quỹ'));
   }
+  // Tiền VND nguyên — cùng cách làm tròn với dòng bảng (chuanHoaDon) để khối Công nợ khớp khối Tiền ngay trên.
+  const tronDong = (v) => Math.round(Number(v) || 0);
   function veKhoiCongNo(d) {
     // trang_thai chỉ có chua_tra/da_tra cho cả hai chiều → đọc theo loai: phải thu là "thu", phải trả là "trả".
     const ttCn = (c) => { const thu = c.loai === 'phai_thu'; return c.trang_thai === 'da_tra' ? (thu ? 'Đã thu đủ' : 'Đã trả đủ') : c.trang_thai === 'chua_tra' ? (thu ? 'Chưa thu đủ' : 'Chưa trả đủ') : nhan({}, c.trang_thai, 'trạng thái công nợ'); };
-    return H.khoi('bi-people', 'Công nợ', bangNho([['Loại'], ['Đối tác'], ['Còn lại', 1]], mang(d.cong_no, 'cong_no').map((c) => '<tr><td>' + (c.loai === 'phai_thu' ? 'Phải thu' : 'Phải trả') + (c.ngay ? '<span class="kt-khach__ma">' + KD.ngay(c.ngay) + '</span>' : '') + '</td><td>' + esc(c.doi_tac || '—') + '<span class="kt-khach__ma">' + KD.tien(c.so_tien) + ' · đã ' + KD.tien(c.da_tra || 0) + (c.trang_thai ? ' · ' + esc(ttCn(c)) : '') + '</span></td><td class="num">' + KD.tien(c.con_lai || 0) + '</td></tr>'), 'Chưa có công nợ'));
+    return H.khoi('bi-people', 'Công nợ', bangNho([['Loại'], ['Đối tác'], ['Còn lại', 1]], mang(d.cong_no, 'cong_no').map((c) => '<tr><td>' + (c.loai === 'phai_thu' ? 'Phải thu' : 'Phải trả') + (c.ngay ? '<span class="kt-khach__ma">' + KD.ngay(c.ngay) + '</span>' : '') + '</td><td>' + esc(c.doi_tac || '—') + '<span class="kt-khach__ma">' + KD.tien(tronDong(c.so_tien)) + ' · đã ' + KD.tien(tronDong(c.da_tra)) + (c.trang_thai ? ' · ' + esc(ttCn(c)) : '') + '</span></td><td class="num">' + KD.tien(tronDong(c.con_lai)) + '</td></tr>'), 'Chưa có công nợ'));
   }
   function veKhoiVanChuyen(d) {
     const vc = doiTuong(d.vanchuyen);
@@ -260,10 +263,15 @@
   }
   function veChiTiet(d, r) {
     const dl = doiTuong(d) || {};
-    return [['Thông tin đơn', 'bi-receipt', () => veKhoiThongTin(dl, r)], ['Tiền', 'bi-cash-stack', () => veKhoiTien(dl, r)], ['Sản phẩm', 'bi-box', () => veKhoiSanPham(dl)],
-      ['Đơn mua nhà cung cấp', 'bi-truck', () => veKhoiMuaHang(dl)], ['Sổ quỹ liên quan', 'bi-journal-text', () => veKhoiSoQuy(dl)], ['Công nợ', 'bi-people', () => veKhoiCongNo(dl)],
-      ['Vận chuyển', 'bi-signpost', () => veKhoiVanChuyen(dl)], ['Trao đổi đơn hàng', 'bi-chat-dots', () => veKhoiTraoDoi(dl)]].map(([ten, icon, ve]) => veKhoiAnToan(ten, icon, ve)).join('');
+    const BG = 'bấm "Mở báo giá" bên dưới để xem phần này';
+    // [tên khối, icon, hàm vẽ, bước tiếp theo khi khối lỗi — chỉ đúng nơi dữ liệu đó thật sự nằm]
+    return [['Thông tin đơn', 'bi-receipt', () => veKhoiThongTin(dl, r), BG], ['Tiền', 'bi-cash-stack', () => veKhoiTien(dl, r), BG],
+      ['Sản phẩm', 'bi-box', () => veKhoiSanPham(dl), BG], ['Đơn mua nhà cung cấp', 'bi-truck', () => veKhoiMuaHang(dl), 'xem đơn mua ở app Mua hàng'],
+      ['Sổ quỹ liên quan', 'bi-journal-text', () => veKhoiSoQuy(dl), 'tìm mã đơn ở màn Sổ quỹ'], ['Công nợ', 'bi-people', () => veKhoiCongNo(dl), 'tìm mã đơn ở màn Công nợ'],
+      ['Vận chuyển', 'bi-signpost', () => veKhoiVanChuyen(dl), 'xem lệnh vận chuyển ở app Sale Admin'], ['Trao đổi đơn hàng', 'bi-chat-dots', () => veKhoiTraoDoi(dl), BG]]
+      .map(([ten, icon, ve, buoc]) => veKhoiAnToan(ten, icon, ve, buoc)).join('');
   }
+
 
   /* ═════════ Tab 2 — Bàn giao trong ngày ═════════ */
   let bgDs = [], bgLuot = 0;

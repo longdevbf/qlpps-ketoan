@@ -465,7 +465,8 @@ def chi_tiet_chi_phi(
         # Câu này hiện thẳng trong khối lỗi của popup → nói bằng chữ người đọc, không dùng tên class.
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
-            f"Không tìm thấy chi phí CP-{rid} — có thể vừa bị xoá, tải lại danh sách.",
+            f"Không tìm thấy chi phí CP-{rid} — có thể vừa bị xoá. "
+            "Đóng cửa sổ này rồi tải lại trang để cập nhật danh sách.",
         )
     obj.nguon = _nguon_chi_phi(obj)
     # Chụp dữ liệu ra dict TRƯỚC khi đọc chéo app: đọc lỗi thì savepoint bị huỷ,

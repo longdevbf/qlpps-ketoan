@@ -85,7 +85,7 @@
   // Link chứng từ chỉ nhận đường dẫn trong app hoặc http(s) (KD.urlAnToan) — chặn "javascript:…" lọt từ dữ liệu người dùng.
   const linkTep = (u, nhan) => { const s = KD.urlAnToan(u);
     return s ? '<a class="kt-ma" href="' + esc(s) + '" target="_blank" rel="noopener">' + esc(nhan) + ' <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a>'
-      : '<span class="kd-muted" title="' + esc(u) + '">Có tệp nhưng đường dẫn lỗi, không mở được</span>'; };
+      : '<span class="kd-muted" title="' + esc(u) + '">Có tệp nhưng đường dẫn lỗi, không mở được — nhờ người tạo phiếu đính kèm lại</span>'; };
   // Mã đơn → màn Đơn hàng tìm đúng mã đó trên mọi thời gian (truy ngược từ phiếu về đơn gốc).
   const linkDon = (ma) => (coGt(ma) ? '<a class="kt-ma" href="/ketoan/don-hang?' + KT.url.qs({ tim: ma }) + '">' + esc(ma) + '</a>' : RONG);
   // Chữ dài (diễn giải, ghi chú) trải hết bề ngang dưới bảng nhãn–giá trị — trong lưới 2 cặp/hàng nó bị bó vào cột hẹp.
@@ -508,7 +508,7 @@
     datChon($('tc-dt-nv'), r ? r.nv_kinh_doanh : '');
     $('tc-dt-ma').value = (r && r.ma_don) || '';
     // Mở hộp = ngữ cảnh mới: tăng luotNop để kết quả tra khách của lần mở trước (còn đang chờ) không điền nhầm vào phiếu này.
-    $('tc-dt-nop').value = (r && r.nguoi_nop) || ''; nopTuDien = ''; luotNop += 1; datGoiYNop(GOI_Y_NOP);
+    $('tc-dt-nop').value = (r && r.nguoi_nop) || ''; nopTuDien = ''; luotNop += 1; phienNop += 1; datGoiYNop(GOI_Y_NOP);
     $('tc-dt-gc').value = (r && r.ghi_chu) || '';
     KD.moHopThoai(dlgDt);
     // Phiếu cũ có mã đơn mà chưa ghi người nộp → chỉ GỢI Ý kèm nút "Điền tên này", không tự ghi vào ô: mở Sửa để đổi ghi
@@ -517,12 +517,16 @@
   }
   /* Người nộp: gõ Mã đơn → điền sẵn tên khách của đơn (GET /api/doanh-thu/khach-theo-don, đọc baogia.quotes).
      Chỉ điền khi ô đang trống hoặc còn giữ đúng chữ lần trước tự điền — người dùng đã tự gõ thì KHÔNG ghi đè.
-     luotNop tăng mỗi lần tra VÀ mỗi lần mở hộp: kết quả về muộn của lần tra / lần mở trước bị bỏ. */
+     luotNop tăng mỗi lần tra VÀ mỗi lần mở hộp: kết quả về muộn của lần tra / lần mở trước bị bỏ.
+     phienNop tăng mỗi lần mở hộp: lần gõ Mã đơn của hộp trước mà debounce chưa kịp nổ không chạy vào hộp sau. */
   const GOI_Y_NOP = 'Nhập Mã đơn thì tự điền tên khách của đơn — sửa được.';
   const datGoiYNop = (chu, canh) => { const gy = $('tc-dt-nop-gy'); gy.textContent = chu; gy.classList.toggle('kt-tc-goi-y--canh', !!canh); };
-  let nopTuDien = '', luotNop = 0;
+  let nopTuDien = '', luotNop = 0, phienNop = 0;
+  const lyDoKhongTen = (d, ma) => (!d.doc_duoc ? 'Không đọc được dữ liệu Báo giá lúc này — gõ tay người nộp.'
+    : d.khach ? 'Đơn ' + ma + ' chưa ghi tên khách — gõ tay người nộp.'
+      : 'Không thấy đơn ' + ma + ' bên Báo giá — kiểm tra lại Mã đơn, hoặc gõ tay người nộp.');
   async function goiYNguoiNop(cheDo) {
-    const chiGoiY = cheDo === 'goi_y';   // gọi từ ô Mã đơn (debounce) thì tham số là Event → chế độ tự điền
+    const chiGoiY = cheDo === 'goi_y';   // gọi từ ô Mã đơn (goiYTre) thì không có tham số → chế độ tự điền
     const o = $('tc-dt-nop'), ma = $('tc-dt-ma').value.trim(), l = ++luotNop;
     const daTuGo = () => o.value.trim() !== '' && o.value !== nopTuDien;
     if (daTuGo()) return;
@@ -535,10 +539,10 @@
       // maxlength="128" chỉ chặn chữ gõ tay, không chặn giá trị gán bằng JS → cắt cho vừa cột nguoi_nop (VARCHAR 128).
       const ten = d.khach && coGt(d.khach.customer_name) ? d.khach.customer_name.trim().slice(0, 128) : '';
       if (chiGoiY) {
-        if (!ten) { datGoiYNop(GOI_Y_NOP); return; }
+        if (!ten) { datGoiYNop(lyDoKhongTen(d, ma), true); return; }   // ô Mã đơn đã có → nói lý do, không lặp câu hướng dẫn
         const gy = $('tc-dt-nop-gy');
         gy.classList.remove('kt-tc-goi-y--canh');
-        gy.innerHTML = 'Khách của đơn ' + esc(ma) + ': ' + esc(ten) + ' <button type="button" class="kd-btn kd-btn--sm" data-dien-nop>Điền tên này</button>';
+        gy.innerHTML = 'Khách của đơn ' + esc(ma) + ':<b class="kt-tc-goi-y__ten">' + esc(ten) + '</b><button type="button" class="kd-btn kd-btn--sm" data-dien-nop>Điền tên này</button>';
         gy.querySelector('[data-dien-nop]').addEventListener('click', () => {
           o.value = nopTuDien = ten; datGoiYNop('Đã điền theo khách của đơn ' + ma + ' — sửa được.'); o.focus();
         });
@@ -546,15 +550,17 @@
       }
       o.value = nopTuDien = ten;   // không có tên → xoá luôn tên tự điền của mã đơn trước
       if (ten) datGoiYNop('Tự điền theo khách của đơn ' + ma + ' — sửa được.');
-      else datGoiYNop(!d.doc_duoc ? 'Không đọc được dữ liệu Báo giá lúc này — gõ tay người nộp.'
-        : d.khach ? 'Đơn ' + ma + ' chưa ghi tên khách — gõ tay người nộp.'
-          : 'Không thấy đơn ' + ma + ' bên Báo giá — kiểm tra lại Mã đơn, hoặc gõ tay người nộp.', true);
+      else datGoiYNop(lyDoKhongTen(d, ma), true);
     } catch (e) {
       console.warn('[thu-chi] tra khách theo mã đơn lỗi:', e);
-      if (l === luotNop) datGoiYNop('Chưa tra được khách của đơn ' + ma + ' — gõ tay người nộp, hoặc sửa lại Mã đơn để tra lại.', true);
+      if (l !== luotNop) return;
+      // Ô còn giữ tên tự điền theo mã đơn TRƯỚC → xoá như nhánh "không thấy đơn": không để tên khách của đơn cũ đi vào phiếu.
+      if (o.value === nopTuDien) o.value = nopTuDien = '';
+      datGoiYNop('Chưa tra được khách của đơn ' + ma + ' — gõ tay người nộp, hoặc sửa lại Mã đơn để tra lại.', true);
     }
   }
-  $('tc-dt-ma').addEventListener('input', KD.debounce(goiYNguoiNop, 400));
+  const goiYTre = KD.debounce((phien) => { if (phien === phienNop) goiYNguoiNop(); }, 400);
+  $('tc-dt-ma').addEventListener('input', () => goiYTre(phienNop));
   // Gõ vào ô Người nộp → câu "Tự điền theo…" / nút "Điền tên này" không còn đúng → trở về câu hướng dẫn.
   $('tc-dt-nop').addEventListener('input', () => { if ($('tc-dt-nop').value !== nopTuDien) datGoiYNop(GOI_Y_NOP); });
   $('tc-dt-form').addEventListener('submit', async (e) => {

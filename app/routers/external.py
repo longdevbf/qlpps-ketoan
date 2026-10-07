@@ -689,8 +689,9 @@ def orders_overview(
                    delivery_cod_received
             FROM saleadmin.vanchuyen
             WHERE ma_don = q.quote_number
+            -- NULLS LAST: DESC mặc định xếp NULL lên đầu, lệnh thiếu created_at không phải lệnh mới nhất.
             -- ma_vh phá hoà khi hai lệnh trùng created_at — panel order-detail sắp y hệt để hiện CÙNG lệnh.
-            ORDER BY created_at DESC, ma_vh DESC LIMIT 1
+            ORDER BY created_at DESC NULLS LAST, ma_vh DESC LIMIT 1
         ) v ON TRUE
         LEFT JOIN po_agg po ON po.ref_bao_gia = q.quote_number
         LEFT JOIN doanh_thu_agg dta ON dta.ma_don = q.quote_number
@@ -1109,7 +1110,7 @@ def order_detail(
                chi_phi_vc, da_tra_dvvc, tien_thu_ho, dvvc_da_thu, ghi_chu
         FROM saleadmin.vanchuyen
         WHERE ma_don = :ma_bg
-        ORDER BY created_at DESC, ma_vh DESC
+        ORDER BY created_at DESC NULLS LAST, ma_vh DESC
         LIMIT 1
         """,
         ma_bg=ma_bg,

@@ -4403,8 +4403,8 @@ async function viewCnDetail(maBg) {
               <thead><tr><th>ID</th><th>Loại</th><th>Đối tác</th><th>Còn lại</th></tr></thead>
               <tbody>
                 ${cn.length ? cn.map(c => `<tr>
-                  <td><small>${c.id}</small></td>
-                  <td><span class="badge ${c.loai==='phai_thu'?'badge-green':'badge-red'}">${c.loai}</span></td>
+                  <td><small>${esc(c.id)}</small></td>
+                  <td><span class="badge ${c.loai==='phai_thu'?'badge-green':'badge-red'}">${c.loai==='phai_thu'?'Phải thu':'Phải trả'}</span></td>
                   <td>${esc(c.doi_tac||'')}</td>
                   <td><strong style="color:${(c.con_lai||0)>0?'var(--danger)':'var(--success)'}">${fmtVnd(c.con_lai)}</strong></td>
                 </tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text-3)">—</td></tr>'}
