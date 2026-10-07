@@ -11,7 +11,7 @@
 {% block head_extra %}
 <link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
 <link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
-<link rel="stylesheet" href="/static/css/kt-bao-cao.css?v=ct1005">
+<link rel="stylesheet" href="/static/css/kt-bao-cao.css?v=dot1-1007c">
 <link rel="stylesheet" href="/static/css/kt-lctt.css?v=d4">
 {% endblock %}
 
@@ -22,6 +22,7 @@
     <button type="button" class="kd-btn" id="lc-in"><i class="bi bi-printer" aria-hidden="true"></i>In</button>
     <button type="button" class="kd-btn kd-btn--primary" id="lc-xuat"><i class="bi bi-download" aria-hidden="true"></i>Xuất Excel</button>
   {% endcall %}
+  {{ ui.canh_bao('lc') }}
 
   {{ ui.the_so('lc', [('dau', 'Tiền đầu kỳ', '', 'bi-safe'), ('hdkd', 'Lưu chuyển kinh doanh', 'success', 'bi-shop'),
                        ('thuan', 'Lưu chuyển thuần', 'info', 'bi-arrow-left-right'), ('cuoi', 'Tiền cuối kỳ', 'tim', 'bi-cash-stack')], nhan_vung='Dòng tiền trong kỳ') }}
@@ -121,6 +122,6 @@
 <script src="/static/js/kd-man-hinh.js?v=tien1001"></script>
 <script src="/static/js/kt-chung.js?v=tk0928b"></script>
 <script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
-<script src="/static/js/kt-bao-cao.js?v=ct1005"></script>
-<script src="/static/js/kt-lctt.js?v=ct1005"></script>
+<script src="/static/js/kt-bao-cao.js?v=dot1-1007d"></script>
+<script src="/static/js/kt-lctt.js?v=dot1-1007"></script>
 {% endblock %}

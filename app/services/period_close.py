@@ -26,12 +26,13 @@ from decimal import Decimal
 from typing import Any, Optional
 
 from sqlalchemy import select
-from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
 
 from ..models import BaoCaoPLSnapshot, KyKeToan
 from .pl_calculator import calc_pl_for_month
+from .loi_doc import ghi_loi_doc
 
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
@@ -81,8 +82,8 @@ def _safe_scalar(db: Session, sql: str, default: float = 0.0, **params) -> float
     try:
         v = db.execute(text(sql), params).scalar()
         return float(v or 0)
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return float(default)
 
 
@@ -113,8 +114,8 @@ def _ky_dau_tien_co_data(db: Session) -> Optional[str]:
         if isinstance(v, str):
             return v[:7]
         return v.strftime("%Y-%m")
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return None
 
 

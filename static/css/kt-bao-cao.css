@@ -119,3 +119,61 @@
 .kt-bc-ct__phan h3 { margin: 0 0 var(--sp-2); font-size: .95rem; }
 .kt-bc-ct__trang { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-3); }
 .kt-bc-ct td, .kt-bc-ct th { white-space: nowrap; }
+
+/* ── Đợt 1 (07/10/2026) — nhãn nguồn số liệu từng dòng (kt-bao-cao.js nhanNguon) ─────────────
+   Dùng lại .kd-tip để có bong bóng giải thích; ở đây chỉ đổi hình ⓘ tròn thành chip chữ ngắn,
+   cùng cỡ chữ với .pill (--fs-eyebrow; --fs-micro chỉ dành cho nhãn nhóm menu).
+   Màu theo nghĩa: info = sổ cái · warning = bảng nghiệp vụ / hai nguồn lệch · success = khớp · danger = chưa tính.
+   Chữ trên nền -soft dùng bản -fg (design-system: bản đặc trượt tương phản trên nền soft).
+   Mỗi biến thể khai cả :hover/:focus-visible — .kd-tip:hover đổi chữ sang --brand, không được làm chip đổi màu. */
+.kt-bc th[scope="row"] .kd-tip.kt-nguon,
+.kd-tip.kt-nguon {
+  width: auto; height: 22px; margin-left: var(--sp-3); padding: 0 var(--sp-3); border-radius: var(--r-xs);
+  font-size: var(--fs-eyebrow); font-weight: 600; white-space: nowrap; cursor: help;
+}
+.kd-tip.kt-nguon--info,    .kd-tip.kt-nguon--info:hover,    .kd-tip.kt-nguon--info:focus-visible    { background: var(--info-soft);    color: var(--info-fg); }
+.kd-tip.kt-nguon--warning, .kd-tip.kt-nguon--warning:hover, .kd-tip.kt-nguon--warning:focus-visible { background: var(--warning-soft); color: var(--warning-fg); }
+.kd-tip.kt-nguon--success, .kd-tip.kt-nguon--success:hover, .kd-tip.kt-nguon--success:focus-visible { background: var(--success-soft); color: var(--success-fg); }
+.kd-tip.kt-nguon--danger,  .kd-tip.kt-nguon--danger:hover,  .kd-tip.kt-nguon--danger:focus-visible  { background: var(--danger-soft);  color: var(--danger-fg); }
+/* KHÔNG dùng filter khi hover: filter biến chip thành khung chứa của bong bóng .kd-tip::after (position:fixed
+   trên màn hẹp) → bong bóng bị ép thành cột rộng bằng chip (đo ảnh thật 375px). Hover nhận biết bằng
+   focus-ring sẵn có của .kd-tip:hover. */
+/* Màn cảm ứng: vùng chạm của chip 22px nới ra ≥ 44px theo chiều dọc mà không làm dòng bảng cao thêm. */
+@media (pointer: coarse) { .kd-tip.kt-nguon::before { content: ""; position: absolute; inset: -11px 0; } }
+
+/* ── Đợt 1 — dải cảnh báo đầu trang (#pfx-canh-bao, macro ui.canh_bao) ─────────────────────────
+   Dùng lại .kd-banner (kd-man-hinh.css: nền danger-soft mặc định, --info). Ở đây chỉ thêm biến thể
+   --warning, vạch màu bên trái (cùng kiểu .kd-cb__muc--*: inset 3px) và bố cục nội dung. */
+.kt-cb-khoi { display: grid; gap: var(--sp-4); }   /* khe với khối kế tiếp đã do row-gap của .kd-page lo */
+/* Biến thể --warning của .kd-banner để ở đây chứ không ở kd-man-hinh.css: file đó được >30 template nạp,
+   sửa là phải đổi ?v= ở chừng ấy chỗ. Dời về cạnh .kd-banner--info khi có đợt đụng kd-man-hinh.css. */
+.kd-banner--warning { background: var(--warning-soft); color: var(--warning-fg); }
+.kt-cb { align-items: flex-start; flex-wrap: nowrap; }
+.kt-cb--danger  { box-shadow: inset 3px 0 0 var(--danger); }
+.kt-cb--warning { box-shadow: inset 3px 0 0 var(--warning); }
+.kt-cb--info    { box-shadow: inset 3px 0 0 var(--info); }
+.kt-cb__than { flex: 1; min-width: 0; }
+.kt-cb__td { margin: 0; font-weight: 700; }
+.kt-cb__chi > summary { margin-top: var(--sp-2); font-size: var(--fs-meta); font-weight: 600; cursor: pointer; }
+.kt-cb__ct { margin: var(--sp-2) 0 0; font-size: var(--fs-meta); color: var(--text-2); }
+.kt-cb__ds { margin: var(--sp-3) 0 0; padding-left: var(--sp-9); font-size: var(--fs-meta); color: var(--text-2); }
+.kt-cb__ds li + li { margin-top: var(--sp-1); }
+.kt-cb .kd-btn { flex: none; }
+.kt-cb__loi { margin: 0; }
+/* Màn rộng: chi tiết luôn mở (JS mở sẵn) nên ẩn dòng tóm tắt "N nguyên nhân". */
+@media (min-width: 768px) { .kt-cb__chi > summary { display: none; } }
+@media (max-width: 767px) {
+  .kt-cb { flex-direction: column; }
+  .kt-cb__chi > summary { padding-block: var(--sp-6); }   /* vùng chạm ≥ 44px (luật frontend số 8) */
+}
+
+/* Dòng "nguồn chung" dưới đầu thẻ bảng (nguonChung trong kt-bao-cao.js). */
+.kt-nguon-chung {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-4);
+  margin: 0; padding: 0 var(--sp-8) var(--sp-6); font-size: var(--fs-meta); color: var(--text-2);
+}
+span.kt-nguon { display: inline-flex; align-items: center; height: 22px; padding: 0 var(--sp-3); border-radius: var(--r-xs);
+  font-size: var(--fs-eyebrow); font-weight: 600; white-space: nowrap; }
+span.kt-nguon--warning { background: var(--warning-soft); color: var(--warning-fg); }
+/* Bản in: nhãn nguồn bị ẩn nên câu "dòng không gắn nhãn…" cũng phải ẩn, kẻo sai với các dòng "Chưa tính". */
+@media print { .kt-nguon, .kt-nguon-chung { display: none !important; } }

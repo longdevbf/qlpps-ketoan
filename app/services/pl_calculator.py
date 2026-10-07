@@ -24,12 +24,13 @@ from decimal import Decimal
 from typing import Any, Optional
 
 from sqlalchemy import func, select, text
-from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from ..models import (
     ChiPhiCoDinh, ChiPhiPhatSinh, CongNo, DoanhThu,
 )
+from .loi_doc import ghi_loi_doc
 
 
 # Thuế TNDN
@@ -199,8 +200,8 @@ def _safe_scalar(db: Session, sql: str, **params) -> float:
     try:
         v = db.execute(text(sql), params).scalar()
         return float(v or 0)
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return 0.0
 
 
@@ -458,8 +459,8 @@ def _sum_co_dinh_phan_bo(
     try:
         v = db.execute(text(sql), params).scalar()
         return float(v or 0)
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return 0.0
 
 
@@ -544,8 +545,8 @@ def _sum_co_dinh_prorated_by_day(
     try:
         v = db.execute(text(sql), params).scalar()
         return float(v or 0)
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return 0.0
 
 
@@ -598,8 +599,8 @@ def _query_co_dinh_rows_by_method(
     """
     try:
         rows = db.execute(text(sql), {"nhom": nhom, "method": method}).mappings().all()
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return []
     return [dict(r) for r in rows]
 
@@ -984,8 +985,8 @@ def _sum_co_dinh_prorated_method_only(
     try:
         v = db.execute(text(sql), params).scalar()
         return float(v or 0)
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return 0.0
 
 
@@ -1003,8 +1004,8 @@ def _count_co_dinh_phan_bo(db: Session, thang: str) -> int:
     try:
         v = db.execute(text(sql), {"thang": thang}).scalar()
         return int(v or 0)
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return 0
 
 
@@ -1038,8 +1039,8 @@ def _sum_payroll_split(db: Session, thang: str) -> dict[str, dict]:
     """
     try:
         rows = db.execute(text(sql), {"thang": thang}).all()
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         # Fallback simpler — chỉ thuc_linh
         try:
             sql2 = """
@@ -1057,8 +1058,8 @@ def _sum_payroll_split(db: Session, thang: str) -> dict[str, dict]:
                 # Approximate luong_co_ban ≈ thuc_linh khi chưa có schema chi tiết
                 out[key]["luong_co_ban"] += float(tl or 0)
             return out
-        except (ProgrammingError, OperationalError):
-            db.rollback()
+        except ProgrammingError as _loi:
+            ghi_loi_doc(db, _loi)
             return out
 
     for pb, lcb, hh, lot, tl in rows:
@@ -1100,8 +1101,8 @@ def _ads_phan_bo_table_exists(db: Session) -> bool:
             LIMIT 1
         """)).scalar()
         return bool(v)
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return False
 
 
@@ -1131,8 +1132,8 @@ def _sum_ads_phan_bo_thang(db: Session, thang: str) -> Optional[float]:
     try:
         v = db.execute(text(sql), {"thang": thang}).scalar()
         return float(v or 0)
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return None
 
 
@@ -1166,8 +1167,8 @@ def _sum_ads_phan_bo_by_nhom(db: Session, thang: str) -> Optional[dict[str, floa
     try:
         rows = db.execute(text(sql), {"thang": thang}).all()
         return {str(k): float(v or 0) for k, v in rows}
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return None
 
 
@@ -1221,8 +1222,8 @@ def _count_orders_hoan_thanh(db: Session, tu: date, den: date) -> int:
     try:
         v = db.execute(text(sql), {"tu": tu, "den": den}).scalar()
         return int(v or 0)
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return 0
 
 
@@ -1370,8 +1371,8 @@ def calc_pl_for_month(db: Session, thang: str) -> dict[str, Any]:
               AND nhom_chi_phi = 'ban_hang'
               AND ref_vc IS NOT NULL
         """), {"tu": tu, "den": den}).scalar() or 0)
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         cp_bh_with_refvc = 0.0
     bh_khac_clean = round(max(0.0, bh_cp_ps_khac - cp_bh_with_refvc), 2)
 

@@ -22,7 +22,7 @@ from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
-from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
 
@@ -31,6 +31,8 @@ from shared.db import get_db
 
 from ..models import CongNo, KyKeToan
 from ..services.journal import get_balance_sheet_aggregates
+from ..services.loi_doc import bat_dau_ghi_loi, ghi_loi_doc
+from ..services.nguon_can_doi import ghep_nguon_can_doi, nguyen_nhan_lech
 from ..services.so_quy_auto import so_du_truoc_ngay
 from ._deps import require_ketoan_user
 from ..services.cd_chi_tiet import (
@@ -58,16 +60,16 @@ def _safe_scalar(db: Session, sql: str, default: float = 0.0, **params) -> float
     try:
         v = db.execute(text(sql), params).scalar()
         return float(v or 0)
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return float(default)
 
 
 def _safe_rows(db: Session, sql: str, **params) -> list:
     try:
         return db.execute(text(sql), params).all()
-    except (ProgrammingError, OperationalError):
-        db.rollback()
+    except ProgrammingError as _loi:
+        ghi_loi_doc(db, _loi)
         return []
 
 
@@ -366,6 +368,7 @@ def bao_cao_can_doi(
       }
     """
     thang, tu, den = _resolve_thang(thang)
+    loi_doc = bat_dau_ghi_loi()
 
     if source not in ("auto", "journal", "legacy"):
         raise HTTPException(
@@ -378,8 +381,8 @@ def bao_cao_can_doi(
     if source != "legacy":
         try:
             aggs = get_balance_sheet_aggregates(db, den)
-        except (ProgrammingError, OperationalError):
-            db.rollback()
+        except ProgrammingError as _loi:
+            ghi_loi_doc(db, _loi)
             aggs = {}
 
     def _agg(code: str) -> float:
@@ -518,6 +521,64 @@ def bao_cao_can_doi(
             " (5) Lương phải trả NV (334) phase 2 chưa tính."
         )
 
+    # ─── Đợt 1 (07/10/2026): khai nguồn từng dòng + nguyên nhân lệch — CHỈ THÊM trường, không
+    # đổi số nào ở trên. Chế độ auto lấy MAX(sổ cái, bảng nghiệp vụ) cho từng dòng → ghi lại cả
+    # hai số và số nào đang được dùng, để màn /ketoan/doi-chieu và tooltip báo cáo hiện ra.
+    gia_tri = {
+        "tai_san.tien_va_td.tien_mat_so_quy": tien_mat,
+        "tai_san.tien_va_td.tk_ngan_hang": tk_nh,
+        "tai_san.phai_thu": phai_thu,
+        "tai_san.hang_ton_kho": hang_ton_kho,
+        "tai_san.tscd_nguyen_gia": tscd_nguyen_gia,
+        "tai_san.tscd_hao_mon_luy_ke": tscd_hao_mon,
+        "nguon_von.no_phai_tra.phai_tra_ncc": phai_tra_ncc,
+        "nguon_von.no_phai_tra.vay_ngan_han": vay_nh,
+        "nguon_von.no_phai_tra.vay_dai_han": vay_dh,
+        "nguon_von.no_phai_tra.phai_tra_nv": phai_tra_nv,
+        "nguon_von.von_csh.von_gop": von_gop,
+        "nguon_von.von_csh.quy_dn": quy_dn,
+        "nguon_von.von_csh.ln_giu_lai": ln_giu_lai,
+    }
+    so_cai: dict[str, float] = {} if source == "legacy" else {
+        "tai_san.tien_va_td.tien_mat_so_quy": _agg("111"),
+        "tai_san.tien_va_td.tk_ngan_hang": _agg("112"),
+        "tai_san.phai_thu": _agg("131") + tam_ung,
+        "tai_san.hang_ton_kho": _agg("156"),
+        "tai_san.tscd_nguyen_gia": _agg("211") + _agg("213"),
+        "tai_san.tscd_hao_mon_luy_ke": _agg("214"),
+        "nguon_von.no_phai_tra.phai_tra_ncc": _agg("331"),
+        "nguon_von.no_phai_tra.vay_ngan_han": _agg("311"),
+        "nguon_von.no_phai_tra.vay_dai_han": _agg("341"),
+        "nguon_von.no_phai_tra.phai_tra_nv": _agg("334"),
+        "nguon_von.von_csh.von_gop": _agg("411"),
+        "nguon_von.von_csh.quy_dn": _agg("414") + _agg("415") + _agg("353"),
+        "nguon_von.von_csh.ln_giu_lai": _agg("421"),
+    }
+    # Tiền luôn đọc sổ quỹ / TK ngân hàng ở mọi chế độ nên luôn có số nghiệp vụ.
+    nghiep_vu: dict[str, float] = {
+        "tai_san.tien_va_td.tien_mat_so_quy": canonical_tien_mat,
+        "tai_san.tien_va_td.tk_ngan_hang": canonical_tk_nh,
+    }
+    if source != "journal":
+        nghiep_vu.update({
+            "tai_san.phai_thu": legacy_phai_thu + tam_ung,
+            "tai_san.hang_ton_kho": legacy_ton_kho,
+            "tai_san.tscd_nguyen_gia": legacy_tscd_ng,
+            "tai_san.tscd_hao_mon_luy_ke": legacy_tscd_hm,
+            "nguon_von.no_phai_tra.phai_tra_ncc": legacy_ncc,
+            "nguon_von.no_phai_tra.vay_ngan_han": legacy_vay_nh,
+            "nguon_von.no_phai_tra.vay_dai_han": legacy_vay_dh,
+            "nguon_von.von_csh.von_gop": legacy_von,
+            "nguon_von.von_csh.quy_dn": legacy_quy,
+            "nguon_von.von_csh.ln_giu_lai": legacy_ln,
+        })
+    # Ghép nguồn + nguyên nhân lệch ở services/nguon_can_doi.py (router chỉ gom số của chính nó).
+    nguon = ghep_nguon_can_doi(gia_tri, so_cai, nghiep_vu)
+    nguyen_nhan: list[dict] = [] if can_bang else nguyen_nhan_lech(
+        db, thang=thang, von_csh_tong=von_csh_tong, von_gop=von_gop,
+        ln_giu_lai=ln_giu_lai, quy_dn=quy_dn, nguon=nguon,
+    )
+
     return {
         "thang": thang,
         "source": source,
@@ -566,7 +627,11 @@ def bao_cao_can_doi(
             "lech": lech,
             "can_bang": can_bang,
             "warning": " ".join(warnings) if warnings else None,
+            "nguyen_nhan": nguyen_nhan,
         },
+        "nguon": nguon,
+        # Bảng/cột không đọc được (ProgrammingError) — số 0 ở các dòng liên quan KHÔNG phải số thật.
+        "loi_doc_du_lieu": loi_doc,
     }
 
 

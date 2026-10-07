@@ -24,7 +24,9 @@
   const trang = $('kd-kt-can-doi');
   if (!trang) return;
 
-  const MAC_DINH = { ky: 'thang_nay', tu: '', den: '', cap: '1', an_trong: '1', tim: '' };
+  /* Đợt 1 (07/10/2026): MẶC ĐỊNH HIỆN ĐỦ mọi tài khoản trong danh mục, kể cả mã chưa có bút toán (số 0) —
+     trước đây mặc định ẩn nên mã chưa hạch toán biến mất, không ai biết là thiếu. Vẫn bật ẩn được bằng ô lọc. */
+  const MAC_DINH = { ky: 'thang_nay', tu: '', den: '', cap: '1', an_trong: '0', tim: '' };
   const st = Object.assign({}, MAC_DINH, KT.url.doc());
   if (st.cap !== 'chi_tiet') st.cap = '1';
   const COT = ['dau_no', 'dau_co', 'ps_no', 'ps_co', 'cuoi_no', 'cuoi_co'];
@@ -59,6 +61,8 @@
   function lienKet(ma) { return '/ketoan/so-cai?tk=' + encodeURIComponent(ma) + '&ky=tuy_chinh&tu=' + kyHt.tu + '&den=' + kyHt.den; }
 
   const laCon = (r) => r.cap === 2;
+  // so_dong = số dòng định khoản của TK từ trước tới cuối kỳ (API trial_balance) — 0 nghĩa là chưa từng hạch toán.
+  const chuaHachToan = (r) => !laCon(r) && !r.so_dong;
   // Mức "Cấp 1" bỏ dòng TK con; lọc tìm + ẩn dòng trống áp như nhau cho cả hai cấp.
   function locVaSap(dong) {
     let ds = dong.filter((r) => (st.cap === 'chi_tiet' || !laCon(r)) && KT.khopTim([r.ma, r.ten], st.tim));
@@ -101,7 +105,8 @@
     $('cd-tbody').innerHTML = hien.map((r) => { const con = laCon(r);
       return '<tr class="kt-cap' + (con ? 2 : 1) + '" data-href="' + lienKet(r.ma) + '" tabindex="-1">'
         + '<td>' + (con ? '<span class="kt-cap-2">' : '') + '<a class="kt-tk-link" href="' + lienKet(r.ma) + '" aria-label="Mở sổ cái tài khoản ' + esc(r.ma) + ' ' + esc(r.ten) + '">' + esc(r.ma) + '</a>' + (con ? '</span>' : '') + '</td>'
-        + '<td>' + esc(r.ten) + '<span class="kt-dk__phu">' + (con ? 'TK con của ' + esc(r.tk_cha) : esc(TINH_CHAT[r.tinh_chat] || '')) + '</span></td>'
+        + '<td>' + esc(r.ten) + (chuaHachToan(r) ? ' <span class="pill pill--muted kt-cd-chua">Chưa có bút toán</span>' : '')
+        + '<span class="kt-dk__phu">' + (con ? 'TK con của ' + esc(r.tk_cha) : esc(TINH_CHAT[r.tinh_chat] || '')) + '</span></td>'
         + COT.map((k) => '<td class="num">' + KT.tienSo(r[k]) + '</td>').join('') + '</tr>'; }).join('');
     const tong = st.tim ? tinhTong(dongCong(hien)) : tongCap1;
     const c = (a, b) => '<td class="num">' + KD.tien(a) + '</td><td class="num">' + KD.tien(b) + '</td>';
@@ -127,6 +132,8 @@
       const le = dongHt.some((r) => COT.some((k) => Math.abs(r[k] % 1) > 1e-9));
       $('cd-ghi-chu').hidden = true;
       veGhiChu(le ? ' Có bút toán lẻ dưới 1 đồng (vd khấu hao 25.094.346,25) — số hiển thị làm tròn nên cộng tay có thể lệch 1 đ.' : '');
+      const cap1 = dongHt.filter((r) => !laCon(r)), chua = cap1.filter(chuaHachToan).length;
+      if (chua) $('cd-pham-vi').insertAdjacentHTML('beforeend', ' · <b>' + KD.soDem(chua) + '/' + KD.soDem(cap1.length) + ' tài khoản chưa có bút toán nào</b>');
       veBang(dongHt);
     } catch (e) {
       if (l !== luot) return;
@@ -157,7 +164,7 @@
   $('cd-tbody').addEventListener('click', (e) => { if (e.target.closest('a')) return; const tr = e.target.closest('tr[data-href]'); if (tr) location.href = tr.dataset.href; });
 
   function veLai() { KT.url.ghi(st, MAC_DINH); veBang(dongHt); }
-  function datLai() { Object.assign(st, { cap: '1', an_trong: '1', tim: '' }); $('cd-tim').value = ''; $('cd-an').checked = true; veCap(); veLai(); }
+  function datLai() { Object.assign(st, { cap: '1', an_trong: '0', tim: '' }); $('cd-tim').value = ''; $('cd-an').checked = false; veCap(); veLai(); }
   // Ô kỳ dùng chung (kt-chung.js): Tuỳ chỉnh điền sẵn ngày, chọn tháng/quý/năm cụ thể, URL ?ky=2026-07.
   KT.ganKy({ sel: $('cd-ky'), hop: $('cd-khoang'), tu: $('cd-tu'), den: $('cd-den'), st, doi: tai, ghi: () => KT.url.ghi(st, MAC_DINH) });
   // "Chi tiết" = thêm dòng TK con của tài khoản tiền (1111, 1121…) dưới TK cha. 3334/3335 máy chủ trả là cấp 1 (không có TK "333").

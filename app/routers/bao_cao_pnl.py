@@ -32,6 +32,8 @@ from ..services.pl_chi_tiet import (
     SO_DONG_TOI_DA,
     chi_tiet as chi_tiet_dong_pl,
 )
+from ..services.loi_doc import bat_dau_ghi_loi
+from ..services.nguon_bao_cao import NGUON_KQKD
 from ._deps import require_ketoan_user
 
 
@@ -499,11 +501,17 @@ def bao_cao_pl_thang(
     thang = _validate_thang(thang)
     cache_key = f"pl:{thang}"
     cached = _cache_get(cache_key)
-    if cached:
-        return cached
-    result = calc_pl_for_month(db, thang)
+    # Đợt 1 (07/10/2026): kết quả luôn mang `loi_doc_du_lieu` (bảng/cột không đọc được, có thể rỗng).
+    # Cùng khoá cache này còn được services/thue_tn.py ghi KHÔNG kèm danh sách lỗi → bản cache thiếu
+    # trường đó thì tính lại, kẻo màn KQKD mất cảnh báo trong suốt TTL. Vẫn cache khi có lỗi: bỏ cache
+    # thì một bảng CỐ Ý chưa có (nhánh dự phòng) làm KQKD tính lại mỗi lần mở trang.
+    if cached and "loi_doc_du_lieu" in cached:
+        return {**cached, "nguon": NGUON_KQKD}
+    loi_doc = bat_dau_ghi_loi()
+    result = {**calc_pl_for_month(db, thang), "loi_doc_du_lieu": loi_doc}
     _cache_set(cache_key, result)
-    return result
+    # `nguon` là mô tả tĩnh nên gắn sau cache.
+    return {**result, "nguon": NGUON_KQKD}
 
 
 @router.get("/pl/chi-tiet")

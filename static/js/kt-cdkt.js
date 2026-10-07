@@ -102,6 +102,7 @@
     const chon = k.den || homNay(), cuoi = cuoiThang(d0.thang);
     return {
       den_ngay: chon < cuoi ? chon : cuoi, thang: d0.thang, thang_dau_nam: dn ? dn.thang : null, raw: d0,
+      nguon: d0.nguon || {},   // Đợt 1: nhãn nguồn từng dòng (kt-bao-cao.js nhanNguon)
       dong: KHUNG.map(([ma, chi_tieu, cap]) => (cap === 'nhom' ? { ma, chi_tieu, cap }
         : { ma, chi_tieu, cap, cuoi_ky: a[ma], dau_nam: dn ? b[ma] : null, khoa: KHOA_CT[ma] }))
         .concat(Math.abs(d0.check.lech || 0) >= 1 || (dn && Math.abs(dn.check.lech || 0) >= 1)
@@ -147,6 +148,7 @@
     lien: { '111': '111', '112': '112', '130': '131', '140': '156', '221': '211', '222': '214', '311': '331', '320': '311', '338': '341', '315': '334', '411': '411', '421': '421' },
     chuyen,
     cotChiTiet: 'cuoi_ky',
+    canhBao: { man: 'cdkt', thang: (k, d) => d.thang },
     /* Cột "Số đầu năm" = cân đối tại 31/12 năm trước — đúng tháng mà api() đã gọi. */
     chiTiet: (khoa, k, trang, cot) => {
       const t = thangCuaNgay(k.den);

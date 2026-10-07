@@ -69,6 +69,20 @@ def can_doi_page(request: Request):
     )
 
 
+@router.get("/doi-chieu", response_class=HTMLResponse, name="ketoan_doi_chieu")
+def doi_chieu_page(request: Request):
+    """Đối chiếu sổ cái ↔ bảng nghiệp vụ (Đợt 1, 07/10/2026) — CHỈ HIỆN chênh lệch, không sửa số.
+
+    Dữ liệu: GET /api/bao-cao/doi-chieu?thang= + GET /api/bao-cao/canh-bao?thang=
+    (app/routers/doi_chieu.py). Xem chú thích đầu static/js/kt-doi-chieu.js.
+    """
+    user = _require_user_redirect(request)
+    return templates.TemplateResponse(
+        "kt_doi_chieu.html",
+        {"request": request, "user": user_ctx(user)},
+    )
+
+
 @router.get("/tai-khoan", response_class=HTMLResponse, name="ketoan_tai_khoan")
 def tai_khoan_page(request: Request):
     """Danh mục tài khoản.

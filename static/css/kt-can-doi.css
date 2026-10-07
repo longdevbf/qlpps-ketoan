@@ -26,6 +26,8 @@
 /* Chú thích cuối thẻ: thẻ .kd-card không đệm nên tự mang đệm, không dính mép trái/đáy. */
 #kd-kt-can-doi .kt-ghi-chu { margin: 0; padding: var(--sp-5) var(--sp-8) var(--sp-6); font-size: var(--fs-meta); }
 #kd-kt-can-doi .kt-dk__phu { font-weight: 400; }
+/* Đợt 1: nhãn mã chưa có bút toán — đứng sau tên TK; tên dài thì nhãn xuống dòng dưới tên (dòng cao thêm). */
+.kt-cd-bang .kt-cd-chua { margin-left: var(--sp-3); vertical-align: middle; }
 
 /* Đợt 4: dòng "Kỳ …" + ⓘ thay cho 2 đoạn ghi chú (dưới thẻ số và cuối bảng). */
 #kd-kt-can-doi .kt-pham-vi { font-size: var(--fs-body); color: var(--text-2); }

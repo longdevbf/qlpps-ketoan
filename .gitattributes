@@ -1,0 +1,3 @@
+# Repo dùng LF (đã kiểm 07/10/2026: 597/613 file văn bản là LF, 0 CRLF). Khai rõ để máy Windows có
+# core.autocrlf=true không đẩy CRLF vào lịch sử git. Bản trên đĩa server là việc của khâu deploy.
+* text=auto eol=lf

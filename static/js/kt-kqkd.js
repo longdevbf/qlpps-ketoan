@@ -86,7 +86,7 @@
   let ke = null;   // kế hoạch gọi API của lần tải gần nhất (KT.kqkd.ke — kt-kqkd-tinh.js, dùng chung với trang in)
   function chuyen(ds) {
     const t = KT.kqkd.tach(ds, ke);
-    return Object.assign(t, { dong: dongTu(t.c, t.p), meta: t.c.metadata || {} });
+    return Object.assign(t, { dong: dongTu(t.c, t.p), meta: t.c.metadata || {}, nguon: t.c.nguon || {} });
   }
 
   const soSanh = (a, b, ten) => { if (b == null) return ''; const d = a - b; if (!d) return 'Bằng ' + ten;
@@ -106,6 +106,8 @@
     cot: [{ key: 'ma' }, { key: 'ky_nay', num: true }, { key: 'ky_truoc', num: true }, { key: 'chenh', num: true }],
     lien: { '01': '511', '11': '632', '21': '515', '22': '635', '25': '641', '26': '642', '31': '711', '32': '811', '51': '821' },
     chuyen,
+    canhBao: { man: 'kqkd', thang: (k) => k.den.slice(0, 7) },
+    nguonChung: { loai: 'nghiep_vu', chu: 'Dòng không gắn nhãn lấy từ bảng nghiệp vụ (đơn hàng, chi phí, công nợ, bảng lương…), không phải sổ cái.' },
     /* Cột kỳ trước lấy ĐÚNG dãy tháng mà kt-kqkd-tinh.js đã dùng để dựng số kỳ trước
        (KT.kqkd.ke -> .truoc), không tự đoán lại — lệch là popup nói sai kỳ. */
     chiTiet: (khoa, k, trang, cot) => {

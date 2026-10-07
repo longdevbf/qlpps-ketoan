@@ -182,6 +182,12 @@
 {%- endmacro %}
 
 {# Khối CSS/JS chuẩn cho mọi màn — gọi trong head_extra / scripts #}
+{# Dải cảnh báo đầu trang (Đợt 1, 07/10/2026) — kt-bao-cao.js ganCanhBao() điền từ GET /api/bao-cao/canh-bao.
+   Ẩn sẵn: không có cảnh báo thì không chiếm chỗ. #}
+{% macro canh_bao(pfx) -%}
+  <section class="kt-cb-khoi" id="{{ pfx }}-canh-bao" aria-label="Cảnh báo số liệu của kỳ" aria-live="polite" hidden></section>
+{%- endmacro %}
+
 {# v = phiên bản file RIÊNG của màn — đổi khi sửa CSS/JS màn đó để trình duyệt tải bản mới. #}
 {% macro css(rieng, v='1') -%}
 <link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
@@ -193,6 +199,6 @@
 <script src="/static/js/kd-man-hinh.js?v=tien1001"></script>
 <script src="/static/js/kt-chung.js?v=tk0928b"></script>
 {% if danh_sach %}<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>{% endif %}
-{% if bao_cao %}<script src="/static/js/kt-bao-cao.js?v=loc0928b"></script>{% endif %}
+{% if bao_cao %}<script src="/static/js/kt-bao-cao.js?v=dot1-1007d"></script>{% endif %}
 <script src="/static/js/{{ rieng }}.js?v={{ v }}"></script>
 {%- endmacro %}
