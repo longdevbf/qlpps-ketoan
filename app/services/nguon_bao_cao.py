@@ -84,8 +84,9 @@ NGUON_KQKD: dict[str, dict] = {
     "cp_quan_ly.dinh_phi.dich_vu_kt_luat": _nv(["642"], _CP_CO_DINH),
     "cp_quan_ly.dinh_phi.phi_khac": _nv(["642"], _CP_CO_DINH),
     "ln_thuan_hdkd": _ct(),
-    "thu_nhap_khac": {"loai": "so_cai", "tk": ["711"], "bang": None},
-    "cp_khac": {"loai": "tron", "tk": ["811"], "bang": "Chi phí phát sinh nhóm khác cộng sổ cái TK 811"},
+    # pl_calculator._sum_cp_khac_journal chỉ cộng phát sinh Có 711 / Nợ 811 (không trừ bút toán ghi giảm)
+    "thu_nhap_khac": {"loai": "so_cai", "tk": ["711"], "bang": "sổ cái TK 711 — tổng phát sinh Có, không trừ bút toán ghi giảm"},
+    "cp_khac": {"loai": "tron", "tk": ["811"], "bang": "Chi phí phát sinh nhóm khác cộng phát sinh Nợ TK 811 trên sổ cái"},
     "ln_khac": _ct(),
     "ln_truoc_thue": _ct(),
     "thue_tndn": {"loai": "cong_thuc", "tk": ["821"], "bang": "Lợi nhuận trước thuế × 20% — không đọc TK 821"},

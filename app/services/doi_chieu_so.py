@@ -33,8 +33,9 @@ DONG_KQKD: list[tuple[str, str, str, str, str]] = [
 _MO_TA = {
     "nghiep_vu": "Số trên Kết quả kinh doanh, tính từ bảng nghiệp vụ (đơn hàng, chi phí, công nợ, bảng lương…)",
     "chua_tinh": "Kết quả kinh doanh chưa tính dòng này — đang gán 0",
-    "so_cai": "Kết quả kinh doanh đọc thẳng sổ cái cho dòng này",
-    "tron": "Kết quả kinh doanh cộng chi phí phát sinh nhóm khác với sổ cái TK 811",
+    "so_cai": "Kết quả kinh doanh lấy tổng phát sinh Có TK 711 trên sổ cái (không trừ bút toán ghi giảm); "
+              "cột sổ cái bên cạnh là Có − Nợ nên có bút toán ghi giảm thì hai cột chênh",
+    "tron": "Kết quả kinh doanh cộng chi phí phát sinh nhóm khác với phát sinh Nợ TK 811 trên sổ cái",
     "cong_thuc": "Kết quả kinh doanh tính bằng công thức lợi nhuận trước thuế × 20%, không đọc sổ cái",
 }
 

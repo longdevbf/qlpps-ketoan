@@ -55,11 +55,18 @@
      trong bong bóng (dùng lại .kd-tip). Dòng công thức (tổng/hiệu) không gắn nhãn. `n.bang` là mô tả
      nguồn bằng tên nghiệp vụ (app/services/nguon_bao_cao.py) — không có tên bảng kỹ thuật. */
   const tkChu = (n) => (n && n.tk && n.tk.length ? 'TK ' + n.tk.join(', ') : '');
+  /* MỘT bản đồ nhãn + màu cho "nguồn báo cáo đang dùng" — dùng chung cho nhãn trên 3 báo cáo và cột
+     "Báo cáo đang dùng" của màn Đối chiếu sổ, để cùng một trạng thái không mang hai chữ / hai màu. */
+  const NGUON_DUNG = {
+    so_cai: ['info', 'Sổ cái'], nghiep_vu: ['warning', 'Bảng nghiệp vụ'], khop: ['success', 'Khớp sổ cái'],
+    khac: ['warning', 'Hai nguồn lệch'], tron: ['info', 'Sổ cái + nghiệp vụ'], cong_thuc: ['muted', 'Công thức'],
+    chua_tinh: ['danger', 'Chưa tính'], ca_hai_0: ['muted', 'Cả hai bằng 0'],
+  };
   function nhanNguon(n) {
     if (!n || n.loai === 'cong_thuc') return '';
     let lop = 'info', chu, giai;
     const nguon = n.bang || 'bảng nghiệp vụ';
-    if (n.loai === 'so_cai') { chu = 'Sổ cái ' + n.tk.join('+'); giai = 'Lấy từ sổ cái ' + tkChu(n) + ' (bút toán đã ghi sổ).'; }
+    if (n.loai === 'so_cai') { chu = 'Sổ cái ' + n.tk.join('+'); giai = n.bang ? 'Lấy từ ' + n.bang + '.' : 'Lấy từ sổ cái ' + tkChu(n) + ' (bút toán đã ghi sổ).'; }
     else if (n.loai === 'chua_tinh') { lop = 'danger'; chu = 'Chưa tính'; giai = 'Dòng này chưa có nguồn số liệu — hệ thống đang gán 0.' + (tkChu(n) ? ' ' + tkChu(n) + ' chưa được đọc.' : ''); }
     else if (n.loai === 'nghiep_vu') { lop = 'warning'; chu = n.nhan || 'Bảng nghiệp vụ'; giai = 'Lấy từ ' + nguon + '. Không đọc sổ cái' + (tkChu(n) ? ' (' + tkChu(n) + ')' : '') + ' — so hai nguồn ở màn Đối chiếu sổ.'; }
     else if (n.dang_dung) {   // 'tron' của Cân đối: có đủ số hai nguồn
@@ -68,11 +75,14 @@
         + (n.chenh != null && Math.abs(n.chenh) >= 1 ? ' · Chênh ' + KD.tienVnd(n.chenh) : '') + '.';
       const caHai0 = n.so_cai != null && n.nghiep_vu != null && Math.abs(n.so_cai) < 1 && Math.abs(n.nghiep_vu) < 1;
       // "Cả hai bằng 0": cùng chữ với màn Đối chiếu sổ — không tô xanh "khớp" cho một dòng trống.
-      if (caHai0) { chu = 'Cả hai bằng 0'; giai = 'Sổ cái ' + tkChu(n) + ' và ' + nguon + ' đều bằng 0.'; }
-      else if (n.dang_dung === 'khop') { lop = 'success'; chu = 'Khớp sổ cái'; giai = hai + ' Hai nguồn bằng nhau.'; }
-      else if (n.dang_dung === 'so_cai') { chu = 'Sổ cái ' + n.tk.join('+'); giai = hai + ' Báo cáo đang lấy số sổ cái (số lớn hơn).'; }
-      else if (n.dang_dung === 'nghiep_vu') { lop = 'warning'; chu = 'Bảng nghiệp vụ'; giai = hai + ' Báo cáo đang lấy số bảng nghiệp vụ.'; }
-      else { lop = 'warning'; chu = 'Hai nguồn lệch'; giai = hai; }
+      const khoa = caHai0 ? 'ca_hai_0' : (NGUON_DUNG[n.dang_dung] ? n.dang_dung : 'khac');
+      [lop, chu] = NGUON_DUNG[khoa];
+      if (lop === 'muted') lop = 'info';   // chip chỉ có 4 màu nền; xám trung tính dùng info (slate)
+      if (khoa === 'so_cai') chu = 'Sổ cái ' + n.tk.join('+');
+      giai = caHai0 ? 'Sổ cái ' + tkChu(n) + ' và ' + nguon + ' đều bằng 0.'
+        : khoa === 'khop' ? hai + ' Hai nguồn bằng nhau.'
+          : khoa === 'so_cai' ? hai + ' Báo cáo đang lấy số sổ cái (số lớn hơn).'
+            : khoa === 'nghiep_vu' ? hai + ' Báo cáo đang lấy số bảng nghiệp vụ.' : hai;
       if (lop === 'info' && n.chenh != null && Math.abs(n.chenh) >= 1) lop = 'warning';
     } else { chu = n.nhan || 'Sổ cái + nghiệp vụ'; giai = 'Lấy từ ' + nguon + '.'; }
     // aria-label bắt đầu bằng đúng chữ đang hiện trên nhãn (WCAG 2.5.3 — nhãn nhìn thấy nằm trong tên).
@@ -99,19 +109,26 @@
     return '<div class="kd-banner kt-cb kt-cb--' + esc(x.muc) + (x.muc === 'info' ? ' kd-banner--info' : x.muc === 'warning' ? ' kd-banner--warning' : '') + '">'
       + '<div class="kt-cb__than"><p class="kt-cb__td">' + esc(x.tieu_de) + '</p>' + than + '</div>' + nutCb(x, thang) + '</div>';
   }
-  /* Gộp theo câu hiển thị: nhiều hàm cùng thiếu một bảng (vd dữ liệu vận chuyển) chỉ hiện một dòng. */
+  /* Lỗi đọc dữ liệu: ĐẾM theo lỗi gốc (chi_tiet — mỗi bảng/cột thiếu là một nguồn), HIỆN theo câu cho người
+     đọc (mo_ta) — nhiều hàm cùng thiếu một bảng chỉ hiện một dòng, nhiều cột khác nhau cùng một câu thì ghi
+     số chỗ. Không bao giờ in chi_tiet (câu gốc Postgres, có tên kỹ thuật) ra màn hình. */
   function gomLoiDoc(d0) {
-    const ds = [], thay = new Set();
+    const goc = new Map();
     (Array.isArray(d0) ? d0 : [d0]).forEach((x) => (x && x.loi_doc_du_lieu || []).forEach((l) => {
-      const k = l.mo_ta || l.chi_tiet; if (!thay.has(k)) { thay.add(k); ds.push(l); } }));
-    return ds;
+      if (!goc.has(l.chi_tiet)) goc.set(l.chi_tiet, l.mo_ta || 'Một nguồn dữ liệu của báo cáo không đọc được'); }));
+    return goc;
   }
-  const mucLoiDoc = (ds) => (ds.length ? [{ muc: 'danger', nguyen_nhan: ds.map((l) => l.mo_ta || l.chi_tiet),
-    tieu_de: 'Không đọc được ' + KD.soDem(ds.length) + ' nguồn dữ liệu — số 0 ở các dòng liên quan KHÔNG phải số thật' }] : []);
+  function mucLoiDoc(goc) {
+    if (!goc.size) return [];
+    const dem = new Map();
+    goc.forEach((mt) => dem.set(mt, (dem.get(mt) || 0) + 1));
+    return [{ muc: 'danger', nguyen_nhan: [...dem].map(([mt, n]) => (n > 1 ? mt + ' (' + KD.soDem(n) + ' chỗ)' : mt)),
+      tieu_de: 'Không đọc được ' + KD.soDem(goc.size) + ' nguồn dữ liệu — số 0 ở các dòng liên quan KHÔNG phải số thật' }];
+  }
   async function canhBao(el, thang, man, d0) {
     if (!el) return;
     try {
-      const d = await KD.api('/api/bao-cao/canh-bao?' + KT.url.qs({ thang }));
+      const d = await KD.api('/api/bao-cao/canh-bao?' + KT.url.qs({ thang, man }));
       if (el.dataset.thang !== thang) return;   // người dùng đã đổi kỳ trong lúc chờ
       // Lỗi đọc mà /canh-bao trả là của bước tính Cân đối → chỉ có nghĩa ở màn Cân đối và màn Đối chiếu.
       const loiCb = man === 'cdkt' || man === 'doi_chieu' ? [d] : [];
@@ -162,7 +179,10 @@
       dauThe.insertAdjacentElement('afterend', p); return p; })() : null;
     function veTieuDe(d) {
       if (nguonChungEl) { nguonChungEl.hidden = false; const a = nguonChungEl.querySelector('[data-doi-chieu]');
-        if (a && c.canhBao) a.href = '/ketoan/doi-chieu?' + KT.url.qs({ thang: c.canhBao.thang(khoang(), d) }); }
+        // Màn Đối chiếu tính THEO THÁNG: kỳ nhiều tháng (quý, năm) thì ghi rõ tháng nào để khỏi đem số cả kỳ
+        // so với số một tháng.
+        if (a && c.canhBao) { const t = c.canhBao.thang(khoang(), d); a.href = '/ketoan/doi-chieu?' + KT.url.qs({ thang: t });
+          a.textContent = 'Đối chiếu tháng ' + t.slice(5, 7) + '/' + t.slice(0, 4) + ' với sổ cái'; } }
       if (tipTd) tipTd.innerHTML = c.phamVi ? KD.tip(chuTron(c.phamVi(d))) : '';
       if (phuTd && c.phuDe) phuTd.textContent = c.phuDe(d) + ' · Đơn vị tính: VND';
     }
@@ -392,5 +412,5 @@
     return { tai, st, duLieu: () => du, khoang };
   }
 
-  window.KT = Object.assign(window.KT || {}, { baoCao, soBc, xuatCsv, nhanNguon, ganCanhBao });
+  window.KT = Object.assign(window.KT || {}, { baoCao, soBc, xuatCsv, nhanNguon, ganCanhBao, NGUON_DUNG });
 })();

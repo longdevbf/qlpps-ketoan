@@ -28,11 +28,8 @@
     $('dc-thang').value = st.thang;
   })();
 
-  const DUNG = {
-    so_cai: ['info', 'Sổ cái'], nghiep_vu: ['warning', 'Bảng nghiệp vụ'],
-    khop: ['success', 'Khớp — hai nguồn bằng nhau'], khac: ['danger', 'Không khớp nguồn nào'],
-    tron: ['info', 'Sổ cái + nghiệp vụ'], cong_thuc: ['muted', 'Công thức'], chua_tinh: ['danger', 'Chưa tính — đang gán 0'],
-  };
+  // Cùng bản đồ nhãn + màu với nhãn nguồn trên 3 báo cáo (kt-bao-cao.js) — một trạng thái, một chữ, một màu.
+  const DUNG = KT.NGUON_DUNG;
   const LECH = 1; // VND — dưới mức này coi như sai số làm tròn
   let luot = 0;
 
@@ -53,7 +50,7 @@
   function veBang(pfx, ds, d, laSoDu) {
     const lech = ds.filter((r) => r.chenh != null && Math.abs(KD.so(r.chenh) || 0) >= LECH).length;
     const coDu = ds.filter((r) => r.chenh != null).length;
-    const trong = ds.every((r) => bang0(r.so_cai) && bang0(r.nghiep_vu));
+    const trong = ds.length > 0 && ds.every((r) => bang0(r.so_cai) && bang0(r.nghiep_vu));   // [].every() = true
     // Ghi kỳ ngay trên dòng tóm tắt: khi in, ô chọn tháng bị ẩn nên đây là chỗ duy nhất cho biết kỳ nào.
     const ky = (laSoDu ? 'Cuối tháng ' : 'Tháng ') + chuThang(d.thang) + ' · ';
     $(pfx + '-tom').innerHTML = esc(ky) + (trong ? '<span class="pill pill--muted">Chưa có số liệu trong tháng</span>'
@@ -69,7 +66,7 @@
     $(pfx + '-tbody').innerHTML = ds.map((r) => {
       const ca0 = r.so_cai != null && r.nghiep_vu != null && bang0(r.so_cai) && bang0(r.nghiep_vu);
       if (!DUNG[r.dang_dung]) console.warn('[doi-chieu] dang_dung chưa có nhãn:', r.dang_dung);
-      const dung = ca0 && laSoDu ? ['muted', 'Cả hai bằng 0'] : (DUNG[r.dang_dung] || ['muted', 'Chưa đặt tên']);
+      const dung = ca0 && laSoDu ? DUNG.ca_hai_0 : (DUNG[r.dang_dung] || ['muted', 'Chưa đặt tên']);
       const lechDong = r.chenh != null && Math.abs(KD.so(r.chenh) || 0) >= LECH;
       const tip = r.bang ? (laSoDu ? 'Nguồn nghiệp vụ: ' + r.bang : r.bang) : '';
       return '<tr' + (lechDong ? ' class="kt-dcs--lech"' : '') + '>'
@@ -86,7 +83,9 @@
     const l = ++luot;
     KT.url.ghi(st, MAC_DINH);
     ['dc-cd', 'dc-kq'].forEach((p) => { $(p + '-cuon').hidden = false; $(p + '-tt').innerHTML = ''; $(p + '-tom').innerHTML = ''; $(p + '-tbody').innerHTML = KT.hangCho(6, 6); });
-    const cb = $('dc-canh-bao'); cb.hidden = true; cb.innerHTML = '';
+    // Xoá cả dataset.thang: canhBao() bỏ phản hồi đến muộn bằng cách so tháng này — để nguyên thì cảnh báo
+    // của tháng cũ (đang bay về) vẫn khớp và hiện dưới ô tháng mới.
+    const cb = $('dc-canh-bao'); cb.hidden = true; cb.innerHTML = ''; delete cb.dataset.thang;
     try {
       const d = await KD.api('/api/bao-cao/doi-chieu?' + KT.url.qs({ thang: st.thang }));
       if (l !== luot) return;

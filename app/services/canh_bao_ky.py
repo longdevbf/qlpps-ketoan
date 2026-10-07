@@ -42,12 +42,17 @@ def _cuoi_thang(thang: str) -> date:
     return date(y, m, monthrange(y, m)[1])
 
 
+_TOI_DA_THANG = 120   # 10 năm — chặn vòng lặp dài bất thường
+
+
 def _dai_thang(tu: str, den: str) -> list[str]:
+    """Các tháng từ `tu` tới `den`. Quá _TOI_DA_THANG thì giữ các tháng GẦN NHẤT (bỏ tháng cũ) —
+    tháng gần nhất là tháng người dùng cần thấy; nơi gọi tự so độ dài để biết đã cắt."""
     out, t = [], tu
-    while t <= den and len(out) < 120:   # chặn trên 10 năm cho chắc, tránh vòng lặp dài bất thường
+    while t <= den:
         out.append(t)
         t = _thang_sau(t)
-    return out
+    return out[-_TOI_DA_THANG:]
 
 
 def _chu_thang(thang: str) -> str:
@@ -81,33 +86,49 @@ def thieu_khau_hao(db: Session, thang: str, thang_hien_tai: str) -> list[dict]:
         return []
     tu = _thang_sau(gan_nhat) if gan_nhat else min(ts.ngay_su_dung for ts in tai_san).strftime("%Y-%m")
 
-    thieu: list[tuple[str, Decimal, int]] = []
-    for m in _dai_thang(tu, thang):
-        cuoi = _cuoi_thang(m)
-        phai = [ts for ts in tai_san if ts.ngay_su_dung <= cuoi]
-        if phai:
-            uoc = sum((min(ts.nguyen_gia / ts.so_thang_kh, ts.nguyen_gia - ts.hao_mon_luy_ke) for ts in phai),
-                      Decimal("0"))
-            thieu.append((m, uoc.quantize(Decimal("1")), len(phai)))
+    can_xet = _dai_thang(tu, thang)
+    bi_cat = len(can_xet) == _TOI_DA_THANG and can_xet[0] != tu
+    thieu = [m for m in can_xet if any(ts.ngay_su_dung <= _cuoi_thang(m) for ts in tai_san)]
     if not thieu:
         return []
-
-    tong = sum((x[1] for x in thieu), Decimal("0"))
+    # Tháng hiện tại chưa tới hạn khấu hao (chạy vào cuối tháng): đã có tháng cũ bị thiếu thì chỉ tính các
+    # tháng cũ vào số tiền thiếu; chỉ còn tháng hiện tại thì là nhắc nhở (info), không phải thiếu.
+    qua_han = [m for m in thieu if m < thang_hien_tai]
+    if qua_han:
+        thieu = qua_han
+    # Ước tính theo TỪNG tài sản: số tháng thiếu × mức tháng, nhưng không vượt phần còn lại phải
+    # khấu hao của chính tài sản đó (cộng nhiều tháng không được vượt nguyên giá − hao mòn).
+    tong = Decimal("0")
+    thang_cuoi = Decimal("0")
+    so_ts = 0
+    for ts in tai_san:
+        muc_thang = ts.nguyen_gia / ts.so_thang_kh
+        con_lai = ts.nguyen_gia - ts.hao_mon_luy_ke
+        n = sum(1 for m in thieu if ts.ngay_su_dung <= _cuoi_thang(m))
+        if n:
+            tong += min(muc_thang * n, con_lai)
+            thang_cuoi += min(muc_thang, con_lai)
+            so_ts += 1
+    tong, thang_cuoi = tong.quantize(Decimal("1")), thang_cuoi.quantize(Decimal("1"))
+    khoang = (f"{len(thieu)} tháng ({_chu_thang(thieu[0])} – {_chu_thang(thieu[-1])})" if len(thieu) > 1
+              else f"tháng {_chu_thang(thieu[0])}")
     chi_tiet = (
         f"Khấu hao ghi gần nhất: {_chu_thang(gan_nhat) if gan_nhat else 'chưa có'}. "
-        f"Ước tính thiếu khoảng {_tien(thieu[-1][1])}/tháng cho {thieu[-1][2]} tài sản "
-        f"(tổng {_tien(tong)}) — chi phí khấu hao trên Kết quả kinh doanh và hao mòn trên Cân đối "
-        "đang thiếu phần này. Không có lịch chạy tự động: phải bấm chạy ở màn Tài sản cố định."
+        f"Ước tính thiếu khoảng {_tien(thang_cuoi)}/tháng cho {so_ts} tài sản (tổng {_tien(tong)}, không vượt "
+        "phần còn lại phải khấu hao) — chi phí khấu hao trên Kết quả kinh doanh và hao mòn trên Cân đối đang "
+        "thiếu phần này. Không có lịch chạy tự động: phải bấm chạy ở màn Tài sản cố định."
+        + (f" Chỉ xét {_TOI_DA_THANG} tháng gần nhất." if bi_cat else "")
+        + (f" Tháng {_chu_thang(thang_hien_tai)} chưa tới hạn nên chưa tính." if qua_han and thang >= thang_hien_tai else "")
     )
-    if all(x[0] >= thang_hien_tai for x in thieu):
+    if all(m >= thang_hien_tai for m in thieu):
         return [{
             "ma": "chua_khau_hao_thang_nay", "muc": "info",
-            "tieu_de": f"Tháng {_chu_thang(thieu[-1][0])} chưa chạy khấu hao",
+            "tieu_de": f"Tháng {_chu_thang(thieu[-1])} chưa chạy khấu hao",
             "chi_tiet": chi_tiet, "so_tien": tong, "lien_ket": "/ketoan/tscd", "ap_dung": _TAT_CA,
         }]
     return [{
         "ma": "thieu_khau_hao", "muc": "warning",
-        "tieu_de": f"Chưa chạy khấu hao {len(thieu)} tháng: {', '.join(_chu_thang(x[0]) for x in thieu)}",
+        "tieu_de": f"Chưa chạy khấu hao {khoang}",
         "chi_tiet": chi_tiet, "so_tien": tong, "lien_ket": "/ketoan/tscd", "ap_dung": _TAT_CA,
     }]
 
@@ -177,11 +198,15 @@ def lech_can_doi(bc: dict, bo_ma: frozenset[str] = frozenset()) -> list[dict]:
     lech = Decimal(str(ck.get("lech") or 0)).quantize(Decimal("1"))
     ts = Decimal(str(bc["tai_san"]["tong_tai_san"] or 0))
     pt = f" ({abs(lech) / ts * 100:.1f}% tổng tài sản)".replace(".", ",") if ts else ""
-    nn = [x["thong_bao"] for x in ck.get("nguyen_nhan") or [] if x.get("ma") not in bo_ma]
+    goc = ck.get("nguyen_nhan") or []
+    nn = [x["thong_bao"] for x in goc if x.get("ma") not in bo_ma]
+    # "Chưa xác định" chỉ khi danh sách GỐC rỗng. Rỗng vì mọi ý đã có cảnh báo riêng thì chỉ sang đó.
+    du_phong = ("Nguyên nhân đo được nằm ở các cảnh báo bên dưới." if goc
+                else "Chưa xác định được nguyên nhân từ số liệu — kiểm tra bút toán thiếu vế ở Sổ kế toán.")
     return [{
         "ma": "lech_can_doi", "muc": "danger",
         "tieu_de": f"Tổng tài sản ≠ Tổng nguồn vốn — lệch {_tien(lech)}{pt}",
-        "chi_tiet": " ".join(nn) if nn else "Chưa xác định được nguyên nhân từ số liệu — kiểm tra bút toán thiếu vế ở Sổ kế toán.",
+        "chi_tiet": " ".join(nn) if nn else du_phong,
         "nguyen_nhan": nn,
         "so_tien": lech, "lien_ket": "/ketoan/doi-chieu", "ap_dung": ["cdkt", "doi_chieu"],
     }]

@@ -8,7 +8,7 @@ Không endpoint nào ở đây ghi DB → không có log_action (audit chỉ cho
 """
 from datetime import date as date_cls
 from decimal import Decimal
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -39,13 +39,19 @@ def canh_bao_ky(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
     thang: Optional[str] = Query(None, description="YYYY-MM (mặc định tháng hiện tại)"),
+    man: Optional[Literal["cdkt", "kqkd", "lctt", "doi_chieu"]] = Query(
+        None, description="Màn đang hỏi — KQKD/LCTT không cần cảnh báo của Cân đối nên khỏi tính Cân đối"),
 ):
     """Những điều làm số của kỳ `thang` chưa đáng tin: lệch cân đối, vốn góp chưa khai, kỳ chưa
     chốt, tháng chưa chạy khấu hao, bảng không đọc được. Rỗng = không phát hiện gì."""
     thang, _tu, _den = _resolve_thang(thang)
     hien_tai = date_cls.today().strftime("%Y-%m")
+    chung = ky_chua_chot(db, thang, hien_tai) + thieu_khau_hao(db, thang, hien_tai)
+    if man in ("kqkd", "lctt"):
+        # Lệch cân đối / vốn góp chỉ hiện ở màn Cân đối + Đối chiếu → khỏi tính cả Cân đối cho mỗi lần mở KQKD/LCTT.
+        return {"thang": thang, "canh_bao": chung, "loi_doc_du_lieu": []}
     bc = bao_cao_can_doi(db, user, thang=thang, source="auto")
-    rieng = von_gop_chua_khai(bc) + ky_chua_chot(db, thang, hien_tai) + thieu_khau_hao(db, thang, hien_tai)
+    rieng = von_gop_chua_khai(bc) + chung
     # Ý nào đã có cảnh báo riêng (kèm nút tới màn xử lý) thì bỏ khỏi danh sách nguyên nhân của khối
     # đỏ "lệch cân đối" — cùng một ý không nói hai lần trên một màn.
     co = {x["ma"] for x in rieng}
@@ -54,6 +60,8 @@ def canh_bao_ky(
         bo_ma.add("von_gop_chua_khai")
     if "ky_chua_chot" in co:
         bo_ma.add("chua_chot_ky")
+    if man == "doi_chieu":
+        bo_ma.add("so_cai_khac_nghiep_vu")   # bảng ngay dưới đã tô vàng đúng các dòng này
     ds = lech_can_doi(bc, frozenset(bo_ma)) + rieng
     return {"thang": thang, "canh_bao": ds, "loi_doc_du_lieu": bc.get("loi_doc_du_lieu") or []}
 

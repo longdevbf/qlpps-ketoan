@@ -32,7 +32,7 @@ from shared.db import get_db
 from ..models import CongNo, KyKeToan
 from ..services.journal import get_balance_sheet_aggregates
 from ..services.loi_doc import bat_dau_ghi_loi, ghi_loi_doc
-from ..services.nguon_bao_cao import NGUON_CDKT, NHAN_CDKT
+from ..services.nguon_can_doi import ghep_nguon_can_doi, nguyen_nhan_lech
 from ..services.so_quy_auto import so_du_truoc_ngay
 from ._deps import require_ketoan_user
 from ..services.cd_chi_tiet import (
@@ -572,61 +572,12 @@ def bao_cao_can_doi(
             "nguon_von.von_csh.quy_dn": legacy_quy,
             "nguon_von.von_csh.ln_giu_lai": legacy_ln,
         })
-    nguon: dict[str, dict] = {}
-    for khoa_dong, mo_ta in NGUON_CDKT.items():
-        muc = dict(mo_ta)
-        if khoa_dong in gia_tri:
-            sc, nv = so_cai.get(khoa_dong), nghiep_vu.get(khoa_dong)
-            gt = gia_tri[khoa_dong]
-            if sc is not None and nv is not None and abs(sc - nv) < 1:
-                dang_dung = "khop"
-            elif sc is not None and abs(gt - sc) < 1:
-                dang_dung = "so_cai"
-            elif nv is not None and abs(gt - nv) < 1:
-                dang_dung = "nghiep_vu"
-            else:
-                dang_dung = "khac"
-            muc.update({
-                "so_cai": sc, "nghiep_vu": nv, "dang_dung": dang_dung,
-                "chenh": (sc - nv) if sc is not None and nv is not None else None,
-            })
-        nguon[khoa_dong] = muc
-
-    # Nguyên nhân lệch có khả năng nhất — xếp theo mức chắc chắn, chỉ nêu điều đo được từ số liệu.
-    nguyen_nhan: list[dict] = []
-    if not can_bang:
-        if abs(von_csh_tong) < 1:
-            nguyen_nhan.append({"ma": "von_csh_bang_0", "thong_bao":
-                "Toàn bộ vốn chủ sở hữu = 0 — nguồn vốn hiện chỉ gồm nợ phải trả."})
-        if abs(von_gop) < 1:
-            so_dong_von = _safe_scalar(db, "SELECT COUNT(*) FROM ketoan.von_chu_so_huu")
-            nguyen_nhan.append({"ma": "von_gop_chua_khai", "thong_bao":
-                "Vốn góp (411) = 0 — bảng vốn chủ sở hữu chưa có dòng nào." if so_dong_von == 0
-                else "Vốn góp (411) = 0 tại cuối kỳ dù bảng vốn chủ sở hữu có "
-                     f"{int(so_dong_von)} dòng — kiểm ngày và loại giao dịch."})
-        if abs(ln_giu_lai) < 1:
-            da_chot = _safe_scalar(
-                db, "SELECT COUNT(*) FROM ketoan.ky_ke_toan WHERE trang_thai = 'da_chot' AND thang <= :t",
-                t=thang,
-            )
-            if da_chot == 0:
-                nguyen_nhan.append({"ma": "chua_chot_ky", "thong_bao":
-                    "Chưa kỳ kế toán nào được chốt → Lợi nhuận chưa phân phối (421) = 0, "
-                    "lãi/lỗ luỹ kế chưa vào nguồn vốn."})
-        if abs(quy_dn) < 1:
-            nguyen_nhan.append({"ma": "quy_bang_0", "thong_bao": "Các quỹ (414/415/353) đang bằng 0."})
-        lech_nguon = sorted(
-            ((k, v) for k, v in nguon.items() if v.get("chenh") is not None and abs(v["chenh"]) >= 1_000_000),
-            key=lambda kv: -abs(kv[1]["chenh"]),
-        )
-        def _vnd(x: float) -> str:
-            return f"{x:,.0f}".replace(",", ".") + " VND"   # cùng đơn vị với thẻ số trên màn
-        for k, v in lech_nguon[:3]:
-            nguyen_nhan.append({"ma": "so_cai_khac_nghiep_vu", "khoa": k, "thong_bao":
-                f"{NHAN_CDKT.get(k, k)}: sổ cái {_vnd(v['so_cai'])}, bảng nghiệp vụ {_vnd(v['nghiep_vu'])} — "
-                + ("báo cáo đang lấy số sổ cái." if v["dang_dung"] == "so_cai"
-                   else "báo cáo đang lấy số bảng nghiệp vụ." if v["dang_dung"] == "nghiep_vu"
-                   else "hai nguồn đang khác nhau.")})
+    # Ghép nguồn + nguyên nhân lệch ở services/nguon_can_doi.py (router chỉ gom số của chính nó).
+    nguon = ghep_nguon_can_doi(gia_tri, so_cai, nghiep_vu)
+    nguyen_nhan: list[dict] = [] if can_bang else nguyen_nhan_lech(
+        db, thang=thang, von_csh_tong=von_csh_tong, von_gop=von_gop,
+        ln_giu_lai=ln_giu_lai, quy_dn=quy_dn, nguon=nguon,
+    )
 
     return {
         "thang": thang,

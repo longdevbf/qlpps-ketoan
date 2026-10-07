@@ -135,14 +135,18 @@
 .kd-tip.kt-nguon--warning, .kd-tip.kt-nguon--warning:hover, .kd-tip.kt-nguon--warning:focus-visible { background: var(--warning-soft); color: var(--warning-fg); }
 .kd-tip.kt-nguon--success, .kd-tip.kt-nguon--success:hover, .kd-tip.kt-nguon--success:focus-visible { background: var(--success-soft); color: var(--success-fg); }
 .kd-tip.kt-nguon--danger,  .kd-tip.kt-nguon--danger:hover,  .kd-tip.kt-nguon--danger:focus-visible  { background: var(--danger-soft);  color: var(--danger-fg); }
-.kd-tip.kt-nguon:hover { filter: brightness(.95); }
+/* KHÔNG dùng filter khi hover: filter biến chip thành khung chứa của bong bóng .kd-tip::after (position:fixed
+   trên màn hẹp) → bong bóng bị ép thành cột rộng bằng chip (đo ảnh thật 375px). Hover nhận biết bằng
+   focus-ring sẵn có của .kd-tip:hover. */
 /* Màn cảm ứng: vùng chạm của chip 22px nới ra ≥ 44px theo chiều dọc mà không làm dòng bảng cao thêm. */
 @media (pointer: coarse) { .kd-tip.kt-nguon::before { content: ""; position: absolute; inset: -11px 0; } }
 
 /* ── Đợt 1 — dải cảnh báo đầu trang (#pfx-canh-bao, macro ui.canh_bao) ─────────────────────────
    Dùng lại .kd-banner (kd-man-hinh.css: nền danger-soft mặc định, --info). Ở đây chỉ thêm biến thể
    --warning, vạch màu bên trái (cùng kiểu .kd-cb__muc--*: inset 3px) và bố cục nội dung. */
-.kt-cb-khoi { display: grid; gap: var(--sp-4); margin-bottom: var(--sp-8); }
+.kt-cb-khoi { display: grid; gap: var(--sp-4); }   /* khe với khối kế tiếp đã do row-gap của .kd-page lo */
+/* Biến thể --warning của .kd-banner để ở đây chứ không ở kd-man-hinh.css: file đó được >30 template nạp,
+   sửa là phải đổi ?v= ở chừng ấy chỗ. Dời về cạnh .kd-banner--info khi có đợt đụng kd-man-hinh.css. */
 .kd-banner--warning { background: var(--warning-soft); color: var(--warning-fg); }
 .kt-cb { align-items: flex-start; flex-wrap: nowrap; }
 .kt-cb--danger  { box-shadow: inset 3px 0 0 var(--danger); }
@@ -158,7 +162,10 @@
 .kt-cb__loi { margin: 0; }
 /* Màn rộng: chi tiết luôn mở (JS mở sẵn) nên ẩn dòng tóm tắt "N nguyên nhân". */
 @media (min-width: 768px) { .kt-cb__chi > summary { display: none; } }
-@media (max-width: 767px) { .kt-cb { flex-direction: column; } }
+@media (max-width: 767px) {
+  .kt-cb { flex-direction: column; }
+  .kt-cb__chi > summary { padding-block: var(--sp-6); }   /* vùng chạm ≥ 44px (luật frontend số 8) */
+}
 
 /* Dòng "nguồn chung" dưới đầu thẻ bảng (nguonChung trong kt-bao-cao.js). */
 .kt-nguon-chung {
