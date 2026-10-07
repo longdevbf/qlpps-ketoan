@@ -68,6 +68,116 @@
   }
   const tongKy = (d) => 'Kỳ ' + KD.ngay(d.ky.tu) + ' – ' + KD.ngay(d.ky.den);
 
+  /* ── Popup chi tiết (bấm một dòng ở cả 3 bảng) ──
+     Khung panel của ui.the_bang + kt-danh-sach.js: panel.tai → GET chi tiết, panel.ve → HTML. Chia khối theo mẫu H.khoi:
+     Chứng từ · Tiền · Đối tượng · Nguồn gốc · Dấu vết. Mọi chuỗi từ server qua esc() (H.kv không tự escape giá trị); nhãn là
+     chữ tiếng Việt, không in tên cột hay khoá thô (luật frontend số 2). Ô trống in "—" để thấy rõ là KHÔNG CÓ, không phải chưa tải. */
+  const coGt = (v) => v != null && String(v).trim() !== '' && v !== 'None';   // 'None' = chữ rác Python ghi vào vài địa chỉ khách
+  const RONG = '<span class="kd-muted">—</span>';
+  const oChu = (v) => (coGt(v) ? esc(v) : RONG);
+  const oNgay = (v) => (coGt(v) ? KD.ngay(v) : RONG);
+  const nhanTu = (map, k, ten) => {   // khoá lạ → "Chưa đặt tên" + console.warn, không in khoá thô
+    if (!coGt(k)) return RONG;
+    if (map[k]) return esc(map[k]);
+    console.warn('[thu-chi] ' + ten + ' chưa có nhãn:', k);
+    return 'Chưa đặt tên';
+  };
+  // Link chứng từ chỉ nhận đường dẫn trong app hoặc http(s) (KD.urlAnToan) — chặn "javascript:…" lọt từ dữ liệu người dùng.
+  const linkTep = (u, nhan) => { const s = KD.urlAnToan(u);
+    return s ? '<a class="kt-ma" href="' + esc(s) + '" target="_blank" rel="noopener">' + esc(nhan) + ' <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a>'
+      : '<span title="' + esc(u) + '">Có tệp nhưng đường dẫn không mở được</span>'; };
+  // Chữ dài (diễn giải, ghi chú) trải hết bề ngang dưới bảng nhãn–giá trị — trong lưới 2 cặp/hàng nó bị bó vào cột hẹp.
+  const doanDai = (nhan, v) => (coGt(v) ? '<div class="kt-tc-dai"><p class="kt-tc-dai__nhan">' + esc(nhan) + '</p><p class="kd-note">' + esc(v) + '</p></div>' : '');
+  const canhBao = (chu) => '<p class="kt-tc-canh">' + esc(chu) + '</p>';
+  const ghiChuPhu = (chu) => '<p class="kt-tc-p-phu">' + esc(chu) + '</p>';
+  const chipNguon = (nhan) => (nhan ? '<span class="kd-chip">' + esc(nhan) + '</span>' : H.pill('muted', 'Tự nhập'));   // cùng kiểu cột "Loại / nguồn"
+  // created_by là username (ten-nhan-vien.js tự đổi mã NV thành họ tên) hoặc tên tài khoản máy của cầu nối tự sinh.
+  const NGUOI_MAY = { 'auto-bridge': 'Hệ thống (cầu nối tự động)', system: 'Hệ thống' };
+  const dauVet = (d) => H.khoi('bi-clock-history', 'Dấu vết', H.kv([
+    ['Người tạo', NGUOI_MAY[d.created_by] ? NGUOI_MAY[d.created_by] : oChu(d.created_by)],
+    ['Tạo lúc', coGt(d.created_at) ? esc(KD.ngayGio(d.created_at)) : RONG],
+    // created_at và updated_at cùng lấy now() của một câu INSERT → bằng nhau nghĩa là chưa ai sửa.
+    ['Sửa lần cuối', !coGt(d.updated_at) ? RONG : d.updated_at === d.created_at ? 'Chưa sửa lần nào' : esc(KD.ngayGio(d.updated_at))],
+  ]));
+
+  /* Doanh thu — GET /api/doanh-thu/{id}/chi-tiet: mọi cột của phiếu + khách của đơn (baogia.quotes theo mã đơn). */
+  const NGUON_DT = { 'PO mua hàng': 'Tự sinh khi đơn mua hàng (PO) hoàn thành', 'Duyệt cọc': 'Luồng Duyệt cọc',
+    'Đối chiếu giao hàng': 'Luồng Đối chiếu giao hàng', 'Theo đơn': 'Theo đơn hàng' };
+  const KENH_DT = { kd: 'Kinh doanh', online: 'Online', khac: 'Khác' };
+  function veChiTietDt(d) {
+    const k = d.khach;
+    let doiTuong = H.kv([
+      ['Người nộp', oChu(d.nguoi_nop)],
+      k && ['Khách hàng', oChu(k.customer_name)],
+      k && ['Điện thoại', oChu(k.customer_phone)],
+      k && ['Địa chỉ', oChu(k.customer_address)],
+      ['NV kinh doanh', oChu(d.nv_kinh_doanh)],
+      k && coGt(k.salesperson) && ['NV phụ trách đơn', esc(k.salesperson)],
+    ]);
+    if (!coGt(d.ma_don)) doiTuong += ghiChuPhu('Phiếu không gắn mã đơn nên không tra được khách bên Báo giá.');
+    else if (!d.khach_doc_duoc) doiTuong += canhBao('Chưa đọc được dữ liệu Báo giá trên máy này — thông tin khách của đơn ' + d.ma_don + ' tạm thiếu.');
+    else if (!k) doiTuong += canhBao('Không tìm thấy đơn ' + d.ma_don + ' bên Báo giá — kiểm tra lại mã đơn của phiếu.');
+    return H.dauPanel('bi-receipt', 'success', 'DT-' + d.id, esc(KD.ngay(d.ngay)) + ' · ' + esc(d.loai || 'Doanh thu'), chipNguon(d.nguon_hien))
+      + H.khoi('bi-file-earmark-text', 'Chứng từ', H.kv([
+        ['Số phiếu', 'DT-' + esc(d.id)], ['Ngày ghi nhận', oNgay(d.ngay)], ['Loại doanh thu', oChu(d.loai)], ['Mã đơn', oChu(d.ma_don)],
+        ['Chứng từ đính kèm', coGt(d.chung_tu_url) ? linkTep(d.chung_tu_url, 'Mở chứng từ') : '<span class="kd-muted">Chưa đính kèm</span>'],
+      ]) + doanDai('Diễn giải', d.mo_ta) + doanDai('Ghi chú', d.ghi_chu))
+      + H.khoi('bi-cash-stack', 'Tiền', H.kv([
+        ['Số tiền', esc(KD.tienVnd(d.so_tien)), true], ['Hình thức thanh toán', oChu(d.loai_thanh_toan)], ['Tài khoản nhận', oChu(d.ngan_hang)],
+      ]))
+      + H.khoi('bi-person', 'Khách hàng và người nộp', doiTuong)
+      + H.khoi('bi-diagram-3', 'Nguồn gốc', H.kv([
+        ['Nguồn', d.nguon_hien ? esc(NGUON_DT[d.nguon_hien] || d.nguon_hien) : 'Kế toán tự nhập'],
+        coGt(d.nguon) && ['Kênh', nhanTu(KENH_DT, d.nguon, 'Kênh doanh thu')],
+        coGt(d.ref_order_id) && ['Đơn mua hàng (PO)', esc(d.ref_order_id)],
+      ]))
+      + dauVet(d);
+  }
+
+  /* Chi phí — GET /api/chi-phi/{id}/chi-tiet: mọi cột + đề xuất chi đã sinh ra dòng này (người thụ hưởng, STK, ngân hàng).
+     Nhãn nguồn do server phân loại (chi_phi._nguon_chi_phi) — ở đây chỉ nói rõ "từ module nào". */
+  const NGUON_CP = { 'KT tự nhập': 'Kế toán tự nhập', 'Đề xuất chi': 'Tự động — nút Chi của Đề xuất chi',
+    'Đề Nghị TT': 'Tự động — Đề nghị thanh toán của Sale Admin', 'Vận chuyển (auto)': 'Tự động — phí vận chuyển (Sale Admin)',
+    'Ads (auto)': 'Tự động — chi phí quảng cáo (Marketing)', 'Lương (auto)': 'Tự động — bảng lương (HCNS)',
+    'Phát sinh (auto)': 'Tự động — phát sinh đơn hàng (Sale Admin)' };
+  const HINH_THUC = { ck: 'Chuyển khoản', tm: 'Tiền mặt' };
+  const laKyLuong = (v) => /^\d{4}-\d{2}$/.test(v || '');   // 'YYYY-MM' = kỳ lương của khoản Ứng Lương, không phải khoá cầu nối
+  // Khoá cầu nối của dòng tự sinh — cùng thứ tự ưu tiên với _nguon_chi_phi phía server.
+  const refCp = (d) => d.ref_dntt || d.ref_vc || d.ref_ads_thang_kenh || (laKyLuong(d.ref_payroll_thang_pb) ? '' : d.ref_payroll_thang_pb) || d.ref_phatsinh || '';
+  function veChiTietCp(d) {
+    const x = d.de_xuat, tuNhap = !d.nguon || d.nguon === 'KT tự nhập', ky = laKyLuong(d.ref_payroll_thang_pb) ? d.ref_payroll_thang_pb : '';
+    let doiTuong = H.kv([
+      x && ['Người thụ hưởng', coGt(x.nguoi_thu_huong) ? esc(x.nguoi_thu_huong) : '<span class="kd-muted">Đề xuất không ghi</span>'],
+      x && ['Số tài khoản nhận', oChu(x.so_tk_nhan)],
+      x && ['Ngân hàng nhận', oChu(x.ngan_hang_nhan)],
+      x && ['Hình thức trả', nhanTu(HINH_THUC, x.hinh_thuc, 'Hình thức trả')],
+      coGt(d.don_vi_vc) && ['Đơn vị vận chuyển', esc(d.don_vi_vc)],
+      ['Người chi', oChu(d.nguoi_chi)],
+      ['Phòng ban', oChu(d.phong_ban)],
+    ]);
+    if (!d.de_xuat_doc_duoc) doiTuong += canhBao('Chưa đọc được dữ liệu Đề xuất chi trên máy này — nếu dòng này chi từ đề xuất thì người thụ hưởng, số tài khoản nhận đang tạm thiếu.');
+    return H.dauPanel('bi-wallet2', '', 'CP-' + d.id, esc(KD.ngay(d.ngay)) + ' · ' + esc(d.ten_khoan || d.loai_chi_phi || 'Chi phí'), chipNguon(tuNhap ? '' : d.nguon))
+      + H.khoi('bi-file-earmark-text', 'Chứng từ', H.kv([
+        ['Số chứng từ', 'CP-' + esc(d.id)], ['Ngày', oNgay(d.ngay)], ['Tên khoản', oChu(d.ten_khoan)], ['Loại chi phí', oChu(d.loai_chi_phi)],
+        ['Mã đơn', oChu(d.ma_don)], ['Hoá đơn', coGt(d.hoa_don_url) ? linkTep(d.hoa_don_url, 'Mở hoá đơn') : '<span class="kd-muted">Chưa đính kèm</span>'],
+      ]) + doanDai('Diễn giải', d.mo_ta) + doanDai('Ghi chú', d.ghi_chu))
+      + H.khoi('bi-cash-stack', 'Tiền', H.kv([
+        ['Số tiền', esc(KD.tienVnd(d.so_tien)), true], ['Chi từ tài khoản', oChu(d.ngan_hang)], ['Quỹ sử dụng', oChu(d.quy)],
+        ['Hạch toán', 'TK ' + esc(NHOM_TK[d.nhom_chi_phi] || '811') + ' · ' + esc(NHOM_NHAN[d.nhom_chi_phi] || 'Khác')],
+      ]))
+      + H.khoi('bi-person', 'Người nhận và người chi', doiTuong)
+      + H.khoi('bi-diagram-3', 'Nguồn gốc', H.kv([
+        ['Nguồn', esc(NGUON_CP[d.nguon] || d.nguon || 'Kế toán tự nhập')],
+        refCp(d) && ['Mã tham chiếu', esc(refCp(d))],
+        ky && ['Kỳ lương bị trừ', esc(ky.slice(5) + '/' + ky.slice(0, 4))],
+        x && ['Đề xuất chi', '#' + esc(x.id) + (coGt(x.tieu_de) ? ' · ' + esc(x.tieu_de) : '')],
+        x && ['Người đề xuất', oChu(x.ho_ten) + (coGt(x.phong_ban) ? ' · ' + esc(x.phong_ban) : '') + (coGt(x.ngay_de_xuat) ? '<span class="kt-khach__ma">Đề xuất ngày ' + KD.ngay(x.ngay_de_xuat) + '</span>' : '')],
+        x && ['Duyệt cuối', coGt(x.ho_ten_nguoi_duyet) ? esc(x.ho_ten_nguoi_duyet) + (coGt(x.ngay_duyet) ? '<span class="kt-khach__ma">' + esc(KD.ngayGio(x.ngay_duyet)) + '</span>' : '') : RONG],
+        x && x.chung_tu_urls && x.chung_tu_urls.length && ['Chứng từ đề xuất', x.chung_tu_urls.map((u, i) => linkTep(u, 'Tệp ' + (i + 1))).join(' · ')],
+      ]))
+      + dauVet(d);
+  }
+
   /* ── Tab Doanh thu ── */
   /* Hình thức TT của phiếu doanh thu → 'coc' | 'tt' | 'khac' — cùng quy tắc SQL của /api/doanh-thu/by-month. */
   let loaiDt = [];
@@ -114,7 +224,7 @@
       if (!q.loai) loaiDt = [...new Set(list.map((r) => r.loai).filter(Boolean))].sort();
       if (q.ht) list = list.filter((r) => htTT(r) === q.ht);
       xep(list, q.sort);
-      const p = phanTrangTim(list, q, (r) => [r.ma_don, r.mo_ta, r.ghi_chu, r.loai, r.nv_kinh_doanh, r.ngan_hang, r.nguon_hien]);
+      const p = phanTrangTim(list, q, (r) => [r.ma_don, r.nguoi_nop, r.mo_ta, r.ghi_chu, r.loai, r.nv_kinh_doanh, r.ngan_hang, r.nguon_hien]);
       const S = (f) => list.reduce((s, r) => s + f(r), 0);
       // Cùng quy tắc với /api/doanh-thu/by-month (ILIKE '%cọc%' / ILIKE 'thanh toán' — không phân biệt hoa thường).
       const dat_coc = S((r) => (htTT(r) === 'coc' ? Number(r.so_tien || 0) : 0));
@@ -134,6 +244,7 @@
       { key: 'tong', nhan: 'Số tiền (VND)', num: true, sort: 'so', cls: 'kd-strong', ve: (r) => KD.tien(r.so_tien) },
     ].concat(cotThaoTac((r) => 'DT-' + r.id)),
     menu: menuSuaXoa((r) => moDt(r), (r) => xoaDt(r)),
+    panel: { tai: (r) => '/api/doanh-thu/' + encodeURIComponent(r.id) + '/chi-tiet', ve: (d) => veChiTietDt(d), loi: 'Không tải được chi tiết phiếu doanh thu' },
     kpi: {
       tong: (d) => ({ v: H.tienKpi(d.tong.tong), title: KD.tienVnd(d.tong.tong), phu: tongKy(d) }),
       so_dong: (d) => ({ v: H.dem(d.tong.so_dong, 'phiếu'), phu: 'Theo bộ lọc' }),
@@ -183,6 +294,7 @@
       { key: 'so_tien', nhan: 'Số tiền (VND)', num: true, sort: 'so', cls: 'kd-strong', ve: (r) => KD.tien(r.so_tien) },
     ].concat(cotThaoTac((r) => 'CP-' + r.id)),
     menu: menuSuaXoa((r) => moCp(r), (r) => xoaCp(r)),
+    panel: { tai: (r) => '/api/chi-phi/' + encodeURIComponent(r.id) + '/chi-tiet', ve: (d) => veChiTietCp(d), loi: 'Không tải được chi tiết chi phí' },
     kpi: {
       tong: (d) => ({ v: H.tienKpi(d.tong.so_tien), title: KD.tienVnd(d.tong.so_tien), phu: tongKy(d) }),
       lon_nhat: (d) => (d.tong.lon_nhat ? { v: H.tienKpi(d.tong.lon_nhat.so_tien), title: KD.tienVnd(d.tong.lon_nhat.so_tien), phu: esc(d.tong.lon_nhat.ten) + (d.tong.so_tien ? ' · ' + KD.phanTram(d.tong.lon_nhat.so_tien / d.tong.so_tien * 100) : '') } : { v: null, phu: 'Chưa có chi phí' }),
@@ -230,6 +342,40 @@
     if (r.lap_lai) return thang >= bd ? soTien : null;        // lặp mãi từ start
     return thang === bd ? soTien : null;                       // 1 lần đúng tháng start
   }
+  // Cách tính của khoản — dùng chung cột "Lặp lại" và popup để hai chỗ không nói khác nhau.
+  const pillLap = (r) => (r.so_thang_phan_bo > 1 ? H.pill('muted', 'Phân bổ ' + r.so_thang_phan_bo + ' tháng') : r.lap_lai ? H.pill('success', 'Hằng tháng') : H.pill('muted', 'Một lần'));
+  const thangNam = (v) => (coGt(v) ? esc(String(v).slice(5, 7) + '/' + String(v).slice(0, 4)) : RONG);
+
+  /* Chi phí cố định — GET /api/co-dinh/{id} có sẵn đã trả đủ 17 cột; r là dòng bảng (mang số ghi nhận tháng đang xem). */
+  function veChiTietCd(d, r) {
+    const pt = d.phuong_phap_phan_bo === 'by_revenue_pct', thang = (cd.duLieu() || {}).thang;
+    // soTienGhiNhanThang chỉ chép quy tắc "chia đều theo tháng" của pl_calculator — phương pháp khác (theo % doanh thu,
+    // % tay, theo ngày, mùa…) nó ra số sai, nên popup chỉ in số tháng đang xem khi khoản dùng đúng phương pháp đó.
+    const chiaDeu = d.phuong_phap_phan_bo === 'duong_thang';
+    // Nhãn phương pháp lấy từ chính ô chọn của hộp "Thêm chi phí cố định" — một nguồn chữ cho cả form lẫn popup.
+    const pp = [...$('tc-cd-pp').options].find((o) => o.value === d.phuong_phap_phan_bo);
+    const tc = d.phan_bo_manual && typeof d.phan_bo_manual === 'object' ? Object.keys(d.phan_bo_manual).sort()
+      .map((k) => (/^\d{2}$/.test(k) ? 'T' + Number(k) : k.slice(5) + '/' + k.slice(0, 4)) + ': ' + KD.phanTram(d.phan_bo_manual[k])) : [];
+    return H.dauPanel('bi-calendar3', '', d.ten_khoan || '(chưa đặt tên)', esc(d.loai_chi_phi || NHOM_NHAN[d.nhom_chi_phi] || 'Khác'), pillLap(d))
+      + H.khoi('bi-file-earmark-text', 'Khoản chi', H.kv([
+        ['Mã khoản', '#' + esc(d.id)], ['Tên khoản', oChu(d.ten_khoan)], ['Loại chi phí', oChu(d.loai_chi_phi)],
+        ['Hạch toán', 'TK ' + esc(NHOM_TK[d.nhom_chi_phi] || '811') + ' · ' + esc(NHOM_NHAN[d.nhom_chi_phi] || 'Khác')],
+      ]) + doanDai('Mô tả', d.mo_ta) + doanDai('Ghi chú', d.ghi_chu))
+      + H.khoi('bi-cash-stack', 'Tiền và phân bổ', H.kv([
+        [pt ? 'Tỷ lệ % doanh thu' : 'Thành tiền', pt ? esc(KD.phanTram(d.so_tien_thang)) : esc(KD.tienVnd(d.so_tien_thang)), true],
+        chiaDeu && r && r.so_tien_ghi_nhan != null && thang && ['Ghi nhận tháng ' + thang.slice(5) + '/' + thang.slice(0, 4), esc(KD.tienVnd(r.so_tien_ghi_nhan))],
+        ['Phương pháp phân bổ', pp ? esc(pp.textContent) : nhanTu({}, d.phuong_phap_phan_bo, 'Phương pháp phân bổ')],
+        ['Cách tính', d.so_thang_phan_bo > 1 ? 'Phân bổ ' + esc(d.so_thang_phan_bo) + ' tháng rồi dừng' : d.lap_lai ? 'Lặp mỗi tháng từ tháng bắt đầu' : 'Chỉ tháng bắt đầu'],
+        tc.length && ['Tỷ lệ từng tháng', esc(tc.join(' · '))],
+      ]) + (chiaDeu ? '' : ghiChuPhu('Phương pháp này phân bổ theo tỷ lệ riêng — số ghi nhận từng tháng xem ở báo cáo Kết quả kinh doanh.')))
+      + H.khoi('bi-calendar-range', 'Thời gian áp dụng', H.kv([
+        ['Tháng bắt đầu', thangNam(d.thang_bat_dau)], ['Từ ngày', oNgay(d.ngay_bat_dau)],
+        ['Đến ngày', coGt(d.ngay_ket_thuc) ? KD.ngay(d.ngay_ket_thuc) : 'Không thời hạn'],
+      ]))
+      + H.khoi('bi-diagram-3', 'Nguồn gốc', H.kv([['Nguồn', 'Kế toán khai báo trong danh mục chi phí cố định']])
+        + ghiChuPhu('Không ghi Sổ quỹ: báo cáo Kết quả kinh doanh tự phân bổ theo tháng; tiền chi thật ghi ở tab Chi phí hoặc Sổ quỹ.'))
+      + dauVet(d);
+  }
   const cd = KT.danhSach({
     pfx: 'cd', kyPfx: 'tc', url: false, batDau: ky0, ghiUrl: () => ghiUrl(), dangHien: () => tab === 'co_dinh', donVi: 'khoản', khongTrang: true,
     macDinh: { ky: 'thang_nay', tu: '', den: '', page: 1, size: 100, sort: '' },
@@ -255,10 +401,11 @@
       { key: 'loai', nhan: 'Loại chi phí', ve: (r) => '<span class="kd-chip kd-chip--xam">' + esc(r.loai_chi_phi || NHOM_NHAN[r.nhom_chi_phi] || 'Khác') + '</span><span class="kt-khach__ma">TK ' + esc(NHOM_TK[r.nhom_chi_phi] || '811') + '</span>' },
       { key: 'ngay', nhan: 'Bắt đầu', ve: (r) => esc((r.thang_bat_dau || '').slice(5, 7) + '/' + (r.thang_bat_dau || '').slice(0, 4)) },
       { key: 'so_tien', nhan: 'Số tiền/tháng (VND)', num: true, cls: 'kd-strong', ve: (r) => KD.tien(r.so_tien_ghi_nhan) + (r.so_thang_phan_bo > 1 ? '<span class="kt-khach__ma">' + KD.tien(r.so_tien_thang) + ' / ' + r.so_thang_phan_bo + ' tháng</span>' : '') },
-      { key: 'lap', nhan: 'Lặp lại', ve: (r) => (r.so_thang_phan_bo > 1 ? H.pill('muted', 'Phân bổ ' + r.so_thang_phan_bo + ' tháng') : r.lap_lai ? H.pill('success', 'Hằng tháng') : H.pill('muted', 'Một lần')) },
+      { key: 'lap', nhan: 'Lặp lại', ve: pillLap },
       { key: 'nguoi', nhan: 'Người tạo', ve: (r) => (r.created_by ? esc(r.created_by) : '<span class="kd-muted">—</span>') },
     ].concat(cotThaoTac((r) => r.ten_khoan || 'khoản #' + r.id)),
     menu: menuSuaXoa((r) => moCd(r), (r) => xoaCd(r)),
+    panel: { tai: (r) => '/api/co-dinh/' + encodeURIComponent(r.id), ve: (d, r) => veChiTietCd(d, r), loi: 'Không tải được chi tiết khoản chi phí cố định' },
     kpi: {
       tong: (d) => ({ v: H.tienKpi(d.tong.tong_thang), title: KD.tienVnd(d.tong.tong_thang), phu: KD.soDem(d.tong.so_khoan) + ' khoản · tháng ' + d.thang.slice(5) + '/' + d.thang.slice(0, 4) }),
       so_khoan: (d) => ({ v: H.dem(d.tong.so_khoan, 'khoản'), phu: 'Đang áp dụng tháng ' + d.thang.slice(5) + '/' + d.thang.slice(0, 4) }),
@@ -354,13 +501,38 @@
     datChon($('tc-dt-tk'), r ? r.ngan_hang : (coChon($('tc-dt-tk'), nho.doc('tk_thu')) ? nho.doc('tk_thu') : ''));
     datChon($('tc-dt-nv'), r ? r.nv_kinh_doanh : '');
     $('tc-dt-ma').value = (r && r.ma_don) || '';
+    $('tc-dt-nop').value = (r && r.nguoi_nop) || ''; nopTuDien = ''; $('tc-dt-nop-gy').textContent = '';
     $('tc-dt-gc').value = (r && r.ghi_chu) || '';
     KD.moHopThoai(dlgDt);
+    if (r && r.ma_don && !r.nguoi_nop) goiYNguoiNop();   // phiếu cũ có mã đơn mà chưa ghi người nộp → gợi ý luôn, vẫn sửa được
   }
+  /* Người nộp: gõ Mã đơn → điền sẵn tên khách của đơn (GET /api/doanh-thu/khach-theo-don, đọc baogia.quotes).
+     Chỉ điền khi ô đang trống hoặc còn giữ đúng chữ lần trước tự điền — người dùng đã tự gõ thì KHÔNG ghi đè.
+     luotNop: gõ nhanh nhiều mã thì chỉ nhận kết quả của lần tra cuối (kết quả cũ về muộn bị bỏ). */
+  let nopTuDien = '', luotNop = 0;
+  async function goiYNguoiNop() {
+    const o = $('tc-dt-nop'), gy = $('tc-dt-nop-gy'), ma = $('tc-dt-ma').value.trim(), l = ++luotNop;
+    const daTuGo = () => o.value.trim() !== '' && o.value !== nopTuDien;
+    if (daTuGo()) return;
+    if (!ma) { o.value = nopTuDien = ''; gy.textContent = ''; return; }
+    gy.textContent = 'Đang tìm khách của đơn ' + ma + '…';
+    try {
+      const d = await KD.api('/api/doanh-thu/khach-theo-don?' + KT.url.qs({ ma_don: ma }));
+      if (l !== luotNop || daTuGo()) return;
+      const ten = d.khach && coGt(d.khach.customer_name) ? d.khach.customer_name.trim() : '';
+      o.value = nopTuDien = ten;   // không có tên → xoá luôn tên tự điền của mã đơn trước
+      gy.textContent = ten ? 'Tự điền theo khách của đơn ' + ma + ' — sửa được.'
+        : !d.doc_duoc ? 'Chưa đọc được dữ liệu Báo giá — gõ tay người nộp.'
+          : d.khach ? 'Đơn ' + ma + ' chưa ghi tên khách — gõ tay người nộp.' : 'Không thấy đơn ' + ma + ' bên Báo giá — gõ tay người nộp nếu cần.';
+    } catch (e) { if (l === luotNop) gy.textContent = 'Chưa tra được khách của đơn ' + ma + ': ' + e.message; }
+  }
+  $('tc-dt-ma').addEventListener('input', KD.debounce(goiYNguoiNop, 400));
+  // Gõ vào ô Người nộp → câu "Tự điền theo…" không còn đúng nữa thì ẩn đi.
+  $('tc-dt-nop').addEventListener('input', () => { if ($('tc-dt-nop').value !== nopTuDien) $('tc-dt-nop-gy').textContent = ''; });
   $('tc-dt-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const s = suaDt, body = { ngay: $('tc-dt-ngay').value, loai: $('tc-dt-loai').value, so_tien: tienSua($('tc-dt-tien'), s && s.so_tien),
-      nv_kinh_doanh: giaTri('tc-dt-nv'), ma_don: giaTri('tc-dt-ma'), ngan_hang: giaTri('tc-dt-tk'), loai_thanh_toan: giaTri('tc-dt-ht'), ghi_chu: giaTri('tc-dt-gc') };
+      nv_kinh_doanh: giaTri('tc-dt-nv'), ma_don: giaTri('tc-dt-ma'), nguoi_nop: giaTri('tc-dt-nop'), ngan_hang: giaTri('tc-dt-tk'), loai_thanh_toan: giaTri('tc-dt-ht'), ghi_chu: giaTri('tc-dt-gc') };
     const loi = (id, msg) => { $(id).focus(); KD.baoLoiHopThoai(dlgDt, msg); };
     if (!body.ngay) return loi('tc-dt-ngay', 'Chọn ngày.');
     if (!body.loai) return loi('tc-dt-loai', 'Chọn loại doanh thu.');

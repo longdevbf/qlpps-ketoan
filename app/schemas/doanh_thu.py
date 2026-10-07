@@ -3,7 +3,7 @@ from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DoanhThuBase(BaseModel):
@@ -13,6 +13,8 @@ class DoanhThuBase(BaseModel):
     nguon: Optional[str] = None
     nv_kinh_doanh: Optional[str] = None
     ma_don: Optional[str] = None
+    # Người nộp tiền — cột VARCHAR(128): quá dài thì trả 422 tại đây thay vì để DB báo lỗi 500.
+    nguoi_nop: Optional[str] = Field(default=None, max_length=128)
     ref_order_id: Optional[str] = None
     ngan_hang: Optional[str] = None
     loai_thanh_toan: Optional[str] = None
@@ -31,6 +33,7 @@ class DoanhThuUpdate(BaseModel):
     nguon: Optional[str] = None
     nv_kinh_doanh: Optional[str] = None
     ma_don: Optional[str] = None
+    nguoi_nop: Optional[str] = Field(default=None, max_length=128)
     ref_order_id: Optional[str] = None
     ngan_hang: Optional[str] = None
     loai_thanh_toan: Optional[str] = None
@@ -46,3 +49,32 @@ class DoanhThuOut(DoanhThuBase):
     # Phân loại nguồn: nhãn luồng tự động (vd 'Đối chiếu giao hàng') hoặc None = KT tự nhập.
     nguon_hien: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── Popup chi tiết màn Thu chi (/ketoan/thu-chi) ─────────────────────────────
+
+class KhachCuaDon(BaseModel):
+    """Khách của đơn báo giá — đọc chéo `baogia.quotes` theo quote_number = ma_don.
+
+    Giữ nguyên tên cột gốc của Báo giá để dễ truy ngược về bảng nguồn.
+    """
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+    customer_address: Optional[str] = None
+    salesperson: Optional[str] = None
+
+
+class DoanhThuChiTietOut(DoanhThuOut):
+    """GET /api/doanh-thu/{id}/chi-tiet — đủ mọi cột của phiếu (thêm chung_tu_url) + khách của đơn."""
+    chung_tu_url: Optional[str] = None
+    khach: Optional[KhachCuaDon] = None
+    # False = không đọc được baogia.quotes trên máy này → giao diện báo "chưa đọc được",
+    # khác với khach=None khi đọc được mà không có đơn đó.
+    khach_doc_duoc: bool = True
+
+
+class KhachTheoDonOut(BaseModel):
+    """GET /api/doanh-thu/khach-theo-don — hộp ghi doanh thu điền sẵn ô Người nộp theo Mã đơn."""
+    ma_don: str
+    doc_duoc: bool          # cùng nghĩa khach_doc_duoc ở trên
+    khach: Optional[KhachCuaDon] = None
