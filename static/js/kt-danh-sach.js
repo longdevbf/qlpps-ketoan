@@ -146,7 +146,8 @@
           if (l !== luotP) return;
           nd.innerHTML = c.panel.ve(ct, r); nut.innerHTML = c.panel.nut ? c.panel.nut(ct, r) : '';
           if (c.panel.sau) c.panel.sau(nd, ct, r, nut);
-        } catch (e) { if (l !== luotP) return; KD.khoiLoi(nd, c.panel.loi || 'Không tải được chi tiết', e, () => tr.click()); }
+          // Lỗi VẼ (vd TypeError trong panel.ve) rơi vào cùng catch với lỗi API → luôn ghi console, không để bị giấu sau câu thông báo.
+        } catch (e) { if (l !== luotP) return; console.error('[KT.danhSach] panel ' + c.pfx + ' lỗi:', e); KD.khoiLoi(nd, c.panel.loi || 'Không tải được chi tiết', e, () => tr.click()); }
       }, c.chiTiet ? (tr) => { const r = ds.find((x) => String(idDong(x)) === tr.dataset.id); const h = r && c.chiTiet(r); if (h) location.href = h; } : null);
     } else if (c.chiTiet) {
       KT.ganDongBang($('tbody'), (tr) => { const r = ds.find((x) => String(idDong(x)) === tr.dataset.id); const h = r && c.chiTiet(r); if (h) location.href = h; });
