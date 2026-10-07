@@ -19,6 +19,7 @@ from shared.db import get_db
 from ..schemas.doi_chieu import CanhBaoOut, DoiChieuOut
 from ..services.canh_bao_ky import ky_chua_chot, lech_can_doi, thieu_khau_hao, von_gop_chua_khai
 from ..services.doi_chieu_so import doi_chieu_kqkd, phat_sinh_theo_tk
+from ..services.loi_doc import bat_dau_ghi_loi
 from ..services.nguon_bao_cao import NHAN_CDKT
 from ..services.pl_calculator import calc_pl_for_month
 from ._deps import require_ketoan_user
@@ -46,23 +47,29 @@ def canh_bao_ky(
     chốt, tháng chưa chạy khấu hao, bảng không đọc được. Rỗng = không phát hiện gì."""
     thang, _tu, _den = _resolve_thang(thang)
     hien_tai = date_cls.today().strftime("%Y-%m")
-    chung = ky_chua_chot(db, thang, hien_tai) + thieu_khau_hao(db, thang, hien_tai)
     if man in ("kqkd", "lctt"):
         # Lệch cân đối / vốn góp chỉ hiện ở màn Cân đối + Đối chiếu → khỏi tính cả Cân đối cho mỗi lần mở KQKD/LCTT.
-        return {"thang": thang, "canh_bao": chung, "loi_doc_du_lieu": []}
+        loi_doc = bat_dau_ghi_loi()
+        chung = ky_chua_chot(db, thang, hien_tai) + thieu_khau_hao(db, thang, hien_tai)
+        return {"thang": thang, "canh_bao": chung, "loi_doc_du_lieu": loi_doc}
+    # Cân đối TRƯỚC: bao_cao_can_doi mở danh sách lỗi đọc (ContextVar, app/services/loi_doc.py) — các
+    # hàm gọi SAU ghi tiếp vào đúng danh sách đó. Gọi ky_chua_chot trước thì lỗi đọc của nó rơi vào
+    # khoảng chưa có danh sách: chỉ ghi log, không tới màn hình.
     bc = bao_cao_can_doi(db, user, thang=thang, source="auto")
+    chung = ky_chua_chot(db, thang, hien_tai) + thieu_khau_hao(db, thang, hien_tai)
     rieng = von_gop_chua_khai(bc) + chung
-    # Ý nào đã có cảnh báo riêng (kèm nút tới màn xử lý) thì bỏ khỏi danh sách nguyên nhân của khối
-    # đỏ "lệch cân đối" — cùng một ý không nói hai lần trên một màn.
+    # Ý nào đã hiện ở chỗ khác trên cùng màn thì bỏ khỏi danh sách nguyên nhân của khối đỏ "lệch cân
+    # đối" — cùng một ý không nói hai lần. Mã là mã trong check.nguyen_nhan của bao_cao_can_doi.
     co = {x["ma"] for x in rieng}
-    bo_ma: set[str] = set()   # mã trong check.nguyen_nhan của bao_cao_can_doi
+    bo_ma: set[str] = set()        # đã có cảnh báo riêng (kèm nút tới màn xử lý)
     if "von_gop_chua_khai" in co:
         bo_ma.add("von_gop_chua_khai")
     if "ky_chua_chot" in co:
         bo_ma.add("chua_chot_ky")
+    bo_ma_bang: set[str] = set()   # đã hiện ở bảng ngay dưới
     if man == "doi_chieu":
-        bo_ma.add("so_cai_khac_nghiep_vu")   # bảng ngay dưới đã tô vàng đúng các dòng này
-    ds = lech_can_doi(bc, frozenset(bo_ma)) + rieng
+        bo_ma_bang.add("so_cai_khac_nghiep_vu")   # màn Đối chiếu tô vàng đúng các khoản mục này
+    ds = lech_can_doi(bc, frozenset(bo_ma), frozenset(bo_ma_bang)) + rieng
     return {"thang": thang, "canh_bao": ds, "loi_doc_du_lieu": bc.get("loi_doc_du_lieu") or []}
 
 

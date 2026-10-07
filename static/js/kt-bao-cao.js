@@ -58,8 +58,11 @@
   /* MỘT bản đồ nhãn + màu cho "nguồn báo cáo đang dùng" — dùng chung cho nhãn trên 3 báo cáo và cột
      "Báo cáo đang dùng" của màn Đối chiếu sổ, để cùng một trạng thái không mang hai chữ / hai màu. */
   const NGUON_DUNG = {
+    // khac = số báo cáo đang hiện KHÔNG bằng nguồn nào (vd hai nguồn cùng âm nên auto hiện 0, lợi nhuận chưa
+    // phân phối lấy kỳ đã chốt) — trả lời đúng câu hỏi "báo cáo đang dùng nguồn nào"; đỏ vì số đó không
+    // truy ngược được về sổ cái lẫn bảng nghiệp vụ.
     so_cai: ['info', 'Sổ cái'], nghiep_vu: ['warning', 'Bảng nghiệp vụ'], khop: ['success', 'Khớp sổ cái'],
-    khac: ['warning', 'Hai nguồn lệch'], tron: ['info', 'Sổ cái + nghiệp vụ'], cong_thuc: ['muted', 'Công thức'],
+    khac: ['danger', 'Không khớp nguồn nào'], tron: ['info', 'Sổ cái + nghiệp vụ'], cong_thuc: ['muted', 'Công thức'],
     chua_tinh: ['danger', 'Chưa tính'], ca_hai_0: ['muted', 'Cả hai bằng 0'],
   };
   function nhanNguon(n) {
@@ -82,7 +85,8 @@
       giai = caHai0 ? 'Sổ cái ' + tkChu(n) + ' và ' + nguon + ' đều bằng 0.'
         : khoa === 'khop' ? hai + ' Hai nguồn bằng nhau.'
           : khoa === 'so_cai' ? hai + ' Báo cáo đang lấy số sổ cái (số lớn hơn).'
-            : khoa === 'nghiep_vu' ? hai + ' Báo cáo đang lấy số bảng nghiệp vụ.' : hai;
+            : khoa === 'nghiep_vu' ? hai + ' Báo cáo đang lấy số bảng nghiệp vụ.'
+              : hai + ' Số trên báo cáo không bằng nguồn nào ở trên.';
       if (lop === 'info' && n.chenh != null && Math.abs(n.chenh) >= 1) lop = 'warning';
     } else { chu = n.nhan || 'Sổ cái + nghiệp vụ'; giai = 'Lấy từ ' + nguon + '.'; }
     // aria-label bắt đầu bằng đúng chữ đang hiện trên nhãn (WCAG 2.5.3 — nhãn nhìn thấy nằm trong tên).
@@ -130,9 +134,9 @@
     try {
       const d = await KD.api('/api/bao-cao/canh-bao?' + KT.url.qs({ thang, man }));
       if (el.dataset.thang !== thang) return;   // người dùng đã đổi kỳ trong lúc chờ
-      // Lỗi đọc mà /canh-bao trả là của bước tính Cân đối → chỉ có nghĩa ở màn Cân đối và màn Đối chiếu.
-      const loiCb = man === 'cdkt' || man === 'doi_chieu' ? [d] : [];
-      const muc = mucLoiDoc(gomLoiDoc([].concat(d0, loiCb)))
+      // Lỗi đọc của chính /canh-bao (theo ?man: KQKD/LCTT chỉ gồm bước dò kỳ chưa chốt / khấu hao, Cân đối
+      // và Đối chiếu gồm cả bước tính Cân đối) — gộp với lỗi của API báo cáo, trùng nguồn chỉ hiện một lần.
+      const muc = mucLoiDoc(gomLoiDoc([].concat(d0, [d])))
         .concat((d.canh_bao || []).filter((x) => !man || (x.ap_dung || []).includes(man)));
       el.innerHTML = muc.map((x) => veMucCb(x, thang)).join(''); el.hidden = !muc.length;
     } catch (e) {
@@ -181,7 +185,10 @@
       if (nguonChungEl) { nguonChungEl.hidden = false; const a = nguonChungEl.querySelector('[data-doi-chieu]');
         // Màn Đối chiếu tính THEO THÁNG: kỳ nhiều tháng (quý, năm) thì ghi rõ tháng nào để khỏi đem số cả kỳ
         // so với số một tháng.
-        if (a && c.canhBao) { const t = c.canhBao.thang(khoang(), d); a.href = '/ketoan/doi-chieu?' + KT.url.qs({ thang: t });
+        // Kỳ kéo qua tương lai (Năm nay, Tuỳ chỉnh tới 31/12) → kẹp về tháng hiện tại: màn Đối chiếu cũng tự
+        // kẹp như vậy, chữ trên link phải nói đúng tháng sẽ mở.
+        if (a && c.canhBao) { const hn = KD.iso(new Date()).slice(0, 7), t0 = c.canhBao.thang(khoang(), d), t = t0 > hn ? hn : t0;
+          a.href = '/ketoan/doi-chieu?' + KT.url.qs({ thang: t });
           a.textContent = 'Đối chiếu tháng ' + t.slice(5, 7) + '/' + t.slice(0, 4) + ' với sổ cái'; } }
       if (tipTd) tipTd.innerHTML = c.phamVi ? KD.tip(chuTron(c.phamVi(d))) : '';
       if (phuTd && c.phuDe) phuTd.textContent = c.phuDe(d) + ' · Đơn vị tính: VND';
