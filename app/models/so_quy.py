@@ -71,6 +71,10 @@ class SoQuy(Base):
     doi_tuong_ten: Mapped[Optional[str]] = mapped_column(String(255))
     ky: Mapped[Optional[str]] = mapped_column(String(7))                # YYYY-MM: kỳ lương, bảo hiểm, thuế
     tk_doi_ung: Mapped[Optional[str]] = mapped_column(String(40))       # TÊN LOGIC — chỉ giai đoạn 2 ("Khác")
+    # Ngày bên nhận THỰC NHẬN tiền (migration q17, 08/10/2026) — kế toán ghi ở hộp "Chi tiền và ghi sổ". Chỉ để
+    # ghi nhận: ngày ghi sổ vẫn là `ngay` (chuyển khoản liên ngân hàng có thể nhận muộn hơn). Người nhận nằm ở
+    # `doi_tuong_ten`. NULL = dòng cũ / chi từ client chưa có ô này.
+    ngay_nhan: Mapped[Optional[date]] = mapped_column(Date)
 
     created_by: Mapped[Optional[str]] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(

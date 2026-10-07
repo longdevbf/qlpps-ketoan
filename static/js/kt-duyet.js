@@ -1,5 +1,6 @@
 /* kt-duyet.js — Duyệt chi (khung: kt-danh-sach.js). Hàng chờ duyệt + chi tiền GỘP 3 luồng THẬT (giống màn cũ /chi-tap-trung):
-     · de_xuat_chi  — Đề xuất chi nội bộ: workflow dùng chung 8 app `shared/routers/duyet_chi.py` (/api/duyet-chi — KHÔNG sửa file đó)
+     · de_xuat_chi  — Đề xuất chi nội bộ: workflow dùng chung 8 app `shared/routers/duyet_chi.py` (/api/duyet-chi — Việc 3 08/10/2026
+                      chỉ mở rộng ChiBody của nút Chi: người nhận, ngày nhận, loại chi phí)
                       Trưởng bộ phận → Kế toán → Giám đốc → Kế toán chi. Duyệt: PUT /api/duyet-chi/<id>/duyet · Chi: POST /api/duyet-chi/<id>/chi
      · de_nghi_tt   — Đề nghị thanh toán ĐVVC từ Sale Admin (app/routers/de_nghi_tt.py, bảng saleadmin.denghitt)
                       Kế toán duyệt ở đây → Giám đốc duyệt ở app Sale Admin → Kế toán chi. /api/de-nghi-tt/<id>/kt-approve|kt-reject|chi
@@ -9,7 +10,7 @@
    dữ liệu thật về đúng hình dạng khung cần và tự lọc / sắp xếp / phân trang / tính thẻ số phía client (API thật không phân trang).
    Điểm PHẢI GẦN ĐÚNG vì dữ liệu thật không có:
      · Mã phiếu đề xuất chi: model không có cột mã → "DX" + id. (DNTT / NCC dùng mã thật DNTT-… / CN-….)
-     · Người thụ hưởng đề xuất chi: model không lưu → lấy người đề nghị; STK người nhận nằm trong phần "Mục đích" do người gửi tự ghi.
+     · Người thụ hưởng đề xuất chi: cột nguoi_thu_huong (có từ 05/10/2026); đề xuất cũ không khai → hiện người đề nghị, STK nằm trong "Mục đích".
      · Người đang chờ duyệt: backend chỉ biết CẤP chờ (nhiều quản lý cùng phòng đều duyệt được) → hiện vai trò/phòng ban, không phải tên.
      · Không có ngưỡng "Giám đốc duyệt từ X đồng": cả 3 luồng thật đều LUÔN qua Giám đốc.
      · Hạn chi: chỉ đề xuất chi có (han_thanh_toan); DNTT / NCC không có cột hạn → không tính quá hạn.
@@ -101,9 +102,12 @@
     return {
       id: 'dx:' + r.id, goc: r.id, nguon: 'de_xuat_chi', ma: 'DX' + String(r.id).padStart(4, '0'), gui_luc: r.created_at,
       noi_dung: r.tieu_de, muc_dich: r.muc_dich, ghi_chu: r.ghi_chu, nguoi_de_nghi: r.ho_ten || r.username, bo_phan: r.phong_ban || '',
-      loai: r.loai_chi || '', nguoi_tao: r.username || '',
-      loai_nhan: LOAI_CHI[r.loai_chi] || r.loai_chi, hach_toan: LOAI_CHI[r.loai_chi] || 'Chi phí khác',
-      thu_huong: r.ho_ten || r.username, so_tien: +r.so_tien || 0, can_chi_truoc: r.han_thanh_toan,
+      loai: r.loai_chi || '', loai_chi_phi: r.loai_chi_phi || '', nguoi_tao: r.username || '',
+      loai_nhan: LOAI_CHI[r.loai_chi] || r.loai_chi,
+      // Thụ hưởng = người đề nghị KHAI (nguoi_thu_huong); đề xuất cũ không khai → người đề nghị như trước. Hộp Chi tiền
+      // chỉ điền sẵn bản khai (thu_huong_khai), không điền tên đoán. nguoi_nhan / ngay_nhan: kế toán ghi lúc bấm Chi (Việc 3).
+      thu_huong: r.nguoi_thu_huong || r.ho_ten || r.username, thu_huong_khai: r.nguoi_thu_huong || '',
+      nguoi_nhan: r.nguoi_nhan || '', ngay_nhan: r.ngay_nhan || '', so_tien: +r.so_tien || 0, can_chi_truoc: r.han_thanh_toan,
       qua_han_chi: !!(r.han_thanh_toan && r.han_thanh_toan < KD.iso(new Date()) && (tt === 'cho_duyet' || tt === 'cho_chi')),
       cho_ngay: soNgay(r.created_at), trang_thai: tt, cap, cho_toi: tt === 'cho_duyet' && choToiIds.has(r.id),
       buoc_hien_tai: tt === 'cho_duyet' ? { vai: VAI[cap] || cap, ai: aiCho(cap) } : null, buoc,
@@ -133,7 +137,7 @@
     return {
       id: (laNcc ? 'ncc:' : 'tt:') + r.id, goc: r.id, nguon, ma: r.id, gui_luc: r.created_at,
       noi_dung: noiDung, muc_dich: laNcc ? r.mo_ta : r.ly_do, ghi_chu: ghi, nguoi_de_nghi: nguoi, bo_phan: appNguon, loai: '', nguoi_tao: r.nguoi_tao || '',
-      loai_nhan: laNcc ? 'Trả nợ nhà cung cấp' : 'Thanh toán vận chuyển', hach_toan: laNcc ? 'Trả nợ NCC — giảm công nợ' : 'Chi phí phải trả ĐVVC',
+      loai_nhan: laNcc ? 'Trả nợ nhà cung cấp' : 'Thanh toán vận chuyển',
       thu_huong: laNcc ? (r.ncc_name || r.ncc_id) : r.don_vi_vc, so_tien: +r.so_tien || 0, can_chi_truoc: null, qua_han_chi: false,
       cho_ngay: soNgay(r.created_at), trang_thai: tt, cap: capCho, cho_toi: s === 'cho_duyet' && KT_ROLES.includes(vaiTro),
       buoc_hien_tai: capCho ? { vai: VAI[capCho], ai: capCho === 'ceo' ? 'duyệt ở app ' + appNguon : 'Phòng Kế toán' } : null, buoc,
@@ -261,6 +265,7 @@
         const step = '<ol class="kd-stepper kt-dc-buoc" data-buoc="' + cac.length + '" aria-label="Các bước duyệt">' + cac.map((b, i) => { const c = b.trang_thai === 'da_duyet' ? 'is-done' : b.trang_thai === 'tu_choi' ? 'is-fail' : i === dangO ? 'is-current' : 'is-todo';
           return '<li class="kd-step ' + c + '"' + (i === dangO ? ' aria-current="step"' : '') + ' title="' + esc(b.ai || '') + '"><span class="kd-step__dot" aria-hidden="true"></span><span class="kd-step__label">' + esc(b.trang_thai === 'tu_choi' ? b.vai + ' từ chối' : b.vai) + '</span><span class="kd-step__time">' + (b.luc ? KD.ngay(b.luc).slice(0, 5) : '') + '</span></li>'; }).join('') + '</ol>';
         const kv = [['Số tiền', KD.tienVnd(x.so_tien), true], ['Nguồn', esc(NGUON[x.nguon][0] + ' · ' + x.loai_nhan)], ['Người thụ hưởng', esc(x.thu_huong || '—')],
+          x.nguoi_nhan || x.ngay_nhan ? ['Người nhận thực tế', esc(x.nguoi_nhan || '—') + (x.ngay_nhan ? ' · nhận ngày ' + KD.ngay(x.ngay_nhan) : '')] : null,
           x.don ? [x.nguon === 'de_xuat_ncc' ? 'Đơn mua' : 'Mã đơn', esc(x.don)] : null, x.dntt_ncc ? ['Từ đề xuất NCC', esc(x.dntt_ncc)] : null,
           ['Cần chi trước', x.can_chi_truoc ? KD.ngay(x.can_chi_truoc) + (x.qua_han_chi ? ' · quá hạn' : '') : '—'], ['Người đề nghị', esc(x.nguoi_de_nghi + (x.bo_phan ? ' · ' + x.bo_phan : ''))],
           x.trang_thai === 'da_chi' ? ['Đã chi', KD.ngay(x.ngay_chi) + ' · ' + esc(x.tai_khoan_chi || '—')] : null];
@@ -328,31 +333,157 @@
     catch (err) { KD.baoLoiHopThoai(dlg, err.message); } finally { nut.disabled = false; }
   });
 
-  /* ── Chi tiền — cả 3 API nhận {tai_khoan (TÊN TK tiền/ngân hàng), ngay_chi, ghi_chu}; khoản mục hạch toán do backend tự chọn theo
-     luồng. Danh sách TK lấy từ GET /api/tai-khoan (TK ngân hàng/tiền mặt thật, đúng chuỗi mà sổ quỹ dùng), KHÔNG PHẢI mã TT200. ── */
+  /* ── Chi tiền — cả 3 API nhận {tai_khoan (TÊN TK tiền/ngân hàng), ngay_chi, ghi_chu}. Danh sách TK lấy từ GET /api/tai-khoan
+     (TK ngân hàng/tiền mặt thật, đúng chuỗi mà sổ quỹ dùng — bên CÓ), KHÔNG PHẢI mã TT200.
+     Việc 3 (08/10/2026): thêm nguoi_nhan, ngay_nhan và loai_chi_phi (CHỈ gửi khi kế toán đổi khỏi gợi ý). Bỏ trống = như trước.
+       · "Hạch toán vào" = chọn LOẠI CHI PHÍ trong danh mục đang dùng (GET /api/loai-chi-phi — đúng tập máy chủ kiểm), không gõ số TK.
+         Gợi ý = loại máy chủ tự ghi khi không đổi, chép theo `_loai_chi_sang_ke_toan` (shared/routers/duyet_chi.py): loại người đề
+         nghị chọn nếu còn trong danh mục, không thì theo 6 mã cũ (LOAI_CHI_KT). Đề nghị TT trả ĐVVC: "Vận chuyển" (from_saleadmin.py).
+         Chép lệch cũng không ghi sai: không đổi thì không gửi, máy chủ tự suy; và máy chủ trả lại loại ĐÃ GHI.
+       · KHOÁ (Nợ 331): Trả NCC + Đề nghị TT là bản sao đề xuất trả NCC (dntt_ncc). Không đổi sang/khỏi "Ứng Lương" (HCNS trừ
+         lương theo loại này). Máy chủ chặn cả hai bằng 422 — ở đây khoá trước cho khỏi bấm nhầm.
+       · Máy chủ trả lại thứ ĐÃ LƯU (nguoi_nhan, ngay_nhan, loai_chi_phi_hach_toan). Máy chủ CŨ bỏ im lặng trường lạ mà vẫn trả 200
+         → thiếu khoá / lệch giá trị thì cảnh báo (không tự tắt), không báo "xong" suông. ── */
   const dlgChi = $('dc-dlg-chi');
-  let dsTk = null;
+  let dsTk = null, dsLoai = null, chiDang = null, moLuot = 0, nhanTheoChi = true;
   async function napTk() { if (!dsTk) dsTk = (await KD.api('/api/tai-khoan')).filter((t) => t.active); return dsTk; }
+  // Lỗi thì KHÔNG nhớ → mở lại hộp là tải lại.
+  async function napLoai() { if (!dsLoai) dsLoai = (await KD.api('/api/loai-chi-phi')).filter((l) => l.active !== false && l.ten); return dsLoai; }
+  const LOAI_CHI_KT = { di_chuyen: ['Chi phí đi lại', 'quan_ly'], van_phong: ['Chi phí văn phòng', 'quan_ly'], tiep_thi: ['Chi phí tiếp thị', 'ban_hang'],
+    dao_tao: ['Chi phí đào tạo', 'quan_ly'], khach_hang: ['Chi phí khách hàng', 'ban_hang'], khac: ['Chi phí khác', 'khac'] };   // = _LOAI_CHI_MAP
+  const LOAI_DVVC = 'Vận chuyển', HACH_TOAN_TRA_NCC = 'Trả nợ NCC (TK 331)';   // ngắn cho vừa ô 375px; câu dưới ô giải thích đủ
+  const NHOM_TK = { ban_hang: '641', quan_ly: '642', tai_chinh: '635', khac: '811' };   // như màn Thu chi (kt-thu-chi.js)
+  const NHOM_NHAN = { ban_hang: 'Bán hàng', quan_ly: 'Quản lý DN', tai_chinh: 'Tài chính', khac: 'Khác' };
+  const tkNhom = (n) => 'TK ' + (NHOM_TK[n] || '811') + ' · ' + (NHOM_NHAN[n] || 'Khác');
+  const chuanTen = (s) => String(s || '').trim().normalize('NFC').toLocaleLowerCase('vi');
+  const laUngLuong = (s) => chuanTen(s) === chuanTen('Ứng Lương');
+  /* [tên, nhóm] máy chủ ghi khi kế toán KHÔNG đổi. Đề nghị TT ĐVVC: cầu nối chưa bao giờ ghi nhóm → cột tự về 'khac'. */
+  function goiYLoai(r, dm) {
+    if (r.nguon === 'de_nghi_tt') return [LOAI_DVVC, 'khac'];
+    const ten = String(r.loai_chi_phi || '').trim(), d = ten && dm ? dm.find((x) => x.ten === ten) : null;
+    if (d) return [ten, d.nhom_default || 'khac'];
+    if (ten && !dm) return [ten, null];   // không tải được danh mục → không biết máy chủ còn nhận tên này không
+    return LOAI_CHI_KT[String(r.loai || '').trim()] || ['Chi phí khác', 'khac'];
+  }
+  /* Ô "Hạch toán vào": gợi ý đứng đầu, các loại khác gom theo nhóm (TK). Khoá khi trả nợ NCC / ứng lương / không có danh mục. */
+  function veHachToan(r, dm) {
+    const sel = $('dc-chi-no'), khoa331 = r.nguon === 'de_xuat_ncc' || (r.nguon === 'de_nghi_tt' && !!r.dntt_ncc);
+    chiDang = { r, khoa331, dm, goiY: khoa331 ? null : goiYLoai(r, dm) };
+    if (khoa331) { sel.innerHTML = '<option value="">' + esc(HACH_TOAN_TRA_NCC) + '</option>'; sel.disabled = true; veGoiYLoai(); return; }
+    const g = chiDang.goiY, khac = (dm || []).filter((l) => l.ten !== g[0] && !laUngLuong(l.ten));   // không cho đổi SANG ứng lương
+    sel.innerHTML = '<option value="' + esc(g[0]) + '">' + esc(g[0]) + ' (gợi ý)</option>'
+      + Object.keys(NHOM_NHAN).map((n) => { const o = khac.filter((l) => (NHOM_NHAN[l.nhom_default] ? l.nhom_default : 'khac') === n);
+        return o.length ? '<optgroup label="' + esc(NHOM_NHAN[n] + ' (TK ' + NHOM_TK[n] + ')') + '">' + o.map((l) => '<option value="' + esc(l.ten) + '">' + esc(l.ten) + '</option>').join('') + '</optgroup>' : ''; }).join('');
+    sel.value = g[0]; sel.disabled = !dm || laUngLuong(g[0]);
+    veGoiYLoai();
+  }
+  function veGoiYLoai() {
+    const c = chiDang, p = $('dc-chi-no-gy');
+    if (!c) return;
+    p.className = 'kt-dc-goi-y';
+    if (c.khoa331) { p.textContent = 'Trả nợ nhà cung cấp làm giảm Nợ phải trả (TK 331), không phải chi phí — không đổi được loại.'; return; }
+    const v = $('dc-chi-no').value, doi = v !== c.goiY[0];
+    const nhom = doi ? ((c.dm || []).find((l) => l.ten === v) || {}).nhom_default : c.goiY[1];
+    if (!c.dm) { p.classList.add('kt-dc-goi-y--doi'); p.textContent = 'Không tải được danh mục loại chi phí nên chưa đổi được — máy chủ ghi theo gợi ý. Đóng hộp rồi mở lại để tải lại danh mục.'; return; }
+    if (laUngLuong(c.goiY[0])) { p.textContent = 'Ứng lương: HCNS trừ khoản này vào lương người đề nghị nên không đổi loại ở bước Chi · hạch toán ' + tkNhom(nhom) + '.'; return; }
+    if (!doi) { p.textContent = 'Gợi ý của hệ thống · hạch toán ' + tkNhom(nhom) + '. Đổi được sang loại khác trong danh mục.'; return; }
+    p.classList.add('kt-dc-goi-y--doi');
+    p.innerHTML = 'Hệ thống gợi ý: <b>' + esc(c.goiY[0]) + '</b> — bạn đã đổi sang loại khác, hạch toán ' + esc(tkNhom(nhom)) + '.'
+      + '<button type="button" class="kd-btn kd-btn--sm" id="dc-chi-no-lai">Dùng lại gợi ý</button>';
+  }
+  $('dc-chi-no').addEventListener('change', veGoiYLoai);
+  $('dc-chi-no-gy').addEventListener('click', (e) => { if (!e.target.closest('#dc-chi-no-lai') || !chiDang || !chiDang.goiY) return;
+    $('dc-chi-no').value = chiDang.goiY[0]; veGoiYLoai(); $('dc-chi-no').focus(); });
+
+  /* Ngày chi / Ngày nhận — CÙNG luật `_ngay_ghi_so` của máy chủ: không ở tương lai, không lùi quá 1 năm. Ngày nhận KHÔNG ràng buộc
+     với ngày chi (người dùng chốt 07/10/2026). Kiểm khi rời ô (luật form 7) và lúc bấm Chi; lỗi hiện ngay dưới ô. */
+  const hanNgay = () => { const d = new Date(); d.setDate(d.getDate() - 365); return [KD.iso(d), KD.iso(new Date())]; };
+  function loiNgay(v, nhan, batBuoc) {
+    if (!v) return batBuoc ? 'Nhập ' + nhan.toLowerCase() + '.' : '';
+    const [min, max] = hanNgay();
+    if (v > max) return nhan + ' không được ở tương lai — chọn lại ngày.';
+    if (v < min) return nhan + ' lùi quá 1 năm — kiểm tra lại năm.';
+    return '';
+  }
+  function datLoiO(id, cau) { const o = $(id), p = $(id + '-loi'); o.setAttribute('aria-invalid', String(!!cau)); p.textContent = cau || ''; p.hidden = !cau; return !cau; }
+  const O_NGAY = [['dc-chi-ngay', 'Ngày chi', true], ['dc-chi-nhan-ngay', 'Ngày nhận', false]];
+  O_NGAY.forEach(([id, nhan, bb]) => {
+    $(id).addEventListener('blur', () => datLoiO(id, loiNgay($(id).value, nhan, bb)));
+    $(id).addEventListener('input', () => { if ($(id).getAttribute('aria-invalid') === 'true') datLoiO(id, ''); });
+  });
+  // Ngày nhận đi theo Ngày chi cho tới khi kế toán tự sửa Ngày nhận.
+  $('dc-chi-nhan-ngay').addEventListener('input', () => { nhanTheoChi = false; });
+  $('dc-chi-ngay').addEventListener('change', () => { if (nhanTheoChi) $('dc-chi-nhan-ngay').value = $('dc-chi-ngay').value; });
+
   async function moChi(r) {
+    const luot = ++moLuot;   // bấm Chi tiền ở 2 dòng liên tiếp: chỉ lượt cuối mở hộp (hộp đang mở mà showModal lần nữa là lỗi)
     dang = r; $('dc-chi-td').textContent = 'Chi tiền ' + r.ma;
-    $('dc-chi-tt').innerHTML = '<dt>Nội dung</dt><dd>' + esc(r.noi_dung) + '</dd><dt>Người thụ hưởng</dt><dd>' + esc(r.thu_huong || '—') + '</dd><dt class="is-dam">Số tiền</dt><dd>' + KD.tienVnd(r.so_tien) + '</dd>';
-    $('dc-chi-no').value = r.hach_toan; $('dc-chi-gc').value = '';
-    $('dc-chi-ngay').value = KD.iso(new Date());   // mặc định hôm nay, kế toán lùi được
-    const sel = $('dc-chi-co');
-    try { const tk = await napTk(); sel.innerHTML = '<option value="">— Chọn tài khoản —</option>' + tk.map((t) => '<option value="' + esc(t.ten_tk) + '">' + esc(t.ten_tk + (t.so_tk ? ' · ' + t.so_tk : '')) + '</option>').join(''); }
-    catch (e) { sel.innerHTML = '<option value="">Không tải được danh sách tài khoản</option>'; }
-    KD.moHopThoai(dlgChi);
+    const dx = r.nguon === 'de_xuat_chi', thuHuong = dx ? r.thu_huong_khai : r.thu_huong;
+    $('dc-chi-tt').innerHTML = '<dt>Nội dung</dt><dd>' + esc(r.noi_dung) + '</dd>'
+      + (dx ? '<dt>Người đề nghị</dt><dd>' + esc(r.nguoi_de_nghi + (r.bo_phan ? ' · ' + r.bo_phan : '')) + '</dd>' : '')
+      + '<dt>Người thụ hưởng</dt><dd>' + esc(thuHuong || '— (đề nghị không ghi)') + '</dd><dt class="is-dam">Số tiền</dt><dd>' + KD.tienVnd(r.so_tien) + '</dd>';
+    $('dc-chi-gc').value = '';
+    const homNay = KD.iso(new Date()), [min, max] = hanNgay();
+    O_NGAY.forEach(([id]) => { $(id).value = homNay; $(id).min = min; $(id).max = max; datLoiO(id, ''); });   // mặc định hôm nay, kế toán lùi được
+    nhanTheoChi = true;
+    // Người nhận: điền sẵn người thụ hưởng theo đề nghị (ĐVVC / NCC ở 2 luồng kia) — không có thì để trống, KHÔNG điền tên đoán.
+    $('dc-chi-nn').value = String(thuHuong || '').slice(0, 255);
+    $('dc-chi-nn-gy').textContent = thuHuong ? 'Mặc định là người thụ hưởng trong đề nghị — sửa nếu người thực nhận khác.'
+      : 'Đề nghị không ghi người thụ hưởng — nhập tên người / đơn vị thực nhận tiền (có thể để trống).';
+    const sel = $('dc-chi-co'), khoa331 = r.nguon === 'de_xuat_ncc' || !!r.dntt_ncc;
+    $('dc-chi-no').innerHTML = '<option value="">Đang tải danh mục…</option>'; $('dc-chi-no').disabled = true; chiDang = null; $('dc-chi-no-gy').textContent = '';
+    const [kqTk, kqLoai] = await Promise.allSettled([napTk(), khoa331 ? Promise.resolve(null) : napLoai()]);
+    if (luot !== moLuot) return;
+    if (kqTk.status === 'fulfilled') sel.innerHTML = '<option value="">— Chọn tài khoản —</option>' + kqTk.value.map((t) => '<option value="' + esc(t.ten_tk) + '">' + esc(t.ten_tk + (t.so_tk ? ' · ' + t.so_tk : '')) + '</option>').join('');
+    else sel.innerHTML = '<option value="">Không tải được danh sách tài khoản</option>';
+    if (kqLoai.status === 'rejected') console.warn('[kt-duyet] Không tải được danh mục loại chi phí:', kqLoai.reason);
+    veHachToan(r, kqLoai.status === 'fulfilled' ? kqLoai.value : null);
+    if (!dlgChi.open) KD.moHopThoai(dlgChi);
+  }
+  /* Lỗi chung của hộp nằm CUỐI thân hộp — hộp dài (nhất là màn hẹp) thì câu lỗi rơi dưới mép: cuộn tới nó. Lỗi máy chủ nói về
+     một ô cụ thể (ngày nhận / ngày chi / loại chi phí) thì đưa con trỏ về đúng ô đó, giữ nguyên mọi ô đã nhập. */
+  function baoLoiChi(msg, oLoi) {
+    KD.baoLoiHopThoai(dlgChi, msg);
+    const p = dlgChi.querySelector('.kd-form-err');
+    if (p && !p.hidden) p.scrollIntoView({ block: 'nearest' });
+    if (oLoi) $(oLoi).focus({ preventScroll: true });
+  }
+  const oCuaLoi = (msg) => (/Ngày nhận/.test(msg) ? 'dc-chi-nhan-ngay' : /Ngày chi/.test(msg) ? 'dc-chi-ngay'
+    : /loại|Ứng Lương|TK 331/i.test(msg) ? 'dc-chi-no' : /tài khoản|Số dư/i.test(msg) ? 'dc-chi-co' : null);
+  /* Máy chủ CŨ (chưa có Việc 3) bỏ im lặng trường lạ mà vẫn 200 → so thứ ĐÃ LƯU (máy chủ trả lại) với thứ đã gửi. */
+  function chuaLuu(gui, kq) {
+    const k = kq || {}, thieu = [];
+    if (gui.nguoi_nhan && (!('nguoi_nhan' in k) || k.nguoi_nhan !== gui.nguoi_nhan)) thieu.push('Người nhận');
+    if (gui.ngay_nhan && (!('ngay_nhan' in k) || String(k.ngay_nhan || '').slice(0, 10) !== gui.ngay_nhan)) thieu.push('Ngày nhận');
+    if (gui.loai_chi_phi && (!('loai_chi_phi_hach_toan' in k) || k.loai_chi_phi_hach_toan !== gui.loai_chi_phi)) thieu.push('Hạch toán vào');
+    return thieu;
   }
   $('dc-form-chi').addEventListener('submit', async (e) => {
-    e.preventDefault(); const tk = $('dc-chi-co').value, ngay = $('dc-chi-ngay').value;
-    if (!tk) { $('dc-chi-co').focus(); return KD.baoLoiHopThoai(dlgChi, 'Chọn tài khoản chi tiền.'); }
-    if (!ngay) { $('dc-chi-ngay').focus(); return KD.baoLoiHopThoai(dlgChi, 'Nhập ngày chi.'); }
-    if (ngay > KD.iso(new Date())) { $('dc-chi-ngay').focus(); return KD.baoLoiHopThoai(dlgChi, 'Ngày chi không được ở tương lai.'); }
+    e.preventDefault(); const tk = $('dc-chi-co').value, ngay = $('dc-chi-ngay').value, ngayNhan = $('dc-chi-nhan-ngay').value;
+    dlgChi.querySelector('.kd-form-err').hidden = true;   // câu lỗi của lần bấm trước không còn đúng
+    if (!tk) return baoLoiChi('Chọn tài khoản chi tiền.', 'dc-chi-co');
+    // Lỗi ngày hiện dưới đúng ô (kiểm CẢ hai ô); giữ nguyên mọi ô đã nhập, đưa con trỏ về ô sai đầu tiên.
+    const sai = O_NGAY.filter(([id, nhan, bb]) => !datLoiO(id, loiNgay($(id).value, nhan, bb)));
+    if (sai.length) { $(sai[0][0]).focus(); return; }
+    const gui = { tai_khoan: tk, ngay_chi: ngay, ghi_chu: $('dc-chi-gc').value.trim() || null,
+      nguoi_nhan: $('dc-chi-nn').value.trim() || null, ngay_nhan: ngayNhan || null };
+    const c = chiDang, loai = $('dc-chi-no').value;
+    if (c && !c.khoa331 && c.goiY && loai && loai !== c.goiY[0]) gui.loai_chi_phi = loai;
     const nut = $('dc-chi-ok'); nut.disabled = true;
-    const goc = { de_xuat_chi: '/api/duyet-chi/', de_nghi_tt: '/api/de-nghi-tt/', de_xuat_ncc: '/api/ncc-de-xuat/' }[dang.nguon];
-    try { await KD.api(goc + encodeURIComponent(dang.goc) + '/chi', KD.JSON_POST({ tai_khoan: tk, ngay_chi: ngay, ghi_chu: $('dc-chi-gc').value.trim() || null }));
-      dlgChi.close(); ds.dongPanel(); window.showToast && window.showToast('ok', 'Đã chi ' + dang.ma + ' qua ' + tk + ' — đã lên sổ quỹ'); await taiLai(); }
-    catch (err) { KD.baoLoiHopThoai(dlgChi, 'Chưa chi được: ' + err.message); } finally { nut.disabled = false; }
+    const r = dang, goc = { de_xuat_chi: '/api/duyet-chi/', de_nghi_tt: '/api/de-nghi-tt/', de_xuat_ncc: '/api/ncc-de-xuat/' }[r.nguon];
+    try {
+      const kq = await KD.api(goc + encodeURIComponent(r.goc) + '/chi', KD.JSON_POST(gui));
+      dlgChi.close(); ds.dongPanel();
+      const thieu = chuaLuu(gui, kq);
+      if (thieu.length) {
+        console.warn('[kt-duyet] Máy chủ chưa lưu:', thieu, { gui, kq });
+        window.showToast && window.showToast('warn', 'Đã chi ' + r.ma + ' qua ' + tk + ' và ghi sổ quỹ, NHƯNG máy chủ chưa lưu: ' + thieu.join(', ')
+          + ' (đang theo mặc định cũ). Mở Sổ quỹ kiểm dòng chi này và báo quản trị — máy chủ có thể chưa được cập nhật.', 0);
+      } else {
+        window.showToast && window.showToast('ok', 'Đã chi ' + r.ma + ' qua ' + tk + ' — đã lên sổ quỹ' + (kq && kq.loai_chi_phi_hach_toan ? ' · hạch toán ' + kq.loai_chi_phi_hach_toan : ''));
+      }
+      await taiLai();
+    } catch (err) { baoLoiChi('Chưa chi được: ' + err.message, oCuaLoi(err.message)); } finally { nut.disabled = false; }
   });
   $('dc-tbody').addEventListener('click', (e) => { const b = e.target.closest('[data-nut]'); if (!b) return;
     const r = ds.dsHien().find((x) => String(x.id) === b.dataset.id); if (!r) return;
@@ -371,7 +502,7 @@
     if (!ds2.length) { $('dc-dc-cuon').hidden = true; $('dc-dc-tt').innerHTML = KD.khoiRong('Chưa có khoản nào đã chi', ''); $('dc-dc-foot').hidden = true; return; }
     $('dc-dc-tt').innerHTML = ''; $('dc-dc-cuon').hidden = false; $('dc-dc-foot').hidden = false;
     $('dc-dc-tb').innerHTML = ds2.slice((dcTrang - 1) * DC_CO, dcTrang * DC_CO).map((r) => '<tr data-id="' + esc(r.id) + '" tabindex="0"><td>' + KD.ngay(r.ngay_chi) + '</td>'
-      + '<td>' + H.ma(r.ma) + '<span class="kt-khach__ma">' + esc(NGUON[r.nguon][0]) + '</span></td><td class="kt-dc-nd">' + H.ten(r.noi_dung, r.nguoi_de_nghi + (r.bo_phan ? ' · ' + r.bo_phan : '')) + '</td><td class="kt-dc-ng">' + esc(r.thu_huong || '—') + '</td><td>' + esc(r.tai_khoan_chi || '—') + '</td><td class="num kt-dc-tien">' + KD.tien(r.so_tien) + '</td></tr>').join('');
+      + '<td>' + H.ma(r.ma) + '<span class="kt-khach__ma">' + esc(NGUON[r.nguon][0]) + '</span></td><td class="kt-dc-nd">' + H.ten(r.noi_dung, r.nguoi_de_nghi + (r.bo_phan ? ' · ' + r.bo_phan : '')) + '</td><td class="kt-dc-ng">' + esc(r.nguoi_nhan || r.thu_huong || '—') + '</td><td>' + esc(r.tai_khoan_chi || '—') + '</td><td class="num kt-dc-tien">' + KD.tien(r.so_tien) + '</td></tr>').join('');
     $('dc-dc-hien').textContent = 'Hiển thị ' + KD.soDem((dcTrang - 1) * DC_CO + 1) + ' - ' + KD.soDem(Math.min(dcTrang * DC_CO, ds2.length)) + ' / ' + KD.soDem(ds2.length) + ' khoản';
     KD.phanTrang($('dc-dc-trang'), dcTrang, so, (p) => { dcTrang = p; veDaChi(); });
   }

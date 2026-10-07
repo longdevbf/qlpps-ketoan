@@ -16,26 +16,32 @@ Mounted at /api/duyet-chi trong: baogia, marketing, muahang, hcns, ketoan,
 saleadmin, ceo.
 """
 import calendar
+import inspect
+import logging
 import re
+import unicodedata
 import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Annotated, List, Optional
+from typing import Annotated, Iterable, List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func as sqlfunc, select, text as sql_text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from shared.audit import log_action
 from shared.auth import JWTPayload, current_user
 from shared.config import settings
 from shared.db import get_db
 from shared.models.expense_request import ExpenseRequest
 from shared.models.user import User
 from shared.templates import _lookup_user_info
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 _AUTH = Depends(current_user)
@@ -310,6 +316,13 @@ class ExpenseOut(BaseModel):
     chi_phi_id: Optional[int] = None
     tai_khoan_chi: Optional[str] = None
     ngay_chi: Optional[datetime] = None
+    # Việc 3 (08/10/2026): người thực nhận + ngày nhận kế toán ghi lúc bấm Chi.
+    nguoi_nhan: Optional[str] = None
+    ngay_nhan: Optional[date] = None
+    # Loại chi phí ĐÃ GHI vào ketoan.chi_phi_phat_sinh — chỉ endpoint Chi điền (đọc lại từ dòng chi phí vừa
+    # ghi); endpoint khác để None. Giao diện so với loại đã chọn: server cũ không có khoá này → giao diện biết
+    # lựa chọn của kế toán đã bị bỏ qua (Pydantic mặc định bỏ im lặng trường lạ mà vẫn trả 200).
+    loai_chi_phi_hach_toan: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -946,6 +959,8 @@ def expense_report(
 # anh Quang 2026-08-11: sau khi CEO duyệt (approval_level='done'), KT bấm "Chi"
 # tại đề xuất → tạo ketoan.chi_phi_phat_sinh (→ tự sinh SoQuy chi, trừ tài khoản)
 # + đánh dấu da_chi. Idempotent (không chi 2 lần).
+# Việc 3 (08/10/2026): trước khi ghi, kế toán được đổi loại chi phí (trong danh mục), ghi người nhận +
+# ngày nhận (ChiBody) — bỏ trống cả 3 thì y hệt trước.
 _LOAI_CHI_MAP = {
     "di_chuyen":  ("Chi phí đi lại", "quan_ly"),
     "van_phong":  ("Chi phí văn phòng", "quan_ly"),
@@ -956,11 +971,13 @@ _LOAI_CHI_MAP = {
 }
 
 
-def _ngay_ghi_so(ngay, mac_dinh):
+def _ngay_ghi_so(ngay, mac_dinh, nhan: str = "Ngày chi"):
     """Ngày ghi sổ cho khoản chi — kiểm cho chắc trước khi đụng vào sổ.
 
     Chặn ngày tương lai (chi chưa xảy ra mà đã lên sổ) và ngày lùi quá 1 năm (gõ nhầm
     năm là hỏng cả báo cáo kỳ cũ). Bỏ trống → dùng mặc định của từng luồng.
+    `nhan`: tên ô in trong câu lỗi — "Ngày nhận" dùng CHUNG luật này (Việc 3, 08/10/2026).
+    Giữ nguyên tên + 2 tham số đầu: de_nghi_tt.py / ncc_de_xuat.py import hàm này ở module level.
     """
     from datetime import date as _d, timedelta as _td
     if ngay is None:
@@ -969,14 +986,78 @@ def _ngay_ghi_so(ngay, mac_dinh):
     if ngay > hom_nay:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "Ngày chi không được ở tương lai.",
+            f"{nhan} không được ở tương lai.",
         )
     if ngay < hom_nay - _td(days=365):
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "Ngày chi lùi quá 1 năm — kiểm tra lại năm.",
+            f"{nhan} lùi quá 1 năm — kiểm tra lại năm.",
         )
     return ngay
+
+
+# ── Việc 3 (08/10/2026): kế toán sửa loại chi phí / người nhận / ngày nhận trước khi ghi sổ ──
+_LOAI_UNG_LUONG = "Ứng Lương"
+
+
+def _la_ung_luong(ten: Optional[str]) -> bool:
+    """Tên loại có phải 'Ứng Lương' không — bỏ khoảng trắng hai đầu, không phân biệt hoa thường / dạng dấu.
+
+    HCNS trừ lương theo đúng chuỗi này (`loai_chi_phi = 'Ứng Lương'` + `TRIM(nguoi_chi)`). So lỏng để
+    chặn cả biến thể gõ tay: đổi sang hay đổi khỏi loại này ở bước Chi đều làm lương bị trừ sai.
+    """
+    def chuan(s: Optional[str]) -> str:
+        return unicodedata.normalize("NFC", (s or "").strip()).casefold()
+    return chuan(ten) == chuan(_LOAI_UNG_LUONG)
+
+
+def _loai_chi_khi_chi(db: Session, goi_y: tuple, chon: Optional[str]) -> tuple:
+    """(tên loại, nhóm) ghi vào chi phí khi bấm Chi — kế toán được đổi khỏi loại hệ thống gợi ý.
+
+    `goi_y` = (tên, nhóm) hệ thống tự suy (vd `_loai_chi_sang_ke_toan`). `chon` rỗng hoặc trùng gợi ý →
+    trả NGUYÊN gợi ý, y hệt trước Việc 3. Đổi thì: không sang / không khỏi 'Ứng Lương' (HCNS trừ lương
+    người đề nghị theo loại này), và tên phải thuộc danh mục ĐANG DÙNG để báo cáo gộp được — nhóm lấy
+    theo danh mục, nên P&L đi theo loại kế toán chọn. Chỉ nhận TÊN loại, không nhận số tài khoản.
+    Đề nghị TT ĐVVC phía Kế toán (app/routers/de_nghi_tt.py) cũng gọi hàm này (nạp lazy).
+    """
+    ten = (chon or "").strip()
+    if not ten or ten == goi_y[0]:
+        return goi_y
+    if _la_ung_luong(goi_y[0]):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Khoản này là '{goi_y[0]}' — HCNS trừ vào lương người đề nghị nên không đổi sang loại khác "
+            "ở bước Chi được. Giữ loại gợi ý; nếu đề xuất sai loại thì Từ chối để người lập gửi lại.",
+        )
+    if _la_ung_luong(ten):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Không đổi sang '{ten}' ở bước Chi được — HCNS trừ lương theo loại này, khoản ứng lương phải "
+            "được đề xuất đúng loại từ đầu. Chọn loại khác hoặc giữ loại gợi ý.",
+        )
+    nhom = _danh_muc_loai_chi(db).get(ten)
+    if not nhom:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Loại chi phí '{ten}' không có trong danh mục đang dùng — chọn một loại trong danh sách.",
+        )
+    return ten, nhom
+
+
+def _ham_nhan_tham_so(ham, ten_tham_so: Iterable[str]) -> bool:
+    """Hàm có nhận các tham số keyword này không (kiểm trước khi gọi).
+
+    shared/ và gói ketoan triển khai TÁCH NHAU (chat_internal nạp bản shared của nó cùng gói ketoan trong
+    image, và theo de_xuat_chi_tu_choi.py thì vps.py không triển khai shared/) → shared mới có thể gặp
+    ketoan cũ. Gọi thẳng thì TypeError nổ giữa lúc đang ghi; kiểm trước để từ chối khi CHƯA ghi gì.
+    """
+    try:
+        ts = inspect.signature(ham).parameters
+    except (TypeError, ValueError):
+        return False
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in ts.values()):
+        return True
+    return all(t in ts for t in ten_tham_so)
 
 
 class ChiBody(BaseModel):
@@ -985,6 +1066,11 @@ class ChiBody(BaseModel):
     # Ngày ghi sổ khoản chi. Bỏ trống = hôm nay. Kế toán cần lùi ngày khi tiền đã
     # chuyển đi từ hôm trước mà giờ mới bấm trên hệ thống.
     ngay_chi: Optional[date] = None
+    # Việc 3 (08/10/2026) — đều optional, bỏ trống = y hệt trước: form cũ ở 7 app và /chi-tap-trung chỉ gửi
+    # {tai_khoan, ghi_chu[, ngay_chi]}. Người nhận / ngày nhận chỉ để ghi nhận, KHÔNG đổi ngày ghi sổ.
+    nguoi_nhan: Optional[str] = Field(None, max_length=255)   # ghi vào so_quy.doi_tuong_ten + expense_requests
+    ngay_nhan: Optional[date] = None                          # ngày bên nhận thực nhận — không ràng buộc ngày chi
+    loai_chi_phi: Optional[str] = Field(None, max_length=128)  # TÊN loại trong danh mục, không phải số TK
 
 
 def _can_chi(user: JWTPayload, db: Session) -> bool:
@@ -1022,6 +1108,10 @@ def chi_expense(
     tk = (body.tai_khoan or "").strip()
     if not tk:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Vui lòng chọn tài khoản chi")
+    # Việc 3 — ô mới kiểm TRƯỚC mọi thao tác ghi. Thứ tự các bước kiểm CŨ giữ nguyên: client cũ không gửi ô
+    # mới thì các bước mới đều là "không làm gì", lỗi trả về y như trước.
+    nguoi_nhan = (body.nguoi_nhan or "").strip() or None
+    ngay_nhan = _ngay_ghi_so(body.ngay_nhan, None, nhan="Ngày nhận")
 
     try:
         from ketoan.app.models import ChiPhiPhatSinh
@@ -1029,11 +1119,24 @@ def chi_expense(
     except Exception as e:  # pragma: no cover
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR,
                             f"Không nạp được module Kế Toán: {e}")
+    # Tham số mới của hàm sổ quỹ CHỈ truyền khi có giá trị → client cũ (không gửi 2 ô này) gọi y hệt trước,
+    # chạy được cả với gói ketoan cũ. Có giá trị mà gói ketoan cũ chưa nhận → từ chối khi CHƯA ghi gì
+    # (không bắt TypeError: lỗi đó nổ giữa chừng, và không phân biệt được với TypeError thật bên trong).
+    kw_so_quy = {k: v for k, v in (("doi_tuong_ten", nguoi_nhan), ("ngay_nhan", ngay_nhan)) if v}
+    if kw_so_quy and not _ham_nhan_tham_so(sync_so_quy_from_chi_phi, kw_so_quy):
+        logger.warning("chi_expense #%s: gói ketoan chưa nhận tham số %s — từ chối ghi người/ngày nhận",
+                       rid, sorted(kw_so_quy))
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Máy chủ chưa cập nhật phần Kế toán nên chưa ghi được Người nhận / Ngày nhận vào sổ quỹ. "
+            "Xoá trống hai ô đó rồi bấm Chi lại để chi theo cách cũ, và báo quản trị cập nhật máy chủ.",
+        )
     # CHẶN chi làm số dư TK âm (anh Quang 2026-08-27)
     assert_du_chi(db, tk, rec.so_tien)
 
     ngay_ghi = _ngay_ghi_so(body.ngay_chi, date.today())
-    loai_ten, nhom = _loai_chi_sang_ke_toan(db, rec)
+    goi_y = _loai_chi_sang_ke_toan(db, rec)
+    loai_ten, nhom = _loai_chi_khi_chi(db, goi_y, body.loai_chi_phi)
     _gc = f"Chi đề xuất #{rec.id} • {rec.username}"
     if body.ghi_chu:
         _gc += f" • {body.ghi_chu.strip()}"
@@ -1059,11 +1162,17 @@ def chi_expense(
     rec.chi_phi_id = cp.id
     rec.tai_khoan_chi = tk
     rec.ngay_chi = datetime.now(tz=timezone.utc)
-    sync_so_quy_from_chi_phi(db, cp)   # _upsert SoQuy chi + db.commit() (hoặc rollback)
+    if nguoi_nhan:
+        rec.nguoi_nhan = nguoi_nhan
+    if ngay_nhan:
+        rec.ngay_nhan = ngay_nhan
+    sync_so_quy_from_chi_phi(db, cp, **kw_so_quy)   # _upsert SoQuy chi + db.commit() (hoặc rollback)
     db.refresh(rec)
     if not rec.da_chi:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR,
                             "Chi thất bại — không ghi được sổ quỹ, vui lòng thử lại")
+    db.refresh(cp)   # đọc lại loại chi phí ĐÃ GHI để trả về cho giao diện đối chiếu
+    loai_da_ghi, nhom_da_ghi, cp_id = cp.loai_chi_phi, cp.nhom_chi_phi, cp.id
 
     # Báo người đề xuất: đã được chi
     try:
@@ -1079,4 +1188,18 @@ def chi_expense(
         db.commit()
     except Exception:
         db.rollback()
-    return rec
+
+    # Audit (Việc 3): trước đây cửa chi này không ghi vết. app="ketoan" như 2 cửa chi còn lại — chỉ Kế toán chi.
+    log_action(
+        db, app="ketoan", action="chi_de_xuat_chi", user=user, request=request,
+        resource=f"expense_request:{rid}",
+        payload={
+            "so_tien": str(rec.so_tien), "tai_khoan": tk, "ngay_chi": ngay_ghi.isoformat(),
+            "loai_chi_phi_goi_y": goi_y[0], "loai_chi_phi_chon": loai_da_ghi, "nhom_chi_phi": nhom_da_ghi,
+            "nguoi_thu_huong": rec.nguoi_thu_huong, "nguoi_nhan": rec.nguoi_nhan,
+            "ngay_nhan": rec.ngay_nhan.isoformat() if rec.ngay_nhan else None, "chi_phi_id": cp_id,
+        },
+    )
+    out = ExpenseOut.model_validate(rec)
+    out.loai_chi_phi_hach_toan = loai_da_ghi
+    return out

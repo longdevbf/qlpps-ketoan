@@ -173,6 +173,10 @@ def _upsert_so_quy(
     phan_loai_cf: Optional[str] = None,
     ma_don: Optional[str] = None,
     created_by: Optional[str] = "auto-bridge",
+    # Việc 3 (08/10/2026): người thực nhận + ngày nhận kế toán ghi lúc bấm Chi. None = không đụng tới
+    # (giống các ô ở trên) → mọi lời gọi cũ chạy y hệt, và gọi lại lần sau không xoá giá trị đã ghi.
+    doi_tuong_ten: Optional[str] = None,
+    ngay_nhan: Optional[_date] = None,
 ) -> SoQuy:
     # Idempotent theo (lien_quan, ref_id) — được bảo vệ bởi partial UNIQUE INDEX
     # uq_sq_lienquan_refid (dedupe + index tạo 2026-08-28, DB-02) nên 2 request
@@ -201,6 +205,10 @@ def _upsert_so_quy(
         rec.phan_loai_cf = phan_loai_cf
     if ma_don:
         rec.ma_don = ma_don
+    if doi_tuong_ten:
+        rec.doi_tuong_ten = doi_tuong_ten
+    if ngay_nhan:
+        rec.ngay_nhan = ngay_nhan
     return rec
 
 
@@ -229,8 +237,15 @@ def sync_so_quy_from_doanh_thu(db: Session, dt: DoanhThu) -> None:
             "sync_so_quy_from_doanh_thu FAILED dt=%s", getattr(dt, "id", None), exc_info=True)
 
 
-def sync_so_quy_from_chi_phi(db: Session, cp: ChiPhiPhatSinh) -> None:
-    """Khi ChiPhi created/updated → tạo SoQuy chi. Fail-soft."""
+def sync_so_quy_from_chi_phi(
+    db: Session, cp: ChiPhiPhatSinh, *,
+    doi_tuong_ten: Optional[str] = None, ngay_nhan: Optional[_date] = None,
+) -> None:
+    """Khi ChiPhi created/updated → tạo SoQuy chi. Fail-soft.
+
+    `doi_tuong_ten` / `ngay_nhan`: người + ngày bên nhận thực nhận tiền (nút Chi đề xuất chi — Việc 3,
+    shared/routers/duyet_chi.py kiểm chữ ký hàm này trước khi truyền). Không truyền = như cũ.
+    """
     if cp is None or cp.id is None:
         return
     try:
@@ -244,6 +259,8 @@ def sync_so_quy_from_chi_phi(db: Session, cp: ChiPhiPhatSinh) -> None:
             tai_khoan=cp.ngan_hang,
             noi_dung=(cp.mo_ta or f"{cp.loai_chi_phi or 'Chi phí'}").strip(),
             mo_ta=cp.mo_ta,
+            doi_tuong_ten=doi_tuong_ten,
+            ngay_nhan=ngay_nhan,
         )
         db.commit()
     except Exception:

@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% import "_kt_macro.html" as ui %}
 {# Duyệt chi — VẼ LẠI thay kt_duyet.html cũ (anh duyệt ngày 23/09/2026). L3: gộp 3 luồng chi THẬT (giống màn cũ /chi-tap-trung):
-   Đề xuất chi nội bộ (/api/duyet-chi — shared/routers/duyet_chi.py, KHÔNG sửa), Đề nghị TT ĐVVC (/api/de-nghi-tt),
+   Đề xuất chi nội bộ (/api/duyet-chi — shared/routers/duyet_chi.py; Việc 3 08/10/2026 mở rộng ChiBody), Đề nghị TT ĐVVC (/api/de-nghi-tt),
    Trả nợ NCC (/api/ncc-de-xuat). Duyệt / từ chối / chi tiền gọi đúng API của từng luồng — xem đầu kt-duyet.js. #}
 {% block title %}Duyệt chi{% endblock %}
 {% block page_mod %}page--full{% endblock %}
-{% block head_extra %}{{ ui.css('kt-chung-tu') }}<link rel="stylesheet" href="/static/css/kt-duyet.css?v=popup0928b">{% endblock %}
+{% block head_extra %}{{ ui.css('kt-chung-tu') }}<link rel="stylesheet" href="/static/css/kt-duyet.css?v=viec3-1008">{% endblock %}
 
 {% block content %}
 <main class="kd-page kt-l3-rong" id="kd-kt-duyet">
@@ -101,11 +101,18 @@
 <dialog class="kd-dialog kt-dc-dlg" id="dc-dlg-chi" aria-labelledby="dc-chi-td">
   <form method="dialog" novalidate id="dc-form-chi">
     <header class="kd-dialog__head"><h2 class="kd-dialog__title" id="dc-chi-td">Chi tiền và ghi sổ</h2><button type="button" class="kd-icon-btn" data-dong aria-label="Đóng"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    {# Việc 3 (08/10/2026): kế toán sửa người nhận, ngày nhận, loại chi phí trước khi ghi sổ. Câu hướng dẫn hiện sẵn
+       dưới ô (.kt-dc-goi-y) thay cho nút ⓘ 22px cũ — nút đó nhỏ hơn vùng bấm 44px trên màn hẹp. #}
     <div class="kd-dialog__body">
       <dl class="kt-tq" id="dc-chi-tt"></dl>
       <div class="kd-field"><label class="kd-field__label" for="dc-chi-co">Chi từ tài khoản <span class="kd-field__req" aria-hidden="true">*</span></label><select class="kd-input" id="dc-chi-co"><option value="">— Chọn tài khoản —</option></select></div>
-      <div class="kd-field"><label class="kd-field__label" for="dc-chi-ngay">Ngày chi <span class="kd-field__req" aria-hidden="true">*</span><button type="button" class="kd-tip" data-tip="Ngày tiền thực sự ra khỏi tài khoản — dùng làm ngày ghi sổ quỹ. Mặc định hôm nay; lùi lại nếu đã chuyển tiền từ hôm trước." aria-label="Về ngày chi"><i class="bi bi-info-circle" aria-hidden="true"></i></button></label><input class="kd-input" type="date" id="dc-chi-ngay"></div>
-      <div class="kd-field"><label class="kd-field__label" for="dc-chi-no">Hạch toán vào <button type="button" class="kd-tip" data-tip="Tự ghi sổ quỹ chi theo Ngày chi ở trên; chặn nếu số dư tài khoản không đủ." aria-label="Ghi sổ tự động"><i class="bi bi-info-circle" aria-hidden="true"></i></button></label><input class="kd-input" id="dc-chi-no" readonly tabindex="-1"></div>
+      <div class="kd-row2">
+        {# Lỗi từng ô dùng .kt-dc-loi, KHÔNG .kd-form-err: KD.baoLoiHopThoai/moHopThoai lấy .kd-form-err ĐẦU TIÊN trong hộp. #}
+        <div class="kd-field"><label class="kd-field__label" for="dc-chi-ngay">Ngày chi <span class="kd-field__req" aria-hidden="true">*</span></label><input class="kd-input" type="date" id="dc-chi-ngay" aria-describedby="dc-chi-ngay-gy dc-chi-ngay-loi"><p class="kt-dc-goi-y" id="dc-chi-ngay-gy">Ngày tiền rời tài khoản — lùi lại nếu đã chuyển từ hôm trước.</p><p class="kt-dc-loi" id="dc-chi-ngay-loi" role="alert" hidden></p></div>
+        <div class="kd-field"><label class="kd-field__label" for="dc-chi-nhan-ngay">Ngày nhận</label><input class="kd-input" type="date" id="dc-chi-nhan-ngay" aria-describedby="dc-chi-nhan-ngay-gy dc-chi-nhan-ngay-loi"><p class="kt-dc-goi-y" id="dc-chi-nhan-ngay-gy">Ngày bên nhận thực nhận tiền; mặc định bằng Ngày chi.</p><p class="kt-dc-loi" id="dc-chi-nhan-ngay-loi" role="alert" hidden></p></div>
+      </div>
+      <div class="kd-field"><label class="kd-field__label" for="dc-chi-nn">Người nhận</label><input class="kd-input" id="dc-chi-nn" maxlength="255" autocomplete="off" placeholder="Tên người / đơn vị thực nhận tiền" aria-describedby="dc-chi-nn-gy"><p class="kt-dc-goi-y" id="dc-chi-nn-gy"></p></div>
+      <div class="kd-field"><label class="kd-field__label" for="dc-chi-no">Hạch toán vào</label><select class="kd-input" id="dc-chi-no" aria-describedby="dc-chi-no-gy"></select><p class="kt-dc-goi-y" id="dc-chi-no-gy" aria-live="polite"></p></div>
       <div class="kd-field"><label class="kd-field__label" for="dc-chi-gc">Ghi chú (không bắt buộc)</label><input class="kd-input" id="dc-chi-gc" maxlength="200" autocomplete="off" placeholder="VD: đã chuyển khoản cho NCC"></div>
       <p class="kd-form-err" role="alert" hidden></p>
     </div>
@@ -114,4 +121,4 @@
 </dialog>
 {% endblock %}
 
-{% block scripts %}{{ ui.js('kt-duyet', v='ngay1007') }}{% endblock %}
+{% block scripts %}{{ ui.js('kt-duyet', v='viec3-1008') }}{% endblock %}

@@ -52,6 +52,20 @@
 .kt-dc-dlg .kt-tq dd { white-space: normal; overflow-wrap: anywhere; }
 .kt-dc-dlg .kd-field + .kd-field { margin-top: var(--sp-6); }
 .kt-dc-dlg input[readonly] { background: var(--bg-page); color: var(--text-2); }
+/* Hộp Chi tiền (Việc 3): 2 ô ngày đứng cạnh nhau từ 480px — khoảng cách do gap của .kd-row2 lo, bỏ margin trên. */
+.kt-dc-dlg .kd-row2 { align-items: start; }
+.kt-dc-dlg .kd-row2 > .kd-field + .kd-field { margin-top: 0; }
+/* Câu hướng dẫn hiện sẵn dưới ô (thay ⓘ 22px). --doi: đã đổi khỏi gợi ý / không tải được danh mục — cần chú ý. */
+.kt-dc-goi-y { margin: 0; font-size: var(--fs-meta); line-height: var(--lh-body, 1.5); color: var(--text-3); overflow-wrap: anywhere; }
+.kt-dc-goi-y:empty { display: none; }
+.kt-dc-goi-y--doi { color: var(--warning-fg); }
+.kt-dc-goi-y b { font-weight: 600; color: var(--text-1); }
+.kt-dc-goi-y .kd-btn { display: flex; margin: var(--sp-3) 0 0; }
+/* Lỗi của từng ô (chuyện gì sai + làm gì tiếp) — lớp riêng, KHÔNG .kd-form-err (KD.baoLoiHopThoai lấy .kd-form-err đầu tiên). */
+.kt-dc-loi { margin: 0; font-size: var(--fs-meta); color: var(--danger); }
+.kt-dc-dlg .kd-input[aria-invalid="true"] { border-color: var(--danger); }
+/* Ô "Hạch toán vào" bị khoá (trả nợ NCC, ứng lương, không tải được danh mục): chữ vẫn đọc rõ, nền lõm như ô chỉ đọc. */
+.kt-dc-dlg select:disabled { background: var(--bg-page); color: var(--text-2); opacity: 1; cursor: not-allowed; }
 
 /* Báo cáo đề xuất chi (thay màn cũ /bao-cao/duyet-chi) */
 .kt-dc-bc__dau { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--sp-6) var(--sp-8); padding: var(--sp-8) var(--sp-8) var(--sp-6); }

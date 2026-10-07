@@ -23,7 +23,9 @@ from shared.auth import JWTPayload, require_app
 from shared.db import get_db
 from shared.routers.duyet_chi import _ngay_ghi_so
 
+from ..models import SoQuy
 from ..services.ban_sao_de_nghi import tu_choi_dntt_kem
+from ._chi_tien import HACH_TOAN_TRA_NCC, chan_doi_loai_tra_ncc, ngay_nhan_hop_le, nguoi_nhan_chuan
 
 
 router = APIRouter()
@@ -406,6 +408,11 @@ class ChiNCCBody(BaseModel):
     ghi_chu: Optional[str] = None
     # Ngày ghi sổ khoản chi. Bỏ trống = hôm nay (hành vi cũ).
     ngay_chi: Optional[_date] = None
+    # Việc 3 (08/10/2026) — đều optional, bỏ trống = y hệt trước (màn cũ /duyet-ncc chỉ gửi {tai_khoan, ghi_chu}).
+    nguoi_nhan: Optional[str] = Field(None, max_length=255)   # → so_quy.doi_tuong_ten
+    ngay_nhan: Optional[_date] = None                         # → so_quy.ngay_nhan (không ràng buộc ngày chi)
+    # Trả nợ NCC hạch toán KHOÁ ở Nợ 331 — trường này có chỉ để gửi lên là bị 422, không âm thầm bỏ qua.
+    loai_chi_phi: Optional[str] = Field(None, max_length=128)
 
 
 def _ghi_giam_cong_no_ketoan(db: Session, e, *, by: str) -> Optional[str]:
@@ -459,6 +466,10 @@ def chi_ncc(
     tk = (body.tai_khoan or "").strip()
     if not tk:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Vui lòng chọn tài khoản chi")
+    # Việc 3 — ô mới kiểm TRƯỚC mọi thao tác ghi; client cũ không gửi thì các bước này không làm gì.
+    nguoi_nhan = nguoi_nhan_chuan(body.nguoi_nhan)
+    ngay_nhan = ngay_nhan_hop_le(body.ngay_nhan)
+    chan_doi_loai_tra_ncc(body.loai_chi_phi)
 
     from datetime import date as _date_cls
     from decimal import Decimal
@@ -486,6 +497,8 @@ def chi_ncc(
             noi_dung=f"Chi trả NCC {e.ncc_name or e.ncc_id or ''} — đề xuất {e.id}".strip(),
             mo_ta=((e.mo_ta or "") + (f" • {_gc}" if _gc else "")).strip() or None,
             phan_loai_cf="tra_ncc",
+            doi_tuong_ten=nguoi_nhan,
+            ngay_nhan=ngay_nhan,
         )
         _ghi_giam_cong_no_ketoan(db, e, by=user.username)
         db.commit()
@@ -505,9 +518,25 @@ def chi_ncc(
             db.commit()
         except Exception:
             db.rollback()
+    # Việc 3: đọc lại từ DB đúng thứ ĐÃ LƯU ở phiếu sổ quỹ — giao diện đối chiếu với thứ kế toán đã nhập.
+    sq_luu = db.execute(
+        select(SoQuy.doi_tuong_ten, SoQuy.ngay_nhan, SoQuy.ngay)
+        .where(SoQuy.lien_quan == "cong_no", SoQuy.ref_id == f"mh-dexuat-{e.id}")
+    ).first()
+    luu = {
+        "nguoi_nhan": sq_luu.doi_tuong_ten if sq_luu else None,
+        "ngay_nhan": sq_luu.ngay_nhan.isoformat() if sq_luu and sq_luu.ngay_nhan else None,
+        "loai_chi_phi_hach_toan": None,   # trả nợ NCC không sinh dòng chi phí (Nợ 331)
+    }
     log_action(
         db, app="ketoan", action="chi_congno_dexuat", user=user, request=request,
-        resource=f"congno:{cid}", payload={"tai_khoan": tk, "so_tien": str(e.so_tien)},
+        resource=f"congno:{cid}",
+        payload={
+            "tai_khoan": tk, "so_tien": str(e.so_tien),
+            "ngay_chi": sq_luu.ngay.isoformat() if sq_luu and sq_luu.ngay else None,
+            "loai_chi_phi_goi_y": HACH_TOAN_TRA_NCC, "loai_chi_phi_chon": HACH_TOAN_TRA_NCC,
+            "nguoi_nhan": luu["nguoi_nhan"], "ngay_nhan": luu["ngay_nhan"],
+        },
     )
     _safe_notify(
         db, target=(e.nguoi_tao or e.nv_mua_hang), by=user.username,
@@ -517,7 +546,7 @@ def chi_ncc(
         ref_type="congno", ref_id=e.id, url=f"{_MUAHANG_HOST}/", severity="success",
     )
     db.commit()
-    return _to_dict(e, _build_name_map(db, [e]))
+    return {**_to_dict(e, _build_name_map(db, [e])), **luu}
 
 
 @router.post("/api/ncc-de-xuat/{cid}/kt-reject")

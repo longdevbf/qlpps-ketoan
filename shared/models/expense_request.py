@@ -78,6 +78,11 @@ class ExpenseRequest(Base):
     chi_phi_id: Mapped[Optional[int]] = mapped_column(Integer)        # link ketoan.chi_phi_phat_sinh.id
     tai_khoan_chi: Mapped[Optional[str]] = mapped_column(String(64))  # TK trừ tiền (Tiền Mặt/ACB/BIDV/VPB)
     ngay_chi: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    # Người THỰC NHẬN tiền + ngày họ nhận — kế toán ghi lúc bấm Chi (migration 0050, 08/10/2026).
+    # Cột riêng, KHÔNG ghi đè `nguoi_thu_huong`: đó là bản người đề nghị khai, ghi đè là mất bản gốc.
+    # NULL = chi từ client cũ (7 app chưa cập nhật form) hoặc đề xuất chi trước ngày này.
+    nguoi_nhan: Mapped[Optional[str]] = mapped_column(String(255))
+    ngay_nhan: Mapped[Optional[date]] = mapped_column(Date)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

@@ -20,7 +20,12 @@ from shared.auth import JWTPayload, require_app
 from shared.db import get_db
 from shared.routers.duyet_chi import _ngay_ghi_so
 
+from ..models import ChiPhiPhatSinh, SoQuy
 from ..services.ban_sao_de_nghi import tu_choi_de_xuat_kem
+from ..services.from_saleadmin import LOAI_CHI_PHI_DVVC
+from ._chi_tien import (
+    HACH_TOAN_TRA_NCC, chan_doi_loai_tra_ncc, loai_khi_chi, ngay_nhan_hop_le, nguoi_nhan_chuan,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -47,6 +52,12 @@ class ChiBody(BaseModel):
     # Ngày ghi sổ khoản chi (kế toán nhập trong hộp thoại Chi tiền). Bỏ trống = giữ
     # hành vi cũ: lấy ngày CEO duyệt, không có thì ngày đề nghị.
     ngay_chi: Optional[date_cls] = None
+    # Việc 3 (08/10/2026) — đều optional, bỏ trống = y hệt trước (màn cũ /chi-tap-trung chỉ gửi {tai_khoan, ghi_chu}).
+    nguoi_nhan: Optional[str] = Field(None, max_length=255)   # → so_quy.doi_tuong_ten
+    ngay_nhan: Optional[date_cls] = None                      # → so_quy.ngay_nhan (không ràng buộc ngày chi)
+    # TÊN loại trong danh mục. Chỉ Đề nghị TT trả ĐVVC đổi được (gợi ý "Vận chuyển"); bản sao đề xuất trả NCC
+    # (ref_congno) là Nợ 331 → gửi loại nào cũng 422.
+    loai_chi_phi: Optional[str] = Field(None, max_length=128)
 
 
 _CHI_ROLES = ("manager", "admin", "ceo", "assistant_ceo")
@@ -336,6 +347,19 @@ def chi_denghitt(
             status.HTTP_400_BAD_REQUEST,
             "Vui lòng chọn tài khoản chi (Tiền Mặt / ngân hàng) trước khi Chi.",
         )
+    # Việc 3 — ô mới kiểm TRƯỚC mọi thao tác ghi; client cũ không gửi thì các bước này không làm gì.
+    nguoi_nhan = nguoi_nhan_chuan(body.nguoi_nhan)
+    ngay_nhan = ngay_nhan_hop_le(body.ngay_nhan)
+    tra_ncc = bool(getattr(e, "ref_congno", None))
+    if tra_ncc:   # bản sao đề xuất trả NCC: tiền trả nợ (Nợ 331), không có dòng chi phí để đổi loại
+        chan_doi_loai_tra_ncc(body.loai_chi_phi)
+        goi_y_loai, loai_doi = HACH_TOAN_TRA_NCC, None
+    else:
+        goi_y_loai = LOAI_CHI_PHI_DVVC
+        # Nhóm của gợi ý để None: cầu nối chưa bao giờ ghi nhóm cho dòng "Vận chuyển" (cột tự về 'khac') —
+        # giữ nguyên khi kế toán không đổi; đổi loại thì nhóm theo danh mục.
+        chon = loai_khi_chi(db, (LOAI_CHI_PHI_DVVC, None), body.loai_chi_phi)
+        loai_doi = chon if chon[0] != LOAI_CHI_PHI_DVVC else None
     # CHẶN chi làm số dư TK âm (anh Quang 2026-08-27)
     from ketoan.app.services.so_quy_auto import assert_du_chi
     assert_du_chi(db, tk, e.so_tien)
@@ -343,7 +367,10 @@ def chi_denghitt(
     # Tạo sổ quỹ chi + ChiPhí phai_tra ĐVVC (idempotent qua ref_dntt), rồi đánh dấu.
     try:
         from ketoan.app.services.from_saleadmin import sync_so_quy_chi_phi_from_denghitt
-        sync_so_quy_chi_phi_from_denghitt(db, e, tai_khoan=tk)
+        sync_so_quy_chi_phi_from_denghitt(
+            db, e, tai_khoan=tk, doi_tuong_ten=nguoi_nhan, ngay_nhan=ngay_nhan,
+            loai_chi_phi=loai_doi[0] if loai_doi else None, nhom_chi_phi=loai_doi[1] if loai_doi else None,
+        )
         e.da_chi = True
         e.tai_khoan_chi = tk
         e.ngay_chi = datetime.now(tz=timezone.utc)
@@ -411,9 +438,31 @@ def chi_denghitt(
                 did, _ref_cn,
             )
 
+    # Việc 3: đọc lại từ DB đúng thứ ĐÃ LƯU (không phải thứ client gửi) — giao diện đối chiếu với lựa chọn của
+    # kế toán; cầu nối sổ quỹ là fail-soft nên "đã gửi" chưa chắc là "đã ghi".
+    _ref = f"DNTT-{e.id}"
+    sq_luu = db.execute(
+        select(SoQuy.doi_tuong_ten, SoQuy.ngay_nhan, SoQuy.ngay).where(SoQuy.ref_dntt == _ref)
+    ).first()
+    loai_luu = None if tra_ncc else db.execute(
+        select(ChiPhiPhatSinh.loai_chi_phi).where(ChiPhiPhatSinh.ref_dntt == _ref)
+    ).scalar_one_or_none()
+    luu = {
+        "nguoi_nhan": sq_luu.doi_tuong_ten if sq_luu else None,
+        "ngay_nhan": sq_luu.ngay_nhan.isoformat() if sq_luu and sq_luu.ngay_nhan else None,
+        "loai_chi_phi_hach_toan": loai_luu,
+    }
+
     log_action(
         db, app="ketoan", action="chi_denghitt", user=user, request=request,
         resource=f"denghitt:{did}",
-        payload={"tai_khoan": tk, "so_tien": float(e.so_tien or 0)},
+        payload={
+            "tai_khoan": tk, "so_tien": float(e.so_tien or 0),
+            # Việc 3: ngày kế toán nhập + ngày phiếu quỹ thật (DNTT ghi phiếu theo ngày CEO duyệt).
+            "ngay_chi": body.ngay_chi.isoformat() if body.ngay_chi else None,
+            "ngay_so_quy": sq_luu.ngay.isoformat() if sq_luu and sq_luu.ngay else None,
+            "loai_chi_phi_goi_y": goi_y_loai, "loai_chi_phi_chon": HACH_TOAN_TRA_NCC if tra_ncc else loai_luu,
+            "nguoi_nhan": luu["nguoi_nhan"], "ngay_nhan": luu["ngay_nhan"],
+        },
     )
-    return _denghitt_to_dict(e, _build_name_map(db, [e]))
+    return {**_denghitt_to_dict(e, _build_name_map(db, [e])), **luu}

@@ -13,6 +13,7 @@ Cả 2 fail-soft — caller (saleadmin) không bị block nếu ketoan write fai
 """
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import Any, Optional, TYPE_CHECKING
 
@@ -23,6 +24,9 @@ from ..models import ChiPhiPhatSinh, SoQuy
 
 if TYPE_CHECKING:
     from saleadmin.app.models import PhatSinh, DeNghiTT
+
+# Loại chi phí mặc định của Đề nghị TT trả ĐVVC — cũng là "gợi ý" ở hộp Chi tiền (routers/de_nghi_tt.py).
+LOAI_CHI_PHI_DVVC = "Vận chuyển"
 
 
 def sync_chi_phi_from_phatsinh(db: Session, ps: "PhatSinh") -> Optional[ChiPhiPhatSinh]:
@@ -75,11 +79,19 @@ def sync_chi_phi_from_phatsinh(db: Session, ps: "PhatSinh") -> Optional[ChiPhiPh
 
 def sync_so_quy_chi_phi_from_denghitt(
     db: Session, dntt: "DeNghiTT", *, tai_khoan: Optional[str] = None,
+    doi_tuong_ten: Optional[str] = None,
+    ngay_nhan: Optional[date] = None,
+    loai_chi_phi: Optional[str] = None,
+    nhom_chi_phi: Optional[str] = None,
 ) -> dict[str, Any]:
     """saleadmin.denghitt CEO duyệt → 1 SoQuy chi + 1 ChiPhí phai_tra ĐVVC.
 
     Idempotent qua `ref_dntt = 'DNTT-{id}'` ở cả 2 bảng.
     `tai_khoan` mặc định để None — caller có thể truyền TK rút.
+    Việc 3 (08/10/2026) — đều mặc định None = y hệt trước (không đụng cột tương ứng):
+    `doi_tuong_ten` / `ngay_nhan` → dòng sổ quỹ (người + ngày bên nhận thực nhận);
+    `loai_chi_phi` + `nhom_chi_phi` → dòng chi phí ĐVVC khi kế toán đổi khỏi loại "Vận chuyển" (router đã kiểm
+    tên thuộc danh mục). Khoản trả NCC (ref_congno) không có dòng chi phí nên 2 tham số này bị bỏ qua.
     """
     out: dict[str, Any] = {"so_quy": None, "chi_phi": None}
     if dntt is None or not dntt.id:
@@ -124,6 +136,10 @@ def sync_so_quy_chi_phi_from_denghitt(
             sq.noi_dung = noi_dung
             if tai_khoan:
                 sq.tai_khoan = tai_khoan
+        if doi_tuong_ten:
+            sq.doi_tuong_ten = doi_tuong_ten
+        if ngay_nhan:
+            sq.ngay_nhan = ngay_nhan
         out["so_quy"] = sq
 
         if ref_ncc:   # tiền trả NCC không phải chi phí — chỉ ghi sổ quỹ
@@ -140,7 +156,7 @@ def sync_so_quy_chi_phi_from_denghitt(
                 ref_dntt=ref,
                 ngay=dntt.ngay_duyet.date() if dntt.ngay_duyet else (dntt.ngay_de_nghi or None),
                 so_tien=Decimal(dntt.so_tien),
-                loai_chi_phi="Vận chuyển",
+                loai_chi_phi=LOAI_CHI_PHI_DVVC,
                 don_vi_vc=dntt.don_vi_vc or None,
                 ma_don=dntt.ma_don or None,
                 ngan_hang=tai_khoan,
@@ -158,6 +174,10 @@ def sync_so_quy_chi_phi_from_denghitt(
             cp.mo_ta = mo_ta
             if tai_khoan:
                 cp.ngan_hang = tai_khoan
+        if loai_chi_phi:
+            cp.loai_chi_phi = loai_chi_phi
+            if nhom_chi_phi:
+                cp.nhom_chi_phi = nhom_chi_phi
         out["chi_phi"] = cp
 
         sp.commit()
