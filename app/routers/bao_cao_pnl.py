@@ -32,6 +32,8 @@ from ..services.pl_chi_tiet import (
     SO_DONG_TOI_DA,
     chi_tiet as chi_tiet_dong_pl,
 )
+from ..services.loi_doc import bat_dau_ghi_loi
+from ..services.nguon_bao_cao import NGUON_KQKD
 from ._deps import require_ketoan_user
 
 
@@ -500,10 +502,16 @@ def bao_cao_pl_thang(
     cache_key = f"pl:{thang}"
     cached = _cache_get(cache_key)
     if cached:
-        return cached
+        return {**cached, "nguon": NGUON_KQKD}
+    loi_doc = bat_dau_ghi_loi()
     result = calc_pl_for_month(db, thang)
+    # Đợt 1 (07/10/2026): bảng/cột không đọc được → trả kèm danh sách. Vẫn cache như cũ (lưu kèm danh
+    # sách lỗi) — nếu bỏ cache thì một bảng CỐ Ý chưa có (nhánh dự phòng) sẽ làm KQKD tính lại mỗi lần
+    # mở trang. `nguon` là mô tả tĩnh nên gắn sau cache.
+    if loi_doc:
+        result = {**result, "loi_doc_du_lieu": loi_doc}
     _cache_set(cache_key, result)
-    return result
+    return {**result, "nguon": NGUON_KQKD}
 
 
 @router.get("/pl/chi-tiet")

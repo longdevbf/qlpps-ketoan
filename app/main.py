@@ -136,7 +136,7 @@ from .routers import (
     loai_chi_phi, tai_khoan_nh, bao_cao, external, pages,
     revenue_from_order, so_du_dau_ky, meta, cong_no_ncc, cong_no_vc,
     cong_no_from_order, uploads, products, product_attributes,
-    bao_cao_can_doi, bao_cao_pnl, bao_cao_cashflow,
+    bao_cao_can_doi, bao_cao_pnl, bao_cao_cashflow, doi_chieu,
     khoan_vay, chi_phi_bridges, dao_tao,
     # M1 — Sản phẩm + Tồn kho
     product_category, inv_products, inventory,
@@ -445,6 +445,7 @@ app.include_router(bao_cao.router, prefix="/api/bao-cao", tags=["bao_cao"])
 app.include_router(bao_cao_can_doi.router, prefix="/api/bao-cao", tags=["bao_cao_can_doi"])
 app.include_router(bao_cao_pnl.router, prefix="/api/bao-cao", tags=["bao_cao_pnl"])
 app.include_router(bao_cao_cashflow.router, prefix="/api/bao-cao", tags=["bao_cao_cashflow"])
+app.include_router(doi_chieu.router, prefix="/api/bao-cao", tags=["doi_chieu"])
 app.include_router(khoan_vay.router, prefix="/api/khoan-vay", tags=["khoan_vay"])
 app.include_router(
     so_du_dau_ky.router, prefix="/api/so-du-dau-ky", tags=["so_du_dau_ky"]

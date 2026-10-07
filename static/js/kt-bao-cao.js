@@ -13,6 +13,12 @@
      chuyen?: (duLieuApi, k) => { dong, ky, ky_truoc, tom_tat, … }  đổi dạng phản hồi API có sẵn
        sang dạng khung cần — dùng khi API thật của báo cáo không trả sẵn mảng `dong` theo mã số.
      tenFile?: 'ket-qua-kinh-doanh'     tên tệp khi bấm Xuất Excel (nút #pfx-xuat)
+     canhBao?: { man: 'cdkt'|'kqkd'|'lctt', thang: (k, d) => 'YYYY-MM' }  dải cảnh báo đầu trang (#pfx-canh-bao)
+       từ GET /api/bao-cao/canh-bao + `loi_doc_du_lieu` của chính API báo cáo (Đợt 1, 07/10/2026).
+     Kết quả `chuyen` có `nguon` ({khoá dòng: {loai, tk, bang, so_cai?, nghiep_vu?, dang_dung?}}) → mỗi dòng có
+       `khoa` hiện nhãn nguồn: sổ cái TK nào / bảng nghiệp vụ / chưa tính (app/services/nguon_bao_cao.py).
+     nguonChung?: { loai: 'nghiep_vu', chu: '…' }  báo cáo mà hầu hết dòng cùng một nguồn → ghi nguồn đó MỘT lần
+       ở đầu bảng, chỉ gắn nhãn cho dòng khác nguồn (tránh lặp cùng một nhãn trên mọi dòng).
      inUrl?: (k, d) => url              nút #pfx-in mở trang in chuẩn (/ketoan/in); không khai → window.print()
    }) → { tai, st, duLieu, khoang }
    Dòng: { ma, chi_tieu, cap: nhom|tong|muc|con|con2|dam, thuyet_minh?, ghi_chu?, …cột số,
@@ -29,17 +35,87 @@
     const pt = b ? ' <span class="kd-meta">' + (d > 0 ? '+' : '−') + KD.phanTram(Math.abs(d / b) * 100) + '</span>' : '';
     return (d > 0 ? '+' : '−') + KD.tien(Math.abs(d)) + pt; };
 
-  /* CSV từ bảng HTML (lấy chữ hiển thị; số trong ngoặc giữ nguyên dạng BCTC). */
+  /* CSV từ bảng HTML (lấy chữ hiển thị; số trong ngoặc giữ nguyên dạng BCTC). Nhãn nguồn (.kt-nguon) không xuất —
+     nó là chú thích màn hình, để vào ô tên chỉ tiêu thì Excel cộng/tra cứu theo tên bị lệch. */
+  const chuO = (td) => { if (!td.querySelector('.kt-nguon')) return td.innerText;
+    const x = td.cloneNode(true); x.querySelectorAll('.kt-nguon').forEach((e) => e.remove()); return x.textContent; };
   function xuatCsv(bang, tenFile, dauTrang) {
     const o = (s) => '"' + String(s == null ? '' : s).replace(/\s+/g, ' ').trim().replace(/"/g, '""') + '"';
     const dong = [...bang.querySelectorAll('tr')].filter((tr) => !tr.hidden)
-      .map((tr) => [...tr.children].map((c) => o(c.innerText)).join(','));
+      .map((tr) => [...tr.children].map((c) => o(chuO(c))).join(','));
     const noi = '﻿' + (dauTrang || []).map((x) => o(x)).join('\n') + (dauTrang && dauTrang.length ? '\n\n' : '') + dong.join('\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([noi], { type: 'text/csv;charset=utf-8' }));
     a.download = tenFile + '.csv'; document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
+
+  /* ── Nhãn nguồn số liệu từng dòng (Đợt 1, 07/10/2026) ──────────────────────────────────────
+     Trả lời "số này từ sổ cái hay từ bảng nghiệp vụ?" ngay trên dòng. Chữ ngắn, giải thích dài nằm
+     trong bong bóng (dùng lại .kd-tip). Dòng công thức (tổng/hiệu) không gắn nhãn. */
+  const tkChu = (n) => (n && n.tk && n.tk.length ? 'TK ' + n.tk.join(', ') : '');
+  function nhanNguon(n) {
+    if (!n || n.loai === 'cong_thuc') return '';
+    let lop = 'info', chu, giai;
+    const bang = n.bang ? 'bảng nghiệp vụ ' + n.bang : 'bảng nghiệp vụ';
+    if (n.loai === 'so_cai') { chu = 'Sổ cái ' + n.tk.join('+'); giai = 'Lấy từ sổ cái ' + tkChu(n) + ' (bút toán đã ghi sổ).'; }
+    else if (n.loai === 'chua_tinh') { lop = 'danger'; chu = 'Chưa tính'; giai = 'Dòng này chưa có nguồn số liệu — hệ thống đang gán 0. ' + (tkChu(n) ? tkChu(n) + ' chưa được đọc.' : ''); }
+    else if (n.loai === 'nghiep_vu') { lop = 'warning'; chu = 'Bảng nghiệp vụ'; giai = 'Lấy từ ' + bang + '. Không đọc sổ cái' + (tkChu(n) ? ' (' + tkChu(n) + ')' : '') + ' — so hai nguồn ở màn Đối chiếu sổ.'; }
+    else if (n.dang_dung) {   // 'tron' của Cân đối: có đủ số hai nguồn
+      const so = (v) => (v == null ? 'không có' : KD.tienVnd(v));
+      const hai = 'Sổ cái ' + tkChu(n) + ': ' + so(n.so_cai) + ' · Bảng nghiệp vụ (' + (n.bang || '') + '): ' + so(n.nghiep_vu)
+        + (n.chenh != null && Math.abs(n.chenh) >= 1 ? ' · Chênh ' + KD.tienVnd(n.chenh) : '') + '.';
+      const caHai0 = n.so_cai != null && n.nghiep_vu != null && Math.abs(n.so_cai) < 1 && Math.abs(n.nghiep_vu) < 1;
+      if (caHai0) { chu = tkChu(n); giai = 'Sổ cái ' + tkChu(n) + ' và ' + bang + ' đều bằng 0.'; }
+      else if (n.dang_dung === 'khop') { lop = 'success'; chu = 'Khớp sổ cái'; giai = hai + ' Hai nguồn bằng nhau.'; }
+      else if (n.dang_dung === 'so_cai') { chu = 'Sổ cái ' + n.tk.join('+'); giai = hai + ' Báo cáo đang lấy số sổ cái (số lớn hơn).'; }
+      else if (n.dang_dung === 'nghiep_vu') { lop = 'warning'; chu = 'Bảng nghiệp vụ'; giai = hai + ' Báo cáo đang lấy số bảng nghiệp vụ (số lớn hơn).'; }
+      else { lop = 'warning'; chu = 'Hai nguồn lệch'; giai = hai; }
+      if (lop === 'info' && n.chenh != null && Math.abs(n.chenh) >= 1) lop = 'warning';
+    } else { chu = 'Sổ cái + bảng NV'; giai = 'Cộng ' + bang + ' với sổ cái ' + tkChu(n) + '.'; }
+    const t = esc(giai);
+    return '<button type="button" class="kd-tip kt-nguon kt-nguon--' + lop + '" data-tip="' + t + '" aria-label="Nguồn số liệu: ' + t + '">' + esc(chu) + '</button>';
+  }
+
+  /* ── Dải cảnh báo đầu trang (Đợt 1) — GET /api/bao-cao/canh-bao?thang + lỗi đọc dữ liệu của API báo cáo.
+     Rỗng → ẩn hẳn (luật 4 trạng thái: khối cảnh báo rỗng không render "Không có gì"). Lỗi → một dòng + Thử lại. */
+  const NUT_CB = { '/ketoan/tscd': 'Chạy khấu hao', '/ketoan/khoa-so': 'Mở khoá sổ', '/ketoan/doi-chieu': 'Xem đối chiếu' };
+  function veMucCb(x) {
+    const ds = (x.nguyen_nhan || []).length
+      ? '<ul class="kt-cb__ds">' + x.nguyen_nhan.map((n) => '<li>' + esc(n) + '</li>').join('') + '</ul>'
+      : (x.chi_tiet ? '<p class="kt-cb__ct">' + esc(x.chi_tiet) + '</p>' : '');
+    return '<div class="kt-cb kt-cb--' + esc(x.muc) + '"' + (x.muc === 'danger' ? ' role="alert"' : '') + '>'
+      + '<div class="kt-cb__than"><p class="kt-cb__td">' + esc(x.tieu_de) + '</p>' + ds + '</div>'
+      + (x.lien_ket ? '<a class="kd-btn kd-btn--sm" href="' + esc(x.lien_ket) + '">' + esc(NUT_CB[x.lien_ket] || 'Mở') + '</a>' : '')
+      + '</div>';
+  }
+  /* Gộp theo câu hiển thị: nhiều hàm cùng thiếu một bảng (vd saleadmin.vanchuyen) chỉ hiện một dòng. */
+  function gomLoiDoc(d0) {
+    const ds = [], thay = new Set();
+    (Array.isArray(d0) ? d0 : [d0]).forEach((x) => (x && x.loi_doc_du_lieu || []).forEach((l) => {
+      const k = l.mo_ta || l.chi_tiet; if (!thay.has(k)) { thay.add(k); ds.push(l); } }));
+    return ds;
+  }
+  /* Mục "không đọc được dữ liệu" dựng từ lỗi của CẢ API báo cáo (d0) lẫn API cảnh báo — gom xong mới dựng. */
+  const mucLoiDoc = (ds) => (ds.length ? [{ muc: 'danger', nguyen_nhan: ds.map((l) => l.mo_ta || l.chi_tiet),
+    tieu_de: 'Không đọc được ' + KD.soDem(ds.length) + ' nguồn dữ liệu — số 0 ở các dòng liên quan KHÔNG phải số thật' }] : []);
+  async function canhBao(el, thang, man, d0) {
+    if (!el) return;
+    try {
+      const d = await KD.api('/api/bao-cao/canh-bao?' + KT.url.qs({ thang }));
+      if (el.dataset.thang !== thang) return;   // người dùng đã đổi kỳ trong lúc chờ
+      const muc = mucLoiDoc(gomLoiDoc([].concat(d0, d)))
+        .concat((d.canh_bao || []).filter((x) => !man || (x.ap_dung || []).includes(man)));
+      el.innerHTML = muc.map(veMucCb).join(''); el.hidden = !muc.length;
+    } catch (e) {
+      if (el.dataset.thang !== thang) return;
+      el.innerHTML = mucLoiDoc(gomLoiDoc(d0)).map(veMucCb).join('')
+        + '<p class="kd-meta kt-cb__loi">Không kiểm tra được cảnh báo của kỳ: ' + esc(e.message || '') + ' <button type="button" class="kd-link" data-cb-lai>Thử lại</button></p>';
+      el.hidden = false;
+      const b = el.querySelector('[data-cb-lai]'); if (b) b.addEventListener('click', () => canhBao(el, thang, man, d0));
+    }
+  }
+  function ganCanhBao(el, thang, man, d0) { if (!el) return; el.dataset.thang = thang; canhBao(el, thang, man, d0); }
 
   function baoCao(c) {
     const $ = (s) => document.getElementById(c.pfx + '-' + s);
@@ -67,7 +143,15 @@
     const tipTd = td ? td.appendChild(document.createElement('span')) : null;
     const phuTd = td ? td.parentElement.querySelector('.kd-meta') : null, phuGoc = phuTd ? phuTd.textContent : '';
     if ($('pham-vi')) $('pham-vi').hidden = true;
+    /* Dòng "nguồn chung" của cả bảng (Đợt 1) — đặt ngay dưới đầu thẻ bảng, một lần cho mọi dòng. */
+    const dauThe = td ? td.closest('.kt-the-dau') : null;
+    const nguonChungEl = c.nguonChung && dauThe ? (() => { const p = document.createElement('p'); p.className = 'kt-nguon-chung'; p.hidden = true;
+      p.innerHTML = '<span class="kt-nguon kt-nguon--warning">' + esc(c.nguonChung.nhan || 'Bảng nghiệp vụ') + '</span><span>' + esc(c.nguonChung.chu) + '</span>'
+        + '<a class="kd-link" href="/ketoan/doi-chieu" data-doi-chieu>Đối chiếu với sổ cái</a>';
+      dauThe.insertAdjacentElement('afterend', p); return p; })() : null;
     function veTieuDe(d) {
+      if (nguonChungEl) { nguonChungEl.hidden = false; const a = nguonChungEl.querySelector('[data-doi-chieu]');
+        if (a && c.canhBao) a.href = '/ketoan/doi-chieu?' + KT.url.qs({ thang: c.canhBao.thang(khoang(), d) }); }
       if (tipTd) tipTd.innerHTML = c.phamVi ? KD.tip(chuTron(c.phamVi(d))) : '';
       if (phuTd && c.phuDe) phuTd.textContent = c.phuDe(d) + ' · Đơn vị tính: VND';
     }
@@ -94,7 +178,8 @@
       /* eslint-disable-next-line no-unreachable */
     }
     function nhanDong(r, k) {
-      const ten = lienKet(r, k) + (r.ghi_chu ? KD.tip(r.ghi_chu) : '');
+      const n = r.khoa && du && du.nguon ? du.nguon[r.khoa] : null;
+      const ten = lienKet(r, k) + (r.ghi_chu ? KD.tip(r.ghi_chu) : '') + (c.nguonChung && n && n.loai === c.nguonChung.loai ? '' : nhanNguon(n));
       if (!r.nhom_mo) return ten;
       return '<button type="button" class="kt-bc__mo" aria-expanded="' + (r.gap ? 'false' : 'true') + '" data-mo="' + esc(r.nhom_mo) + '"><i class="bi bi-chevron-down" aria-hidden="true"></i><span class="visually-hidden">Thu gọn / mở chi tiết</span></button>' + ten;
     }
@@ -125,6 +210,7 @@
     async function tai() {
       const l = ++luot, k = khoang();
       KT.url.ghi(st, Object.assign({}, c.macDinh, { ky: 'thang_nay' }));
+      const cb = c.canhBao ? $('canh-bao') : null; if (cb) { cb.hidden = true; cb.innerHTML = ''; delete cb.dataset.thang; }
       choKpi(); if (tipTd) tipTd.innerHTML = ''; if (phuTd) phuTd.textContent = phuGoc; $('tt').innerHTML = ''; $('cuon').hidden = false; if ($('ghi-chu')) $('ghi-chu').hidden = true;
       $('tbody').innerHTML = KT.hangCho(soCot, 12);
       try {
@@ -134,6 +220,7 @@
         const d = c.chuyen ? c.chuyen(d0, k) : d0;
         du = d;
         veKpi(d); veTieuDe(d);
+        if (cb) ganCanhBao(cb, c.canhBao.thang(k, d), c.canhBao.man, d0);
         if (c.sauTai) c.sauTai(d, k);
         const coSo = (d.dong || []).some((r) => c.cot.some((o) => o.num && o.key !== 'chenh' && r[o.key]));
         if (!coSo) { $('cuon').hidden = true; $('tt').innerHTML = KD.khoiRong(c.rong[0], c.rong[1]); return; }
@@ -293,5 +380,5 @@
     return { tai, st, duLieu: () => du, khoang };
   }
 
-  window.KT = Object.assign(window.KT || {}, { baoCao, soBc, xuatCsv });
+  window.KT = Object.assign(window.KT || {}, { baoCao, soBc, xuatCsv, nhanNguon, ganCanhBao });
 })();

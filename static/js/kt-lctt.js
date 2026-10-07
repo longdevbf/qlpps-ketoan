@@ -100,7 +100,7 @@
   function chuyen(ds, k) {
     ds.forEach(lamTron);
     const [c, p] = ds;
-    return { ky: { tu: c.from, den: c.to }, ky_truoc: { tu: p.from, den: p.to }, c, p, tc: thuChi(c), dong: dongTu(c, p) };
+    return { ky: { tu: c.from, den: c.to }, ky_truoc: { tu: p.from, den: p.to }, c, p, tc: thuChi(c), dong: dongTu(c, p), nguon: c.nguon || {} };
   }
 
   const kpiTien = (v) => ({ v: (v < 0 ? '−' : '') + KD.tienGonHtml(Math.abs(v)), title: KD.tienVnd(v) });
@@ -112,6 +112,8 @@
     cot: [{ key: 'ma' }, { key: 'ky_nay', num: true }, { key: 'ky_truoc', num: true }],
     lien: { '01': '131', '03': '334', '33': '341', '34': '341' },
     chuyen,
+    canhBao: { man: 'lctt', thang: (k) => k.den.slice(0, 7) },
+    nguonChung: { loai: 'nghiep_vu', nhan: 'Sổ quỹ', chu: 'Dòng không gắn nhãn lấy từ sổ quỹ (phiếu thu, phiếu chi), không phải sổ cái TK 111/112.' },
     chiTiet: (khoa, k, trang, cot) => {
       const kk = cot === 'ky_truoc' ? (bc.st.ss || previousRange(k.tu, k.den)) : { tu: k.tu, den: k.den };
       return '/api/bao-cao/cashflow/chi-tiet?'

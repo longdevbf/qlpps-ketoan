@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% import "_kt_macro.html" as ui %}
+{# Đối chiếu sổ cái ↔ bảng nghiệp vụ — Đợt 1, 07/10/2026. CHỈ HIỆN chênh lệch, không sửa số nào cho khớp.
+   Nguồn: GET /api/bao-cao/doi-chieu?thang=YYYY-MM (app/routers/doi_chieu.py) — mỗi khoản mục có số sổ cái,
+   số bảng nghiệp vụ, chênh, và số mà báo cáo đang dùng. Dải cảnh báo: GET /api/bao-cao/canh-bao (kt-bao-cao.js).
+   Bấm mã TK → Sổ cái của TK đó, đúng kỳ (truy ngược về bút toán gốc). #}
+{% block title %}Đối chiếu sổ{% endblock %}
+{% block page_mod %}page--full{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
+<link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
+<link rel="stylesheet" href="/static/css/kt-bao-cao.css?v=dot1-1007">
+<link rel="stylesheet" href="/static/css/kt-doi-chieu.css?v=dot1-1007">
+{% endblock %}
+
+{% block content %}
+<main class="kd-page" id="kd-kt-doi-chieu">
+  {% call ui.dau_trang('Đối chiếu sổ cái và bảng nghiệp vụ', 'Từng khoản mục: số theo sổ cái so với số theo bảng nghiệp vụ',
+                       'Báo cáo tài chính đang tính phần lớn từ bảng nghiệp vụ (doanh thu, chi phí, công nợ, sổ quỹ…), trong khi bút toán vẫn ghi vào sổ cái. Màn này đặt hai nguồn cạnh nhau. Không sửa số nào cho khớp — chênh lệch do kế toán xem và quyết định.') %}
+    <label class="kd-select kt-khoang">
+      <i class="bi bi-calendar3" aria-hidden="true"></i>
+      <span class="visually-hidden">Tháng đối chiếu</span>
+      <input type="month" id="dc-thang">
+    </label>
+  {% endcall %}
+  {{ ui.canh_bao('dc') }}
+
+  {% for k in [('cd', 'Cân đối kế toán — số dư cuối tháng', 'Báo cáo chế độ tự động lấy số lớn hơn giữa hai nguồn cho từng dòng.'),
+               ('kq', 'Kết quả kinh doanh — phát sinh trong tháng', 'Sổ cái: phát sinh TK trong tháng, bỏ bút toán kết chuyển 911. Bảng nghiệp vụ: đúng số trên Kết quả kinh doanh.')] %}
+  <section class="kd-card" aria-labelledby="dc-{{ k[0] }}-td">
+    <div class="kd-box__head kt-the-dau">
+      <h2 class="kd-box__title" id="dc-{{ k[0] }}-td">{{ k[1] }}<button type="button" class="kd-tip" data-tip="{{ k[2] }}" aria-label="{{ k[2] }}"><i class="bi bi-info-circle" aria-hidden="true"></i></button></h2>
+      <p class="kd-meta" id="dc-{{ k[0] }}-tom"></p>
+    </div>
+    <div class="kd-table-scroll kd-table-scroll--thanh" id="dc-{{ k[0] }}-cuon">
+      <table class="kd-table kt-bang kt-dcs">
+        <caption class="visually-hidden">{{ k[1] }}</caption>
+        <thead><tr>
+          <th scope="col">Khoản mục</th><th scope="col">Tài khoản</th>
+          <th scope="col" class="num">Sổ cái (VND)</th><th scope="col" class="num">Bảng nghiệp vụ (VND)</th>
+          <th scope="col" class="num">Chênh lệch (VND)</th><th scope="col">Báo cáo đang dùng</th>
+        </tr></thead>
+        <tbody id="dc-{{ k[0] }}-tbody"></tbody>
+      </table>
+    </div>
+    <div id="dc-{{ k[0] }}-tt"></div>
+  </section>
+  {% endfor %}
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/kd-man-hinh.js?v=tien1001"></script>
+<script src="/static/js/kt-chung.js?v=tk0928b"></script>
+<script src="/static/js/kt-bao-cao.js?v=dot1-1007"></script>
+<script src="/static/js/kt-doi-chieu.js?v=dot1-1007"></script>
+{% endblock %}

@@ -36,6 +36,7 @@ from shared.db import get_db
 from ..models import ChiPhiPhatSinh, SoDuDauKy, SoQuy, TaiKhoanNH
 from ..services.phan_loai_cf import KHOA_HOP_LE
 from ..services.so_quy_auto import so_du_truoc_ngay
+from ..services.nguon_bao_cao import NGUON_LCTT
 from ._deps import require_ketoan_user
 
 
@@ -601,6 +602,8 @@ def bao_cao_cashflow(
         "so_du_cuoi_ky": so_du_cuoi,
         "daily": daily,
         "by_account": by_acc,
+        # Đợt 1 (07/10/2026): mô tả nguồn từng khoản mục (sổ quỹ, không phải sổ cái 111/112).
+        "nguon": NGUON_LCTT,
     }
 
 
