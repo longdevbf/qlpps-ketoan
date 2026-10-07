@@ -55,12 +55,26 @@ def ghi_loi_doc(db: Session, exc: ProgrammingError) -> None:
         ds.append({"ham": ham, "chi_tiet": chi_tiet, "mo_ta": mo_ta_loi(chi_tiet)})
 
 
+# Tên nghiệp vụ cho kế toán đọc — luật frontend số 2: không lộ tên kỹ thuật (schema.bảng) ra màn hình.
+# Tên kỹ thuật vẫn nằm nguyên trong `chi_tiet` + log máy chủ cho người sửa code.
+_TEN_APP = {
+    "baogia": "app Báo giá", "saleadmin": "app Sale Admin", "hcns": "app Nhân sự",
+    "marketing": "app Marketing", "muahang": "app Mua hàng", "ketoan": "Kế toán", "shared": "dữ liệu dùng chung",
+}
+_TEN_BANG = {
+    "quotes": "báo giá, đơn hàng", "vanchuyen": "vận chuyển", "payroll": "bảng lương",
+    "ads_cost": "chi phí quảng cáo", "employees": "danh sách nhân viên", "purchase_orders": "đơn mua hàng",
+    "suppliers": "nhà cung cấp", "customers": "khách hàng",
+}
+
+
 def mo_ta_loi(chi_tiet: str) -> str:
-    """Câu tiếng Việt cho người đọc báo cáo — thông báo gốc của Postgres là tiếng Anh."""
+    """Câu tiếng Việt cho người đọc báo cáo — thông báo gốc của Postgres là tiếng Anh và kỹ thuật."""
     m = re.search(r'relation "([^"]+)" does not exist', chi_tiet)
     if m:
-        return f"Không có bảng {m.group(1)}"
-    m = re.search(r'column "?([^" ]+)"? does not exist', chi_tiet)
-    if m:
-        return f"Không có cột {m.group(1)}"
-    return "Câu truy vấn lỗi: " + chi_tiet[:160]
+        schema, _, bang = m.group(1).rpartition(".")
+        noi = _TEN_APP.get(schema, "app khác" if schema else "Kế toán")
+        return f"Không đọc được dữ liệu {_TEN_BANG.get(bang, 'một bảng')} của {noi}"
+    if re.search(r"column .* does not exist", chi_tiet):
+        return "Dữ liệu thiếu một cột mà báo cáo cần (chi tiết trong nhật ký máy chủ)"
+    return "Một truy vấn của báo cáo bị lỗi (chi tiết trong nhật ký máy chủ)"

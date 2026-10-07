@@ -7,6 +7,7 @@ Endpoints (prefix /api/bao-cao, khai ở app/main.py):
 Không endpoint nào ở đây ghi DB → không có log_action (audit chỉ cho thao tác ghi/sửa/xoá).
 """
 from datetime import date as date_cls
+from decimal import Decimal
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -27,6 +28,12 @@ router = APIRouter()
 _AUTH = Depends(require_ketoan_user)
 
 
+def _dong(x) -> Optional[Decimal]:
+    """Số Cân đối (float, kế thừa từ báo cáo cũ) → Decimal làm tròn 2 số lẻ — để JSON không ra
+    chuỗi kiểu "0.30000000000000004" khi Pydantic chuyển float sang Decimal."""
+    return None if x is None else Decimal(str(round(float(x), 2)))
+
+
 @router.get("/canh-bao", response_model=CanhBaoOut)
 def canh_bao_ky(
     db: Annotated[Session, Depends(get_db)],
@@ -35,15 +42,19 @@ def canh_bao_ky(
 ):
     """Những điều làm số của kỳ `thang` chưa đáng tin: lệch cân đối, vốn góp chưa khai, kỳ chưa
     chốt, tháng chưa chạy khấu hao, bảng không đọc được. Rỗng = không phát hiện gì."""
-    thang, _tu, den = _resolve_thang(thang)
+    thang, _tu, _den = _resolve_thang(thang)
     hien_tai = date_cls.today().strftime("%Y-%m")
     bc = bao_cao_can_doi(db, user, thang=thang, source="auto")
-    ds = (
-        lech_can_doi(bc)
-        + von_gop_chua_khai(db, den)
-        + ky_chua_chot(db, thang, hien_tai)
-        + thieu_khau_hao(db, thang, hien_tai)
-    )
+    rieng = von_gop_chua_khai(bc) + ky_chua_chot(db, thang, hien_tai) + thieu_khau_hao(db, thang, hien_tai)
+    # Ý nào đã có cảnh báo riêng (kèm nút tới màn xử lý) thì bỏ khỏi danh sách nguyên nhân của khối
+    # đỏ "lệch cân đối" — cùng một ý không nói hai lần trên một màn.
+    co = {x["ma"] for x in rieng}
+    bo_ma: set[str] = set()   # mã trong check.nguyen_nhan của bao_cao_can_doi
+    if "von_gop_chua_khai" in co:
+        bo_ma.add("von_gop_chua_khai")
+    if "ky_chua_chot" in co:
+        bo_ma.add("chua_chot_ky")
+    ds = lech_can_doi(bc, frozenset(bo_ma)) + rieng
     return {"thang": thang, "canh_bao": ds, "loi_doc_du_lieu": bc.get("loi_doc_du_lieu") or []}
 
 
@@ -62,14 +73,12 @@ def doi_chieu_so_cai_nghiep_vu(
     bc = bao_cao_can_doi(db, user, thang=thang, source="auto")
     can_doi = [
         {"khoa": k, "nhan": NHAN_CDKT[k], "tk": v["tk"], "bang": v.get("bang"),
-         "so_cai": v.get("so_cai"), "nghiep_vu": v.get("nghiep_vu"), "chenh": v.get("chenh"),
+         "so_cai": _dong(v.get("so_cai")), "nghiep_vu": _dong(v.get("nghiep_vu")), "chenh": _dong(v.get("chenh")),
          "dang_dung": v.get("dang_dung", "khac")}
         for k, v in bc["nguon"].items() if k in NHAN_CDKT
     ]
     pl = calc_pl_for_month(db, thang)
     kqkd = doi_chieu_kqkd(pl, phat_sinh_theo_tk(db, tu, den))
-    for r in kqkd:
-        r["bang"] = "Kết quả kinh doanh (bảng nghiệp vụ)"
     return {
         "thang": thang, "tu_ngay": tu.isoformat(), "den_ngay": den.isoformat(),
         # Cùng một danh sách (ContextVar) nên gồm cả lỗi đọc của bước tính KQKD phía trên.

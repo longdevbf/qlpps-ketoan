@@ -15,18 +15,28 @@ from sqlalchemy.orm import Session, aliased
 from ..models import JournalEntry, JournalLine
 from .journal import tk_cha_cua
 
-# (khoá dòng KQKD trong kết quả calc_pl_for_month, nhãn, TK, chiều số dư tự nhiên)
-DONG_KQKD: list[tuple[str, str, str, str]] = [
-    ("dt_thuan", "Doanh thu thuần", "511", "co"),
-    ("dt_tai_chinh", "Doanh thu hoạt động tài chính", "515", "co"),
-    ("cogs", "Giá vốn hàng bán", "632", "no"),
-    ("cp_tai_chinh.tong", "Chi phí tài chính", "635", "no"),
-    ("cp_ban_hang.tong", "Chi phí bán hàng", "641", "no"),
-    ("cp_quan_ly.tong", "Chi phí quản lý doanh nghiệp", "642", "no"),
-    ("thu_nhap_khac", "Thu nhập khác", "711", "co"),
-    ("cp_khac", "Chi phí khác", "811", "no"),
-    ("thue_tndn", "Chi phí thuế TNDN", "821", "no"),
+# (khoá dòng KQKD trong kết quả calc_pl_for_month, nhãn, TK, chiều số dư tự nhiên,
+#  nguồn mà KQKD THẬT SỰ đang dùng cho dòng đó — phải khớp pl_calculator / nguon_bao_cao.NGUON_KQKD)
+DONG_KQKD: list[tuple[str, str, str, str, str]] = [
+    ("dt_thuan", "Doanh thu thuần", "511", "co", "nghiep_vu"),
+    ("dt_tai_chinh", "Doanh thu hoạt động tài chính", "515", "co", "chua_tinh"),   # gán cứng 0
+    ("cogs", "Giá vốn hàng bán", "632", "no", "nghiep_vu"),
+    ("cp_tai_chinh.tong", "Chi phí tài chính", "635", "no", "nghiep_vu"),
+    ("cp_ban_hang.tong", "Chi phí bán hàng", "641", "no", "nghiep_vu"),
+    ("cp_quan_ly.tong", "Chi phí quản lý doanh nghiệp", "642", "no", "nghiep_vu"),
+    ("thu_nhap_khac", "Thu nhập khác", "711", "co", "so_cai"),                 # đọc sổ cái 711
+    ("cp_khac", "Chi phí khác", "811", "no", "tron"),                          # chi phí phát sinh + sổ cái 811
+    ("thue_tndn", "Chi phí thuế TNDN", "821", "no", "cong_thuc"),              # LNTT × 20%
 ]
+
+# Mô tả nguồn cho từng loại dòng — hiện ở bong bóng ⓘ cạnh tên khoản mục.
+_MO_TA = {
+    "nghiep_vu": "Số trên Kết quả kinh doanh, tính từ bảng nghiệp vụ (đơn hàng, chi phí, công nợ, bảng lương…)",
+    "chua_tinh": "Kết quả kinh doanh chưa tính dòng này — đang gán 0",
+    "so_cai": "Kết quả kinh doanh đọc thẳng sổ cái cho dòng này",
+    "tron": "Kết quả kinh doanh cộng chi phí phát sinh nhóm khác với sổ cái TK 811",
+    "cong_thuc": "Kết quả kinh doanh tính bằng công thức lợi nhuận trước thuế × 20%, không đọc sổ cái",
+}
 
 
 def phat_sinh_theo_tk(db: Session, tu: date, den: date) -> dict[str, tuple[Decimal, Decimal]]:
@@ -66,15 +76,16 @@ def _lay(d: dict, duong_dan: str):
 
 
 def doi_chieu_kqkd(pl: dict, ps: dict[str, tuple[Decimal, Decimal]]) -> list[dict]:
-    """Ghép từng dòng KQKD (bảng nghiệp vụ) với phát sinh TK tương ứng (sổ cái)."""
+    """Ghép từng dòng KQKD (số đang hiện trên báo cáo) với phát sinh TK tương ứng (sổ cái)."""
     out: list[dict] = []
-    for khoa, nhan, tk, chieu in DONG_KQKD:
+    for khoa, nhan, tk, chieu, dang_dung in DONG_KQKD:
         no, co = ps.get(tk, (Decimal("0"), Decimal("0")))
         so_cai = (co - no) if chieu == "co" else (no - co)
-        nghiep_vu = Decimal(str(_lay(pl, khoa) or 0)).quantize(Decimal("0.01"))
+        # Cột thứ hai là đúng con số đang hiện trên Kết quả kinh doanh, dù dòng đó lấy từ nguồn nào.
+        tren_bao_cao = Decimal(str(_lay(pl, khoa) or 0)).quantize(Decimal("0.01"))
         out.append({
-            "khoa": khoa, "nhan": nhan, "tk": [tk],
-            "so_cai": so_cai, "nghiep_vu": nghiep_vu, "chenh": so_cai - nghiep_vu,
-            "dang_dung": "nghiep_vu",
+            "khoa": khoa, "nhan": nhan, "tk": [tk], "bang": _MO_TA[dang_dung],
+            "so_cai": so_cai, "nghiep_vu": tren_bao_cao, "chenh": so_cai - tren_bao_cao,
+            "dang_dung": dang_dung,
         })
     return out

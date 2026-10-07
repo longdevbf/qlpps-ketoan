@@ -3,16 +3,22 @@
 #kd-kt-doi-chieu .kd-card + .kd-card { margin-top: var(--sp-8); }
 .kt-dcs tbody th[scope="row"] { background: var(--bg-card); font-size: var(--fs-body); font-weight: 600; white-space: normal; min-width: 220px; }
 .kt-dcs td.num { min-width: 150px; }
-/* Kẻ dọc giữa 3 cột số để mắt dò đúng cặp Sổ cái / Bảng nghiệp vụ / Chênh. */
+/* Kẻ dọc giữa 3 cột số để mắt dò đúng cặp Sổ cái / Nghiệp vụ / Chênh. */
 .kt-dcs th.num, .kt-dcs td.num { border-left: 1px solid var(--border-soft); }
+/* Chênh lệch = "cần chú ý" (vàng), không phải "xấu/lỗ" (đỏ) — và doanh thu không bao giờ tô đỏ. */
 .kt-dcs tbody tr.kt-dcs--lech > * { background: var(--warning-soft); }
-.kt-dcs__lech { color: var(--danger-fg); font-weight: 700; }
+.kt-dcs__lech { color: var(--warning-fg); font-weight: 700; }
+.kt-dcs__khong { font-size: var(--fs-meta); }
 .kt-dcs .kt-tk-link { color: var(--brand); font-weight: 700; text-decoration: none; }
 .kt-dcs .kt-tk-link:hover { color: var(--brand-hover); text-decoration: underline; }
 .kt-dcs .kt-tk-link:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
 .kt-dcs th[scope="row"] .kd-tip { margin-left: var(--sp-3); }
 #kd-kt-doi-chieu .kd-box__title .kd-tip { margin-left: var(--sp-3); }
-@media print { #kd-kt-doi-chieu .kd-head__tools { display: none !important; } }
 /* kt-chung.css đặt .kt-the-dau .kd-box__title { flex: none } → tiêu đề dài bị cắt ở màn 375px. Riêng màn này cho xuống dòng. */
 #kd-kt-doi-chieu .kt-the-dau .kd-box__title { display: block; flex: 1 1 18rem; min-width: 0; }
-.kt-dcs__khong { font-size: var(--fs-meta); }
+/* Điện thoại: bảng vẫn cuộn ngang trong thẻ nhưng cột khoản mục/số hẹp lại để thấy được nhiều hơn (như .kt-bc). */
+@media (max-width: 640px) {
+  .kt-dcs tbody th[scope="row"] { min-width: 160px; }
+  .kt-dcs td.num { min-width: 112px; }
+}
+@media print { #kd-kt-doi-chieu .kd-head__tools { display: none !important; } }

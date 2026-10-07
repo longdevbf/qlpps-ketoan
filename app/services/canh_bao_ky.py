@@ -4,6 +4,10 @@ CHỈ ĐỌC, không sửa dữ liệu nào. Mỗi hàm trả 0..n cảnh báo d
     {ma, muc: 'danger'|'warning'|'info', tieu_de, chi_tiet, so_tien?, lien_ket?, ap_dung: [màn…]}
 `ap_dung` là các màn nên hiện cảnh báo đó: 'cdkt' · 'kqkd' · 'lctt' · 'doi_chieu'.
 
+Nguyên tắc: cảnh báo về một con số trên báo cáo phải kết luận từ CHÍNH con số báo cáo đang hiển
+thị (truyền vào dưới dạng kết quả bao_cao_can_doi), không từ một bảng nguồn riêng — nếu không, màn
+"phơi lỗi" lại tự nói sai (vd báo vốn góp = 0 trong khi Cân đối đang hiện vốn góp từ sổ cái).
+
 Bối cảnh (dữ liệu production 07/10/2026 do người yêu cầu chạy): khấu hao ngừng sau 08/2026,
 bảng ky_ke_toan 0 dòng, bảng von_chu_so_huu 0 dòng — ba điều này trước đây không màn nào báo.
 """
@@ -15,7 +19,9 @@ from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..models import KhauHaoLog, KyKeToan, TaiSanCoDinh, VonCSH
+from ..models import KhauHaoLog, KyKeToan, TaiSanCoDinh
+# Hàm "private" của period_close nhưng cố ý dùng lại: cảnh báo phải dùng ĐÚNG định nghĩa "kỳ đầu
+# tiên có dữ liệu" mà chot_ky dùng để chặn chốt kỳ — tự viết lại là hai định nghĩa trôi khỏi nhau.
 from .period_close import _ky_dau_tien_co_data
 
 _TAT_CA = ["cdkt", "kqkd", "lctt", "doi_chieu"]
@@ -48,55 +54,52 @@ def _chu_thang(thang: str) -> str:
     return f"{thang[5:7]}/{thang[:4]}"
 
 
-def _tien(x: Decimal) -> str:
-    return f"{x:,.0f}".replace(",", ".") + " đ"
+def _tien(x) -> str:
+    # Cùng đơn vị "VND" với thẻ số và bong bóng giải thích trên màn (KD.tienVnd).
+    return f"{Decimal(str(x)):,.0f}".replace(",", ".") + " VND"
 
 
 def thieu_khau_hao(db: Session, thang: str, thang_hien_tai: str) -> list[dict]:
     """Tháng đã có tài sản phải khấu hao nhưng `khau_hao_log` không có dòng nào.
 
-    Xét từ tháng liền sau tháng khấu hao gần nhất tới `thang`. Số tiền là ƯỚC TÍNH theo trạng thái
-    tài sản HIỆN TẠI (nguyên giá / số tháng, không vượt phần còn lại) — đủ để biết thiếu cỡ nào,
-    không dùng để ghi sổ. Ghi sổ thật vẫn chạy ở màn TSCĐ (POST /api/tai-san/khau-hao/{thang}).
+    Xét từ tháng liền sau tháng khấu hao gần nhất tới `thang` — nhưng không quá tháng hiện tại (tháng
+    tương lai chưa tới hạn khấu hao). Số tiền là ƯỚC TÍNH theo trạng thái tài sản HIỆN TẠI (nguyên
+    giá / số tháng, không vượt phần còn lại) — đủ để biết thiếu cỡ nào, không dùng để ghi sổ. Ghi sổ
+    thật vẫn chạy ở màn TSCĐ (POST /api/tai-san/khau-hao/{thang}).
     """
+    thang = min(thang, thang_hien_tai)
     gan_nhat: Optional[str] = db.execute(select(func.max(KhauHaoLog.thang))).scalar()
-    tu = _thang_sau(gan_nhat) if gan_nhat else None
-    if tu is None:
-        dau = db.execute(
-            select(func.min(TaiSanCoDinh.ngay_su_dung)).where(TaiSanCoDinh.trang_thai == "dang_su_dung")
-        ).scalar()
-        if dau is None:
-            return []
-        tu = dau.strftime("%Y-%m")
-    can_xet = _dai_thang(tu, thang)
-    if not can_xet:
+    # Một lần đọc danh sách tài sản còn phải khấu hao, rồi xét từng tháng trong Python — không truy
+    # vấn lại DB trong vòng lặp tháng.
+    tai_san = db.execute(
+        select(TaiSanCoDinh.ngay_su_dung, TaiSanCoDinh.nguyen_gia, TaiSanCoDinh.hao_mon_luy_ke,
+               TaiSanCoDinh.so_thang_kh)
+        .where(TaiSanCoDinh.trang_thai == "dang_su_dung")
+        .where(TaiSanCoDinh.hao_mon_luy_ke < TaiSanCoDinh.nguyen_gia)
+    ).all()
+    if not tai_san:
         return []
+    tu = _thang_sau(gan_nhat) if gan_nhat else min(ts.ngay_su_dung for ts in tai_san).strftime("%Y-%m")
 
     thieu: list[tuple[str, Decimal, int]] = []
-    for m in can_xet:
-        rows = db.execute(
-            select(TaiSanCoDinh.nguyen_gia, TaiSanCoDinh.hao_mon_luy_ke, TaiSanCoDinh.so_thang_kh)
-            .where(TaiSanCoDinh.trang_thai == "dang_su_dung")
-            .where(TaiSanCoDinh.ngay_su_dung <= _cuoi_thang(m))
-            .where(TaiSanCoDinh.hao_mon_luy_ke < TaiSanCoDinh.nguyen_gia)
-        ).all()
-        if not rows:
-            continue
-        uoc = sum((min(ng / so_thang, ng - hm) for ng, hm, so_thang in rows), Decimal("0"))
-        thieu.append((m, uoc.quantize(Decimal("1")), len(rows)))
+    for m in _dai_thang(tu, thang):
+        cuoi = _cuoi_thang(m)
+        phai = [ts for ts in tai_san if ts.ngay_su_dung <= cuoi]
+        if phai:
+            uoc = sum((min(ts.nguyen_gia / ts.so_thang_kh, ts.nguyen_gia - ts.hao_mon_luy_ke) for ts in phai),
+                      Decimal("0"))
+            thieu.append((m, uoc.quantize(Decimal("1")), len(phai)))
     if not thieu:
         return []
 
-    da_qua = [x for x in thieu if x[0] < thang_hien_tai]
     tong = sum((x[1] for x in thieu), Decimal("0"))
-    ds_thang = ", ".join(_chu_thang(x[0]) for x in thieu)
     chi_tiet = (
         f"Khấu hao ghi gần nhất: {_chu_thang(gan_nhat) if gan_nhat else 'chưa có'}. "
         f"Ước tính thiếu khoảng {_tien(thieu[-1][1])}/tháng cho {thieu[-1][2]} tài sản "
         f"(tổng {_tien(tong)}) — chi phí khấu hao trên Kết quả kinh doanh và hao mòn trên Cân đối "
         "đang thiếu phần này. Không có lịch chạy tự động: phải bấm chạy ở màn Tài sản cố định."
     )
-    if not da_qua:
+    if all(x[0] >= thang_hien_tai for x in thieu):
         return [{
             "ma": "chua_khau_hao_thang_nay", "muc": "info",
             "tieu_de": f"Tháng {_chu_thang(thieu[-1][0])} chưa chạy khấu hao",
@@ -104,7 +107,7 @@ def thieu_khau_hao(db: Session, thang: str, thang_hien_tai: str) -> list[dict]:
         }]
     return [{
         "ma": "thieu_khau_hao", "muc": "warning",
-        "tieu_de": f"Chưa chạy khấu hao {len(thieu)} tháng: {ds_thang}",
+        "tieu_de": f"Chưa chạy khấu hao {len(thieu)} tháng: {', '.join(_chu_thang(x[0]) for x in thieu)}",
         "chi_tiet": chi_tiet, "so_tien": tong, "lien_ket": "/ketoan/tscd", "ap_dung": _TAT_CA,
     }]
 
@@ -118,8 +121,7 @@ def ky_chua_chot(db: Session, thang: str, thang_hien_tai: str) -> list[dict]:
     dau = _ky_dau_tien_co_data(db)
     if dau is None:
         return []
-    cuoi = min(thang, _thang_truoc(thang_hien_tai))
-    can_xet = _dai_thang(dau, cuoi)
+    can_xet = _dai_thang(dau, min(thang, _thang_truoc(thang_hien_tai)))
     if not can_xet:
         return []
     da_chot = set(db.execute(
@@ -145,31 +147,37 @@ def ky_chua_chot(db: Session, thang: str, thang_hien_tai: str) -> list[dict]:
     }]
 
 
-def von_gop_chua_khai(db: Session, den: date) -> list[dict]:
-    """Bảng vốn chủ sở hữu không có giao dịch nào tới ngày `den`."""
-    so_dong = db.execute(
-        select(func.count()).select_from(VonCSH).where(VonCSH.ngay <= den)
-    ).scalar() or 0
-    if so_dong:
+def von_gop_chua_khai(bc: dict) -> list[dict]:
+    """Vốn góp trên Cân đối (số đang hiển thị) bằng 0 — và cả sổ cái TK 411 lẫn sổ vốn chủ sở hữu đều 0.
+
+    Đọc từ kết quả bao_cao_can_doi (`nguon` của dòng vốn góp), không đếm bảng riêng: số dư đầu kỳ có
+    thể đã khai Có 411 trên sổ cái trong khi sổ vốn chủ sở hữu trống — khi đó báo cáo hiện vốn góp
+    đúng và không được cảnh báo.
+    """
+    if abs(float(bc["nguon_von"]["von_csh"]["von_gop"] or 0)) >= 1:
         return []
     return [{
         "ma": "von_gop_chua_khai", "muc": "warning",
         "tieu_de": "Vốn góp chủ sở hữu chưa được khai",
-        "chi_tiet": ("Bảng vốn chủ sở hữu chưa có giao dịch nào tới ngày này → Vốn góp (411) = 0 trên "
-                     "Cân đối kế toán. Hệ thống đã có API ghi vốn góp nhưng chưa có màn nhập."),
+        "chi_tiet": ("Vốn góp (411) trên Cân đối = 0: sổ vốn chủ sở hữu chưa có giao dịch và sổ cái TK 411 "
+                     "chưa có số dư. Chưa có màn hình nhập vốn góp — sẽ bổ sung ở đợt sau."),
         "so_tien": None, "lien_ket": None, "ap_dung": ["cdkt", "doi_chieu"],
     }]
 
 
-def lech_can_doi(bc: dict) -> list[dict]:
-    """Từ kết quả bao_cao_can_doi(): Tài sản ≠ Nguồn vốn → cảnh báo đỏ kèm nguyên nhân đo được."""
+def lech_can_doi(bc: dict, bo_ma: frozenset[str] = frozenset()) -> list[dict]:
+    """Từ kết quả bao_cao_can_doi(): Tài sản ≠ Nguồn vốn → cảnh báo đỏ kèm nguyên nhân đo được.
+
+    `bo_ma`: mã nguyên nhân đã có cảnh báo riêng đứng cạnh (vd kỳ chưa chốt, vốn góp chưa khai) —
+    bỏ khỏi danh sách để cùng một ý không bị nói hai lần trên một màn.
+    """
     ck = bc.get("check") or {}
     if ck.get("can_bang", True):
         return []
     lech = Decimal(str(ck.get("lech") or 0)).quantize(Decimal("1"))
     ts = Decimal(str(bc["tai_san"]["tong_tai_san"] or 0))
     pt = f" ({abs(lech) / ts * 100:.1f}% tổng tài sản)".replace(".", ",") if ts else ""
-    nn = [x["thong_bao"] for x in ck.get("nguyen_nhan") or []]
+    nn = [x["thong_bao"] for x in ck.get("nguyen_nhan") or [] if x.get("ma") not in bo_ma]
     return [{
         "ma": "lech_can_doi", "muc": "danger",
         "tieu_de": f"Tổng tài sản ≠ Tổng nguồn vốn — lệch {_tien(lech)}{pt}",

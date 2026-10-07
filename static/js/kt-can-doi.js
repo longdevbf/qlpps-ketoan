@@ -105,7 +105,7 @@
     $('cd-tbody').innerHTML = hien.map((r) => { const con = laCon(r);
       return '<tr class="kt-cap' + (con ? 2 : 1) + '" data-href="' + lienKet(r.ma) + '" tabindex="-1">'
         + '<td>' + (con ? '<span class="kt-cap-2">' : '') + '<a class="kt-tk-link" href="' + lienKet(r.ma) + '" aria-label="Mở sổ cái tài khoản ' + esc(r.ma) + ' ' + esc(r.ten) + '">' + esc(r.ma) + '</a>' + (con ? '</span>' : '') + '</td>'
-        + '<td>' + esc(r.ten) + (chuaHachToan(r) ? ' <span class="pill pill--warning kt-cd-chua">Chưa có bút toán</span>' : '')
+        + '<td>' + esc(r.ten) + (chuaHachToan(r) ? ' <span class="pill pill--muted kt-cd-chua">Chưa có bút toán</span>' : '')
         + '<span class="kt-dk__phu">' + (con ? 'TK con của ' + esc(r.tk_cha) : esc(TINH_CHAT[r.tinh_chat] || '')) + '</span></td>'
         + COT.map((k) => '<td class="num">' + KT.tienSo(r[k]) + '</td>').join('') + '</tr>'; }).join('');
     const tong = st.tim ? tinhTong(dongCong(hien)) : tongCap1;

@@ -52,51 +52,60 @@
 
   /* ── Nhãn nguồn số liệu từng dòng (Đợt 1, 07/10/2026) ──────────────────────────────────────
      Trả lời "số này từ sổ cái hay từ bảng nghiệp vụ?" ngay trên dòng. Chữ ngắn, giải thích dài nằm
-     trong bong bóng (dùng lại .kd-tip). Dòng công thức (tổng/hiệu) không gắn nhãn. */
+     trong bong bóng (dùng lại .kd-tip). Dòng công thức (tổng/hiệu) không gắn nhãn. `n.bang` là mô tả
+     nguồn bằng tên nghiệp vụ (app/services/nguon_bao_cao.py) — không có tên bảng kỹ thuật. */
   const tkChu = (n) => (n && n.tk && n.tk.length ? 'TK ' + n.tk.join(', ') : '');
   function nhanNguon(n) {
     if (!n || n.loai === 'cong_thuc') return '';
     let lop = 'info', chu, giai;
-    const bang = n.bang ? 'bảng nghiệp vụ ' + n.bang : 'bảng nghiệp vụ';
+    const nguon = n.bang || 'bảng nghiệp vụ';
     if (n.loai === 'so_cai') { chu = 'Sổ cái ' + n.tk.join('+'); giai = 'Lấy từ sổ cái ' + tkChu(n) + ' (bút toán đã ghi sổ).'; }
-    else if (n.loai === 'chua_tinh') { lop = 'danger'; chu = 'Chưa tính'; giai = 'Dòng này chưa có nguồn số liệu — hệ thống đang gán 0. ' + (tkChu(n) ? tkChu(n) + ' chưa được đọc.' : ''); }
-    else if (n.loai === 'nghiep_vu') { lop = 'warning'; chu = 'Bảng nghiệp vụ'; giai = 'Lấy từ ' + bang + '. Không đọc sổ cái' + (tkChu(n) ? ' (' + tkChu(n) + ')' : '') + ' — so hai nguồn ở màn Đối chiếu sổ.'; }
+    else if (n.loai === 'chua_tinh') { lop = 'danger'; chu = 'Chưa tính'; giai = 'Dòng này chưa có nguồn số liệu — hệ thống đang gán 0.' + (tkChu(n) ? ' ' + tkChu(n) + ' chưa được đọc.' : ''); }
+    else if (n.loai === 'nghiep_vu') { lop = 'warning'; chu = n.nhan || 'Bảng nghiệp vụ'; giai = 'Lấy từ ' + nguon + '. Không đọc sổ cái' + (tkChu(n) ? ' (' + tkChu(n) + ')' : '') + ' — so hai nguồn ở màn Đối chiếu sổ.'; }
     else if (n.dang_dung) {   // 'tron' của Cân đối: có đủ số hai nguồn
       const so = (v) => (v == null ? 'không có' : KD.tienVnd(v));
-      const hai = 'Sổ cái ' + tkChu(n) + ': ' + so(n.so_cai) + ' · Bảng nghiệp vụ (' + (n.bang || '') + '): ' + so(n.nghiep_vu)
+      const hai = 'Sổ cái ' + tkChu(n) + ': ' + so(n.so_cai) + ' · Nghiệp vụ (' + nguon + '): ' + so(n.nghiep_vu)
         + (n.chenh != null && Math.abs(n.chenh) >= 1 ? ' · Chênh ' + KD.tienVnd(n.chenh) : '') + '.';
       const caHai0 = n.so_cai != null && n.nghiep_vu != null && Math.abs(n.so_cai) < 1 && Math.abs(n.nghiep_vu) < 1;
-      if (caHai0) { chu = tkChu(n); giai = 'Sổ cái ' + tkChu(n) + ' và ' + bang + ' đều bằng 0.'; }
+      // "Cả hai bằng 0": cùng chữ với màn Đối chiếu sổ — không tô xanh "khớp" cho một dòng trống.
+      if (caHai0) { chu = 'Cả hai bằng 0'; giai = 'Sổ cái ' + tkChu(n) + ' và ' + nguon + ' đều bằng 0.'; }
       else if (n.dang_dung === 'khop') { lop = 'success'; chu = 'Khớp sổ cái'; giai = hai + ' Hai nguồn bằng nhau.'; }
       else if (n.dang_dung === 'so_cai') { chu = 'Sổ cái ' + n.tk.join('+'); giai = hai + ' Báo cáo đang lấy số sổ cái (số lớn hơn).'; }
-      else if (n.dang_dung === 'nghiep_vu') { lop = 'warning'; chu = 'Bảng nghiệp vụ'; giai = hai + ' Báo cáo đang lấy số bảng nghiệp vụ (số lớn hơn).'; }
+      else if (n.dang_dung === 'nghiep_vu') { lop = 'warning'; chu = 'Bảng nghiệp vụ'; giai = hai + ' Báo cáo đang lấy số bảng nghiệp vụ.'; }
       else { lop = 'warning'; chu = 'Hai nguồn lệch'; giai = hai; }
       if (lop === 'info' && n.chenh != null && Math.abs(n.chenh) >= 1) lop = 'warning';
-    } else { chu = 'Sổ cái + bảng NV'; giai = 'Cộng ' + bang + ' với sổ cái ' + tkChu(n) + '.'; }
-    const t = esc(giai);
-    return '<button type="button" class="kd-tip kt-nguon kt-nguon--' + lop + '" data-tip="' + t + '" aria-label="Nguồn số liệu: ' + t + '">' + esc(chu) + '</button>';
+    } else { chu = n.nhan || 'Sổ cái + nghiệp vụ'; giai = 'Lấy từ ' + nguon + '.'; }
+    // aria-label bắt đầu bằng đúng chữ đang hiện trên nhãn (WCAG 2.5.3 — nhãn nhìn thấy nằm trong tên).
+    return '<button type="button" class="kd-tip kt-nguon kt-nguon--' + lop + '" data-tip="' + esc(giai) + '" aria-label="'
+      + esc(chu + ': ' + giai) + '">' + esc(chu) + '</button>';
   }
 
   /* ── Dải cảnh báo đầu trang (Đợt 1) — GET /api/bao-cao/canh-bao?thang + lỗi đọc dữ liệu của API báo cáo.
-     Rỗng → ẩn hẳn (luật 4 trạng thái: khối cảnh báo rỗng không render "Không có gì"). Lỗi → một dòng + Thử lại. */
-  const NUT_CB = { '/ketoan/tscd': 'Chạy khấu hao', '/ketoan/khoa-so': 'Mở khoá sổ', '/ketoan/doi-chieu': 'Xem đối chiếu' };
-  function veMucCb(x) {
-    const ds = (x.nguyen_nhan || []).length
-      ? '<ul class="kt-cb__ds">' + x.nguyen_nhan.map((n) => '<li>' + esc(n) + '</li>').join('') + '</ul>'
-      : (x.chi_tiet ? '<p class="kt-cb__ct">' + esc(x.chi_tiet) + '</p>' : '');
-    return '<div class="kt-cb kt-cb--' + esc(x.muc) + '"' + (x.muc === 'danger' ? ' role="alert"' : '') + '>'
-      + '<div class="kt-cb__than"><p class="kt-cb__td">' + esc(x.tieu_de) + '</p>' + ds + '</div>'
-      + (x.lien_ket ? '<a class="kd-btn kd-btn--sm" href="' + esc(x.lien_ket) + '">' + esc(NUT_CB[x.lien_ket] || 'Mở') + '</a>' : '')
-      + '</div>';
+     Dùng lại component .kd-banner (kd-man-hinh.css). Rỗng → ẩn hẳn (luật 4 trạng thái). Lỗi → một dòng
+     + Thử lại. Nguyên nhân/chi tiết nằm trong <details>: màn rộng luôn mở (ẩn dòng tóm tắt bằng CSS), màn
+     hẹp gập lại để bảng số không bị đẩy xuống dưới cả một màn hình. */
+  const NUT_CB = { '/ketoan/tscd': 'Tới màn TSCĐ', '/ketoan/khoa-so': 'Tới màn Khoá sổ', '/ketoan/doi-chieu': 'Xem đối chiếu' };
+  function nutCb(x, thang) {
+    if (!x.lien_ket || x.lien_ket === location.pathname) return '';   // không trỏ về chính trang đang xem
+    const href = x.lien_ket === '/ketoan/doi-chieu' ? x.lien_ket + '?' + KT.url.qs({ thang }) : x.lien_ket;
+    return '<a class="kd-btn kd-btn--sm" href="' + esc(href) + '">' + esc(NUT_CB[x.lien_ket] || 'Mở màn liên quan') + '</a>';
   }
-  /* Gộp theo câu hiển thị: nhiều hàm cùng thiếu một bảng (vd saleadmin.vanchuyen) chỉ hiện một dòng. */
+  function veMucCb(x, thang) {
+    const nn = x.nguyen_nhan || [], mo = window.matchMedia('(min-width: 768px)').matches ? ' open' : '';
+    const than = nn.length
+      ? '<details class="kt-cb__chi"' + mo + '><summary>' + KD.soDem(nn.length) + ' nguyên nhân</summary><ul class="kt-cb__ds">'
+        + nn.map((n) => '<li>' + esc(n) + '</li>').join('') + '</ul></details>'
+      : (x.chi_tiet ? '<details class="kt-cb__chi"' + mo + '><summary>Chi tiết</summary><p class="kt-cb__ct">' + esc(x.chi_tiet) + '</p></details>' : '');
+    return '<div class="kd-banner kt-cb kt-cb--' + esc(x.muc) + (x.muc === 'info' ? ' kd-banner--info' : x.muc === 'warning' ? ' kd-banner--warning' : '') + '">'
+      + '<div class="kt-cb__than"><p class="kt-cb__td">' + esc(x.tieu_de) + '</p>' + than + '</div>' + nutCb(x, thang) + '</div>';
+  }
+  /* Gộp theo câu hiển thị: nhiều hàm cùng thiếu một bảng (vd dữ liệu vận chuyển) chỉ hiện một dòng. */
   function gomLoiDoc(d0) {
     const ds = [], thay = new Set();
     (Array.isArray(d0) ? d0 : [d0]).forEach((x) => (x && x.loi_doc_du_lieu || []).forEach((l) => {
       const k = l.mo_ta || l.chi_tiet; if (!thay.has(k)) { thay.add(k); ds.push(l); } }));
     return ds;
   }
-  /* Mục "không đọc được dữ liệu" dựng từ lỗi của CẢ API báo cáo (d0) lẫn API cảnh báo — gom xong mới dựng. */
   const mucLoiDoc = (ds) => (ds.length ? [{ muc: 'danger', nguyen_nhan: ds.map((l) => l.mo_ta || l.chi_tiet),
     tieu_de: 'Không đọc được ' + KD.soDem(ds.length) + ' nguồn dữ liệu — số 0 ở các dòng liên quan KHÔNG phải số thật' }] : []);
   async function canhBao(el, thang, man, d0) {
@@ -104,12 +113,14 @@
     try {
       const d = await KD.api('/api/bao-cao/canh-bao?' + KT.url.qs({ thang }));
       if (el.dataset.thang !== thang) return;   // người dùng đã đổi kỳ trong lúc chờ
-      const muc = mucLoiDoc(gomLoiDoc([].concat(d0, d)))
+      // Lỗi đọc mà /canh-bao trả là của bước tính Cân đối → chỉ có nghĩa ở màn Cân đối và màn Đối chiếu.
+      const loiCb = man === 'cdkt' || man === 'doi_chieu' ? [d] : [];
+      const muc = mucLoiDoc(gomLoiDoc([].concat(d0, loiCb)))
         .concat((d.canh_bao || []).filter((x) => !man || (x.ap_dung || []).includes(man)));
-      el.innerHTML = muc.map(veMucCb).join(''); el.hidden = !muc.length;
+      el.innerHTML = muc.map((x) => veMucCb(x, thang)).join(''); el.hidden = !muc.length;
     } catch (e) {
       if (el.dataset.thang !== thang) return;
-      el.innerHTML = mucLoiDoc(gomLoiDoc(d0)).map(veMucCb).join('')
+      el.innerHTML = mucLoiDoc(gomLoiDoc(d0)).map((x) => veMucCb(x, thang)).join('')
         + '<p class="kd-meta kt-cb__loi">Không kiểm tra được cảnh báo của kỳ: ' + esc(e.message || '') + ' <button type="button" class="kd-link" data-cb-lai>Thử lại</button></p>';
       el.hidden = false;
       const b = el.querySelector('[data-cb-lai]'); if (b) b.addEventListener('click', () => canhBao(el, thang, man, d0));
@@ -179,7 +190,8 @@
     }
     function nhanDong(r, k) {
       const n = r.khoa && du && du.nguon ? du.nguon[r.khoa] : null;
-      const ten = lienKet(r, k) + (r.ghi_chu ? KD.tip(r.ghi_chu) : '') + (c.nguonChung && n && n.loai === c.nguonChung.loai ? '' : nhanNguon(n));
+      // Dòng cùng nguồn chung của bảng thì không gắn nhãn (đã ghi một lần ở đầu bảng) — trừ dòng có `nhan` riêng.
+      const ten = lienKet(r, k) + (r.ghi_chu ? KD.tip(r.ghi_chu) : '') + (c.nguonChung && n && n.loai === c.nguonChung.loai && !n.nhan ? '' : nhanNguon(n));
       if (!r.nhom_mo) return ten;
       return '<button type="button" class="kt-bc__mo" aria-expanded="' + (r.gap ? 'false' : 'true') + '" data-mo="' + esc(r.nhom_mo) + '"><i class="bi bi-chevron-down" aria-hidden="true"></i><span class="visually-hidden">Thu gọn / mở chi tiết</span></button>' + ten;
     }

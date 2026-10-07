@@ -620,7 +620,7 @@ def bao_cao_can_doi(
             key=lambda kv: -abs(kv[1]["chenh"]),
         )
         def _vnd(x: float) -> str:
-            return f"{x:,.0f}".replace(",", ".") + " đ"
+            return f"{x:,.0f}".replace(",", ".") + " VND"   # cùng đơn vị với thẻ số trên màn
         for k, v in lech_nguon[:3]:
             nguyen_nhan.append({"ma": "so_cai_khac_nghiep_vu", "khoa": k, "thong_bao":
                 f"{NHAN_CDKT.get(k, k)}: sổ cái {_vnd(v['so_cai'])}, bảng nghiệp vụ {_vnd(v['nghiep_vu'])} — "
