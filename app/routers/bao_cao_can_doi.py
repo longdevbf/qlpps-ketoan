@@ -33,6 +33,15 @@ from ..models import CongNo, KyKeToan
 from ..services.journal import get_balance_sheet_aggregates
 from ..services.so_quy_auto import so_du_truoc_ngay
 from ._deps import require_ketoan_user
+from ..services.cd_chi_tiet import (
+    KHOAN as KHOAN_CD,
+    SO_DONG_MAC_DINH as SO_DONG_MAC_DINH_CD,
+    SO_DONG_TOI_DA as SO_DONG_TOI_DA_CD,
+    _lay as _lay_so_cd,
+    chi_tiet as chi_tiet_dong_cd,
+    CONG_THUC as CONG_THUC_CD,
+    chi_tiet_cong_thuc as chi_tiet_cong_thuc_cd,
+)
 
 
 router = APIRouter()
@@ -226,6 +235,26 @@ def _phai_tra_ncc(db: Session, on_date: date_cls) -> tuple[float, float, float]:
             if r["nhom_no"] == "can_kiem":
                 can_kiem += con_lai
     return thuc_va_can_kiem, du_kien, can_kiem
+
+
+def _tra_truoc_da_tra_ncc(db: Session, on_date: date_cls) -> float:
+    """BẢN VÁ 30/09/2026 mục 5: `_phai_tra_ncc` lọc `trang_thai != 'da_tra'` nên bỏ hẳn các dòng
+    NCC đã đánh dấu "đã trả" mà `con_lai` vẫn ÂM (đã ứng/trả nhiều hơn hoá đơn — production đã
+    thấy: CN-2026-0036 A TUẤN −40tr, CN-2026-0149 A ĐỊNH SƠN PU −1tr, CN-2026-0240 CHIẾN PHƯƠNG
+    −78tr, cộng 119.000.000). Số này KHÔNG cộng vào 331 (không đổi công thức/số 331 hiện có) — chỉ
+    dùng cho một dòng ghi chú riêng dưới bảng Cân đối để không giấu khoản tiền công ty đang ứng.
+
+    Trả SỐ DƯƠNG (đổi dấu con_lai âm) — đúng ý "chưa gồm X đ" ở Cân đối/kt-cdkt.js.
+    """
+    rows = db.execute(text("""
+        SELECT cn.con_lai
+        FROM ketoan.cong_no cn
+        JOIN ketoan.v_cong_no_phai_tra_phan_loai vw ON vw.id = cn.id
+        WHERE cn.loai = 'phai_tra' AND cn.ngay <= :on_date
+          AND cn.trang_thai = 'da_tra' AND cn.con_lai < 0
+          AND vw.nhom_no != 'du_kien'
+    """), {"on_date": on_date}).mappings().all()
+    return -sum(_f(r["con_lai"]) for r in rows)
 
 
 def _vay_ngan_han_dai_han(db: Session, on_date: date_cls) -> tuple[float, float]:
@@ -435,6 +464,10 @@ def bao_cao_can_doi(
 
     no_phai_tra_tong = phai_tra_ncc + vay_nh + vay_dh + phai_tra_nv
 
+    # BẢN VÁ 30/09/2026 mục 5: ghi chú riêng — KHÔNG cộng vào phai_tra_ncc/no_phai_tra_tong ở
+    # trên, KHÔNG đổi công thức 331. Luôn tính (độc lập với source) vì đây chỉ minh bạch thêm.
+    ncc_tra_truoc_da_tra = _tra_truoc_da_tra_ncc(db, den)
+
     # ─── NGUỒN VỐN — Vốn CSH ──────────────────────────────
     if source == "journal":
         von_gop = _agg("411")
@@ -511,6 +544,10 @@ def bao_cao_can_doi(
                 # Đã NẰM TRONG phai_tra_ncc (nhóm 'can_kiem' gộp vào thực, giữ hành vi cũ) — trường
                 # này chỉ để hiển thị riêng, không cộng thêm.
                 "phai_tra_ncc_can_kiem": ncc_can_kiem,
+                # BẢN VÁ 30/09/2026 mục 5: KHÔNG nằm trong phai_tra_ncc — dòng NCC đã đánh dấu
+                # "đã trả" (trang_thai='da_tra') nhưng con_lai vẫn âm (ứng/trả nhiều hơn hoá đơn),
+                # bị _phai_tra_ncc loại hẳn vì lọc trang_thai != 'da_tra'. Chỉ để ghi chú minh bạch.
+                "phai_tra_ncc_tra_truoc_da_tra": ncc_tra_truoc_da_tra,
                 "vay_ngan_han": vay_nh,
                 "vay_dai_han": vay_dh,
                 "phai_tra_nv": phai_tra_nv,
@@ -531,3 +568,41 @@ def bao_cao_can_doi(
             "warning": " ".join(warnings) if warnings else None,
         },
     }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Chi tiết từng dòng — "con số này ở đâu ra"
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.get("/can-doi/chi-tiet")
+def bao_cao_can_doi_chi_tiet(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, Depends(require_ketoan_user)],
+    khoa: str = Query(..., description="Khoá dòng, vd 'tai_san.phai_thu'"),
+    thang: Optional[str] = Query(None, description="YYYY-MM; mặc định tháng hiện tại"),
+    source: str = Query("auto"),
+    trang: int = Query(1, ge=1),
+    so_dong: int = Query(SO_DONG_MAC_DINH_CD, ge=1, le=SO_DONG_TOI_DA_CD),
+):
+    """Các chứng từ gốc làm nên một dòng Cân đối kế toán, có phân trang.
+
+    `tong` trả về đọc THẲNG từ `bao_cao_can_doi()` nên luôn đúng bằng số người dùng
+    đang nhìn, kể cả khi chế độ 'auto' chọn số từ sổ cái thay vì sổ cũ. Khi danh sách
+    chứng từ cộng lại không khớp `tong`, trường `ghi_chu` nói rõ — chênh đó là dấu
+    hiệu sổ cái và sổ cũ đang lệch nhau, không phải lỗi của popup.
+    """
+    if khoa in CONG_THUC_CD:
+        bc = bao_cao_can_doi(db, user, thang=thang, source=source)
+        _t, _tu, den = _resolve_thang(thang)
+        return chi_tiet_cong_thuc_cd(khoa, bc, den)
+    kh = KHOAN_CD.get(khoa)
+    if kh is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, {
+            "loi": "khoa_chua_khai",
+            "thong_bao": f"Không có dòng '{khoa}' trong Cân đối kế toán.",
+            "khoa_dang_co": sorted(list(KHOAN_CD.keys()) + list(CONG_THUC_CD.keys())),
+        })
+    bc = bao_cao_can_doi(db, user, thang=thang, source=source)
+    _thang, _tu, den = _resolve_thang(thang)
+    so_bc = _lay_so_cd(bc, kh["duong_dan"])
+    return chi_tiet_dong_cd(db, khoa, den, so_bc, trang=trang, so_dong=so_dong)

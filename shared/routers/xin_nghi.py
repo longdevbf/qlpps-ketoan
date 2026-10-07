@@ -5,17 +5,23 @@ Read-only mount (GET only) in: hcns
 
 11/09/2026: thêm tệp đính kèm cho đơn (`/{rid}/tep`, không đổi bảng DB) và phép năm
 của chính người đang đăng nhập (`/phep-nam`) cho màn Xin nghỉ dùng chung 8 app.
+
+05/10/2026: CHẶN xin nghỉ cho ngày đã qua — ngày bắt đầu phải từ hôm nay (giờ VN) trở đi
+(`SO_NGAY_XIN_NGHI_LUI_TOI_DA`). Trước đó máy chủ không kiểm ngày nào, nhân viên gửi đơn lùi
+ngày được (đo trên prod: 15/300 đơn gửi sau ngày nghỉ, có đơn trễ 16 ngày) rồi đơn được duyệt
+xoá khoản phạt vắng không đơn của ngày đó.
 """
 import calendar
 import logging
 import re
 import shutil
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, List, Optional
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
@@ -35,6 +41,10 @@ log = logging.getLogger(__name__)
 
 _APPROVER_ROLES = {"admin", "ceo", "assistant_ceo", "manager", "leader"}
 _SUPER_ROLES = {"admin", "ceo", "assistant_ceo"}
+MUI_GIO_VN = "Asia/Ho_Chi_Minh"
+# Cho phép xin nghỉ lùi tối đa bao nhiêu ngày so với hôm nay. 0 = chỉ từ hôm nay trở đi.
+SO_NGAY_XIN_NGHI_LUI_TOI_DA = 0
+
 _LOAI_NGHI_LABELS = {
     # 4 loại chính thức (anh Quang 2026-06-06):
     "nghi_khong_luong": "Nghỉ Không Lương",
@@ -115,6 +125,40 @@ def _dept_where(depts: list[str]):
     """Điều kiện SQL: phong_ban của đơn khớp TIỀN TỐ bất kỳ phòng nào approver quản lý."""
     return or_(*[sqlfunc.lower(sqlfunc.coalesce(LeaveRequest.phong_ban, "")).like(d + "%")
                  for d in depts])
+
+
+def ngay_som_nhat_xin_nghi() -> date:
+    """Ngày bắt đầu sớm nhất được phép của một đơn nghỉ (theo giờ Việt Nam)."""
+    hom_nay = datetime.now(ZoneInfo(MUI_GIO_VN)).date()
+    return hom_nay - timedelta(days=SO_NGAY_XIN_NGHI_LUI_TOI_DA)
+
+
+# Điều kiện SQL "ngày hôm nay theo giờ VN" — dùng chung cho các UPDATE duyệt đơn viết bằng SQL thẳng (Mai AI).
+SQL_HOM_NAY_VN = f"(NOW() AT TIME ZONE '{MUI_GIO_VN}')::date"
+MSG_DON_NGHI_HET_HAN = (
+    "Đơn nghỉ đã hết hạn (ngày nghỉ cuối cùng là {ngay:%d/%m/%Y}, đã qua) — Mai AI không được duyệt. "
+    "Chỉ Quản lý/CEO được quyết định đơn này."
+)
+
+
+def don_nghi_het_han(ngay_ket_thuc) -> bool:
+    """Đơn đã hết hạn = ngày nghỉ cuối cùng đã qua (theo giờ VN). Nhận `date` hoặc chuỗi 'YYYY-MM-DD'."""
+    if not ngay_ket_thuc:
+        return False
+    if not isinstance(ngay_ket_thuc, date):
+        try:
+            ngay_ket_thuc = date.fromisoformat(str(ngay_ket_thuc)[:10])
+        except ValueError:
+            return False
+    return ngay_ket_thuc < datetime.now(ZoneInfo(MUI_GIO_VN)).date()
+
+
+def loi_neu_don_nghi_het_han(db: Session, rid: int) -> Optional[str]:
+    """Thông báo lỗi nếu đơn nghỉ `rid` đã hết hạn, ngược lại None. Dùng trước khi Mai AI duyệt."""
+    ngay = db.execute(
+        text("SELECT ngay_ket_thuc FROM shared.leave_requests WHERE id = :id"), {"id": rid}
+    ).scalar()
+    return MSG_DON_NGHI_HET_HAN.format(ngay=ngay) if ngay and don_nghi_het_han(ngay) else None
 
 
 def _calc_so_ngay(ngay_bat_dau: date, ngay_ket_thuc: date, buoi: str) -> Decimal:
@@ -290,6 +334,13 @@ def create_leave_request(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "Ngày kết thúc phải >= ngày bắt đầu",
+        )
+    ngay_som_nhat = ngay_som_nhat_xin_nghi()
+    if body.ngay_bat_dau < ngay_som_nhat:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Không xin nghỉ cho ngày đã qua — ngày bắt đầu phải từ {ngay_som_nhat:%d/%m/%Y} trở đi. "
+            "Nếu quên xin nghỉ, hãy liên hệ HCNS.",
         )
     if not body.ly_do.strip():
         raise HTTPException(
@@ -602,6 +653,12 @@ def xoa_tep(
 
 
 # ── Phép năm của CHÍNH người đang đăng nhập ──────────────────────────────────
+@router.get("/gioi-han-ngay")
+def gioi_han_ngay(_user: Annotated[JWTPayload, _AUTH]):
+    """Ngày bắt đầu sớm nhất được xin nghỉ — để màn Xin nghỉ khoá ô chọn ngày khớp với máy chủ."""
+    return {"ngay_som_nhat": ngay_som_nhat_xin_nghi().isoformat()}
+
+
 @router.get("/phep-nam")
 def phep_nam_cua_toi(
     user: Annotated[JWTPayload, _AUTH],

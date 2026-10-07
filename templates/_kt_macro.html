@@ -139,7 +139,10 @@
 {# (Màn báo cáo vẫn nạp kt-danh-sach.js vì cần bộ vẽ KT.H.)
    Thẻ báo cáo theo mẫu: đầu thẻ (tên mẫu + đơn vị) · bảng chỉ tiêu · khối trạng thái · ghi chú chân thẻ.
    cot: danh sách (nhan, num) theo thứ tự sau cột "Chỉ tiêu" #}
-{% macro the_bao_cao(pfx, tieu_de, mau, cot) -%}
+{# `panel` có giá trị → bọc thêm khung kd-main + aside để bấm vào số tiền mở popup
+   "nguồn gốc con số" (xem chiTiet trong kt-bao-cao.js). Không truyền thì markup y như cũ. #}
+{% macro the_bao_cao(pfx, tieu_de, mau, cot, panel=None) -%}
+  {% if panel %}<div class="kd-main" id="{{ pfx }}-main">{% endif %}
   <section class="kd-card" aria-labelledby="{{ pfx }}-td">
     <div class="kd-box__head kt-the-dau">
       <h2 class="kd-box__title" id="{{ pfx }}-td">{{ tieu_de }}</h2>
@@ -155,6 +158,18 @@
     <div id="{{ pfx }}-tt"></div>
     <footer class="kd-card__foot kt-bc__chan" id="{{ pfx }}-ghi-chu" hidden></footer>
   </section>
+  {% if panel %}
+  <aside class="kd-panel kt-panel kt-bc-panel" id="{{ pfx }}-panel" aria-labelledby="{{ pfx }}-p-td" hidden>
+    <header class="kd-panel__head">
+      <h2 class="kd-panel__title" id="{{ pfx }}-p-td">{{ panel }}</h2>
+      <button type="button" class="kd-icon-btn" id="{{ pfx }}-p-dong" aria-label="Đóng {{ panel | lower }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div class="kd-panel__scroll" id="{{ pfx }}-p-noi-dung"></div>
+    <footer class="kd-panel__actions" id="{{ pfx }}-p-nut"></footer>
+  </aside>
+  <div class="kd-scrim" id="{{ pfx }}-scrim" hidden></div>
+  </div>
+  {% endif %}
 {%- endmacro %}
 
 {# Ô "Đến ngày" cho báo cáo thời điểm (CĐKT) #}
@@ -175,7 +190,7 @@
 {%- endmacro %}
 {% macro js(rieng, chart=False, danh_sach=True, bao_cao=False, v='1') -%}
 {% if chart %}<script src="/static/js/chart.umd.js?v=1"></script>{% endif %}
-<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kd-man-hinh.js?v=tien1001"></script>
 <script src="/static/js/kt-chung.js?v=tk0928b"></script>
 {% if danh_sach %}<script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>{% endif %}
 {% if bao_cao %}<script src="/static/js/kt-bao-cao.js?v=loc0928b"></script>{% endif %}

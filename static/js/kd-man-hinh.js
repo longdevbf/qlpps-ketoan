@@ -99,19 +99,23 @@
   const dinhDang = (x, toiDa) => new Intl.NumberFormat('vi-VN', { maximumFractionDigits: toiDa }).format(x);
 
   // Tiền trong BẢNG — số đầy đủ, không ký hiệu (đơn vị ghi ở tiêu đề cột "(VND)"), theo ảnh mockup.
-  function tien(v) { const n = so(v); return n === null ? '—' : dinhDang(Math.round(n), 0); }
+  function tien(v) { const n = so(v); return n === null ? '—' : soTienDay(n); }
   // Tiền đứng riêng (khối tổng, thẻ thông tin) — số đầy đủ kèm "VND" như ảnh.
-  function tienVnd(v) { const n = so(v); return n === null ? '—' : dinhDang(Math.round(n), 0) + ' VND'; }
+  function tienVnd(v) { const n = so(v); return n === null ? '—' : soTienDay(n) + ' VND'; }
+
+  // Số tiền đúng giá trị thật — có hào thì hiện đủ 2 chữ số, tròn đồng thì không.
+  function soTienDay(n) {
+    return Math.round(n * 100) % 100 === 0 ? dinhDang(n, 0) : dinhDang(n, 2);
+  }
   // Tiền trong THẺ KPI — gọn theo ảnh: "8,42 tỷ VND" · "980 triệu" · "850.000 VND".
   // Bản tách trả số và đơn vị riêng: thẻ ở khổ 1280px hẹp hơn ảnh, "350,6 triệu" cỡ 29px
   // không vừa, nên số giữ cỡ to còn đơn vị viết nhỏ bên cạnh thay vì bị cắt "350,6 t…".
   function tienGonTach(v) {
     const n = so(v);
     if (n === null) return { so: '—', donVi: '' };
-    const a = Math.abs(n);
-    if (a >= 1e9) return { so: dinhDang(n / 1e9, 2), donVi: 'tỷ VND' };
-    if (a >= 1e6) return { so: dinhDang(n / 1e6, 1), donVi: 'triệu' };
-    return { so: dinhDang(Math.round(n), 0), donVi: 'VND' };
+    // KHÔNG rút gọn "tỷ"/"triệu" nữa (người dùng chốt 01/10/2026) — thẻ KPI
+    // hiện số đầy đủ như bảng chi tiết, đơn vị vẫn tách riêng để chữ không bị cắt.
+    return { so: soTienDay(n), donVi: 'VND' };
   }
   function tienGon(v) {
     const t = tienGonTach(v);

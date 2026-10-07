@@ -8,3 +8,152 @@
 /* Hộp thoại cắt phần tràn → bong bóng mở sang phải từ ⓘ thay vì canh giữa. */
 #sq-dlg .kd-tip::after { left: 0; transform: none; }
 #kd-kt-so-quy .kt-sq-loai { white-space: nowrap; }
+
+/* Ô lọc Dòng tiền: nhãn của khoá dùng cho cả thu lẫn chi ("Thu khác · 06 / Chi khác · 07") dài hơn ô mặc định → nới CẢ KHUNG ô
+   (không chỉ min-width của <select>: select rộng hơn khung thì tràn đè lên link "Đặt lại bộ lọc" bên cạnh — đo 01/10/2026, 1366px). */
+@media (min-width: 1024px) { #kd-kt-so-quy .kd-filter > .kd-field:has(#sq-cf) { width: 280px; } }
+
+/* ═══ Hộp Lập phiếu thu / phiếu chi — thiết kế lại 01/10/2026 ═══
+   Thứ tự theo cách nghĩ: loại phiếu → số tiền → ngày + quỹ → dòng tiền → nội dung; phần phụ gập trong "Thông tin thêm".
+   Điện thoại (≤640px) = bảng trượt từ đáy: đầu hộp + chân hộp dính, chỉ thân cuộn.
+   Mọi luật đặt trong #sq-dlg — không sửa .kd-dialog dùng chung của các màn khác. Chỉ var(--token). */
+#sq-dlg { --sq-max: calc(100vh - 2 * var(--sp-8)); width: min(560px, calc(100vw - 2 * var(--sp-8))); max-height: var(--sq-max); }
+@supports (height: 1dvh) { #sq-dlg { --sq-max: calc(100dvh - 2 * var(--sp-8)); } }
+/* Trừ 2px viền để hộp ngoài không tự sinh thêm thanh cuộn thứ hai bên cạnh thanh cuộn của thân. */
+#sq-dlg form { max-height: calc(var(--sq-max) - 2px); }
+
+/* Loại phiếu: nút chọn nhóm 2 ô; ô đang chọn mang màu nhẹ theo chiều tiền: thu = lục, chi = vàng (KHÔNG đỏ — luật "chi phí không đỏ
+   mặc định" của ui-check; muốn đỏ như thẻ Tổng chi thì đổi hai token --warning-* thành --danger-* ở dòng data-loai="chi"). */
+#sq-dlg .sq-loai-nut { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-radius: var(--r); }
+#sq-dlg .sq-loai-nut button { min-height: 44px; border-radius: var(--r-sm); }
+#sq-dlg .sq-loai-nut button[aria-pressed="true"] { box-shadow: none; font-weight: 700; }
+#sq-dlg .sq-loai-nut button[aria-pressed="true"][data-loai="chi"] { background: var(--warning-soft); color: var(--warning-fg); }
+#sq-dlg .sq-loai-nut button[aria-pressed="true"][data-loai="thu"] { background: var(--success-soft); color: var(--success-fg); }
+#sq-dlg .sq-loai-nut button:focus-visible { box-shadow: var(--focus-ring); }
+
+/* Số tiền: ô lớn nhất của hộp, số canh phải, "VND" cố định bên phải. Viền + vòng focus đặt ở khung ngoài. */
+#sq-dlg .sq-tien { display: flex; align-items: center; gap: var(--sp-4); min-height: 56px; padding: 0 var(--sp-7); border: 1px solid var(--border); border-radius: var(--r); background: var(--bg-card); }
+#sq-dlg .sq-tien:focus-within { box-shadow: var(--focus-ring); }
+#sq-dlg .sq-tien .kd-input { flex: 1 1 auto; height: 54px; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none; text-align: right; font-size: var(--fs-h); font-weight: 700; color: var(--text-1); font-variant-numeric: tabular-nums; }
+#sq-dlg .sq-tien .kd-input:focus { box-shadow: none; }
+#sq-dlg .sq-tien__dv { flex: none; font-size: var(--fs-body); font-weight: 600; color: var(--text-3); }
+/* Ô bị báo lỗi (JS đặt aria-invalid): viền đỏ, gỡ khi người dùng sửa ô đó. */
+#sq-dlg .kd-input[aria-invalid="true"], #sq-dlg .sq-tien:has([aria-invalid="true"]) { border-color: var(--danger); }
+/* Nhãn + ⓘ nằm ngoài <label> để tên của ô nhập chỉ là chữ nhãn, không kéo theo cả đoạn giải thích. */
+#sq-dlg .sq-nhan { display: flex; align-items: center; gap: var(--sp-1); }
+
+/* Thông tin thêm: <details> gập, mặc định đóng. Đóng + đã điền → thẻ "Đã điền N ô"; mở → ẩn thẻ + chữ phụ. */
+#sq-dlg .sq-them { border: 1px solid var(--border); border-radius: var(--r); background: var(--bg-card); scroll-margin-block: var(--sp-8); }
+#sq-dlg .sq-them__dau { display: flex; align-items: center; gap: var(--sp-4); min-height: 48px; padding: 0 var(--sp-7); border-radius: var(--r); cursor: pointer; list-style: none; font-weight: 600; color: var(--text-1); }
+#sq-dlg .sq-them__dau::-webkit-details-marker { display: none; }
+#sq-dlg .sq-them__dau:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+#sq-dlg .sq-them__dau .bi { margin-left: auto; color: var(--text-3); transition: transform .15s; }
+#sq-dlg .sq-them__phu { font-size: var(--fs-meta); font-weight: 500; color: var(--text-3); }
+#sq-dlg .sq-them__dem:not([hidden]) ~ .sq-them__phu, #sq-dlg .sq-them[open] .sq-them__dem, #sq-dlg .sq-them[open] .sq-them__phu { display: none; }
+#sq-dlg .sq-them[open] > .sq-them__dau { border-radius: var(--r) var(--r) 0 0; border-bottom: 1px solid var(--border-soft); }
+#sq-dlg .sq-them[open] > .sq-them__dau .bi { transform: rotate(180deg); }
+#sq-dlg .sq-them__than { display: grid; gap: var(--sp-7); padding: var(--sp-7); }
+@media (hover: hover) { #sq-dlg .sq-them:not([open]) > .sq-them__dau:hover { background: var(--bg-page); } }
+
+/* Chân hộp: lỗi (đỏ) hoặc dòng tóm tắt bên trái, nút bên phải; lỗi chiếm cả hàng để đọc trọn câu. */
+#sq-dlg .kd-dialog__foot { align-items: center; }
+#sq-dlg .kd-form-err { flex: 1 1 100%; font-weight: 600; line-height: var(--lh-body); }
+#sq-dlg .kd-form-err:not([hidden]) ~ .sq-tomtat, #sq-dlg .kd-form-err:not([hidden]) ~ .sq-xem { display: none; }
+#sq-dlg .sq-tomtat { flex: 1 1 0; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); font-weight: 600; color: var(--text-2); }
+#sq-dlg .sq-foot__nut { display: flex; gap: var(--sp-5); margin-left: auto; }
+
+/* Máy tính (≥1024px, con trỏ chuột): gọn lại ~32px để hộp vẫn vừa màn 1366×768 cả khi bung "Thông tin thêm" (không phải cuộn). */
+@media (min-width: 1024px) {
+  #sq-dlg .kd-dialog__head { padding-top: var(--sp-6); padding-bottom: var(--sp-6); }
+  #sq-dlg .kd-dialog__body { gap: var(--sp-6); }
+  #sq-dlg .sq-loai-nut button { min-height: 40px; }
+  #sq-dlg .sq-tien { min-height: 52px; }
+  #sq-dlg .sq-tien .kd-input { height: 50px; }
+  #sq-dlg .sq-them__dau { min-height: 44px; }
+  #sq-dlg .sq-them__than { gap: var(--sp-6); padding: var(--sp-6); }
+}
+
+/* Điện thoại (≤640px): bảng trượt từ đáy, rộng hết bề ngang, tối đa 92% chiều cao thấy được (dvh theo thanh địa chỉ/bàn phím
+   khi trình duyệt hỗ trợ, vh làm dự phòng). Ô nhập cao ≥48px, chữ ≥16px (dưới 16px iOS tự phóng to khi chạm), một cột. */
+@media (max-width: 640px) {
+  #sq-dlg { --sq-max: 92vh; width: 100%; max-width: 100%; margin: auto 0 0; border-width: 1px 0 0; border-radius: var(--r-lg) var(--r-lg) 0 0; }
+  @supports (height: 1dvh) { #sq-dlg { --sq-max: 92dvh; } }
+  #sq-dlg .kd-dialog__head { min-height: 56px; padding: var(--sp-5) var(--sp-8); }
+  #sq-dlg .kd-dialog__body { padding: var(--sp-8); overscroll-behavior: contain; }
+  #sq-dlg .kd-input:not(textarea) { min-height: 48px; font-size: var(--fs-body-lg); }
+  #sq-dlg .sq-tomtat { flex-basis: 100%; }
+  /* Chân dính đáy: chừa vùng an toàn của iPhone (thanh vuốt Home) bên dưới nút. */
+  #sq-dlg .kd-dialog__foot { padding-bottom: calc(var(--sp-6) + env(safe-area-inset-bottom, 0px)); }
+  #sq-dlg .sq-foot__nut { flex: 1 1 100%; }
+  #sq-dlg .sq-foot__nut .kd-btn { min-height: 48px; }
+  #sq-dlg .sq-foot__nut .kd-btn--primary { flex: 1 1 auto; }
+}
+@keyframes sq-truot { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (max-width: 640px) and (prefers-reduced-motion: no-preference) { #sq-dlg[open] { animation: sq-truot .2s ease-out; } }
+
+/* ⓘ trên màn hẹp: bong bóng cố định rộng hết màn (luật chung ở kd-man-hinh.css); luật canh trái của hộp này (left:0, dòng đầu file)
+   đè mất lề trái 16px nên bong bóng dính mép trái — trả lại lề đối xứng. */
+@media (max-width: 767px) { #sq-dlg .kd-tip::after { left: var(--sp-8); } }
+
+/* Màn thấp (điện thoại nằm ngang): thu gọn đầu/chân/lề để thân có chỗ; thân vẫn cuộn, chân vẫn dính. */
+@media (max-height: 520px) {
+  #sq-dlg { --sq-max: calc(100vh - var(--sp-8)); }
+  @supports (height: 1dvh) { #sq-dlg { --sq-max: calc(100dvh - var(--sp-8)); } }
+  #sq-dlg .kd-dialog__head { min-height: 48px; padding-top: var(--sp-4); padding-bottom: var(--sp-4); }
+  #sq-dlg .kd-dialog__foot { padding-top: var(--sp-4); padding-bottom: calc(var(--sp-4) + env(safe-area-inset-bottom, 0px)); }
+  #sq-dlg .kd-dialog__body { padding-top: var(--sp-6); padding-bottom: var(--sp-6); gap: var(--sp-6); }
+}
+/* Điện thoại nằm ngang (thấp + rộng): hộp rộng 720px, thân chia 2 cột — nút loại phiếu cạnh Số tiền, Dòng tiền cạnh Nội dung —
+   để thấy các ô chính mà không phải cuộn nhiều. Thứ tự Tab vẫn đúng thứ tự nhìn (trái sang phải, hàng trên xuống hàng dưới). */
+@media (max-height: 520px) and (min-width: 641px) {
+  #sq-dlg { width: min(720px, calc(100vw - 2 * var(--sp-8))); }
+  #sq-dlg .kd-dialog__body { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--sp-6); align-items: end; }
+  #sq-dlg .kd-dialog__body > .kd-row2, #sq-dlg .kd-dialog__body > .sq-them { grid-column: 1 / -1; }
+}
+/* ═══ Ô "Việc gì?" (nghiệp vụ / mã định khoản) — 01/10/2026, đặc tả spec_phieu_chon_ma_dinh_khoan.md mục 3 ═══
+   Đặt đúng chỗ ô Dòng tiền cũ; hàng nút "Hay dùng" ngay trên ô chọn; ô nhập thêm ngay dưới; xem trước Nợ/Có ở chân hộp. Chỉ var(--token). */
+#sq-dlg .sq-hay { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+#sq-dlg .sq-hay:empty { display: none; }
+#sq-dlg .sq-hay__nut { font-weight: 600; }
+/* Nút đang chọn = chip thương hiệu: nền --brand-soft + chữ --brand-hover (5,95) + viền --brand-border. */
+#sq-dlg .sq-hay__nut[aria-pressed="true"] { background: var(--brand-soft); border-color: var(--brand-border); color: var(--brand-hover); }
+#sq-dlg .sq-viec__cho { justify-self: start; }
+#sq-dlg .sq-op-mo { color: var(--text-3); }
+/* Thẻ chỉ đường (việc lập ở màn khác): chữ + nút mở màn; nút Lưu đã khoá. */
+#sq-dlg .sq-chi-duong { display: grid; gap: var(--sp-5); white-space: normal; }
+#sq-dlg .sq-chi-duong__nut { justify-self: start; text-decoration: none; }
+#sq-dlg .sq-goi-y { font-size: var(--fs-meta); line-height: var(--lh-body); color: var(--warning-fg); }
+/* Khay chứa ô nhập thêm: rỗng thì không chiếm khe lưới của thân hộp. */
+#sq-dlg .sq-o { display: grid; gap: var(--sp-7); }
+#sq-dlg .sq-o:empty { display: none; }
+/* Ô tìm mã đơn / nhà cung cấp: kết quả nằm ngay dưới ô (không nổi), tối đa 5 mục, mỗi mục 2 dòng, cao ≥44px. */
+#sq-dlg .sq-ds { display: grid; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg-card); overflow: hidden; }
+#sq-dlg .sq-ds__muc { display: grid; gap: var(--sp-1); min-height: 44px; padding: var(--sp-4) var(--sp-6); border: 0; border-top: 1px solid var(--border-soft);
+  background: none; font: inherit; text-align: left; cursor: pointer; }
+#sq-dlg .sq-ds__muc:first-child { border-top: 0; }
+#sq-dlg .sq-ds__muc:focus-visible { outline: none; background: var(--bg-page); box-shadow: inset var(--focus-ring); }
+@media (hover: hover) { #sq-dlg .sq-ds__muc:hover { background: var(--bg-page); } }
+#sq-dlg .sq-ds__ten { font-weight: 600; color: var(--text-1); overflow-wrap: anywhere; }
+#sq-dlg .sq-ds__phu { font-size: var(--fs-meta); color: var(--text-3); overflow-wrap: anywhere; }
+#sq-dlg .sq-ds__rong { padding: var(--sp-5) var(--sp-6); font-size: var(--fs-meta); color: var(--text-3); }
+#sq-dlg .sq-tt { font-size: var(--fs-meta); line-height: var(--lh-body); color: var(--text-2); overflow-wrap: anywhere; }
+#sq-dlg .sq-tt--loi { color: var(--danger-fg); }
+#sq-dlg .sq-tt--canh-bao { color: var(--warning-fg); }
+#sq-dlg .sq-tt .kd-btn { margin-top: var(--sp-3); }
+#sq-dlg .sq-tt a { color: var(--brand); font-weight: 600; }
+#sq-dlg .sq-xac-nhan { display: flex; align-items: center; gap: var(--sp-4); min-height: 44px; font-size: var(--fs-meta); font-weight: 600; color: var(--text-2); cursor: pointer; }
+#sq-dlg .sq-xac-nhan input { width: 20px; height: 20px; flex: none; accent-color: var(--brand); }
+/* Xem trước bút toán ở chân hộp: mỗi dòng "Nợ | mã TK | tên TK … | số tiền" — mã TK luôn thấy, tên cắt "…", không cuộn ngang. */
+#sq-dlg .sq-xem { flex: 1 1 100%; display: grid; gap: var(--sp-1); min-width: 0; }
+#sq-dlg .sq-xem__dong { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; column-gap: var(--sp-4); align-items: baseline;
+  font-size: var(--fs-meta); color: var(--text-2); }
+#sq-dlg .sq-xem__ve { min-width: 2em; font-weight: 600; color: var(--text-3); }
+#sq-dlg .sq-xem__tk { color: var(--text-1); font-variant-numeric: tabular-nums; }
+#sq-dlg .sq-xem__ten { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#sq-dlg .sq-xem__tien { color: var(--text-1); font-variant-numeric: tabular-nums; text-align: right; }
+#sq-dlg .sq-xem__b03 { font-size: var(--fs-meta); line-height: var(--lh-body); color: var(--text-3); }
+@media (max-width: 640px) {
+  /* Điện thoại: ô tìm và ô chọn tháng đã theo luật ô nhập (≥48px, chữ ≥16px) ở khối trên; nút trong thẻ chỉ đường rộng hết hàng. */
+  #sq-dlg .sq-chi-duong__nut { justify-self: stretch; min-height: 48px; }
+  #sq-dlg .sq-ds__muc { min-height: 48px; }
+}

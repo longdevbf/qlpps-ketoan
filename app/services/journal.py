@@ -10,8 +10,10 @@ API chính:
 Quy ước nợ/có:
   - Tài sản (TS, 1xx-2xx): SỐ DƯ NỢ. net = SUM(no) - SUM(co).
   - Nguồn vốn (NV, 3xx-4xx): SỐ DƯ CÓ. net = SUM(co) - SUM(no).
-  - Doanh thu (5xx, 7xx): SỐ DƯ CÓ.
+  - Doanh thu (511, 515, 711): SỐ DƯ CÓ. Giảm trừ doanh thu (hoàn tiền, giảm giá sau bán) ghi thẳng bên NỢ 511
+    — Thông tư 133 không có TK 521.
   - Chi phí (6xx, 8xx): SỐ DƯ NỢ.
+  - 911 (xác định kết quả kinh doanh): tài khoản trung gian, số dư cuối kỳ = 0 sau kết chuyển.
 
 `get_balance_sheet_aggregates` chỉ trả về net cho các tài khoản TS + NV
 (loại trừ 5xx/6xx/7xx/8xx — đã reflect vào 421 LN giữ lại sau khi chốt kỳ).
@@ -21,7 +23,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Iterable, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, select, text
 from sqlalchemy.orm import Session
 
 from ..models import JournalEntry, JournalLine
@@ -62,21 +64,38 @@ ACCOUNTS: dict[str, str] = {
     "711": "Thu nhập khác",
     "811": "Chi phí khác",
     "821": "Chi phí thuế TNDN",
+    # 2026-10-01 — giám đốc chốt thêm TK cho bước "tự định khoản" (chưa bút toán nào dùng; thiếu chúng thì
+    # post_journal từ chối "không thuộc Chart of Accounts"). Danh sách đề xuất có 10 mã nhưng 521 đã BỎ vì Thông
+    # tư 133 không có TK này (giảm trừ doanh thu ghi thẳng Nợ 511). Tính chất khai ở các tập bên dưới.
+    "133": "Thuế GTGT được khấu trừ",
+    "1388": "Phải thu khác",                 # tiền nạp ví quảng cáo
+    "335": "Chi phí phải trả",
+    "3331": "Thuế GTGT đầu ra phải nộp",
+    "3383": "Bảo hiểm xã hội phải nộp",
+    "3387": "Doanh thu chưa thực hiện",
+    "3388": "Phải trả, phải nộp khác",       # tiền về chưa rõ của ai
+    "515": "Doanh thu hoạt động tài chính",
+    "911": "Xác định kết quả kinh doanh",    # trung gian — kết chuyển hàng tháng về 421
 }
 
 # Số dư bên Nợ tăng (Tài sản + Chi phí)
 # 211/213 là TSCĐ HH/VH; 214 là contra-asset (hao mòn) — số dư bên CÓ
 # (xem LIABILITY_EQUITY_ACCOUNTS) → BS dùng (211+213) - 214 = TSCĐ ròng.
-ASSET_ACCOUNTS: set[str] = {"111", "112", "131", "141", "156", "211", "213", "242"}
+# 133 (VAT đầu vào) và 1388 (phải thu khác) cũng là tài sản, dư Nợ.
+ASSET_ACCOUNTS: set[str] = {"111", "112", "131", "133", "1388", "141", "156", "211", "213", "242"}
 EXPENSE_ACCOUNTS: set[str] = {"632", "635", "641", "642", "811", "821"}
 
 # Số dư bên Có tăng (Nguồn vốn + Doanh thu + Hao mòn lũy kế contra-asset)
 LIABILITY_EQUITY_ACCOUNTS: set[str] = {
     "214",  # contra-asset, normal balance = credit
-    "311", "331", "3334", "3335", "334", "341",
+    "311", "331", "3331", "3334", "3335", "334", "3383", "3387", "3388", "335", "341",
     "353", "411", "414", "415", "421",
 }
-REVENUE_ACCOUNTS: set[str] = {"511", "711"}
+REVENUE_ACCOUNTS: set[str] = {"511", "515", "711"}
+
+# 911: Có ← doanh thu, Nợ ← chi phí lúc kết chuyển hàng tháng rồi chốt về 421; sau kết chuyển số dư = 0
+# nên không có "chiều dư tự nhiên" (tinh_chat_tk trả 'luong_tinh', aggregates trả Nợ − Có thô).
+TRUNG_GIAN_ACCOUNTS: set[str] = {"911"}
 
 _TOL = Decimal("0.01")
 
@@ -96,9 +115,17 @@ def tk_cha_cua(code: str) -> Optional[str]:
 # ─── ID generator BT-YYYY-NNNN ───────────────────────────────────────────────
 
 def next_ma_but_toan(db: Session) -> str:
-    """Sinh mã bút toán mới: BT-YYYY-NNNN (NNNN auto-increment trong năm)."""
+    """Sinh mã bút toán mới: BT-YYYY-NNNN (NNNN auto-increment trong năm).
+
+    Khoá tư vấn (advisory lock) theo transaction: hai phiên cùng gọi sẽ xếp hàng, phiên sau chỉ đọc
+    max SAU KHI phiên trước commit — trước đây cả hai cùng thấy max=N rồi cùng sinh N+1 và một bên
+    đụng uq_je_ma_but_toan (N03). Khoá tự nhả khi transaction commit/rollback, nên người gọi cần
+    commit sớm sau khi post, đừng giữ transaction mở trong lúc làm việc chậm (gọi mạng, đọc file).
+    Cùng phiên gọi nhiều lần vẫn được (khoá cho phép vào lại); mã vừa flush ở lần trước được thấy ngay.
+    """
     year = datetime.now().year
     prefix = f"BT-{year}-"
+    db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"ketoan.journal.ma:{prefix}"})
     rows = db.execute(
         select(JournalEntry.ma_but_toan).where(
             JournalEntry.ma_but_toan.like(f"{prefix}%")
@@ -130,6 +157,31 @@ def _lam_tron_dong(x: Decimal) -> Decimal:
     return x.quantize(_DONG, rounding=ROUND_HALF_UP)
 
 
+# Chi tiết công nợ theo đối tượng/đơn trên từng dòng bút toán (N06, 2026-10-01) — cột nullable của journal_line.
+DOI_TUONG_LOAI = ("khach", "ncc", "nv")
+_DO_DAI_DOI_TUONG = {"doi_tuong_ma": 64, "doi_tuong_ten": 255, "ma_don": 64}
+_TRUONG_DOI_TUONG = ("doi_tuong_loai", *_DO_DAI_DOI_TUONG)
+
+
+def _chuan_hoa_doi_tuong(raw: dict) -> dict:
+    """4 trường đối tượng/mã đơn của một dòng: không truyền hoặc rỗng → None (giữ hành vi cũ);
+    truyền sai loại / quá dài → 400 ngay, tránh để DB báo lỗi 500 khó đọc."""
+    out: dict = {}
+    for k in _TRUONG_DOI_TUONG:
+        v = raw.get(k)
+        v = str(v).strip() if v is not None else ""
+        out[k] = v or None
+    if out["doi_tuong_loai"] is not None and out["doi_tuong_loai"] not in DOI_TUONG_LOAI:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"doi_tuong_loai phải là một trong {', '.join(DOI_TUONG_LOAI)} (nhận {out['doi_tuong_loai']!r})",
+        )
+    for k, toi_da in _DO_DAI_DOI_TUONG.items():
+        if out[k] is not None and len(out[k]) > toi_da:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"{k} dài quá {toi_da} ký tự")
+    return out
+
+
 def _can_bang_sau_lam_tron(lines: list[dict]) -> None:
     """Làm tròn từng dòng có thể làm lệch Nợ/Có vài đồng (vd 0,5 + 0,5 = 1 → 1 + 1 = 2).
     Dồn phần lệch vào dòng lớn nhất của bên thừa để bút toán vẫn cân."""
@@ -158,7 +210,9 @@ def post_journal(
     """Insert 1 bút toán + các dòng nợ/có. Validate nợ = có (tolerance 0.01).
 
     `lines` là list dict với key: loai, account_code, [account_name],
-        [ref_table], [ref_id], so_tien, [ghi_chu].
+        [ref_table], [ref_id], so_tien, [ghi_chu],
+        [doi_tuong_loai ('khach'|'ncc'|'nv'), doi_tuong_ma, doi_tuong_ten, ma_don] — chi tiết công nợ
+        theo đối tượng/đơn (N06); không truyền thì để NULL như trước.
     """
     line_list = list(lines)
     if len(line_list) < 2:
@@ -210,6 +264,7 @@ def post_journal(
             "ref_id": raw.get("ref_id"),
             "so_tien": amount,
             "ghi_chu": raw.get("ghi_chu"),
+            **_chuan_hoa_doi_tuong(raw),
         })
 
     if not (has_no and has_co):
@@ -253,6 +308,10 @@ def post_journal(
             ref_id=ln["ref_id"],
             so_tien=ln["so_tien"],
             ghi_chu=ln["ghi_chu"],
+            doi_tuong_loai=ln["doi_tuong_loai"],
+            doi_tuong_ma=ln["doi_tuong_ma"],
+            doi_tuong_ten=ln["doi_tuong_ten"],
+            ma_don=ln["ma_don"],
         ))
 
     if flush:
@@ -291,6 +350,11 @@ def void_journal(
             "ref_id": ln.ref_id,
             "so_tien": ln.so_tien,
             "ghi_chu": f"Đảo {je.ma_but_toan}",
+            # Bút toán đảo là gương của bản gốc → mang theo cả đối tượng/mã đơn để dấu vết kiểm toán đủ.
+            "doi_tuong_loai": ln.doi_tuong_loai,
+            "doi_tuong_ma": ln.doi_tuong_ma,
+            "doi_tuong_ten": ln.doi_tuong_ten,
+            "ma_don": ln.ma_don,
         }
         for ln in orig_lines
     ]
@@ -323,13 +387,16 @@ def get_balance_sheet_aggregates(
 ) -> dict[str, float]:
     """Trả dict {account_code: net_balance} từ journal_line ≤ den_ngay.
 
-    - Asset accounts (111/112/131/156/211): net = SUM(no) - SUM(co).
-    - Liability/Equity accounts (311/331/334/341/353/411/414/415/421):
+    - Asset accounts (111/112/131/133/156/211...): net = SUM(no) - SUM(co).
+    - Liability/Equity accounts (311/331/3331/334/341/353/411/414/415/421...):
         net = SUM(co) - SUM(no).
+    - TK con (1111, 1121…) vừa có khoá riêng của nó, vừa được CỘNG DỒN lên TK cha (111, 112) — cùng
+      cách trial_balance — nên aggs['112'] = tổng 1121 + 1122 + 1123 (+ dòng ghi thẳng 112 nếu có).
     - 5xx/6xx/7xx/8xx tạm BỎ (đã consolidate vào 421 sau chốt kỳ).
       Tuy nhiên nếu chưa chốt kỳ và muốn xem net P&L, có thể cộng riêng:
-        revenue (511/711): net = SUM(co) - SUM(no)
+        revenue (511/515/711): net = SUM(co) - SUM(no)
         expense (632/635/641/642/811/821): net = SUM(no) - SUM(co)
+        911 (trung gian): net = SUM(no) - SUM(co) thô — về 0 sau kết chuyển.
       → trả luôn để caller có quyền sử dụng.
     Chỉ tính các bút toán trang_thai='da_post'.
     """
@@ -355,19 +422,32 @@ def get_balance_sheet_aggregates(
         .group_by(JournalLine.account_code)
     ).all()
 
-    out: dict[str, float] = {}
+    # Cộng riêng từng mã trước, rồi dồn TK con lên TK cha (đọc từ bản chụp của số riêng để cha không bị
+    # cộng hai lần). tk_cha_cua chỉ biết mã trong ACCOUNTS nên TK cấp 1 không bao giờ có cha.
+    tong: dict[str, list[Decimal]] = {}
     for code, sum_no, sum_co in rows:
-        sn = float(sum_no or 0)
-        sc = float(sum_co or 0)
-        if code in ASSET_ACCOUNTS or code in EXPENSE_ACCOUNTS:
+        tong[code] = [_to_dec(sum_no), _to_dec(sum_co)]
+    for code, (no_rieng, co_rieng) in [(c, tuple(v)) for c, v in tong.items()]:
+        cha = tk_cha_cua(code)
+        if cha:
+            cha_tong = tong.setdefault(cha, [Decimal("0"), Decimal("0")])
+            cha_tong[0] += no_rieng
+            cha_tong[1] += co_rieng
+
+    out: dict[str, float] = {}
+    for code, (sum_no, sum_co) in tong.items():
+        sn = float(sum_no)
+        sc = float(sum_co)
+        goc = tk_cha_cua(code) or code   # TK con theo chiều số dư của TK cha
+        if goc in ASSET_ACCOUNTS or goc in EXPENSE_ACCOUNTS:
             out[code] = sn - sc
         elif (
-            code in LIABILITY_EQUITY_ACCOUNTS
-            or code in REVENUE_ACCOUNTS
+            goc in LIABILITY_EQUITY_ACCOUNTS
+            or goc in REVENUE_ACCOUNTS
         ):
             out[code] = sc - sn
         else:
-            # Lạ — vẫn trả về theo nợ-có thô để debug
+            # 911 (trung gian) hoặc mã lạ — trả Nợ − Có thô để debug
             out[code] = sn - sc
     return out
 
@@ -375,7 +455,10 @@ def get_balance_sheet_aggregates(
 # ─── Cân đối phát sinh + Sổ cái theo TK (màn /ketoan/can-doi, /ketoan/so-cai) ─
 
 def tinh_chat_tk(code: str) -> str:
-    """Chiều số dư tự nhiên: 'no' (Tài sản, Chi phí) hoặc 'co' (Nguồn vốn, Doanh thu, 214)."""
+    """Chiều số dư tự nhiên: 'no' (Tài sản, Chi phí), 'co' (Nguồn vốn, Doanh thu, 214) hoặc
+    'luong_tinh' (911 trung gian — không có chiều dư cố định)."""
+    if code in TRUNG_GIAN_ACCOUNTS:
+        return "luong_tinh"
     if code in LIABILITY_EQUITY_ACCOUNTS or code in REVENUE_ACCOUNTS:
         return "co"
     return "no"

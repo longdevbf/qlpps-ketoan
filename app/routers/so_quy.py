@@ -11,7 +11,7 @@ from decimal import Decimal
 from typing import Annotated, Any, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import OperationalError, ProgrammingError
@@ -23,6 +23,9 @@ from shared.db import get_db
 
 from ..models import SoQuy, TaiKhoanNH
 from ..schemas import SoQuyCreate, SoQuyUpdate, SoQuyOut
+from ..schemas.so_quy import NghiepVuDsOut, PhanLoaiCfOut, SoQuyTaoOut, TheoDonOut
+from ..services import nghiep_vu_so_quy as nvsq
+from ..services.phan_loai_cf import NHOM_TEN, danh_sach as ds_phan_loai_cf, khoa_dung_cho_loai
 from ..services.so_quy_auto import so_du_truoc_ngay
 from ._deps import require_ketoan_user, require_ceo_thuchi
 
@@ -68,6 +71,18 @@ def _lookup_nv_ten(db: Session, nv_id: Optional[int]) -> Optional[str]:
     except (ProgrammingError, OperationalError):
         db.rollback()
         return None
+
+
+def _kiem_dong_tien(loai: Optional[str], cf: Optional[str]) -> None:
+    """Mã dòng tiền phải hợp chiều phiếu. Lệch (vd phiếu THU gắn 'Trả NCC') thì dòng không lọt vào mục nào
+    của báo cáo lưu chuyển tiền tệ — tiền biến mất khỏi báo cáo. NULL vẫn cho (bridge tự sinh không gắn mã)."""
+    if not cf or not loai or khoa_dung_cho_loai(cf, loai):
+        return
+    raise HTTPException(
+        422,
+        f"Dòng tiền đã chọn không dùng cho phiếu {'thu' if loai == 'thu' else 'chi'}. "
+        "Chọn lại dòng tiền đúng loại phiếu.",
+    )
 
 
 def _parse_thang(thang: Optional[str]) -> tuple[date_cls, date_cls]:
@@ -186,6 +201,49 @@ def so_quy_summary(
     }
 
 
+@router.get("/phan-loai-cf", response_model=list[PhanLoaiCfOut])
+def list_phan_loai_cf(
+    user: Annotated[JWTPayload, _AUTH],
+    loai: Optional[str] = Query(None, pattern="^(thu|chi)$", description="thu | chi — bỏ trống = tất cả"),
+):
+    """Các mã "dòng tiền" (mã số báo cáo lưu chuyển tiền tệ) cho ô chọn ở hộp Lập phiếu thu/chi.
+
+    Nguồn duy nhất: app/services/phan_loai_cf.py. Thứ tự theo mã số B03. PHẢI khai báo trước route động
+    GET /{rid}, nếu không FastAPI hiểu "phan-loai-cf" là một rid.
+    """
+    return [PhanLoaiCfOut(**x._asdict(), nhom_ten=NHOM_TEN[x.nhom]) for x in ds_phan_loai_cf(loai)]
+
+
+def _loi_nv(e: "nvsq.LoiNghiepVu") -> HTTPException:
+    # detail là dict {ma, thong_bao, …}: máy đọc `ma`, giao diện hiện `thong_bao` (tiếng Việt) ngay dưới ô lỗi.
+    return HTTPException(e.http, e.chi_tiet())
+
+
+@router.get("/nghiep-vu", response_model=NghiepVuDsOut)
+def list_nghiep_vu(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+    loai: str = Query(..., pattern="^(thu|chi)$", description="thu | chi"),
+):
+    """Danh sách việc cho ô "Việc gì?" ở hộp Lập phiếu (đặc tả mục 4.3.1). Nguồn duy nhất:
+    app/services/nghiep_vu_so_quy.py; số tài khoản theo `ketoan.cai_dat_he_thong.che_do`.
+    Khai TRƯỚC route động GET /{rid}."""
+    try:
+        return nvsq.danh_sach(loai, nvsq.doc_che_do(db))
+    except nvsq.LoiNghiepVu as e:
+        raise _loi_nv(e)
+
+
+@router.get("/theo-don/{ma_don}", response_model=TheoDonOut)
+def so_quy_theo_don(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+    ma_don: str = Path(..., min_length=3, max_length=64),
+):
+    """Tên khách + đã thu / đã hoàn / còn lại của một mã đơn — ô mã đơn ở hộp Lập phiếu tự điền."""
+    return nvsq.theo_don(db, ma_don)
+
+
 @router.get("", response_model=list[SoQuyOut])
 def list_so_quy(
     db: Annotated[Session, Depends(get_db)],
@@ -195,10 +253,13 @@ def list_so_quy(
     thang: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}$"),
     loai: Optional[str] = Query(None, pattern="^(thu|chi)$"),
     tai_khoan: Optional[str] = None,
+    ma_dinh_khoan: Optional[str] = Query(None, max_length=40, description="Lọc theo nghiệp vụ"),
     limit: int = Query(500, ge=1, le=2000),
     offset: int = 0,
 ):
     stmt = select(SoQuy).order_by(SoQuy.ngay.desc(), SoQuy.id.desc())
+    if ma_dinh_khoan:
+        stmt = stmt.where(SoQuy.ma_dinh_khoan == ma_dinh_khoan)
     # Filter theo `thang=YYYY-MM` (FE đang gửi param này) — ưu tiên hơn tu/den_ngay.
     # Trước đây bị ignore → widget "Chi Tiết Giao Dịch" trả cả lịch sử all-time
     # thay vì chỉ tháng được chọn. Fix 27/05.
@@ -218,15 +279,22 @@ def list_so_quy(
     return db.execute(stmt).scalars().all()
 
 
-@router.post("", response_model=SoQuyOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=SoQuyTaoOut, status_code=status.HTTP_201_CREATED)
 def create_so_quy(
     body: SoQuyCreate,
     request: Request,
+    response: Response,
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[JWTPayload, _AUTH],
 ):
     _require_admin(user)
     fields = body.model_dump(exclude_unset=True)
+    if (fields.get("ma_dinh_khoan") or "").strip():
+        return _tao_phieu_nghiep_vu(fields, request, response, db, user)
+    # Không có nghiệp vụ → hành vi CŨ y nguyên (màn /app cũ gửi phan_loai_cf; cầu nối không đi qua đây).
+    for k in ("ma_dinh_khoan", "ly_do", "xac_nhan_trung"):
+        fields.pop(k, None)
+    _kiem_dong_tien(fields.get("loai"), fields.get("phan_loai_cf"))
     # CHẶN chi làm số dư TK âm (anh Quang 2026-08-27)
     if (fields.get("loai") or "").lower() == "chi":
         from ..services.so_quy_auto import assert_du_chi
@@ -247,6 +315,38 @@ def create_so_quy(
         payload={"ngay": str(obj.ngay), "loai": obj.loai, "so_tien": str(obj.so_tien)},
     )
     return obj
+
+
+def _tao_phieu_nghiep_vu(
+    fields: dict[str, Any], request: Request, response: Response, db: Session, user: JWTPayload,
+) -> SoQuyTaoOut:
+    """Phiếu lập tay có ma_dinh_khoan (đặc tả 4.3.2): service kiểm + suy phan_loai_cf, router ghi + audit.
+    Không gọi post_journal, không gọi is_ky_da_chot (giữ hành vi cũ — xử lý kỳ khoá ở bước sau)."""
+    cu = nvsq.phieu_da_co(db, fields.get("ref_id"))
+    if cu is not None:   # bấm Lưu hai lần cùng ref_id → trả lại dòng cũ, không ghi thêm
+        response.status_code = status.HTTP_200_OK
+        return SoQuyTaoOut.model_validate(cu)
+    try:
+        cot, dinh_khoan, canh_bao = nvsq.chuan_bi_phieu(db, fields, nvsq.doc_che_do(db))
+    except nvsq.LoiNghiepVu as e:
+        raise _loi_nv(e)
+    if cot["loai"] == "chi":   # chặn chi làm âm số dư quỹ — giữ như phiếu cũ (anh Quang 2026-08-27)
+        from ..services.so_quy_auto import assert_du_chi
+        assert_du_chi(db, cot["tai_khoan"], cot["so_tien"])
+    obj = SoQuy(**cot, created_by=user.username)
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    log_action(
+        db, app="ketoan", action="create_so_quy", user=user, request=request,
+        resource=f"so_quy:{obj.id}",
+        payload={"ngay": str(obj.ngay), "loai": obj.loai, "so_tien": str(obj.so_tien),
+                 "ma_dinh_khoan": obj.ma_dinh_khoan, "phan_loai_cf": obj.phan_loai_cf,
+                 "doi_tuong_ma": obj.doi_tuong_ma, "ky": obj.ky},
+    )
+    return SoQuyTaoOut.model_validate(
+        {**SoQuyOut.model_validate(obj).model_dump(), "dinh_khoan": dinh_khoan, "canh_bao": canh_bao}
+    )
 
 
 @router.get("/{rid}", response_model=SoQuyOut)
@@ -273,6 +373,25 @@ def update_so_quy(
     if not obj:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "SoQuy không tồn tại")
     fields = body.model_dump(exclude_unset=True)
+    # Dòng đã gắn nghiệp vụ: chưa có hook đảo bút toán nên KHÔNG cho đổi chiều / tiền / quỹ / nghiệp vụ / dòng tiền
+    # (dòng tiền suy từ nghiệp vụ). Sửa ngày, nội dung, ghi chú vẫn được. Dòng cũ giữ nguyên hành vi.
+    if obj.ma_dinh_khoan:
+        doi = [k for k in ("loai", "so_tien", "tai_khoan", "ma_dinh_khoan", "phan_loai_cf")
+               if k in fields and fields[k] != getattr(obj, k)]
+        if doi:
+            raise HTTPException(422, {
+                "ma": "dong_da_gan_nghiep_vu", "truong": doi,
+                "thong_bao": "Phiếu đã gắn nghiệp vụ — không đổi được loại phiếu, số tiền, quỹ, nghiệp vụ, dòng tiền. "
+                             "Xoá phiếu rồi lập lại; sửa ngày / nội dung thì vẫn được.",
+            })
+    elif fields.get("ma_dinh_khoan"):
+        raise HTTPException(422, {
+            "ma": "chua_ho_tro_gan_nghiep_vu",
+            "thong_bao": "Chưa gắn được nghiệp vụ cho phiếu có sẵn. Lập phiếu mới ở hộp Lập phiếu.",
+        })
+    fields.pop("ma_dinh_khoan", None)
+    if fields.get("phan_loai_cf"):
+        _kiem_dong_tien(fields.get("loai") or obj.loai, fields["phan_loai_cf"])
     # Issue 1 — re-lookup nhan_vien_ten khi đổi nhan_vien_id mà không truyền tên
     if "nhan_vien_id" in fields and not (fields.get("nhan_vien_ten") or "").strip():
         nv_ten = _lookup_nv_ten(db, fields["nhan_vien_id"])
@@ -361,6 +480,9 @@ def chuyen_noi_bo(
 
     noi_dung_chi = (body.noi_dung or "").strip() or f"Chuyển sang {body.den_tai_khoan}"
     noi_dung_thu = (body.noi_dung or "").strip() or f"Nhận từ {body.tu_tai_khoan}"
+    # 01/10/2026: cặp mới ghi nghiệp vụ 'chuyen_noi_bo' + dòng tiền 'noi_bo' (trước: 'khac'). Báo cáo lưu chuyển
+    # tiền tệ loại chuyển nội bộ theo lien_quan='chuyen_noi_bo' HOẶC phan_loai_cf='noi_bo' (bao_cao_cashflow.py
+    # _khong_noi_bo / _full_chi_classified_ids) nên số báo cáo không đổi. Dòng cũ giữ 'khac', không sửa.
 
     sq_chi = SoQuy(
         ngay=body.ngay,
@@ -369,7 +491,8 @@ def chuyen_noi_bo(
         tai_khoan=body.tu_tai_khoan,
         noi_dung=noi_dung_chi,
         lien_quan="chuyen_noi_bo",
-        phan_loai_cf="khac",
+        phan_loai_cf="noi_bo",
+        ma_dinh_khoan="chuyen_noi_bo",
         ref_id=ref_id,
         ghi_chu=body.ghi_chu or None,
         created_by=user.username,
@@ -381,7 +504,8 @@ def chuyen_noi_bo(
         tai_khoan=body.den_tai_khoan,
         noi_dung=noi_dung_thu,
         lien_quan="chuyen_noi_bo",
-        phan_loai_cf="khac",
+        phan_loai_cf="noi_bo",
+        ma_dinh_khoan="chuyen_noi_bo",
         ref_id=ref_id,
         ghi_chu=body.ghi_chu or None,
         created_by=user.username,

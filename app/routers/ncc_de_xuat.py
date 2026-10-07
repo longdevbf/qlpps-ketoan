@@ -10,7 +10,7 @@ Luồng 2 cấp (mirror saleadmin.denghitt):
 
 Mounted KHÔNG prefix trong ketoan/app/main.py (paths đã full /api/ncc-de-xuat...).
 """
-from datetime import datetime, timezone
+from datetime import date as _date, datetime, timezone
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -21,6 +21,9 @@ from sqlalchemy.orm import Session
 from shared.audit import log_action
 from shared.auth import JWTPayload, require_app
 from shared.db import get_db
+from shared.routers.duyet_chi import _ngay_ghi_so
+
+from ..services.ban_sao_de_nghi import tu_choi_dntt_kem
 
 
 router = APIRouter()
@@ -37,6 +40,10 @@ class KTApproveBody(BaseModel):
 
 
 class KTRejectBody(BaseModel):
+    ly_do: str = Field(..., min_length=1)
+
+
+class TuChoiTruocChiBody(BaseModel):
     ly_do: str = Field(..., min_length=1)
 
 
@@ -397,6 +404,33 @@ def kt_approve(
 class ChiNCCBody(BaseModel):
     tai_khoan: str
     ghi_chu: Optional[str] = None
+    # Ngày ghi sổ khoản chi. Bỏ trống = hôm nay (hành vi cũ).
+    ngay_chi: Optional[_date] = None
+
+
+def _ghi_giam_cong_no_ketoan(db: Session, e, *, by: str) -> Optional[str]:
+    """Khoản vừa CHI làm GIẢM công nợ NCC bên Kế toán.
+
+    GỘP 02/10/2026: phần việc chuyển hết sang
+    `ketoan/app/services/giam_cong_no_ncc.py` để DÙNG CHUNG với cửa chi thứ hai
+    (`de_nghi_tt.py::chi_denghitt`). Trước đó chỉ cửa này được vá, nên trả tiền
+    bằng trang "Đề nghị Thanh Toán" vẫn không giảm công nợ Kế toán — và vì nó đặt
+    `muahang.congno.da_chi=TRUE` nên sau đó cửa này trả 409, không bù lại được
+    bằng giao diện (ca thật: phiếu quỹ #859, CHIẾN PHƯƠNG 70.000.000đ, phải vá tay).
+
+    Hai cửa dùng CHUNG khoá `ref_id='mh-dexuat-{đề xuất Mua hàng}'` nên không thể
+    ghi trùng nhau. KHÔNG commit — nằm chung transaction với phiếu sổ quỹ.
+    """
+    from ..services.giam_cong_no_ncc import ghi_giam_cong_no_ncc
+
+    return ghi_giam_cong_no_ncc(
+        db,
+        ma_de_xuat_mh=e.id,
+        ncc_ten=(e.ncc_name or e.ncc_id or ''),
+        so_tien=e.so_tien,
+        by=by,
+        nguon='nút Chi trang Duyệt ĐX Trả NCC',
+    )
 
 
 @router.post("/api/ncc-de-xuat/{cid}/chi")
@@ -445,7 +479,7 @@ def chi_ncc(
             db,
             lien_quan="cong_no",
             ref_id=f"mh-dexuat-{e.id}",   # KHỚP ref bridge muahang approve_congno →
-            ngay=_date_cls.today(),        # idempotent, KHÔNG tạo dòng sổ quỹ thứ 2
+            ngay=_ngay_ghi_so(body.ngay_chi, _date_cls.today()),
             loai="chi",
             so_tien=Decimal(str(e.so_tien or 0)),
             tai_khoan=tk,
@@ -453,6 +487,7 @@ def chi_ncc(
             mo_ta=((e.mo_ta or "") + (f" • {_gc}" if _gc else "")).strip() or None,
             phan_loai_cf="tra_ncc",
         )
+        _ghi_giam_cong_no_ketoan(db, e, by=user.username)
         db.commit()
     except Exception as ex:
         db.rollback()
@@ -506,6 +541,8 @@ def kt_reject(
     e.kt_duyet_boi = user.username
     e.kt_duyet_luc = datetime.now(tz=timezone.utc)
     e.kt_ghi_chu = body.ly_do
+    # Có Đề nghị TT bản sao bên Sale Admin thì từ chối luôn, cùng giao dịch (ban_sao_de_nghi.py).
+    kem = tu_choi_dntt_kem(db, dntt_id=getattr(e, "dntt_id", None), ly_do=body.ly_do, username=user.username)
     db.commit()
     db.refresh(e)
     # Notify người tạo: KT từ chối
@@ -518,6 +555,72 @@ def kt_reject(
     db.commit()
     log_action(
         db, app="ketoan", action="kt_reject_congno_dexuat", user=user, request=request,
-        resource=f"congno:{cid}", payload={"ly_do": body.ly_do},
+        resource=f"congno:{cid}", payload={"ly_do": body.ly_do, "tu_choi_kem": kem},
     )
-    return _to_dict(e, _build_name_map(db, [e]))
+    return {**_to_dict(e, _build_name_map(db, [e])), "tu_choi_kem": kem}
+
+
+@router.post("/api/ncc-de-xuat/{cid}/tu-choi-truoc-chi")
+def tu_choi_truoc_chi(
+    cid: str,
+    body: TuChoiTruocChiBody,
+    request: Request,
+    user: Annotated[JWTPayload, Depends(_REQ)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Từ chối đề xuất ĐÃ DUYỆT XONG (trang_thai='duyet', CEO đã duyệt ở Mua Hàng)
+    NHƯNG CHƯA CHI — giám đốc yêu cầu 30/09/2026 (màn Duyệt chi tab "Chờ chi" thiếu
+    nút Từ chối). Trước đây chỉ từ chối được ở cấp 1 (cho_duyet → kt_tu_choi, xem
+    kt_reject phía trên) — đơn đã qua CEO duyệt là đường cụt, chỉ còn nút Chi.
+
+    duyet → tu_choi (CÙNG trạng thái cuối với luồng "CEO từ chối" cũ, không phải
+    trạng thái mới) — để "Sửa & gửi lại" bên Mua Hàng (congno.py:952
+    gui_lai_congno_de_xuat, CHỈ ĐỌC không sửa) nhận diện đúng qua điều kiện có sẵn
+    `trang_thai in ('kt_tu_choi', 'tu_choi')`, không cần Mua Hàng đổi gì.
+
+    Ghi vào nguoi_duyet/ngay_duyet/ghi_chu_duyet (KHÔNG phải kt_duyet_boi/kt_ghi_chu)
+    vì Mua Hàng đọc lý do từ chối lần trước qua `ghi_chu_duyet` khi trang_thai=='tu_choi'
+    (congno.py:1001) — đặt sai cột thì "Gửi lại" hiện lý do rỗng.
+
+    action lịch sử dùng "ceo_tu_choi" — action THẬT trong danh sách đóng của Mua
+    Hàng (congno.py CongNo.lich_su comment: gui|kt_duyet|kt_tu_choi|ceo_duyet|
+    ceo_tu_choi|sua_gui_lai), KHÔNG tự đặt action mới làm giao diện Mua Hàng vỡ
+    nhãn — đúng ý nghĩa trạng thái (đơn đã qua CEO duyệt rồi mới bị từ chối), bất
+    kể ai bấm (field `by` đã ghi rõ người bấm thật).
+    """
+    if user.role not in _KT_ROLES and user.role not in _CEO_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Chỉ Kế Toán/CEO được từ chối")
+    e = _get_or_404(db, cid)
+    if (e.trang_thai or "") != "duyet":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Đề xuất đang '{e.trang_thai}' — chỉ từ chối khi ĐÃ DUYỆT XONG, chưa chi",
+        )
+    if getattr(e, "da_chi", False):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Đề xuất này đã chi rồi — không thể từ chối")
+
+    now = datetime.now(tz=timezone.utc)
+    e.lich_su = [*(e.lich_su or []), {
+        "action": "ceo_tu_choi", "by": user.username, "time": now.isoformat(),
+        "note": body.ly_do.strip() or None,
+    }]
+    e.trang_thai = "tu_choi"
+    e.nguoi_duyet = user.username
+    e.ngay_duyet = now
+    e.ghi_chu_duyet = body.ly_do
+    # Từ chối luôn Đề nghị TT bản sao (nếu có) — không thì dòng bản sao vẫn chi được (ban_sao_de_nghi.py).
+    kem = tu_choi_dntt_kem(db, dntt_id=getattr(e, "dntt_id", None), ly_do=body.ly_do, username=user.username)
+    db.commit()
+    db.refresh(e)
+    _safe_notify(
+        db, target=(e.nguoi_tao or e.nv_mua_hang), by=user.username,
+        source_app="muahang", event_type="congno:rejected",
+        title=f"[Đề xuất trả NCC] Từ chối trước khi chi — {e.ncc_name or e.ncc_id}",
+        message=body.ly_do, ref_type="congno", ref_id=e.id, severity="warning",
+    )
+    db.commit()
+    log_action(
+        db, app="ketoan", action="tu_choi_truoc_chi_congno_dexuat", user=user, request=request,
+        resource=f"congno:{cid}", payload={"ly_do": body.ly_do, "tu_choi_kem": kem},
+    )
+    return {**_to_dict(e, _build_name_map(db, [e])), "tu_choi_kem": kem}

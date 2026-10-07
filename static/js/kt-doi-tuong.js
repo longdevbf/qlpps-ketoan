@@ -233,7 +233,11 @@
   function veDau(d) {
     const k = d.khach; document.title = k.ten + ' — ' + C.h1;
     $('dt-crumb').textContent = k.ten; $('dt-ma').innerHTML = (k.ma && k.ma !== '—' ? '<span class="num">' + esc(k.ma) + '</span> · ' : '') + esc(k.ten);
-    $('dt-pill').innerHTML = KT.pillTuoiNo(d.nhom_tuoi, !kh && d.nhom_tuoi === 'da_thu_du' ? 'Đã trả đủ' : '');
+    // SỬA (bản vá 30/09/2026 mục 4c): con_lai < 0 (trả trước) đang set nhom_tuoi='da_thu_du' (tính
+    // từ conLai<=0 ở taiNccTheoTen/taiNccTheoId) nên chip đầu trang hiện "Đã trả đủ" cạnh thẻ KPI
+    // "Trả trước còn lại" — mâu thuẫn nhau. Không hiện nhãn nào ở đây khi là trả trước.
+    const laTraTruocDau = !kh && d.con_lai < 0;
+    $('dt-pill').innerHTML = laTraTruocDau ? '' : KT.pillTuoiNo(d.nhom_tuoi, !kh && d.nhom_tuoi === 'da_thu_du' ? 'Đã trả đủ' : '');
     $('dt-meta').innerHTML = [k.mst ? '<span>MST: <b>' + esc(k.mst) + '</b></span>' : '', k.sdt ? '<span>Điện thoại: <b>' + esc(k.sdt) + '</b></span>' : '', k.nv_kd ? '<span>' + C.nv + ': <b>' + esc(k.nv_kd) + '</b></span>' : ''].join('');
     // Cơ chế màn cũ: ghi nhận thu/trả từng khoản (POST /api/cong-no/{id}/tra — trừ công nợ + ghi Sổ quỹ).
     $('dt-lap').onclick = () => KTGhiNhanTra.mo({

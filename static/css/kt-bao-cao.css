@@ -97,3 +97,25 @@
   .kt-bc tbody th[scope="row"] { min-width: 190px; }
   .kt-bc td.num { min-width: 112px; }
 }
+
+/* ── Popup "nguồn gốc con số" (chiTiet trong kt-bao-cao.js) ────────────────── */
+/* Ô số tiền bấm được: giữ nguyên dáng số, chỉ gạch chân mờ để biết là bấm được —
+   bảng báo cáo có hàng chục số, tô màu hết thì rối hơn là giúp. */
+.kt-bc__so {
+  appearance: none; background: none; border: 0; padding: 0; margin: 0;
+  font: inherit; color: inherit; cursor: pointer; text-align: right;
+  text-decoration: underline dotted; text-underline-offset: 3px;
+  text-decoration-color: var(--kd-vien, #cbd5e1);
+}
+.kt-bc__so:hover, .kt-bc__so:focus-visible { text-decoration-style: solid; color: var(--kd-chinh, #2563eb); }
+.kt-bc__so:focus-visible { outline: 2px solid var(--kd-chinh, #2563eb); outline-offset: 2px; border-radius: 3px; }
+
+.kt-bc-ct__nguon { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-2); font-size: .82rem; color: var(--kd-chu-mo); }
+.kt-bc-ct__tong { margin: var(--sp-3) 0; font-size: 1.35rem; font-weight: 700; }
+.kt-bc-ct__canh { display: flex; gap: var(--sp-2); color: var(--kd-canh, #b45309); }
+.kt-bc-ct__dc { list-style: none; margin: var(--sp-3) 0; padding: 0; border-top: 1px dashed var(--kd-vien); }
+.kt-bc-ct__dc li { display: flex; justify-content: space-between; gap: var(--sp-4); padding: var(--sp-2) 0; border-bottom: 1px dashed var(--kd-vien); }
+.kt-bc-ct__phan { margin-top: var(--sp-5); }
+.kt-bc-ct__phan h3 { margin: 0 0 var(--sp-2); font-size: .95rem; }
+.kt-bc-ct__trang { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-3); }
+.kt-bc-ct td, .kt-bc-ct th { white-space: nowrap; }

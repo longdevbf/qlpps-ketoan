@@ -27,6 +27,32 @@
       411: v.von_gop, 414: v.quy_dn, 421: v.ln_giu_lai, 400: v.tong, 440: nv.tong_nguon_von,
     };
   }
+  /* Mã số B01 → khoá chi tiết (bảng KHOAN trong app/services/cd_chi_tiet.py).
+     Dòng tổng (110/270/300/400/440) không có khoá: chúng là phép cộng, không có chứng từ riêng.
+     Mã 315 (phải trả người lao động) và 414 (quỹ) chưa khai chi tiết nên cũng để trống. */
+  const KHOA_CT = {
+    '111': 'tai_san.tien_va_td.tien_mat_so_quy',
+    '112': 'tai_san.tien_va_td.tk_ngan_hang',
+    '130': 'tai_san.phai_thu',
+    '140': 'tai_san.hang_ton_kho',
+    '221': 'tai_san.tscd_nguyen_gia',
+    '222': 'tai_san.tscd_hao_mon_luy_ke',
+    '311': 'nguon_von.no_phai_tra.phai_tra_ncc',
+    '320': 'nguon_von.no_phai_tra.vay_ngan_han',
+    '338': 'nguon_von.no_phai_tra.vay_dai_han',
+    '411': 'nguon_von.von_csh.von_gop',
+    '414': 'nguon_von.von_csh.quy_dn',
+    '315': 'nguon_von.no_phai_tra.phai_tra_nv',
+    '421': 'nguon_von.von_csh.ln_giu_lai',
+    // Dòng tổng: popup hiện công thức + số hạng (CONG_THUC trong cd_chi_tiet.py)
+    '110': 'tai_san.tien_va_td.tong',
+    '220': 'tai_san.tscd_rong',
+    '270': 'tai_san.tong_tai_san',
+    '300': 'nguon_von.no_phai_tra.tong',
+    '400': 'nguon_von.von_csh.tong',
+    '440': 'nguon_von.tong_nguon_von',
+  };
+
   const KHUNG = [
     ['', 'TÀI SẢN', 'nhom'],
     ['110', 'Tiền và các khoản tương đương tiền', 'tong'], ['111', 'Tiền mặt (sổ quỹ)', 'con'], ['112', 'Tiền gửi ngân hàng', 'con'],
@@ -76,7 +102,8 @@
     const chon = k.den || homNay(), cuoi = cuoiThang(d0.thang);
     return {
       den_ngay: chon < cuoi ? chon : cuoi, thang: d0.thang, thang_dau_nam: dn ? dn.thang : null, raw: d0,
-      dong: KHUNG.map(([ma, chi_tieu, cap]) => (cap === 'nhom' ? { ma, chi_tieu, cap } : { ma, chi_tieu, cap, cuoi_ky: a[ma], dau_nam: dn ? b[ma] : null }))
+      dong: KHUNG.map(([ma, chi_tieu, cap]) => (cap === 'nhom' ? { ma, chi_tieu, cap }
+        : { ma, chi_tieu, cap, cuoi_ky: a[ma], dau_nam: dn ? b[ma] : null, khoa: KHOA_CT[ma] }))
         .concat(Math.abs(d0.check.lech || 0) >= 1 || (dn && Math.abs(dn.check.lech || 0) >= 1)
           ? [{ ma: '', chi_tieu: 'Chênh lệch chưa cân (Tài sản − Nguồn vốn)', ghi_chu: lyDoLech(d0), cap: 'lech', cuoi_ky: d0.check.lech || 0, dau_nam: dn ? dn.check.lech || 0 : null }] : []),
       tong: { tai_san: ts.tong_tai_san, no_phai_tra: nv.no_phai_tra.tong, von_chu: nv.von_csh.tong },
@@ -91,6 +118,9 @@
       // bảng để người dùng không tưởng nợ NCC chỉ có 311. Giá trị lấy thẳng từ API, KHÔNG tính lại.
       ncc_du_kien: nv.no_phai_tra.phai_tra_ncc_du_kien || 0,
       ncc_can_kiem: nv.no_phai_tra.phai_tra_ncc_can_kiem || 0,
+      // BẢN VÁ 30/09/2026 mục 5: NCC đã đánh dấu "đã trả" nhưng con_lai vẫn âm (ứng/trả nhiều
+      // hơn hoá đơn) — không nằm trong phai_tra_ncc, chỉ để ghi chú minh bạch dưới bảng.
+      ncc_tra_truoc_da_tra: nv.no_phai_tra.phai_tra_ncc_tra_truoc_da_tra || 0,
     };
   }
 
@@ -116,6 +146,13 @@
     cot: [{ key: 'ma' }, { key: 'cuoi_ky', num: true }, { key: 'dau_nam', num: true }],
     lien: { '111': '111', '112': '112', '130': '131', '140': '156', '221': '211', '222': '214', '311': '331', '320': '311', '338': '341', '315': '334', '411': '411', '421': '421' },
     chuyen,
+    cotChiTiet: 'cuoi_ky',
+    /* Cột "Số đầu năm" = cân đối tại 31/12 năm trước — đúng tháng mà api() đã gọi. */
+    chiTiet: (khoa, k, trang, cot) => {
+      const t = thangCuaNgay(k.den);
+      return '/api/bao-cao/can-doi/chi-tiet?'
+        + KT.url.qs({ khoa: khoa, thang: cot === 'dau_nam' ? thangDauNam(t) : t, trang: trang, so_dong: 50 });
+    },
     kpi: {
       ts: (d) => ({ v: KD.tienGonHtml(tsT(d)), title: KD.tienVnd(tsT(d)), phu: 'Tiền chiếm ' + KD.phanTram(d.chi_so.tien_tren_ts * 100) + ' tài sản' }),
       no: (d) => ({ v: KD.tienGonHtml(noT(d)), title: KD.tienVnd(noT(d)), phu: d.chi_so.no_tren_von == null ? 'Chưa có vốn chủ để so' : 'Bằng ' + KD.phanTram(d.chi_so.no_tren_von * 100) + ' vốn chủ' }),
@@ -139,7 +176,12 @@
       const phanLech = (coLech && d.ncc_du_kien > 0)
         ? 'Đã tách nợ dự kiến khỏi Phải trả người bán (' + KD.tienVnd(d.ncc_du_kien) + ') nên lệch tăng tương ứng; nguyên nhân lệch gốc có từ trước.'
         : '';
-      return [phanDuKien, phanLech].filter(Boolean).join(' ');
+      // BẢN VÁ 30/09/2026 mục 5: dòng ghi chú riêng, KHÔNG đổi số 331/công thức — chỉ minh bạch
+      // khoản NCC đã đánh dấu "đã trả" nhưng thực tế công ty đang ứng/trả nhiều hơn hoá đơn.
+      const phanTraTruocDaTra = d.ncc_tra_truoc_da_tra > 0
+        ? 'Chưa gồm trả trước/ứng cho NCC đã đánh dấu "đã trả": <b class="num">' + KD.tienVnd(d.ncc_tra_truoc_da_tra) + '</b>.'
+        : '';
+      return [phanDuKien, phanLech, phanTraTruocDaTra].filter(Boolean).join(' ');
     },
     sauTai: (d) => {
       if (!$('cd-den-ngay').value) $('cd-den-ngay').value = d.den_ngay;

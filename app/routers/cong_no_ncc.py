@@ -424,7 +424,20 @@ def ncc_module(
     Lọc thời gian (theo cn.ngay — ngày phát sinh nợ): `thang`="YYYY-MM" (nhanh)
     HOẶC khoảng `tu_ngay`/`den_ngay`. `thang` ưu tiên hơn khoảng nếu cùng truyền.
     """
-    where_parts = ["cn.loai = 'phai_tra'"]
+    # LOẠI CƯỚC VẬN CHUYỂN khỏi màn Công nợ NCC (sửa 02/10/2026).
+    # Dòng `ref_source='saleadmin_vc_phai_tra'` là cước đơn vị vận chuyển, KHÔNG
+    # phải nợ mua hàng — view xếp chúng `loai_dong='cuoc_dvvc'`. Chúng vẫn hiện
+    # như nhà cung cấp ở đây, trong khi cái tên đó KHÔNG tồn tại trong
+    # `muahang.suppliers` nên biến mất khỏi màn Mua hàng → hai sổ không bao giờ
+    # khớp được và chủ doanh nghiệp đi hỏi nhà cung cấp thì họ nói không nợ.
+    # Đo production 02/10/2026: 3 dòng, còn lại 1.550.000đ — "Đào Anh Đức"
+    # 1.250.000, "Viettel post Long Biên - Anh Đại" 300.000, "(ĐVVC chưa rõ)" 0;
+    # lọc đi thì 2 "nhà cung cấp" đầu biến mất hẳn, đúng như anh Quang xác nhận.
+    # Cước ĐVVC xem ở màn Vận chuyển / Chi phí, không mất dữ liệu.
+    where_parts = [
+        "cn.loai = 'phai_tra'",
+        "COALESCE(cn.ref_source, '') <> 'saleadmin_vc_phai_tra'",
+    ]
     params: dict[str, Any] = {}
     if filter == "chua_tra":
         where_parts.append("cn.con_lai > 0")
@@ -448,6 +461,15 @@ def ncc_module(
         if den_ngay:
             params["d_to_incl"] = den_ngay
             where_parts.append("cn.ngay <= :d_to_incl")
+
+    # BẢN VÁ 30/09/2026 mục 3: "tra_truoc" = so_tien mà NCC được ứng nhiều hơn hoá đơn — là số
+    # RÒNG trên TOÀN BỘ quan hệ với NCC (giống số dư công nợ), không có nghĩa khi tính trên một
+    # tập dòng đã bị cắt theo khoảng ngày phát sinh: dòng cọc của tháng X có thể ứng cho hoá đơn
+    # phát sinh tháng Y, lọc theo tháng X làm cọc "mồ côi" so với hoá đơn cùng tháng và tra_truoc
+    # bị thổi phồng (dev đo: tất cả = 4,15tr, riêng tháng 08 = 199,27tr). Khi có lọc thời gian,
+    # tắt hẳn tra_truoc/so_ncc_tra_truoc (về 0) và con_lai_thuc_duong lùi về "phần dương của
+    # con_lai_thuc" (như trước khi có Bước 3) — không suy diễn số trả trước sai trên tập con.
+    co_loc_thoi_gian = bool(thang or tu_ngay or den_ngay)
 
     where = " AND ".join(where_parts)
 
@@ -492,7 +514,7 @@ def ncc_module(
             po.id          AS po_id,
             po.status      AS po_status,
             po.approved_at AS po_approved_at,
-            vw.nhom_no
+            vw.nhom_no, vw.loai_dong
         FROM ketoan.cong_no cn
         LEFT JOIN ketoan.v_cong_no_phai_tra_phan_loai vw ON vw.id = cn.id
         LEFT JOIN baogia.quotes q ON q.quote_number = cn.ma_don
@@ -548,6 +570,11 @@ def ncc_module(
                 "no_du_kien": 0.0,            # còn gắn đơn, chưa hoàn thành
                 "no_thuc_phai_tra": 0.0,      # đã hoàn thành + nợ nhập tay
                 "da_tra": 0.0,                # SUM(da_tra) TỪ MỌI đơn
+                "da_tra_thuc": 0.0,           # BẢN VÁ 30/09/2026 mục 2: SUM(da_tra) CHỈ đơn nhóm
+                                               # thực/cần kiểm (khớp phạm vi tong_no/no_thuc_phai_tra
+                                               # /con_lai_thuc) — "da_tra" ở trên gộp cả tiền ứng cho
+                                               # đơn dự kiến (du_kien_da_ung) nên Tổng-Đã trả != Còn
+                                               # nợ khi dùng cho biên bản chỉ hiện phần thực (kt-in.js).
                 "con_lai": 0.0,               # SUM(con_lai) TỪ MỌI đơn (không clamp)
                 "con_lai_thuc": 0.0,          # SUM(con_lai) CHỈ đơn nhóm thực/cần kiểm — quyết
                                                # định 29/09/2026: "còn nợ/phải trả" không cộng dự kiến.
@@ -587,7 +614,13 @@ def ncc_module(
             g["no_thuc_phai_tra"] += so_tien
             g["so_don_thuc"] += 1
             g["con_lai_thuc"] += con_lai_row
-            if nhom == "can_kiem" and not r.get("po_id"):
+            g["da_tra_thuc"] += da_tra_row
+            # SỬA (bản vá 30/09/2026 mục 4a): điều kiện cũ `nhom=='can_kiem' and not po_id` chỉ
+            # đếm đơn Mua hàng mồ côi (mất PO), BỎ SÓT toàn bộ dòng nhập tay/đầu kỳ/cước ĐVVC/cọc
+            # trả trước (đều rơi vào nhom='thuc' vì không gắn 'MH-%', không phải 'can_kiem') — dev
+            # đo trước sửa: 36 dòng thật đáng lẽ "nhập tay" nhưng field chỉ báo 1. Dùng loai_dong
+            # (view q7) đúng nghĩa: dòng KHÔNG gắn đơn mua (nhap_tay_dau_ky/tra_truoc_coc/cuoc_dvvc).
+            if (r.get("loai_dong") or "") in ("nhap_tay_dau_ky", "tra_truoc_coc", "cuoc_dvvc"):
                 g["so_don_nhap_tay"] += 1
             else:
                 g["so_don_da_xong"] += 1
@@ -627,7 +660,9 @@ def ncc_module(
         # hoá đơn hiện có (tiền ứng trước cho NCC, chưa có hoá đơn để trừ) — đây là TÀI SẢN của
         # công ty, không phải "nợ âm". Tách 2 field DƯƠNG song song, GIỮ NGUYÊN con_lai_thuc (ròng,
         # có thể âm) cho nơi cần đối chiếu kỹ thuật — không đổi ý nghĩa field cũ, chỉ THÊM field mới.
-        g["tra_truoc"] = max(0.0, -g["con_lai_thuc"])
+        # BẢN VÁ 30/09/2026 mục 3: có lọc thời gian → tắt tra_truoc (0) — con_lai_thuc_duong luôn
+        # là "phần dương của con_lai_thuc trên tập đã lọc" ở cả 2 trường hợp (xem co_loc_thoi_gian).
+        g["tra_truoc"] = 0.0 if co_loc_thoi_gian else max(0.0, -g["con_lai_thuc"])
         g["con_lai_thuc_duong"] = max(0.0, g["con_lai_thuc"])
 
     items = sorted(ncc_map.values(), key=lambda x: -x["con_lai"])
@@ -635,6 +670,7 @@ def ncc_module(
     tong_thuc      = sum(x["no_thuc_phai_tra"] for x in items)
     tong_can_kiem  = sum(x["no_can_kiem"]      for x in items)
     da_tra         = sum(x["da_tra"]           for x in items)
+    da_tra_thuc    = sum(x["da_tra_thuc"]      for x in items)
     con_lai        = sum(x["con_lai"]          for x in items)
     con_lai_thuc   = sum(x["con_lai_thuc"]     for x in items)
     so_don_du_kien = sum(x["so_don_du_kien"]   for x in items)
@@ -655,6 +691,7 @@ def ncc_module(
             "so_don_du_kien": so_don_du_kien,
             "du_kien_da_ung": du_kien_da_ung,
             "da_tra": da_tra,
+            "da_tra_thuc": da_tra_thuc,
             "con_lai": con_lai,
             # "còn nợ/phải trả" hiển thị (quyết định 29/09/2026) — CHỈ cộng đơn nhóm thực/cần
             # kiểm, KHÔNG cộng dự kiến. con_lai (ở trên) giữ nguyên = tổng RÒNG mọi đơn, dùng cho

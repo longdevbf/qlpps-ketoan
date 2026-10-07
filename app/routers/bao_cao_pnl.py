@@ -26,6 +26,12 @@ from shared.db import get_db
 from ..models import ChiPhiPhatSinh, DoanhThu
 from ..services import calc_pl_for_month
 from ..services.pl_calculator import NHOM_DINH_PHI_PL, dinh_phi_phan_bo_thang
+from ..services.pl_chi_tiet import (
+    KHOAN as KHOAN_PL,
+    SO_DONG_MAC_DINH,
+    SO_DONG_TOI_DA,
+    chi_tiet as chi_tiet_dong_pl,
+)
 from ._deps import require_ketoan_user
 
 
@@ -498,6 +504,39 @@ def bao_cao_pl_thang(
     result = calc_pl_for_month(db, thang)
     _cache_set(cache_key, result)
     return result
+
+
+@router.get("/pl/chi-tiet")
+def bao_cao_pl_chi_tiet(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, _AUTH],
+    khoa: str = Query(..., description="Khoá dòng KQKD, vd 'cogs', 'cp_tai_chinh.lai_vay'"),
+    tu: date_cls = Query(..., description="Từ ngày"),
+    den: date_cls = Query(..., description="Đến ngày"),
+    trang: int = Query(1, ge=1),
+    so_dong: int = Query(SO_DONG_MAC_DINH, ge=1, le=SO_DONG_TOI_DA),
+):
+    """Các chứng từ gốc làm nên một dòng Kết quả kinh doanh — cho popup "số này ở đâu ra".
+
+    Dùng CHUNG mệnh đề WHERE với hàm tính số tổng (xem `services/pl_chi_tiet.py`) nên
+    `tong` trả về luôn bằng số đang hiện trên dòng. Có phân trang vì có khoản lên tới
+    hàng trăm chứng từ; `tong` và `so_dong` vẫn tính trên toàn bộ, không theo trang.
+
+    Khoá chưa khai (định phí phân bổ, lương, ads) trả 404 kèm danh sách khoá đang có —
+    thà báo không biết còn hơn trả số đoán.
+    """
+    if den < tu:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Ngày 'đến' phải từ ngày 'từ' trở đi",
+        )
+    kq = chi_tiet_dong_pl(db, khoa, tu, den, trang=trang, so_dong=so_dong)
+    if kq is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, {
+            "loi": "khoa_chua_khai",
+            "thong_bao": f"Chưa có chi tiết cho dòng '{khoa}'.",
+            "khoa_dang_co": sorted(KHOAN_PL.keys()),
+        })
+    return kq
 
 
 @router.get("/pl/yearly")

@@ -23,16 +23,6 @@
         <p class="kd-dhead__meta"><span>Người đề nghị: <b id="dn-nguoi">—</b></span><span>Bộ phận: <b id="dn-bp-meta">—</b></span></p>
       </div>
     </div>
-    <div class="kd-dhead__tools">
-      <div class="kd-seg" role="group" aria-label="Loại chi" id="dn-loai">
-        <button type="button" data-loai="di_chuyen" aria-pressed="false">Di chuyển</button>
-        <button type="button" data-loai="van_phong" aria-pressed="false">Văn phòng phẩm</button>
-        <button type="button" data-loai="tiep_thi" aria-pressed="false">Tiếp thị</button>
-        <button type="button" data-loai="dao_tao" aria-pressed="false">Đào tạo</button>
-        <button type="button" data-loai="khach_hang" aria-pressed="false">Tiếp khách</button>
-        <button type="button" data-loai="khac" aria-pressed="true">Khác</button>
-      </div>
-    </div>
   </header>
 
   <div id="dn-tt"></div>
@@ -50,9 +40,17 @@
             <input class="kd-input num" id="dn-tien" inputmode="numeric" autocomplete="off" placeholder="0" aria-describedby="dn-tien-chu">
             <p class="kd-meta" id="dn-tien-chu"></p>
           </div>
+          <div class="kd-field kt-ct-rong">
+            <label class="kd-field__label" for="dn-lcp">Loại chi phí <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <select class="kd-input" id="dn-lcp" aria-describedby="dn-lcp-m">
+              <option value="">— đang tải danh mục —</option>
+            </select>
+            <p class="kd-meta" id="dn-lcp-m">Lấy từ danh mục Loại chi phí của Kế toán — chọn đúng loại thì báo cáo mới gộp được.</p>
+          </div>
           <div class="kd-field">
-            <label class="kd-field__label" for="dn-bp">Bộ phận</label>
-            <select class="kd-input" id="dn-bp"></select>
+            <label class="kd-field__label" for="dn-bp">Bộ phận <span class="kd-field__req" aria-hidden="true">*</span></label>
+            <select class="kd-input" id="dn-bp" aria-describedby="dn-bp-m"></select>
+            <p class="kd-meta" id="dn-bp-m"></p>
           </div>
           <div class="kd-field">
             <label class="kd-field__label" for="dn-han">Cần chi trước ngày</label>
@@ -67,13 +65,21 @@
             <select class="kd-input" id="dn-th-chon" hidden aria-labelledby="dn-th-nhan"></select>
             <input class="kd-input" id="dn-th" maxlength="120" autocomplete="off" placeholder="Tên đơn vị / cá nhân nhận tiền">
           </div>
+          <div class="kd-field kt-ct-rong2">
+            <label class="kd-field__label" for="dn-ma-don">Mã đơn hàng liên quan</label>
+            <input class="kd-input" id="dn-ma-don" maxlength="64" autocomplete="off" list="dn-ma-don-ds" placeholder="VD: NV26011-26-00010 — bỏ trống nếu không gắn đơn nào">
+            <datalist id="dn-ma-don-ds"></datalist>
+          </div>
           <div class="kd-field" id="dn-stk-o">
             <label class="kd-field__label" for="dn-stk">Số tài khoản nhận</label>
             <input class="kd-input num" id="dn-stk" maxlength="24" inputmode="numeric" autocomplete="off">
           </div>
           <div class="kd-field" id="dn-nh-o">
             <label class="kd-field__label" for="dn-nh">Ngân hàng nhận</label>
-            <input class="kd-input" id="dn-nh" maxlength="60" autocomplete="off" placeholder="VD: Vietcombank">
+            <input class="kd-input" id="dn-nh" maxlength="60" autocomplete="off" list="dn-nh-ds"
+                   placeholder="Chọn tài khoản của công ty, hoặc gõ ngân hàng khác" aria-describedby="dn-nh-m">
+            <datalist id="dn-nh-ds"></datalist>
+            <p class="kd-meta" id="dn-nh-m"></p>
           </div>
           <div class="kd-field kt-ct-rong">
             <label class="kd-field__label" for="dn-ly">Diễn giải chi tiết <span class="kd-field__req" aria-hidden="true">*</span></label>
@@ -103,7 +109,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kd-man-hinh.js?v=tien1001"></script>
 <script src="/static/js/kt-chung.js?v=tk0928b"></script>
-<script src="/static/js/kt-de-nghi-tt.js?v=loc0928"></script>
+<script src="/static/js/kt-de-nghi-tt.js?v=nh1007"></script>
 {% endblock %}

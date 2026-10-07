@@ -1346,6 +1346,18 @@ async function xnXoaTep(id, ma, ten) {
   } catch (e) { showToast('Lỗi kết nối', 'error'); }
 }
 
+// Ngày bắt đầu sớm nhất được xin nghỉ (máy chủ chặn đơn cho ngày đã qua). Lấy từ máy chủ để khớp luật;
+// lỗi mạng thì bỏ qua — máy chủ vẫn là nơi chặn thật.
+let _xnNgaySomNhat = '';
+async function xnNapGioiHanNgay() {
+  try {
+    const r = await fetch('/api/xin-nghi/gioi-han-ngay', { credentials: 'include' });
+    if (!r.ok) return;
+    _xnNgaySomNhat = (await r.json()).ngay_som_nhat || '';
+    if (_xnNgaySomNhat) document.getElementById('ngay_bat_dau').min = _xnNgaySomNhat;
+  } catch (e) { /* không chặn màn */ }
+}
+
 // ── Gửi đơn ─────────────────────────────────────────────────────────────────
 async function submitDon() {
   const loai = document.getElementById('loai_nghi').value;
@@ -1358,6 +1370,10 @@ async function submitDon() {
   if (!loai) { showToast('Vui lòng chọn loại nghỉ', 'error'); return; }
   if (!bat_dau) { showToast('Vui lòng chọn ngày bắt đầu', 'error'); return; }
   if (!ket_thuc) { showToast('Vui lòng chọn ngày kết thúc', 'error'); return; }
+  if (_xnNgaySomNhat && bat_dau < _xnNgaySomNhat) {
+    showToast('Không xin nghỉ cho ngày đã qua — ngày bắt đầu phải từ ' + fmtDate(_xnNgaySomNhat) + ' trở đi. Nếu quên xin nghỉ, hãy liên hệ HCNS.', 'error');
+    return;
+  }
   if (ket_thuc < bat_dau) { showToast('Ngày kết thúc phải từ ngày bắt đầu trở đi', 'error'); return; }
   if (!ly_do) { showToast('Vui lòng nhập lý do', 'error'); return; }
   let ghi_chu_gui = ghi_chu;
@@ -1549,6 +1565,7 @@ document.addEventListener('keydown', function(e) {
   document.getElementById('my-page-size').value = String(_xn.size);
   _xnVeOLoai();
   _xnVeDauBang();
+  xnNapGioiHanNgay();
   await loadMy();
 })();
 </script>

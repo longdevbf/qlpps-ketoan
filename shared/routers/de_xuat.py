@@ -42,7 +42,7 @@ from typing import Annotated, List, Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import func, select, text as sql_text
+from sqlalchemy import func, or_, select, text as sql_text
 from sqlalchemy.orm import Session
 
 from shared.auth import JWTPayload, current_user
@@ -88,6 +88,47 @@ _MUC_DO = ("thap", "trung", "cao")
 # Đề xuất dùng thang thấp/trung/cao; Directive dùng low/med/high.
 _MUC_DO_SANG_PRIORITY = {"thap": "low", "trung": "med", "cao": "high"}
 
+# Đề xuất "lên chính thức" CHỈ dành cho nhân viên ĐANG THỬ VIỆC (người dùng chốt 03/10/2026).
+_LOAI_CHI_THU_VIEC = "len_chinh_thuc"
+_HOP_DONG_THU_VIEC = "Thử việc"
+# Dữ liệu thật ghi "Đã nghỉ" (11 người), code cũ chỉ loại "Nghỉ việc" nên người đã nghỉ vẫn hiện ra.
+_TRANG_THAI_DA_NGHI = ("Nghỉ việc", "Đã nghỉ")
+
+
+def _loc_thu_viec(loai: Optional[str], alias: str = "") -> str:
+    """Mảnh SQL lọc 'đang thử việc' khi `loai` là lên chính thức; loại khác trả chuỗi rỗng.
+
+    Chỉ ghép HẰNG CHUỖI của file này vào câu SQL (không có dữ liệu người dùng) nên không
+    có nguy cơ SQL injection; `alias` là "" hoặc "e.".
+    """
+    if loai != _LOAI_CHI_THU_VIEC:
+        return ""
+    return (f"AND TRIM(COALESCE({alias}loai_hop_dong, '')) = '{_HOP_DONG_THU_VIEC}' "
+            f"AND COALESCE({alias}trang_thai, '') NOT IN "
+            f"({', '.join(repr(t) for t in _TRANG_THAI_DA_NGHI)})")
+
+
+def _nv_dang_thu_viec(nv: dict) -> bool:
+    return ((nv.get("loai_hop_dong") or "").strip() == _HOP_DONG_THU_VIEC
+            and (nv.get("trang_thai") or "") not in _TRANG_THAI_DA_NGHI)
+
+
+def _mau_nhom_con(pb: Optional[str]) -> str:
+    """Mẫu LIKE (dùng với ESCAPE '!') khớp mọi nhóm con của phòng `pb`: tên bắt đầu bằng "<pb> ".
+
+    Người dùng chốt 03/10/2026: quản lý phòng "Kinh Doanh" có quyền cả "Kinh Doanh Bán Lẻ Nhóm 1/2".
+    Dấu cách sau tên phòng là bắt buộc để "Kinh Doanh" không nuốt nhầm "Kinh DoanhX".
+    """
+    if not pb:
+        return "~~khong~~"
+    return pb.replace("!", "!!").replace("%", "!%").replace("_", "!_") + " %"
+
+
+def _trong_pham_vi_phong(pb_minh: Optional[str], pb_nv: Optional[str]) -> bool:
+    """`pb_nv` là chính phòng của mình hoặc một nhóm con của nó (cùng luật với `_mau_nhom_con`)."""
+    pb_minh, pb_nv = (pb_minh or "").strip(), (pb_nv or "").strip()
+    return bool(pb_minh) and (pb_nv == pb_minh or pb_nv.startswith(pb_minh + " "))
+
 
 # ── Helpers: ai là cấp trên ───────────────────────────────────────────────────
 def _user_phong_ban(username: str) -> Optional[str]:
@@ -99,7 +140,7 @@ def _user_phong_ban(username: str) -> Optional[str]:
 
 
 def _dept_has_manager(db: Session, phong_ban: Optional[str], *, tru: str = "") -> bool:
-    """Phòng `phong_ban` có manager/leader active nào KHÁC `tru` không?
+    """Phòng `phong_ban` (hoặc phòng MẸ của nó) có manager/leader active nào KHÁC `tru` không?
 
     `tru` = username người gửi: manager tự đề xuất thì chính họ không tính là
     người duyệt được, nếu không đề xuất sẽ kẹt chờ chính mình.
@@ -113,7 +154,7 @@ def _dept_has_manager(db: Session, phong_ban: Optional[str], *, tru: str = "") -
         .where(User.active.is_(True))
     ).all()
     for (uname,) in rows:
-        if uname and uname != tru and _user_phong_ban(uname) == pb:
+        if uname and uname != tru and _trong_pham_vi_phong(_user_phong_ban(uname), pb):
             return True
     return False
 
@@ -148,7 +189,8 @@ def _can_approve_at(user: JWTPayload, level: str, rec: DeXuat, db: Session) -> b
     """User có quyền duyệt `rec` tại `level` không.
 
     - super-role: duyệt được MỌI cấp (luật chống kẹt (c)).
-    - manager/leader: chỉ cấp 'manager', và chỉ ĐÚNG phòng ban của đề xuất.
+    - manager/leader: chỉ cấp 'manager', và chỉ phòng ban của đề xuất HOẶC phòng MẸ của nó
+      (nhóm thuộc ban — người dùng chốt 03/10/2026: "Kinh Doanh" duyệt được "Kinh Doanh Bán Lẻ Nhóm 1").
       Dùng phòng ban chứ không dùng app như Duyệt Chi từng làm: đề xuất công
       việc thuộc về phòng, không thuộc về app.
     """
@@ -156,8 +198,7 @@ def _can_approve_at(user: JWTPayload, level: str, rec: DeXuat, db: Session) -> b
     if role in _SUPER_ROLES:
         return True
     if level == "manager" and role in _MANAGER_ROLES:
-        pb = _user_phong_ban(user.username)
-        return bool(pb) and (rec.phong_ban or "") == pb
+        return _trong_pham_vi_phong(_user_phong_ban(user.username), rec.phong_ban)
     return False
 
 
@@ -222,7 +263,7 @@ def _notify_next_tier(db: Session, rec: DeXuat, *, by: str) -> None:
             ).all()
             targets = [r[0] for r in rows
                        if r[0] and r[0] != rec.username
-                       and _user_phong_ban(r[0]) == rec.phong_ban]
+                       and _trong_pham_vi_phong(_user_phong_ban(r[0]), rec.phong_ban)]
         elif lvl == "ceo":
             rows = db.execute(
                 select(User.username)
@@ -470,7 +511,8 @@ def _nv_theo_username(db: Session, username: str) -> dict:
         return {}
     try:
         r = db.execute(sql_text("""
-            SELECT ma_nv, ho_ten, phong_ban, chuc_vu, ngay_vao, ngay_len_chinh_thuc
+            SELECT ma_nv, ho_ten, phong_ban, chuc_vu, ngay_vao, ngay_len_chinh_thuc,
+                   loai_hop_dong, trang_thai
             FROM hcns.employees WHERE username = :u LIMIT 1
         """), {"u": username}).mappings().first()
         return dict(r) if r else {}
@@ -532,7 +574,9 @@ def list_de_xuat(
             raise HTTPException(status.HTTP_403_FORBIDDEN,
                                 "Chỉ quản lý và ban giám đốc xem được đề xuất cả phòng")
         pb = _user_phong_ban(user.username)
-        stmt = stmt.where(DeXuat.phong_ban == pb) if pb else stmt.where(DeXuat.id < 0)
+        stmt = (stmt.where(or_(DeXuat.phong_ban == pb,
+                               DeXuat.phong_ban.like(_mau_nhom_con(pb), escape="!")))
+                if pb else stmt.where(DeXuat.id < 0))
     else:  # tat_ca
         if not la_super:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Chỉ ban giám đốc xem được tất cả")
@@ -570,6 +614,7 @@ def list_de_xuat(
 def ds_phong_ban(
     user: Annotated[JWTPayload, _AUTH],
     db: Annotated[Session, Depends(get_db)],
+    loai: Optional[str] = None,
 ):
     """Danh sách phòng ban ĐANG CÓ nhân sự — cho ô chọn ở form đề xuất.
 
@@ -577,11 +622,12 @@ def ds_phong_ban(
     nằm sau `require_app("hcns")` nên 7 app kia gọi sẽ bị 403 (khảo sát 12/09/2026).
     """
     try:
-        rows = db.execute(sql_text("""
+        rows = db.execute(sql_text(f"""
             SELECT phong_ban, COUNT(*) AS so_nv
             FROM hcns.employees
             WHERE phong_ban IS NOT NULL AND phong_ban <> ''
               AND (trang_thai IS NULL OR trang_thai <> 'Nghỉ việc')
+              {_loc_thu_viec(loai)}
             GROUP BY phong_ban ORDER BY phong_ban
         """)).mappings().all()
         return [{"ten": r["phong_ban"], "so_nv": r["so_nv"]} for r in rows]
@@ -596,11 +642,15 @@ def ds_nhan_vien(
     db: Annotated[Session, Depends(get_db)],
     phong_ban: Optional[str] = None,
     q: Optional[str] = None,
+    loai: Optional[str] = None,
 ):
     """Nhân viên để chọn trong form (mã NV, chức vụ, ngày vào, ngày lên chính thức).
 
     Nhân viên thường chỉ thấy CHÍNH MÌNH — đề xuất lên chính thức / tăng lương là việc
     của quản lý. Quản lý thấy phòng mình, super thấy tất cả.
+
+    `loai=len_chinh_thuc` → chỉ người ĐANG THỬ VIỆC (03/10/2026). Không truyền `loai` thì giữ
+    hành vi cũ — màn Đào tạo dùng endpoint này để chọn "Người chia sẻ".
     """
     role = (user.role or "").lower()
     dieu_kien, tham_so = ["1=1"], {}
@@ -608,8 +658,10 @@ def ds_nhan_vien(
         pass
     elif role in _MANAGER_ROLES:
         pb = _user_phong_ban(user.username)
-        dieu_kien.append("e.phong_ban = :pb_minh")
+        # Quản lý một phòng có quyền cả các nhóm con của phòng đó (03/10/2026, xem _mau_nhom_con).
+        dieu_kien.append("(e.phong_ban = :pb_minh OR e.phong_ban LIKE :pb_con ESCAPE '!')")
         tham_so["pb_minh"] = pb or "~~khong~~"
+        tham_so["pb_con"] = _mau_nhom_con(pb)
     else:
         dieu_kien.append("e.username = :toi")
         tham_so["toi"] = user.username
@@ -626,6 +678,7 @@ def ds_nhan_vien(
             FROM hcns.employees e
             WHERE {' AND '.join(dieu_kien)}
               AND (e.trang_thai IS NULL OR e.trang_thai <> 'Nghỉ việc')
+              {_loc_thu_viec(loai, "e.")}
             ORDER BY e.ho_ten LIMIT 300
         """), tham_so).mappings().all()
         return [dict(r) for r in rows]
@@ -654,11 +707,13 @@ def ds_nguoi_duyet(
             rows = db.execute(sql_text("""
                 SELECT e.username, e.ho_ten, e.chuc_vu, lower(u.role) AS role
                 FROM hcns.employees e JOIN shared.users u ON u.username = e.username
-                WHERE e.phong_ban = :pb AND u.active
+                WHERE (e.phong_ban = :pb OR starts_with(:pb, e.phong_ban || ' ')) AND u.active
                   AND lower(u.role) IN ('manager', 'leader')
-                ORDER BY CASE lower(u.role) WHEN 'manager' THEN 0 ELSE 1 END, e.ho_ten
+                  AND e.username <> :toi
+                ORDER BY CASE WHEN e.phong_ban = :pb THEN 0 ELSE 1 END,
+                         CASE lower(u.role) WHEN 'manager' THEN 0 ELSE 1 END, e.ho_ten
                 LIMIT 1
-            """), {"pb": phong_ban}).mappings().all()
+            """), {"pb": phong_ban, "toi": user.username}).mappings().all()
             for r in rows:
                 ds.append({"cap": "manager", "nhan_cap": "Quản lý phòng ban",
                            "username": r["username"], "ho_ten": r["ho_ten"] or r["username"],
@@ -721,6 +776,18 @@ def tao_de_xuat(
     if body.ngan_sach_du_kien is not None and body.ngan_sach_du_kien < 0:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Ngân sách không được âm")
 
+    ct_in = body.chi_tiet
+    nv = _nv_theo_username(db, ct_in.nv_username) if (ct_in and ct_in.nv_username) else {}
+    if body.loai == _LOAI_CHI_THU_VIEC:
+        if not (ct_in and ct_in.nv_username):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Chọn nhân viên được đề xuất")
+        if not nv:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                "Không tìm thấy nhân viên được đề xuất")
+        if not _nv_dang_thu_viec(nv):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                "Chỉ đề xuất lên chính thức cho nhân viên đang thử việc.")
+
     ho_ten, phong_ban, _, _, _ = _lookup_user_info(user.username)
     host = request.headers.get("host", "")
     app_name = host.split(".")[0] if "." in host else (host or "internal")
@@ -749,13 +816,13 @@ def tao_de_xuat(
 
     # Bảng phụ: nhân viên được đề xuất + mốc ngày + mã hiển thị. Luôn tạo một dòng, kể cả
     # loại cũ không có nhân viên — để mọi đề xuất đều có mã in ra màn.
-    ct_in = body.chi_tiet
-    nv = _nv_theo_username(db, ct_in.nv_username) if (ct_in and ct_in.nv_username) else {}
     ct = DeXuatChiTiet(
         de_xuat_id=rec.id,
         ma=_ma_de_xuat(db, date.today()),
         nv_username=(ct_in.nv_username if ct_in else None),
-        nv_ma_nv=((ct_in.nv_ma_nv if ct_in else None) or nv.get("ma_nv")),
+        # Mã NV lấy từ hồ sơ ĐÃ KIỂM theo nv_username — không tin mã client tự gửi: lúc duyệt,
+        # services/len_chinh_thuc.py tra hồ sơ theo mã này trước (lỗ phát hiện 02/10/2026).
+        nv_ma_nv=nv.get("ma_nv"),
         nv_ho_ten=nv.get("ho_ten"),
         nv_phong_ban=nv.get("phong_ban"),
         nv_chuc_vu=nv.get("chuc_vu"),
@@ -926,7 +993,7 @@ async def upload_tep(
         rec.username == user.username
         or (user.role or "").lower() in _SUPER_ROLES
         or ((user.role or "").lower() in _MANAGER_ROLES
-            and bool(_pb_nguoi_goi) and (rec.phong_ban or "") == _pb_nguoi_goi)
+            and _trong_pham_vi_phong(_pb_nguoi_goi, rec.phong_ban))
     )
     if not _duoc_ghi:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Không có quyền đính kèm tệp")

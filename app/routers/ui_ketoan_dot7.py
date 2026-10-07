@@ -8,7 +8,7 @@ Nguồn thiết kế: d:\\Papasanvn-sv1\\ketoan-giao-dien\\templates\\ketoan\\*.
                                        API thật: app/routers/external.py
     GET /ketoan/san-pham          -- Danh mục sản phẩm dùng chung
                                        API thật: app/routers/products.py
-    GET /ketoan/ton-kho           -- Tồn kho theo dòng nhập (muahang.ton_kho_items)
+    GET /ketoan/ton-kho           -- Tồn kho theo mã hàng (Kho mới Mua hàng: kho_sp + kho_movement)
                                        API thật: app/routers/external.py (ton-kho-mh)
     GET /ketoan/thuoc-tinh        -- Thuộc tính sản phẩm (master-detail 3 bước)
                                        API thật: app/routers/product_attributes.py
@@ -83,7 +83,7 @@ def kt_ton_kho_page(
     request: Request,
     user: Annotated[JWTPayload, Depends(_require_user_redirect)],
 ):
-    """Tồn kho — theo từng dòng nhập (muahang.ton_kho_items); KT chỉ đặt giá bán."""
+    """Tồn kho — theo mã hàng ở Kho mới của Mua hàng (chỉ đọc); KT chỉ đặt giá bán."""
     return templates.TemplateResponse(
         "kt_ton_kho.html",
         {"request": request, "user": user_ctx(user)},

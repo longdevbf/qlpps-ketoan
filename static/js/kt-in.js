@@ -68,7 +68,7 @@
     let ben, tong = 0, daTra = 0, conLai = 0, phieu = [];
     // 29/09/2026 (quyết định người dùng): biên bản gửi NCC ký VẪN kèm nợ dự kiến, nhưng tách
     // riêng — KHÔNG cộng vào khối "Công nợ đã chốt" chính. phieuDuKien/tongDuKien chỉ dùng cho NCC.
-    let phieuDuKien = [], tongDuKien = 0;
+    let phieuDuKien = [], tongDuKien = 0, duKienDaUng = 0;
     if (kh) {
       // Bỏ dòng "thu hộ qua ĐVVC" (saleadmin_vc_phai_thu) như Công nợ KH + Chi tiết đối tượng — trước đây biên bản
       // cộng cả dòng này nên lệch màn (vd Anh Tùng: màn 13.094.800 · biên bản 24.094.800).
@@ -86,7 +86,11 @@
       // SỬA 30/09/2026: tong PHẢI cùng phạm vi với conLai (đều CHỈ thực/cần kiểm) — bản trước lấy
       // tong = g.tong_no (gồm cả dự kiến) trong khi conLai = con_lai_thuc → tong - daTra != conLai
       // (lệch đúng bằng phần dự kiến). g.don_list dùng field `nhom` (không phải `nhom_no`).
-      tong = +g.no_thuc_phai_tra || 0; daTra = +g.da_tra || 0; conLai = +g.con_lai_thuc || 0;
+      // BẢN VÁ 30/09/2026 mục 2: daTra PHẢI dùng g.da_tra_thuc (chỉ nhóm thực/cần kiểm), không
+      // phải g.da_tra (gộp cả tiền ứng cho đơn dự kiến — du_kien_da_ung) — nếu không Tổng − Đã
+      // trả != Còn nợ trên tờ ký (dev đã thấy: Phúc Khánh Tổng 30.776.000, Đã trả 47.776.000
+      // (gồm 17tr cọc dự kiến), Còn nợ 23.000.000 — không tự đối chiếu được).
+      tong = +g.no_thuc_phai_tra || 0; daTra = +g.da_tra_thuc || 0; conLai = +g.con_lai_thuc || 0;
       ben = { ten: g.doi_tac, ma: '', mst: '' };
       const dsThuc = (g.don_list || []).filter((x) => x.nhom !== 'du_kien');
       // BƯỚC 3 30/09/2026 (quyết định người dùng, lỗi 4 kiểm chứng độc lập): bản trước CHỈ liệt
@@ -96,6 +100,7 @@
       const dsDuKien = (g.don_list || []).filter((x) => x.nhom === 'du_kien');
       tongDuKien = dsDuKien.reduce((a, x) => a + (+x.so_tien || 0), 0);
       phieuDuKien = dsDuKien.map((x) => ({ so: x.ma_don || x.id, ngay: x.ngay, han: x.han_thanh_toan, tong: +x.so_tien || 0, con: +x.con_lai || 0 }));
+      duKienDaUng = +g.du_kien_da_ung || 0;
     } else {
       const r = await KD.api('/api/cong-no/ncc/' + encodeURIComponent(u.id) + '/detail'), s = r.summary || {};
       // total_orders_thuc (đơn nhóm thực/cần kiểm) thay total_orders — "công nợ đã chốt" không
@@ -110,11 +115,17 @@
     }
     datTieuDe('BIÊN BẢN ĐỐI CHIẾU CÔNG NỢ', 'Tính đến ngày ' + KD.ngay(dv.hom_nay)); $('in-dau').innerHTML = dau(dv, '', '');
     const coCon = phieu.some((p) => p.con != null);
+    // BẢN VÁ 30/09/2026 mục 2: ghi rõ phần đã ứng trước cho đơn dự kiến (nếu có) ngay dưới bảng
+    // nợ dự kiến — số này KHÔNG nằm trong "Đã trả" của bảng chính (đã tách ra daTra=da_tra_thuc).
+    const ghiChuUngDuKien = duKienDaUng
+      ? '<p class="kt-in-ghi">Đã ứng trước cho đơn dự kiến: ' + KD.tienVnd(duKienDaUng) + ' (chưa cấn trừ, không nằm trong "Đã trả" ở bảng trên).</p>'
+      : '';
     const khoiDuKien = (!kh && phieuDuKien.length)
       ? '<p><b>Nợ dự kiến — chưa chốt, không tính vào công nợ ở trên (' + KD.tienVnd(tongDuKien) + '):</b></p>'
         + '<table class="kt-in-bang"><thead><tr><th scope="col">Chứng từ</th><th scope="col">Ngày</th><th scope="col">Giá trị</th></tr></thead><tbody>'
         + phieuDuKien.map((p) => '<tr><td>' + esc(p.so) + '</td><td class="kt-in-giua">' + KD.ngay(p.ngay) + '</td><td class="num">' + KD.tien(p.tong) + '</td></tr>').join('')
         + '<tr class="is-dam"><td colspan="2">Cộng nợ dự kiến</td><td class="num">' + KD.tien(tongDuKien) + '</td></tr></tbody></table>'
+        + ghiChuUngDuKien
       : '';
     // BƯỚC 3 30/09/2026 (quyết định người dùng, chỉ NCC): conLai < 0 = đã trả nhiều hơn hoá đơn
     // thực — TÀI SẢN (Bên B đang GIỮ tiền của Bên A), không phải "nợ âm". Dòng "Còn nợ" hiện 0,
@@ -207,19 +218,33 @@
       c('400', 'Tổng vốn chủ sở hữu', 'tong', nv.von_csh.tong), c('440', 'TỔNG CỘNG NGUỒN VỐN', 'dam', nv.tong_nguon_von),
     ] };
   }
-  /* LCTT: cùng khoản mục + mã số B03-DN với màn /ketoan/bao-cao/lctt (kt-lctt.js): chi khác = 07 (không phải 04 —
-     04 là lãi vay đã trả); quảng cáo gộp mã 02, sửa chữa lớn gộp mã 21; 33 = thu từ đi vay, 34 = trả nợ gốc vay
-     (API gộp cả lãi vay vào khoản trả nợ, không tách được ra mã 04). */
+  /* LCTT: cùng khoản mục + mã số B03-DN với màn /ketoan/bao-cao/lctt (kt-lctt.js) — sửa bảng này thì sửa cả bảng KM ở đó.
+     Chi khác = 07; quảng cáo gộp mã 02, sửa chữa lớn gộp mã 21; 33 = thu từ đi vay, 34 = trả nợ gốc vay.
+     Từ 01/10/2026 có thêm 04, 05, 06, 22–27, 31, 32, 35, 36 (phiếu thu/chi gắn mã dòng tiền tương ứng). LƯU Ý: lãi vay
+     tự sinh từ Khoản vay (khoan_vay_giao_dich) vẫn gộp ở 34 — chỉ lãi vay NHẬP TAY (mã dòng tiền "Trả lãi vay") lên mã 04. */
   const KM_LCTT = [
     ['01', 'Tiền thu từ bán hàng, cung cấp dịch vụ và doanh thu khác', 'operating', 'thu_kh', 1],
     ['02', 'Tiền chi trả cho người cung cấp hàng hoá và dịch vụ', 'operating', 'tra_ncc', -1],
     ['02', 'Tiền chi trả quảng cáo, marketing', 'operating', 'tra_ads', -1],
     ['03', 'Tiền chi trả cho người lao động', 'operating', 'tra_luong', -1],
+    ['04', 'Tiền chi trả lãi vay', 'operating', 'tra_lai_vay', -1],
+    ['05', 'Tiền chi nộp thuế thu nhập doanh nghiệp', 'operating', 'nop_thue_tndn', -1],
+    ['06', 'Tiền thu khác từ hoạt động kinh doanh', 'operating', 'thu_khac', 1],
     ['07', 'Tiền chi khác cho hoạt động kinh doanh', 'operating', 'chi_khac', -1],
     ['21', 'Tiền chi để mua sắm, xây dựng TSCĐ và các tài sản dài hạn khác', 'investing', 'mua_ccdc', -1],
     ['21', 'Tiền chi sửa chữa lớn tài sản cố định', 'investing', 'sua_chua', -1],
+    ['22', 'Tiền thu từ thanh lý, nhượng bán TSCĐ và các tài sản dài hạn khác', 'investing', 'thanh_ly_tscd', 1],
+    ['23', 'Tiền chi cho vay, mua các công cụ nợ của đơn vị khác', 'investing', 'chi_cho_vay', -1],
+    ['24', 'Tiền thu hồi cho vay, bán lại các công cụ nợ của đơn vị khác', 'investing', 'thu_hoi_cho_vay', 1],
+    ['25', 'Tiền chi đầu tư góp vốn vào đơn vị khác', 'investing', 'chi_gop_von', -1],
+    ['26', 'Tiền thu hồi đầu tư góp vốn vào đơn vị khác', 'investing', 'thu_hoi_gop_von', 1],
+    ['27', 'Tiền thu lãi cho vay, cổ tức và lợi nhuận được chia', 'investing', 'thu_lai', 1],
+    ['31', 'Tiền thu từ phát hành cổ phiếu, nhận vốn góp của chủ sở hữu', 'financing', 'nhan_von', 1],
+    ['32', 'Tiền trả lại vốn góp cho các chủ sở hữu, mua lại cổ phiếu của doanh nghiệp đã phát hành', 'financing', 'tra_von', -1],
     ['33', 'Tiền thu từ đi vay', 'financing', 'vay_nh', 1],
     ['34', 'Tiền trả nợ gốc vay (gồm lãi vay)', 'financing', 'tra_no_nh', -1],
+    ['35', 'Tiền trả nợ gốc thuê tài chính', 'financing', 'tra_goc_thue_tc', -1],
+    ['36', 'Cổ tức, lợi nhuận đã trả cho chủ sở hữu', 'financing', 'chia_co_tuc', -1],
   ];
   function dongLctt(d) {
     const out = [], v = (n, k) => (d[n] && d[n][k] ? +d[n][k].total || 0 : 0);

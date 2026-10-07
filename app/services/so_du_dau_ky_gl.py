@@ -34,6 +34,9 @@ from .tim_kiem import mau_like, sql_khop
 
 SOURCE_TYPE = "so_du_dau_ky"
 SOURCE_ID = "GL"
+# Giám đốc chốt 01/10/2026: sổ cái bắt đầu dùng từ 01/05/2026, số dư đầu kỳ (ngày hạch toán 30/04/2026)
+# do kế toán nhập tay ở màn này. Chỉ là MẶC ĐỊNH khi Cài đặt chưa khai ngày — không ghi gì vào DB.
+NGAY_BAT_DAU_MAC_DINH = date(2026, 5, 1)
 # Chỉ TK bảng cân đối (loại 1–4) có số dư đầu kỳ; 5–8 đã kết chuyển về 421.
 LOAI_TK_CO_SO_DU = ("1", "2", "3", "4")
 TK_HAO_MON = "214"                    # TK loại 2 nhưng dư Có (điều chỉnh giảm tài sản)
@@ -95,16 +98,17 @@ def _but_toan_dau_ky(db: Session) -> Optional[JournalEntry]:
 
 
 def ngay_so_du(db: Session, je: Optional[JournalEntry]) -> date:
-    """Ngày bắt đầu dùng phần mềm (Cài đặt) → bút toán đã lưu → chứng từ sớm nhất → 1/1 năm nay."""
+    """Ngày bắt đầu dùng sổ cái: Cài đặt → bút toán đầu kỳ đã lưu (ngày hạch toán + 1) → NGAY_BAT_DAU_MAC_DINH.
+
+    Bỏ hai nấc cuối cũ ("chứng từ sớm nhất" rồi "1/1 năm nay"): khi Cài đặt để trống chúng rơi về
+    30/11/2024 (khấu hao cũ nhất) — sớm hơn ngày sổ cái thật sự bắt đầu 19 tháng.
+    """
     st = db.get(CaiDatHeThong, 1)
     if st is not None and st.ngay_bat_dau_dung:
         return st.ngay_bat_dau_dung
     if je is not None:
         return je.ngay + timedelta(days=1)
-    dau = db.execute(
-        select(func.min(JournalEntry.ngay)).where(JournalEntry.source_type != SOURCE_TYPE)
-    ).scalar()
-    return dau or date(date.today().year, 1, 1)
+    return NGAY_BAT_DAU_MAC_DINH
 
 
 def khoa_so_den(db: Session) -> Optional[date]:

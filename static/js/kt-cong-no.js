@@ -115,7 +115,11 @@
       // BƯỚC 3 30/09/2026 (quyết định người dùng): conLai < 0 = đã trả NHIỀU hơn hoá đơn thực
       // (tiền ỨNG TRƯỚC cho NCC, chưa có hoá đơn để trừ) — tài sản, không phải "nợ âm". Tách
       // traTruoc dương + conLaiDuong, GIỮ NGUYÊN conLai (ròng, có thể âm) cho nơi cần đối chiếu.
-      const traTruoc = Math.max(0, -conLai);
+      // SỬA (bản vá 30/09/2026, phiên gốc bắt qua ảnh thật): tự tính `Math.max(0, -conLai)` bỏ
+      // qua field `tra_truoc` API đã trả (tắt về 0 khi có lọc thang/tu_ngay/den_ngay — xem
+      // cong_no_ncc.py mục 3) — bộ lọc tháng vẫn hiện "Trả trước 199,27tr" dù API đã đúng 0. Đọc
+      // it.tra_truoc khi API có trả field này (undefined = bản BE cũ, fallback tính từ conLai).
+      const traTruoc = it.tra_truoc !== undefined ? (Number(it.tra_truoc) || 0) : Math.max(0, -conLai);
       const conLaiDuong = Math.max(0, conLai);
       const r = {
         khach: { id, ma: '', ten: it.doi_tac || '(Chưa rõ NCC)', sdt: '', nv_kd: '' },
@@ -421,11 +425,23 @@
     // BƯỚC 3 30/09/2026 (quyết định người dùng, chỉ bên NCC): con_lai < 0 = đã trả nhiều hơn
     // hoá đơn hiện có — TÀI SẢN (tiền ứng trước), không phải "nợ âm". Cột "Còn nợ" hiện "—",
     // cột Tuổi nợ hiện nhãn xám "Trả trước X" thay vì số âm + nhãn "Đã trả đủ" gây hiểu nhầm.
-    const laTraTruoc = BEN === 'ncc' && r.con_lai < 0;
+    // SỬA (bản vá 30/09/2026, phiên gốc bắt qua ảnh thật): dùng r.con_lai < 0 làm điều kiện thì
+    // khi có lọc tháng/khoảng ngày (BE đã tắt tra_truoc=0 — mục 3), r.con_lai (RÒNG trên TẬP ĐÃ
+    // LỌC) vẫn có thể âm → hiện pill "Trả trước 0 ₫" vô nghĩa. Đổi điều kiện sang r.tra_truoc>0
+    // (đúng nguồn chân lý từ API, tự tắt theo lọc); còn lọc mà vẫn âm thật thì hiện SỐ RÒNG thật
+    // (không giấu bằng "—") vì đây không còn là "trả trước" theo nghĩa toàn cục nữa.
+    const traTruocRow = Number(r.tra_truoc) || 0;
+    const laTraTruoc = BEN === 'ncc' && traTruocRow > 0;
+    // Lọc thời gian mà con_lai vẫn âm (không phải "trả trước" toàn cục, tra_truoc=0 từ BE) —
+    // KHÔNG dùng pillTuoi(nhom_tuoi) vì nhom_tuoi='da_thu_du' khi donConNo rỗng (chuyenNCC) sẽ
+    // hiện "Đã trả đủ" sai — số ròng âm trong 1 khoảng lọc không có nghĩa "đã trả đủ".
+    const conLaiAmKhiLoc = BEN === 'ncc' && !laTraTruoc && r.con_lai < 0;
     const oConLai = laTraTruoc ? '<span class="kd-muted">—</span>' : KT.tienSo(r.con_lai);
     const oTuoiNo = laTraTruoc
       ? '<span class="pill pill--muted" title="Đã chi ' + KD.tienVnd(r.tra_truoc) + ' cho ' + esc(k.ten) + ', chưa có hoá đơn để trừ">Trả trước ' + KD.tienGon(r.tra_truoc) + '</span>'
-      : '<span title="' + (r.tuoi_no_max_ngay ? 'Hoá đơn quá hạn lâu nhất: ' + KD.soDem(r.tuoi_no_max_ngay) + ' ngày' : '') + '">' + pillTuoi(r.nhom_tuoi) + '</span>';
+      : conLaiAmKhiLoc
+        ? '<span class="kd-muted" title="Trong khoảng đang lọc, đã trả nhiều hơn phát sinh — không phải trả đủ toàn bộ quan hệ với NCC này">—</span>'
+        : '<span title="' + (r.tuoi_no_max_ngay ? 'Hoá đơn quá hạn lâu nhất: ' + KD.soDem(r.tuoi_no_max_ngay) + ' ngày' : '') + '">' + pillTuoi(r.nhom_tuoi) + '</span>';
     return '<tr data-id="' + esc(k.id) + '" tabindex="0"' + (mo ? ' class="is-mo"' : '') + '>'
       + '<td class="kt-col-mo"><button type="button" class="kd-icon-btn kt-mo" data-mo="' + esc(k.id) + '" aria-expanded="' + mo + '" aria-controls="cnk-con-' + esc(k.id) + '" aria-label="Xem hoá đơn còn nợ của ' + esc(k.ten) + '"><i class="bi bi-chevron-right" aria-hidden="true"></i></button></td>'
       + '<td><span class="kt-khach__ten">' + esc(k.ten) + '</span><span class="kt-khach__ma">' + phuTen + '</span></td>'
@@ -499,10 +515,18 @@
       + (ncc ? '<span>Nợ thực phải trả <b class="num">' + KD.tien(ct.no_thuc) + '</b> · ' + KD.soDem(ct.so_don.thuc) + ' đơn' + (ct.so_don.nhap_tay ? ' (' + KD.soDem(ct.so_don.nhap_tay) + ' nhập tay)' : '') + '</span>' : '')
       // BƯỚC 3 30/09/2026 (quyết định người dùng): con_lai < 0 (đã trả nhiều hơn hoá đơn thực) =
       // "Trả trước còn lại", KHÔNG hiện "Còn phải trả −X" gây hiểu nhầm là nợ âm. Công thức ghi
-      // rõ nguồn: Cộng hoá đơn còn nợ (no_thuc) − Trả trước/ứng chưa cấn trừ (da_thu) = kết quả.
+      // rõ nguồn: Cộng hoá đơn còn nợ − Trả trước/ứng chưa cấn trừ = kết quả.
+      // SỬA (bản vá 30/09/2026 mục 4b): bản trước dùng ct.no_thuc (TỔNG phát sinh, gồm cả hoá đơn
+      // đã trả đủ) làm "hoá đơn còn nợ" và ct.da_thu (TỔNG đã trả MỌI dòng) làm "trả trước/ứng" —
+      // sai khái niệm, không khớp panel cùng NCC. Đúng phải tính từ ct.phieu (từng dòng có sẵn
+      // con_lai): hoá đơn còn nợ = Σcon_lai DƯƠNG, trả trước = Σ|con_lai ÂM| — cùng công thức panel.
       + (ncc && ct.con_lai < 0
-          ? '<span class="kt-so--tra-truoc">Cộng hoá đơn còn nợ ' + KD.tien(ct.no_thuc) + ' − Trả trước/ứng chưa cấn trừ ' + KD.tien(ct.da_thu)
-            + ' = Trả trước còn lại <b class="num">' + KD.tien(ct.tra_truoc) + '</b></span>'
+          ? (() => {
+              const hoaDonConNo = ct.phieu.reduce((a, p) => a + (p.con_lai > 0 ? p.con_lai : 0), 0);
+              const traTruocChan = ct.phieu.reduce((a, p) => a + (p.con_lai < 0 ? -p.con_lai : 0), 0);
+              return '<span class="kt-so--tra-truoc">Cộng hoá đơn còn nợ ' + KD.tien(hoaDonConNo) + ' − Trả trước/ứng chưa cấn trừ ' + KD.tien(traTruocChan)
+                + ' = Trả trước còn lại <b class="num">' + KD.tien(ct.tra_truoc) + '</b></span>';
+            })()
           : '')
       + '<a class="kd-link kd-link--sm" href="' + soChiTiet(ct.khach) + '">Xem sổ chi tiết công nợ<i class="bi bi-arrow-right" aria-hidden="true"></i></a></p>';
   }
@@ -1002,7 +1026,11 @@
       // traTruoc nên panel chỉ thấy số âm trần, không có công thức giải thích. Hiện công thức cả
       // khi con.length=0 (0 − traTruoc = trả trước còn lại), và bên KH giữ nguyên hành vi cũ.
       const laTraTruocP = BEN === 'ncc' && ct.con_lai < 0;
-      const chanCon = (con.length || (laTraTruocP && traTruoc))
+      // SỬA HỒI QUY (bản vá 30/09/2026, mục 1): điều kiện cũ `con.length || (laTraTruocP && traTruoc)`
+      // vẽ khối "Trả trước/ứng … 0 VND" cho MỌI đối tượng còn hoá đơn nợ (con.length>0) kể cả khi
+      // traTruoc=0 — vì con.length đứng riêng ở nhánh OR. Bản HEAD trước chỉ vẽ khi traTruoc khác 0;
+      // khôi phục đúng điều kiện đó, cộng thêm nhánh trả trước thuần (Lỗi 8, con.length=0).
+      const chanCon = (traTruoc && (con.length || laTraTruocP))
         ? '<p class="kt-p-doi-chieu">Cộng hoá đơn còn nợ <b class="num">' + KD.tienVnd(tongCon) + '</b><br>Trả trước/ứng chưa cấn trừ vào hoá đơn <b class="num">' + KD.tienVnd(traTruoc) + '</b><br>= ' + (laTraTruocP ? 'Trả trước còn lại' : CFG.conLai) + ' <b class="num">' + KD.tienVnd(laTraTruocP ? -(tongCon + traTruoc) : tongCon + traTruoc) + '</b></p>'
         : '';
       const chipTraTruoc = laTraTruocP ? '<span class="pill pill--muted">Trả trước</span>' : pillTuoi(ct.nhom_tuoi);

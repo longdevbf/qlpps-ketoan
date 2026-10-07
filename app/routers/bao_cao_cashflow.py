@@ -2,10 +2,17 @@
 
 Endpoint: GET /api/bao-cao/cashflow?from=YYYY-MM-DD&to=YYYY-MM-DD
 
-Trả 3 nhóm dòng tiền (dựa trên `ketoan.so_quy`):
-  I.  HĐ Kinh Doanh: Thu KH - Trả NCC - Trả Ads - Trả Lương - Chi khác (operating)
-  II. HĐ Đầu Tư: Mua CCDC - Sửa chữa lớn (investing)
-  III.HĐ Tài Chính: Vay NH (thu) - Trả nợ NH/Lãi vay (chi) (financing)
+Trả 3 nhóm dòng tiền (dựa trên `ketoan.so_quy`), mã số theo mẫu B03:
+  I.  HĐ Kinh Doanh (operating): Thu KH (01) - Trả NCC / Ads (02) - Trả lương (03) - Trả lãi vay (04)
+      - Nộp thuế TNDN (05) + Thu khác (06) - Chi khác (07)
+  II. HĐ Đầu Tư (investing): Mua CCDC / Sửa chữa lớn (21) + Thanh lý TSCĐ (22) - Cho vay (23)
+      + Thu hồi cho vay (24) - Góp vốn (25) + Thu hồi góp vốn (26) + Thu lãi, cổ tức (27)
+  III.HĐ Tài Chính (financing): Nhận vốn góp (31) - Trả vốn góp (32) + Vay NH (33)
+      - Trả nợ gốc / lãi vay (34) - Trả gốc thuê TC (35) - Chia cổ tức (36)
+
+  Các mã dòng tiền (so_quy.phan_loai_cf) khai ở MỘT bảng: app/services/phan_loai_cf.py. Khoản mục
+  mới (04, 05, 06, 22-27, 31, 32, 35, 36) đọc thẳng phan_loai_cf — KHÔNG heuristic; heuristic chỉ còn
+  cho dòng cũ phan_loai_cf IS NULL (giữ nguyên số báo cáo của dữ liệu cũ). Xem `_B03_MOI` bên dưới.
 
   Net Cashflow = I + II + III
   Số dư đầu kỳ + Net = Số dư cuối kỳ (phải khớp Cân Đối tại date=to)
@@ -19,14 +26,15 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, case, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from shared.auth import JWTPayload
 from shared.db import get_db
 
-from ..models import ChiPhiPhatSinh, SoQuy, TaiKhoanNH
+from ..models import ChiPhiPhatSinh, SoDuDauKy, SoQuy, TaiKhoanNH
+from ..services.phan_loai_cf import KHOA_HOP_LE
 from ..services.so_quy_auto import so_du_truoc_ngay
 from ._deps import require_ketoan_user
 
@@ -92,6 +100,18 @@ def _ilike_any(col, keywords: tuple[str, ...]):
     return or_(*[col.ilike(f"%{kw}%") for kw in keywords])
 
 
+def _khong_noi_bo():
+    """Dòng KHÔNG phải chuyển nội bộ giữa hai quỹ. Phải NULL-safe: `~(NULL ILIKE ...)` là NULL nên
+    nếu thiếu `IS NULL` thì dòng không có lien_quan bị bỏ nhầm khỏi báo cáo."""
+    return or_(SoQuy.lien_quan.is_(None), ~SoQuy.lien_quan.ilike("chuyen_noi_bo"))
+
+
+def _khong_lien_ket_vay():
+    """Dòng KHÔNG gắn khoản vay (lien_quan 'vay_<id>' đã được khoan_vay_giao_dich đếm ở mã 33/34).
+    NULL-safe như `_khong_noi_bo`."""
+    return or_(SoQuy.lien_quan.is_(None), ~SoQuy.lien_quan.ilike("vay\\_%", escape="\\"))
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # Group queries (sum + items top 5)
 # ════════════════════════════════════════════════════════════════════════════
@@ -101,20 +121,29 @@ def _sum_items(
     base_filters: list,
     *,
     top_k: int = 5,
+    offset: int = 0,
 ) -> dict[str, Any]:
-    """Trả {total, items: top-K transactions by so_tien desc}."""
-    total = db.scalar(
-        select(func.coalesce(func.sum(SoQuy.so_tien), 0)).where(and_(*base_filters))
-    ) or Decimal("0")
+    """Trả {total, so_dong, items}.
+
+    `top_k`/`offset` để popup "nguồn gốc con số" lật trang trên CHÍNH bộ lọc đã tính
+    `total` — không có câu truy vấn thứ hai nào để lệch. `total` và `so_dong` luôn
+    tính trên toàn bộ tập khớp, không theo trang.
+    """
+    tt = db.execute(
+        select(func.coalesce(func.sum(SoQuy.so_tien), 0), func.count())
+        .where(and_(*base_filters))
+    ).first()
+    total, so_dong = (tt[0] or Decimal("0"), int(tt[1] or 0)) if tt else (Decimal("0"), 0)
 
     rows = db.execute(
         select(SoQuy)
         .where(and_(*base_filters))
         .order_by(SoQuy.so_tien.desc(), SoQuy.ngay.desc())
+        .offset(max(0, offset))
         .limit(top_k)
     ).scalars().all()
 
-    return {"total": _f(total), "items": [_row(r) for r in rows]}
+    return {"total": _f(total), "so_dong": so_dong, "items": [_row(r) for r in rows]}
 
 
 def _by_cf_or_heuristic(
@@ -131,7 +160,7 @@ def _by_cf_or_heuristic(
     )
 
 
-def _operating_thu_kh(db: Session, tu: date, den: date) -> dict[str, Any]:
+def _operating_thu_kh(db: Session, tu: date, den: date, *, top_k: int = 5, offset: int = 0) -> dict[str, Any]:
     """Thu từ KH — ưu tiên phan_loai_cf='thu_kh', fallback heuristic.
 
     LOẠI TRỪ giải ngân vay (lien_quan='vay_<id>') khỏi heuristic.
@@ -146,18 +175,18 @@ def _operating_thu_kh(db: Session, tu: date, den: date) -> dict[str, Any]:
                 _ilike_any(SoQuy.noi_dung, ("khách", "khach", "đơn", "don_hang")),
             ),
         )),
-    ])
+    ], top_k=top_k, offset=offset)
 
 
-def _operating_tra_ncc(db: Session, tu: date, den: date) -> dict[str, Any]:
+def _operating_tra_ncc(db: Session, tu: date, den: date, *, top_k: int = 5, offset: int = 0) -> dict[str, Any]:
     return _sum_items(db, [
         SoQuy.loai == "chi",
         SoQuy.ngay >= tu, SoQuy.ngay <= den,
         _by_cf_or_heuristic("tra_ncc", _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_NCC)),
-    ])
+    ], top_k=top_k, offset=offset)
 
 
-def _operating_tra_ads(db: Session, tu: date, den: date) -> dict[str, Any]:
+def _operating_tra_ads(db: Session, tu: date, den: date, *, top_k: int = 5, offset: int = 0) -> dict[str, Any]:
     return _sum_items(db, [
         SoQuy.loai == "chi",
         SoQuy.ngay >= tu, SoQuy.ngay <= den,
@@ -166,10 +195,10 @@ def _operating_tra_ads(db: Session, tu: date, den: date) -> dict[str, Any]:
             _ilike_any(SoQuy.ghi_chu, ("ads", "marketing", "facebook", "google")),
             _ilike_any(SoQuy.noi_dung, ("ads", "marketing", "facebook", "google")),
         )),
-    ])
+    ], top_k=top_k, offset=offset)
 
 
-def _operating_tra_luong(db: Session, tu: date, den: date) -> dict[str, Any]:
+def _operating_tra_luong(db: Session, tu: date, den: date, *, top_k: int = 5, offset: int = 0) -> dict[str, Any]:
     return _sum_items(db, [
         SoQuy.loai == "chi",
         SoQuy.ngay >= tu, SoQuy.ngay <= den,
@@ -178,10 +207,10 @@ def _operating_tra_luong(db: Session, tu: date, den: date) -> dict[str, Any]:
             _ilike_any(SoQuy.ghi_chu, ("lương", "luong", "salary", "payroll")),
             _ilike_any(SoQuy.noi_dung, ("lương", "luong", "salary", "payroll")),
         )),
-    ])
+    ], top_k=top_k, offset=offset)
 
 
-def _investing_mua_ccdc(db: Session, tu: date, den: date) -> dict[str, Any]:
+def _investing_mua_ccdc(db: Session, tu: date, den: date, *, top_k: int = 5, offset: int = 0) -> dict[str, Any]:
     return _sum_items(db, [
         SoQuy.loai == "chi",
         SoQuy.ngay >= tu, SoQuy.ngay <= den,
@@ -189,10 +218,10 @@ def _investing_mua_ccdc(db: Session, tu: date, den: date) -> dict[str, Any]:
             _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_CCDC),
             _ilike_any(SoQuy.ghi_chu, ("ccdc", "tài sản", "tai san", "tscd")),
         )),
-    ])
+    ], top_k=top_k, offset=offset)
 
 
-def _investing_sua_chua(db: Session, tu: date, den: date) -> dict[str, Any]:
+def _investing_sua_chua(db: Session, tu: date, den: date, *, top_k: int = 5, offset: int = 0) -> dict[str, Any]:
     return _sum_items(db, [
         SoQuy.loai == "chi",
         SoQuy.ngay >= tu, SoQuy.ngay <= den,
@@ -200,11 +229,12 @@ def _investing_sua_chua(db: Session, tu: date, den: date) -> dict[str, Any]:
             _ilike_any(SoQuy.lien_quan, _LIEN_QUAN_SUACHUA),
             _ilike_any(SoQuy.ghi_chu, ("sửa chữa", "sua chua", "bảo trì", "bao tri")),
         )),
-    ])
+    ], top_k=top_k, offset=offset)
 
 
 def _financing_from_kvgd(
     db: Session, tu: date, den: date, loai_list: tuple[str, ...],
+    *, top_k: int = 5, offset: int = 0,
 ) -> dict[str, Any]:
     """Đọc giao dịch khoản vay từ `ketoan.khoan_vay_giao_dich` — SOURCE OF TRUTH
     cho hoạt động tài chính (giải ngân / trả gốc / trả lãi / đáo hạn).
@@ -235,7 +265,7 @@ def _financing_from_kvgd(
         rows = db.execute(_t(sql), {"tu": tu, "den": den}).mappings().all()
     except Exception:
         db.rollback()
-        return {"total": 0.0, "items": []}
+        return {"total": 0.0, "so_dong": 0, "items": []}
     total = sum(_f(r["so_tien"]) for r in rows)
     items = [
         {
@@ -247,12 +277,13 @@ def _financing_from_kvgd(
             "noi_dung": f"[{r['loai']}] {r['nguon_vay']}",
             "ghi_chu": r.get("ghi_chu"),
         }
-        for r in rows[:5]
+        for r in rows[max(0, offset): max(0, offset) + top_k]
     ]
-    return {"total": total, "items": items}
+    return {"total": total, "so_dong": len(rows), "items": items}
 
 
-def _financing_vay(db: Session, tu: date, den: date) -> dict[str, Any]:
+def _financing_vay(db: Session, tu: date, den: date,
+                   *, top_k: int = 5, offset: int = 0) -> dict[str, Any]:
     """Vay nhận về (Thu) = giải ngân từ khoan_vay_giao_dich + so_quy manual.
 
     Tránh double count với so_quy đã auto-link (lien_quan='vay_<kvgd.id>').
@@ -262,27 +293,66 @@ def _financing_vay(db: Session, tu: date, den: date) -> dict[str, Any]:
         SoQuy.loai == "thu",
         SoQuy.ngay >= tu, SoQuy.ngay <= den,
         SoQuy.phan_loai_cf == "vay_nh",
-        ~SoQuy.lien_quan.ilike("vay\\_%", escape="\\"),
+        _khong_lien_ket_vay(),   # NULL-safe (trước: ~ilike → dòng không có lien_quan biến mất khỏi mã 33)
     ])
+    gop = kvgd["items"] + sq["items"]
     return {
         "total": kvgd["total"] + sq["total"],
-        "items": (kvgd["items"] + sq["items"])[:5],
+        "so_dong": kvgd.get("so_dong", len(kvgd["items"])) + sq.get("so_dong", len(sq["items"])),
+        "items": gop[max(0, offset): max(0, offset) + top_k],
     }
 
 
-def _financing_tra_no(db: Session, tu: date, den: date) -> dict[str, Any]:
+def _financing_tra_no(db: Session, tu: date, den: date,
+                      *, top_k: int = 5, offset: int = 0) -> dict[str, Any]:
     """Trả gốc + lãi (Chi) = trả nợ từ khoan_vay_giao_dich + so_quy manual."""
     kvgd = _financing_from_kvgd(db, tu, den, ("tra_goc", "tra_lai", "tra_goc_lai", "dao_han"))
     sq = _sum_items(db, [
         SoQuy.loai == "chi",
         SoQuy.ngay >= tu, SoQuy.ngay <= den,
         SoQuy.phan_loai_cf == "tra_nh",
-        ~SoQuy.lien_quan.ilike("vay\\_%", escape="\\"),
+        _khong_lien_ket_vay(),   # NULL-safe (trước: ~ilike → dòng không có lien_quan biến mất khỏi mã 34 VÀ khỏi chi_khac)
     ])
+    gop = kvgd["items"] + sq["items"]
     return {
         "total": kvgd["total"] + sq["total"],
-        "items": (kvgd["items"] + sq["items"])[:5],
+        "so_dong": kvgd.get("so_dong", len(kvgd["items"])) + sq.get("so_dong", len(sq["items"])),
+        "items": gop[max(0, offset): max(0, offset) + top_k],
     }
+
+
+# Khoản mục B03 MỚI (01/10/2026). Mỗi dòng: (nhóm trong JSON, khoá JSON, loai so_quy, phan_loai_cf, bộ lọc thêm).
+# - Đọc thẳng `phan_loai_cf == khoá`, KHÔNG heuristic — cùng predicate cho cả "hiển thị" lẫn "loại khỏi chi_khac"
+#   (bài học DUP-02 ở _full_chi_classified_ids: lệch hai bên thì dòng biến mất hoặc bị đếm đôi).
+# - Khoá JSON `thu_khac` = mã 06: phiếu THU mang khoá 'khac' (khoá cũ dùng cả hai chiều) mà không phải chuyển nội bộ.
+# - `tra_lai_vay` thủ công chỉ tính dòng KHÔNG có lien_quan 'vay_<id>' (như tra_nh/vay_nh) để khỏi đếm đôi với
+#   khoan_vay_giao_dich — lãi vay tự sinh từ Khoản vay vẫn nằm ở mã 34 (giữ nguyên số cũ).
+_B03_MOI = (
+    ("operating", "tra_lai_vay", "chi", "tra_lai_vay", _khong_lien_ket_vay),          # 04
+    ("operating", "nop_thue_tndn", "chi", "nop_thue_tndn", None),                    # 05
+    ("operating", "thu_khac", "thu", "khac", _khong_noi_bo),                          # 06
+    ("investing", "thanh_ly_tscd", "thu", "thanh_ly_tscd", None),                    # 22
+    ("investing", "chi_cho_vay", "chi", "chi_cho_vay", None),                        # 23
+    ("investing", "thu_hoi_cho_vay", "thu", "thu_hoi_cho_vay", None),                # 24
+    ("investing", "chi_gop_von", "chi", "chi_gop_von", None),                        # 25
+    ("investing", "thu_hoi_gop_von", "thu", "thu_hoi_gop_von", None),                # 26
+    ("investing", "thu_lai", "thu", "thu_lai", None),                                # 27
+    ("financing", "nhan_von", "thu", "nhan_von", None),                              # 31
+    ("financing", "tra_von", "chi", "tra_von", None),                                # 32
+    ("financing", "tra_goc_thue_tc", "chi", "tra_goc_thue_tc", None),                # 35
+    ("financing", "chia_co_tuc", "chi", "chia_co_tuc", None),                        # 36
+)
+# Lệch bảng mã (gõ sai khoá / bỏ khoá khỏi app/services/phan_loai_cf.py) thì dừng ngay lúc nạp module.
+assert {_row_[3] for _row_ in _B03_MOI} <= set(KHOA_HOP_LE), "bảng _B03_MOI có phan_loai_cf không có trong phan_loai_cf.py"
+
+
+def _b03_moi(db: Session, tu: date, den: date, loai: str, cf: str, loc=None,
+             *, top_k: int = 5, offset: int = 0) -> dict[str, Any]:
+    """Một khoản mục B03 mới = so_quy.loai + phan_loai_cf == cf (+ bộ lọc thêm) trong kỳ."""
+    filters = [SoQuy.loai == loai, SoQuy.ngay >= tu, SoQuy.ngay <= den, SoQuy.phan_loai_cf == cf]
+    if loc is not None:
+        filters.append(loc())
+    return _sum_items(db, filters, top_k=top_k, offset=offset)
 
 
 def _operating_chi_khac(
@@ -290,8 +360,12 @@ def _operating_chi_khac(
     tu: date,
     den: date,
     excl_ids: set[int],
+    *,
+    top_k: int = 5,
+    offset: int = 0,
 ) -> dict[str, Any]:
-    """Chi khác = chi trong kỳ KHÔNG thuộc các nhóm đã phân loại (NCC/Ads/Lương/Đầu tư/Tài chính)."""
+    """Chi khác (mã 07) = chi trong kỳ KHÔNG thuộc nhóm nào đã phân loại (NCC/Ads/Lương/Đầu tư/Tài chính/
+    khoản mục B03 mới/chuyển nội bộ) — `excl_ids` do `_full_chi_classified_ids` dựng."""
     base_filters = [
         SoQuy.loai == "chi",
         SoQuy.ngay >= tu, SoQuy.ngay <= den,
@@ -299,16 +373,7 @@ def _operating_chi_khac(
     if excl_ids:
         base_filters.append(~SoQuy.id.in_(excl_ids))
 
-    total = db.scalar(
-        select(func.coalesce(func.sum(SoQuy.so_tien), 0)).where(and_(*base_filters))
-    ) or Decimal("0")
-    rows = db.execute(
-        select(SoQuy)
-        .where(and_(*base_filters))
-        .order_by(SoQuy.so_tien.desc(), SoQuy.ngay.desc())
-        .limit(5)
-    ).scalars().all()
-    return {"total": _f(total), "items": [_row(r) for r in rows]}
+    return _sum_items(db, base_filters, top_k=top_k, offset=offset)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -416,6 +481,32 @@ def _so_du_dau_ky(db: Session, tu: date) -> float:
     return _f(sum((so_du_truoc_ngay(db, tk.id, tk.ten_tk, tu) for tk in tks), Decimal("0")))
 
 
+def _canh_bao_dau_ky(db: Session, tu: date) -> Optional[str]:
+    """Cảnh báo khi kỳ xem bắt đầu TRƯỚC mốc số dư đầu kỳ sớm nhất đã khai.
+
+    Vì sao cần (đo trên production 05/10/2026): `so_du_dau_ky` chỉ có 4 dòng, đều ở
+    01/05/2026. Xem từ trước mốc đó thì `so_du_truoc_ngay` phải suy NGƯỢC = neo 01/05
+    trừ các phiếu tháng 4 — mà tháng 4 chỉ có 6 phiếu, cả 6 đều nhập bù trong tháng 5
+    (18→27/05), trong đó 4 phiếu là giải ngân vay do hệ thống TỰ sinh khi khai khoản
+    vay cũ, luôn ghi vào quỹ Tiền Mặt. Tiền vay 1.485.714.292đ vào sổ nhưng khoản chi
+    tương ứng của tháng 4 chưa ai nhập → quỹ Tiền Mặt đầu kỳ ra −1.336.813.744đ.
+
+    Chọn CẢNH BÁO chứ không sửa số: số đang hiển thị đúng với dữ liệu đang có, sửa
+    thầm sẽ giấu mất chuyện tháng 4 ghi thiếu. Kỳ bắt đầu từ 01/05 trở đi vẫn đúng
+    (đầu kỳ = 119.934.370đ = tổng 4 mốc đã khai).
+    """
+    moc = db.execute(
+        select(func.min(SoDuDauKy.thang))
+    ).scalar()
+    if moc is None or tu >= moc:
+        return None
+    return (
+        f"Sổ quỹ chỉ khai số dư đầu kỳ từ {moc.strftime('%d/%m/%Y')}. Kỳ này bắt đầu "
+        f"trước mốc đó nên 'Tiền đầu kỳ' là số suy ngược, không phải số kiểm quỹ — "
+        f"giai đoạn trước mốc chưa nhập đủ phiếu."
+    )
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # Endpoint
 # ════════════════════════════════════════════════════════════════════════════
@@ -444,6 +535,14 @@ def bao_cao_cashflow(
     vay_nh = _financing_vay(db, tu, den)
     tra_no_nh = _financing_tra_no(db, tu, den)
 
+    # ── Khoản mục B03 MỚI: đọc thẳng phan_loai_cf (xem _B03_MOI) ─────────────
+    moi: dict[str, dict[str, Any]] = {"operating": {}, "investing": {}, "financing": {}}
+    net_moi = {"operating": 0.0, "investing": 0.0, "financing": 0.0}
+    for nhom, khoa, loai, cf, loc in _B03_MOI:
+        grp = _b03_moi(db, tu, den, loai, cf, loc)
+        moi[nhom][khoa] = grp
+        net_moi[nhom] += grp["total"] if loai == "thu" else -grp["total"]
+
     # ── Chi khác (operating) = chi trong kỳ NOT IN các nhóm chi trên ────────
     # Build excl_ids = mọi id chi đã phân loại (NCC/Ads/Lương/CCDC/SửaChữa/TrảNợ)
     classified_chi_ids = set()
@@ -458,9 +557,10 @@ def bao_cao_cashflow(
         thu_kh["total"]
         - tra_ncc["total"] - tra_ads["total"]
         - tra_luong["total"] - chi_khac["total"]
+        + net_moi["operating"]
     )
-    net_investing = -(mua_ccdc["total"] + sua_chua["total"])
-    net_financing = vay_nh["total"] - tra_no_nh["total"]
+    net_investing = -(mua_ccdc["total"] + sua_chua["total"]) + net_moi["investing"]
+    net_financing = vay_nh["total"] - tra_no_nh["total"] + net_moi["financing"]
     net_cashflow = net_operating + net_investing + net_financing
 
     so_du_dau = _so_du_dau_ky(db, tu)
@@ -475,22 +575,26 @@ def bao_cao_cashflow(
         "to": den.isoformat(),
         "n_days": (den - tu).days + 1,
         "so_du_dau_ky": so_du_dau,
+        "canh_bao_dau_ky": _canh_bao_dau_ky(db, tu),
         "operating": {
             "thu_kh": thu_kh,
             "tra_ncc": tra_ncc,
             "tra_ads": tra_ads,
             "tra_luong": tra_luong,
+            **moi["operating"],  # tra_lai_vay (04), nop_thue_tndn (05), thu_khac (06)
             "chi_khac": chi_khac,
             "net": net_operating,
         },
         "investing": {
             "mua_ccdc": mua_ccdc,
             "sua_chua": sua_chua,
+            **moi["investing"],  # thanh_ly_tscd (22) … thu_lai (27)
             "net": net_investing,
         },
         "financing": {
             "vay_nh": vay_nh,
             "tra_no_nh": tra_no_nh,
+            **moi["financing"],  # nhan_von (31), tra_von (32), tra_goc_thue_tc (35), chia_co_tuc (36)
             "net": net_financing,
         },
         "net_cashflow": net_cashflow,
@@ -501,7 +605,7 @@ def bao_cao_cashflow(
 
 
 def _full_chi_classified_ids(db: Session, tu: date, den: date) -> set[int]:
-    """Lấy đầy đủ ID các so_quy chi đã thuộc nhóm phân loại (NCC/Ads/Lương/CCDC/SửaChữa/TrảNợ).
+    """Lấy đầy đủ ID các so_quy chi đã thuộc nhóm phân loại (NCC/Ads/Lương/CCDC/SửaChữa/TrảNợ/khoá chi B03 mới).
 
     Dùng để loại trừ khỏi `chi_khac`.
     """
@@ -543,6 +647,11 @@ def _full_chi_classified_ids(db: Session, tu: date, den: date) -> set[int]:
     for _p in _preds:
         rs = db.execute(select(SoQuy.id).where(*base, _p)).scalars().all()
         ids.update(rs)
+    # Khoá chi MỚI (01/10/2026): phan_loai_cf == khoá, không heuristic. KHÔNG kèm bộ lọc vay_<id> của mã 04
+    # (giống tra_nh ở trên): dòng vay_<id> bị loại khỏi chi_khac, phần tiền đó do khoan_vay_giao_dich đếm ở mã 34.
+    cf_chi_moi = [cf for (_n, _k, lo, cf, _l) in _B03_MOI if lo == "chi"]
+    rs = db.execute(select(SoQuy.id).where(*base, SoQuy.phan_loai_cf.in_(cf_chi_moi))).scalars().all()
+    ids.update(rs)
     # Chuyển nội bộ (luân chuyển quỹ giữa 2 TK) — KHÔNG phải chi phí, chỉ là
     # dịch chuyển tiền nội bộ. Loại khỏi chi_khac (2026-06-20). Dòng 'thu' đối
     # ứng vốn đã không lọt vào thu_kh (heuristic KH), nên loại nốt chi → net 0.
@@ -846,13 +955,46 @@ def get_tinh_hinh_tai_chinh(
     def _cong_no_theo_doi_tac(loai: str) -> tuple[list[dict[str, Any]], float]:
         """Công nợ còn lại theo đối tác — cùng điều kiện với Cân đối (loai, ngay ≤ as_of,
         trang_thai ≠ 'da_tra'); tổng = Σ mọi đối tác để khớp mã 130/311."""
+        # GỘP THEO TÊN CHUẨN (sửa 02/10/2026) — trước đây `GROUP BY doi_tac` THÔ.
+        # `doi_tac` là chữ tự do: cùng một nhà bị ghi nhiều kiểu, nên một đối tác
+        # nở ra thành nhiều dòng và người đọc tưởng dòng to nhất là tổng nợ của họ.
+        # Đo trên production 02/10/2026: 59 dòng cho 21 đối tác thật.
+        #   CHỊ LAN ĐỆM 12 cách viết — dòng "CHỊ LAN ĐỆM (đệm)" hiện 41.800.000
+        #   trong khi nợ thật của nhà này là 38.037.000 → anh Quang đọc ra "42tr".
+        #   CHIẾN PHƯƠNG 5 cách · A TOẢN MÂY 9 · CHUNG XINH 4 · A VIỆT MÂY 4.
+        # Khoá gộp DÙNG ĐÚNG công thức `khoa_ncc` của view
+        # ketoan.v_cong_no_phai_tra_phan_loai (bỏ mọi cụm trong ngoặc + lower với
+        # COLLATE "und-x-icu") — KHÔNG viết lại luật ở đây, để hai nơi không trôi.
+        # `lower()` thường KHÔNG dùng được: collation DB là C nên không hạ được chữ
+        # Việt có dấu ('A TUẤN' → 'a tuẤn').
+        # TỔNG không đổi (703.587.445) — chỉ đổi cách gom dòng. Phạm vi lọc
+        # (trang_thai <> 'da_tra') GIỮ NGUYÊN để vẫn khớp mã 311 của Cân đối.
+        # Tên hiển thị lấy bản NGẮN NHẤT trong nhóm: đó là tên trơn của nhà cung cấp
+        # ("CHỊ LAN ĐỆM"), giữ nguyên chữ hoa gốc. Lấy bản dài nhất thì ra tên của
+        # một phần hàng ("CHỊ LAN ĐỆM (đệm ghế pps)") — đúng số nhưng đọc như thể
+        # dòng đó chỉ là một hạng mục, không phải cả nhà.
         rows = _rows("""
-            SELECT doi_tac, SUM(con_lai) AS con_lai,
-                   MIN(NULLIF(han_thanh_toan, '')) AS han_som, COUNT(*) AS so_don
-            FROM ketoan.cong_no
-            WHERE loai = :loai AND ngay <= :as_of AND trang_thai <> 'da_tra'
-            GROUP BY doi_tac
-            ORDER BY SUM(con_lai) DESC
+            WITH g AS (
+                SELECT NULLIF(TRIM(regexp_replace(
+                           lower(COALESCE(doi_tac, '') COLLATE "und-x-icu"),
+                           '[[:space:]]*[(][^)]*[)][[:space:]]*', ' ', 'g')), '') AS khoa,
+                       doi_tac, con_lai, han_thanh_toan
+                  FROM ketoan.cong_no
+                 WHERE loai = :loai AND ngay <= :as_of AND trang_thai <> 'da_tra'
+            )
+            SELECT COALESCE(
+                       (SELECT g2.doi_tac FROM g g2
+                         WHERE g2.khoa IS NOT DISTINCT FROM g.khoa
+                         ORDER BY length(COALESCE(g2.doi_tac, '')) ASC, g2.doi_tac
+                         LIMIT 1),
+                       MIN(g.doi_tac)
+                   ) AS doi_tac,
+                   SUM(g.con_lai) AS con_lai,
+                   MIN(NULLIF(g.han_thanh_toan, '')) AS han_som,
+                   COUNT(*) AS so_don
+              FROM g
+             GROUP BY g.khoa
+             ORDER BY SUM(g.con_lai) DESC
         """, {"loai": loai, "as_of": as_of})
         items, tong = [], 0.0
         for r in rows:
@@ -1073,4 +1215,188 @@ def get_tinh_hinh_tai_chinh(
             "se_phai_tra": round(no_phai_tra_total, 0),
             "thanh_khoan_thuan": round(tong_tien + phai_thu_total - no_phai_tra_total, 0),
         },
+    }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Chi tiết từng dòng — "con số này ở đâu ra"
+#
+# Mỗi khoá gọi CHÍNH hàm đã dựng nên số trên báo cáo, chỉ truyền thêm top_k/offset.
+# Không có câu truy vấn thứ hai nào để lệch — xem docstring `_sum_items`.
+# ════════════════════════════════════════════════════════════════════════════
+
+_NHAN_CF: dict[str, str] = {
+    "operating.thu_kh": "Tiền thu từ bán hàng, cung cấp dịch vụ",
+    "operating.tra_ncc": "Tiền trả cho nhà cung cấp",
+    "operating.tra_ads": "Tiền chi quảng cáo",
+    "operating.tra_luong": "Tiền chi trả cho người lao động",
+    "operating.chi_khac": "Tiền chi khác cho hoạt động kinh doanh",
+    "investing.mua_ccdc": "Tiền chi mua sắm tài sản, công cụ dụng cụ",
+    "investing.sua_chua": "Tiền chi sửa chữa lớn",
+    "financing.vay_nh": "Tiền vay nhận được",
+    "financing.tra_no_nh": "Tiền trả nợ gốc và lãi vay",
+}
+_NHAN_CF.update({f"{nhom}.{khoa}": khoa.replace("_", " ").capitalize()
+                 for nhom, khoa, _l, _c, _f in _B03_MOI})
+
+# Dòng TỔNG của LCTT: không có phiếu riêng, là phép cộng của các dòng trên.
+# Số hạng đọc từ chính kết quả `bao_cao_cashflow()` nên cộng lại luôn bằng số trên dòng.
+_CT_CF: dict[str, tuple[str, str, list]] = {
+    "operating.net": ("Lưu chuyển tiền thuần từ hoạt động kinh doanh", "operating.net", [
+        ("Tiền thu từ bán hàng", "operating.thu_kh", 1),
+        ("Trả nhà cung cấp", "operating.tra_ncc", -1),
+        ("Trả quảng cáo", "operating.tra_ads", -1),
+        ("Trả người lao động", "operating.tra_luong", -1),
+        ("Trả lãi vay", "operating.tra_lai_vay", -1),
+        ("Nộp thuế TNDN", "operating.nop_thue_tndn", -1),
+        ("Thu khác", "operating.thu_khac", 1),
+        ("Chi khác", "operating.chi_khac", -1)]),
+    "investing.net": ("Lưu chuyển tiền thuần từ hoạt động đầu tư", "investing.net", [
+        ("Mua sắm TSCĐ, CCDC", "investing.mua_ccdc", -1),
+        ("Sửa chữa lớn", "investing.sua_chua", -1),
+        ("Thanh lý TSCĐ", "investing.thanh_ly_tscd", 1),
+        ("Chi cho vay", "investing.chi_cho_vay", -1),
+        ("Thu hồi cho vay", "investing.thu_hoi_cho_vay", 1),
+        ("Chi góp vốn", "investing.chi_gop_von", -1),
+        ("Thu hồi góp vốn", "investing.thu_hoi_gop_von", 1),
+        ("Thu lãi, cổ tức", "investing.thu_lai", 1)]),
+    "financing.net": ("Lưu chuyển tiền thuần từ hoạt động tài chính", "financing.net", [
+        ("Nhận vốn góp", "financing.nhan_von", 1),
+        ("Trả vốn góp", "financing.tra_von", -1),
+        ("Tiền thu từ đi vay", "financing.vay_nh", 1),
+        ("Trả nợ gốc, lãi vay", "financing.tra_no_nh", -1),
+        ("Trả gốc thuê tài chính", "financing.tra_goc_thue_tc", -1),
+        ("Chia cổ tức", "financing.chia_co_tuc", -1)]),
+    "net_cashflow": ("Lưu chuyển tiền thuần trong kỳ", "net_cashflow", [
+        ("Hoạt động kinh doanh", "operating.net", 1),
+        ("Hoạt động đầu tư", "investing.net", 1),
+        ("Hoạt động tài chính", "financing.net", 1)]),
+    "so_du_dau_ky": ("Tiền và tương đương tiền đầu kỳ", "so_du_dau_ky", []),
+    "so_du_cuoi_ky": ("Tiền và tương đương tiền cuối kỳ", "so_du_cuoi_ky", [
+        ("Tiền đầu kỳ", "so_du_dau_ky", 1),
+        ("Lưu chuyển tiền thuần trong kỳ", "net_cashflow", 1)]),
+}
+_NHAN_CF.update({k: v[0] for k, v in _CT_CF.items()})
+
+
+def _so_cf(d: dict, path: str) -> float:
+    cur = d
+    for k in path.split("."):
+        if not isinstance(cur, dict) or k not in cur:
+            return 0.0
+        cur = cur[k]
+    if isinstance(cur, dict):
+        cur = cur.get("total", 0)
+    try:
+        return float(cur)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+_B03_THEO_KHOA = {f"{nhom}.{khoa}": (loai, cf, loc)
+                  for nhom, khoa, loai, cf, loc in _B03_MOI}
+
+
+def _chi_tiet_cf(db: Session, khoa: str, tu: date, den: date,
+                 top_k: int, offset: int) -> Optional[dict[str, Any]]:
+    """Gọi đúng hàm đã tính dòng đó. `None` nếu khoá không có."""
+    if khoa in _B03_THEO_KHOA:
+        loai, cf, loc = _B03_THEO_KHOA[khoa]
+        return _b03_moi(db, tu, den, loai, cf, loc, top_k=top_k, offset=offset)
+    if khoa == "operating.chi_khac":
+        return _operating_chi_khac(db, tu, den, _full_chi_classified_ids(db, tu, den),
+                                   top_k=top_k, offset=offset)
+    ham = {
+        "operating.thu_kh": _operating_thu_kh,
+        "operating.tra_ncc": _operating_tra_ncc,
+        "operating.tra_ads": _operating_tra_ads,
+        "operating.tra_luong": _operating_tra_luong,
+        "investing.mua_ccdc": _investing_mua_ccdc,
+        "investing.sua_chua": _investing_sua_chua,
+        "financing.vay_nh": _financing_vay,
+        "financing.tra_no_nh": _financing_tra_no,
+    }.get(khoa)
+    if ham is None:
+        return None
+    return ham(db, tu, den, top_k=top_k, offset=offset)
+
+
+_COT_SO_QUY = [
+    {"key": "ngay", "nhan": "Ngày", "kieu": "ngay"},
+    {"key": "tai_khoan", "nhan": "Tài khoản"},
+    {"key": "noi_dung", "nhan": "Nội dung"},
+    {"key": "lien_quan", "nhan": "Liên quan"},
+    {"key": "ghi_chu", "nhan": "Ghi chú"},
+    {"key": "so_tien", "nhan": "Số tiền", "kieu": "tien"},
+]
+
+
+@router.get("/cashflow/chi-tiet")
+def bao_cao_cashflow_chi_tiet(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[JWTPayload, Depends(require_ketoan_user)],
+    khoa: str = Query(..., description="Khoá dòng, vd 'operating.thu_kh'"),
+    from_: Optional[date] = Query(None, alias="from"),
+    to: Optional[date] = Query(None),
+    trang: int = Query(1, ge=1),
+    so_dong: int = Query(50, ge=1, le=200),
+):
+    """Các phiếu thu/chi làm nên một dòng Lưu chuyển tiền tệ, có phân trang."""
+    tu, den = _resolve_range(from_, to)
+    if khoa == "so_du_dau_ky":
+        # Số dư từng tài khoản tiền ngay trước ngày `tu` — dùng CHÍNH hàm mà báo cáo
+        # gọi (`so_du_truoc_ngay`), nên cộng lại luôn bằng dòng mã 60.
+        tks = db.execute(
+            select(TaiKhoanNH.id, TaiKhoanNH.ten_tk).where(TaiKhoanNH.active.is_(True))
+        ).all()
+        dong = [{"tai_khoan": tk.ten_tk,
+                 "so_tien": _f(so_du_truoc_ngay(db, tk.id, tk.ten_tk, tu))} for tk in tks]
+        return {
+            "ok": True, "khoa": khoa, "nhan": "Tiền và tương đương tiền đầu kỳ",
+            "nguon": "ketoan.tai_khoan_nh + mốc số dư đầu kỳ",
+            "giai_thich": "Số dư từng tài khoản tiền ngay trước ngày bắt đầu kỳ.",
+            "ghi_chu": _canh_bao_dau_ky(db, tu) or "",
+            "tu": tu.isoformat(), "den": den.isoformat(),
+            "tong": round(sum(x["so_tien"] for x in dong), 2),
+            "so_dong": len(dong), "trang": 1, "so_trang": 1, "so_dong_moi_trang": so_dong,
+            "cot": [{"key": "tai_khoan", "nhan": "Tài khoản"},
+                    {"key": "so_tien", "nhan": "Số dư", "kieu": "tien"}],
+            "dong": dong, "dieu_chinh": [],
+        }
+    if khoa in _CT_CF:
+        nhan, duong_dan, so_hang = _CT_CF[khoa]
+        bc = bao_cao_cashflow(db, user, from_=tu, to=den)
+        return {
+            "ok": True, "khoa": khoa, "nhan": nhan,
+            "nguon": "Tính từ các dòng khác của báo cáo",
+            "giai_thich": "Dòng này không có phiếu riêng — nó là phép cộng của các dòng trên.",
+            "tu": tu.isoformat(), "den": den.isoformat(),
+            "tong": round(_so_cf(bc, duong_dan), 2),
+            "so_dong": len(so_hang), "trang": 1, "so_trang": 1, "so_dong_moi_trang": so_dong,
+            "cot": [{"key": "khoan", "nhan": "Số hạng"},
+                    {"key": "so_tien", "nhan": "Số tiền", "kieu": "tien"}],
+            "dong": [{"khoan": ("− " if d < 0 else "+ ") + n,
+                      "so_tien": round(_so_cf(bc, pth) * d, 2)} for n, pth, d in so_hang],
+            "dieu_chinh": [],
+        }
+    kq = _chi_tiet_cf(db, khoa, tu, den, top_k=so_dong, offset=(trang - 1) * so_dong)
+    if kq is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, {
+            "loi": "khoa_chua_khai",
+            "thong_bao": f"Không có dòng '{khoa}' trong Lưu chuyển tiền tệ.",
+            "khoa_dang_co": sorted(_NHAN_CF.keys()),
+        })
+    n = int(kq.get("so_dong", len(kq.get("items", []))))
+    so_trang = max(1, -(-n // so_dong))
+    if trang > so_trang:
+        kq = _chi_tiet_cf(db, khoa, tu, den, top_k=so_dong, offset=(so_trang - 1) * so_dong)
+    return {
+        "ok": True, "khoa": khoa, "nhan": _NHAN_CF.get(khoa, khoa),
+        "nguon": "ketoan.so_quy" if not khoa.startswith("financing.") else
+                 "ketoan.khoan_vay_giao_dich + ketoan.so_quy",
+        "giai_thich": "Các phiếu thu/chi đã được cộng vào dòng này trong kỳ.",
+        "tu": tu.isoformat(), "den": den.isoformat(),
+        "tong": kq["total"], "so_dong": n,
+        "trang": min(trang, so_trang), "so_trang": so_trang, "so_dong_moi_trang": so_dong,
+        "cot": _COT_SO_QUY, "dong": kq.get("items", []), "dieu_chinh": [],
     }

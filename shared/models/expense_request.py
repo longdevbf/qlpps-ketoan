@@ -31,10 +31,21 @@ class ExpenseRequest(Base):
     loai_chi: Mapped[str] = mapped_column(String(64), nullable=False)
     # loai_chi: di_chuyen, van_phong, tiep_thi, dao_tao, khach_hang, khac
 
+    # Tên loại trong `ketoan.loai_chi_phi` (danh mục 32 loại màn Thu chi vẫn dùng).
+    # `loai_chi` ở trên GIỮ NGUYÊN 6 mã cũ: 182 bản ghi đang dùng, 7 app kia vẫn gửi.
+    loai_chi_phi: Mapped[Optional[str]] = mapped_column(String(128))
+
     so_tien: Mapped[Decimal] = mapped_column(Numeric(15, 0), nullable=False)
     ngay_de_xuat: Mapped[date] = mapped_column(Date, nullable=False)
     han_thanh_toan: Mapped[Optional[date]] = mapped_column(Date)
     muc_dich: Mapped[str] = mapped_column(Text, nullable=False)
+    # Trước 05/10/2026 form nhồi 4 thứ này vào `muc_dich` dạng chữ vì chưa có cột →
+    # không lọc/đối chiếu được. Giờ là cột thật.
+    nguoi_thu_huong: Mapped[Optional[str]] = mapped_column(String(255))
+    so_tk_nhan: Mapped[Optional[str]] = mapped_column(String(64))
+    ngan_hang_nhan: Mapped[Optional[str]] = mapped_column(String(128))
+    hinh_thuc: Mapped[Optional[str]] = mapped_column(String(16))   # ck | tm
+    ma_don: Mapped[Optional[str]] = mapped_column(String(64))      # đơn hàng liên quan
     ghi_chu: Mapped[Optional[str]] = mapped_column(Text)
     chung_tu_url: Mapped[Optional[str]] = mapped_column(Text)
     # Đa file: list URL chứng từ. Backward-compat với chung_tu_url (= phần tử

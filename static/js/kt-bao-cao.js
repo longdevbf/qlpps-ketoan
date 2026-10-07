@@ -71,23 +71,55 @@
       if (tipTd) tipTd.innerHTML = c.phamVi ? KD.tip(chuTron(c.phamVi(d))) : '';
       if (phuTd && c.phuDe) phuTd.textContent = c.phuDe(d) + ' · Đơn vị tính: VND';
     }
+    function urlSoCai(r, k) {
+      const tk = c.lien && c.lien[r.ma]; if (!tk) return null;
+      const den = (!coKy && (k.den || (du && du.den_ngay))) || '';
+      const q = Object.assign({ tk }, coKy ? { ky: 'tuy_chinh', tu: k.tu, den: k.den } : den ? { ky: 'tuy_chinh', tu: den.slice(0, 4) + '-01-01', den } : { ky: 'nam_nay' });
+      return '/ketoan/so-cai?' + KT.url.qs(q);
+    }
     function lienKet(r, k) {
+      /* Dòng có chi tiết → bấm TÊN cũng mở popup chứng từ. Trước đây tên luôn link sang
+         Sổ cái, nhưng sổ kép mới ghi ~8% nghiệp vụ (TK 331/411/421/334 KHÔNG có dòng nào)
+         nên bấm vào hay rơi vào trang trống — người dùng tưởng báo cáo hỏng. Link Sổ cái
+         chuyển xuống chân popup, nơi nó vẫn dùng được với các TK thật sự có bút toán. */
+      if (c.chiTiet && r.khoa) {
+        return '<button type="button" class="kt-bc__ten" data-khoa="' + esc(r.khoa) + '" data-ma="' + esc(r.ma || '')
+          + '" title="Xem các chứng từ làm nên con số này">' + esc(r.chi_tieu) + '</button>';
+      }
       const tk = c.lien && c.lien[r.ma]; if (!tk) return esc(r.chi_tieu);
       // Báo cáo tại một ngày (CĐKT, ?den=) → sổ cái từ đầu năm của ngày đó đến đúng ngày đó (bản trước luôn "Năm nay" tính tới hôm nay).
       const den = (!coKy && (k.den || (du && du.den_ngay))) || '';
       const q = Object.assign({ tk }, coKy ? { ky: 'tuy_chinh', tu: k.tu, den: k.den } : den ? { ky: 'tuy_chinh', tu: den.slice(0, 4) + '-01-01', den } : { ky: 'nam_nay' });
       return '<a class="kt-bc__lien" href="/ketoan/so-cai?' + KT.url.qs(q) + '" title="Xem sổ cái TK ' + tk + '">' + esc(r.chi_tieu) + '</a>';
+      /* eslint-disable-next-line no-unreachable */
     }
     function nhanDong(r, k) {
       const ten = lienKet(r, k) + (r.ghi_chu ? KD.tip(r.ghi_chu) : '');
       if (!r.nhom_mo) return ten;
       return '<button type="button" class="kt-bc__mo" aria-expanded="' + (r.gap ? 'false' : 'true') + '" data-mo="' + esc(r.nhom_mo) + '"><i class="bi bi-chevron-down" aria-hidden="true"></i><span class="visually-hidden">Thu gọn / mở chi tiết</span></button>' + ten;
     }
+    /* MỌI cột số đều bấm được khi dòng có `khoa`:
+         · cột kỳ này    → chứng từ của kỳ đang xem
+         · cột kỳ trước  → chứng từ của CHÍNH kỳ so sánh (cùng dòng, khác khoảng ngày).
+           Bản đầu bỏ sót cột này vì nghĩ nó "không có chứng từ riêng" — sai, kỳ trước
+           có chứng từ thật y như kỳ này.
+         · cột chênh lệch → hiện phép trừ "kỳ này − kỳ trước", dựng tại chỗ, không gọi API.
+       `data-cot` cho biết bấm cột nào, để lấy đúng khoảng ngày.
+       Số 0 vẫn bấm được: "vì sao bằng 0" cũng là câu hỏi cần trả lời. */
+    function soMoDuoc(r, key) {
+      const html = key === 'chenh' ? chenh(r.ky_nay, r.ky_truoc) : soBc(r[key]);
+      if (!c.chiTiet || !r.khoa) return html;
+      if (key === 'chenh' ? r.ky_truoc == null : r[key] == null) return html;
+      return '<button type="button" class="kt-bc__so" data-khoa="' + esc(r.khoa)
+        + '" data-cot="' + esc(key) + '" title="Xem các chứng từ làm nên con số này">'
+        + html + '</button>';
+    }
+
     function veDong(r, k) {
       if (r.cap === 'nhom') return '<tr class="kt-bc--nhom"><th scope="rowgroup" colspan="' + soCot + '">' + esc(r.chi_tieu) + '</th></tr>';
       return '<tr class="kt-bc--' + (r.cap || 'muc') + (r.nhom_mo ? ' kt-bc--cha' : '') + '"' + (r.thuoc ? ' data-thuoc="' + esc(r.thuoc) + '"' : '') + '><th scope="row">' + nhanDong(r, k) + '</th>'
         + c.cot.map((o) => (o.key === 'ma' ? '<td class="kt-bc__ma">' + esc(r.ma) + '</td>' : o.key === 'thuyet_minh' ? '<td class="kt-bc__ma">' + esc(r.thuyet_minh || '') + '</td>'
-          : '<td class="num">' + (o.key === 'chenh' ? chenh(r.ky_nay, r.ky_truoc) : soBc(r[o.key])) + '</td>')).join('') + '</tr>';
+          : '<td class="num">' + soMoDuoc(r, o.key) + '</td>')).join('') + '</tr>';
     }
 
     async function tai() {
@@ -124,6 +156,124 @@
       b.setAttribute('aria-expanded', b.getAttribute('aria-expanded') === 'true' ? 'false' : 'true');
       apGap();
     });
+
+    /* ── Popup "nguồn gốc con số" ──────────────────────────────────────────
+       `c.chiTiet(khoa, khoang, trang)` → URL API. API trả {nhan, nguon, giai_thich,
+       tong, so_dong, trang, so_trang, cot[], dong[], dieu_chinh[], phan[]?}.
+       Tổng do API trả LUÔN bằng số trên dòng (bất biến giữ ở backend) nên ở đây
+       chỉ việc hiển thị, không tự cộng lại. */
+    let khoaDangXem = null, trangDangXem = 1, maDangXem = '', cotDangXem = 'ky_nay', dongDangXem = null;
+    if (c.chiTiet && $('panel')) {
+      const dongPanel = KT.ganPanel({
+        main: $('main'), panel: $('panel'), scrim: $('scrim'), nutDong: $('p-dong'),
+      });
+      const soCot = (v, kieu) => (kieu === 'tien' ? KD.tien(v) : kieu === 'ngay' ? KD.ngay(v) : esc(v == null ? '' : String(v)));
+      function veBang(d) {
+        if (!d.cot || !d.cot.length || !d.dong || !d.dong.length) {
+          return '<p class="kd-meta">' + (d.ghi_chu ? esc(d.ghi_chu) : 'Không có chứng từ nào trong kỳ.') + '</p>';
+        }
+        return '<div class="kd-table-scroll"><table class="kd-table kt-bang kt-bc-ct">'
+          + '<thead><tr>' + d.cot.map((o) => '<th scope="col"' + (o.kieu === 'tien' ? ' class="num"' : '') + '>' + esc(o.nhan) + '</th>').join('') + '</tr></thead>'
+          + '<tbody>' + d.dong.map((r) => '<tr>' + d.cot.map((o) => '<td' + (o.kieu === 'tien' ? ' class="num"' : '') + '>' + soCot(r[o.key], o.kieu) + '</td>').join('') + '</tr>').join('') + '</tbody>'
+          + '</table></div>';
+      }
+      function veTrang(d, ky) {
+        if (!d.so_trang || d.so_trang <= 1) return '';
+        const dk = ky ? ' data-ky="' + ky + '"' : '';
+        return '<nav class="kt-bc-ct__trang" aria-label="Phân trang chi tiết">'
+          + '<button type="button" class="kd-btn kd-btn--nho"' + dk + ' data-trang="' + Math.max(1, d.trang - 1) + '"' + (d.trang <= 1 ? ' disabled' : '') + '>Trước</button>'
+          + '<span class="kd-meta">Trang ' + KD.soDem(d.trang) + ' / ' + KD.soDem(d.so_trang) + ' · ' + KD.soDem(d.so_dong) + ' dòng</span>'
+          + '<button type="button" class="kd-btn kd-btn--nho"' + dk + ' data-trang="' + Math.min(d.so_trang, d.trang + 1) + '"' + (d.trang >= d.so_trang ? ' disabled' : '') + '>Sau</button>'
+          + '</nav>';
+      }
+      function veChiTiet(d) {
+        $('p-td').textContent = (d.nhan || 'Chi tiết')
+          + (cotDangXem !== (c.cotChiTiet || 'ky_nay') ? ' — kỳ trước' : '');
+        const dc = (d.dieu_chinh || []).length
+          ? '<ul class="kt-bc-ct__dc">' + d.dieu_chinh.map((x) => '<li><span>' + esc(x.nhan) + '</span><b class="num">' + KD.tien(x.so_tien) + '</b></li>').join('') + '</ul>'
+          : '';
+        /* Có `phan` thì vẫn giữ bảng chính ở trên (dòng tổng = bảng công thức), rồi mới
+           tới từng khối chứng từ — người xem cần cả "vì sao ra số này" lẫn "chứng từ đâu". */
+        const khoi = (d.phan || []).map((p) => '<section class="kt-bc-ct__phan"><h3>' + esc(p.nhan)
+            + '<span class="kd-meta"> · ' + esc(p.nguon) + '</span></h3>'
+            + '<p class="kt-bc-ct__tong num">' + KD.tienVnd(p.tong) + '</p>'
+            + (p.ghi_chu ? '<p class="kd-meta kt-bc-ct__canh">' + esc(p.ghi_chu) + '</p>' : '')
+            + veBang(p) + veTrang(p) + '</section>').join('');
+        const than = ((d.dong && d.dong.length) ? veBang(d) + veTrang(d) : (khoi ? '' : veBang(d)))
+          + khoi;
+        $('p-noi-dung').innerHTML =
+          '<p class="kt-bc-ct__nguon"><i class="bi bi-database" aria-hidden="true"></i> ' + esc(d.nguon || '') + '</p>'
+          + (d.giai_thich ? '<p class="kd-meta">' + esc(d.giai_thich) + '</p>' : '')
+          + '<p class="kt-bc-ct__tong num" title="Đúng bằng số trên dòng báo cáo">' + KD.tienVnd(d.tong) + '</p>'
+          + (d.tong_dong != null && Math.abs(d.tong_dong - d.tong) > 0.5
+              ? '<p class="kd-meta kt-bc-ct__canh"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Cộng các chứng từ dưới đây ra ' + KD.tienVnd(d.tong_dong) + '.</p>' : '')
+          + (d.ghi_chu ? '<p class="kd-meta kt-bc-ct__canh"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> ' + esc(d.ghi_chu) + '</p>' : '')
+          + dc + than;
+        /* Link Sổ cái để ở chân popup — chỉ hiện khi dòng này có gắn tài khoản kế toán. */
+        const url = urlSoCai({ ma: maDangXem }, khoang());
+        $('p-nut').innerHTML = url
+          ? '<a class="kd-btn" href="' + url + '"><i class="bi bi-journal-text" aria-hidden="true"></i>Xem sổ cái TK ' + esc(c.lien[maDangXem]) + '</a>'
+          : '';
+      }
+      /* Cột Chênh lệch: hiện phép trừ Ở TRÊN rồi nạp CHỨNG TỪ CỦA CẢ HAI KỲ ở dưới.
+         Bản đầu chỉ hiện mỗi phép tính — đúng về số nhưng vô dụng: người xem muốn biết
+         chênh 917 triệu là do đơn nào, chứ không phải xem lại hai con số đã thấy. */
+      const trangChenh = { ky_nay: 1, ky_truoc: 1 };
+      async function veChenh(doiKy) {
+        const r = dongDangXem; if (!r) return;
+        const a = +r.ky_nay || 0, t = +r.ky_truoc || 0;
+        if (!doiKy) { trangChenh.ky_nay = 1; trangChenh.ky_truoc = 1; }
+        $('p-td').textContent = (r.chi_tieu || 'Chênh lệch') + ' — chênh lệch';
+        $('p-nut').innerHTML = '';
+        const dauTrang =
+          '<p class="kt-bc-ct__nguon"><i class="bi bi-calculator" aria-hidden="true"></i> Chênh lệch = kỳ này − kỳ trước</p>'
+          + '<p class="kt-bc-ct__tong num">' + KD.tienVnd(a - t) + '</p>'
+          + '<div class="kd-table-scroll"><table class="kd-table kt-bang kt-bc-ct"><tbody>'
+          + '<tr><td>+ Kỳ này</td><td class="num">' + KD.tien(a) + '</td></tr>'
+          + '<tr><td>− Kỳ trước</td><td class="num">' + KD.tien(t) + '</td></tr>'
+          + '</tbody></table></div>';
+        $('p-noi-dung').innerHTML = dauTrang + '<p class="kd-meta">Đang tải chứng từ hai kỳ…</p>';
+        const lay = async (ky) => {
+          try { return await KD.api(c.chiTiet(r.khoa, khoang(), trangChenh[ky], ky)); }
+          catch (e) { return null; }
+        };
+        const [dn, dt] = await Promise.all([lay('ky_nay'), lay('ky_truoc')]);
+        const phan = (d, ky, ten) => (!d ? '<section class="kt-bc-ct__phan"><h3>' + ten
+            + '</h3><p class="kd-meta">Không tải được chứng từ kỳ này.</p></section>'
+          : '<section class="kt-bc-ct__phan" data-ky="' + ky + '"><h3>' + ten
+            + '<span class="kd-meta"> · ' + esc(d.nguon || '') + '</span></h3>'
+            + '<p class="kt-bc-ct__tong num">' + KD.tienVnd(d.tong) + '</p>'
+            + (d.ghi_chu ? '<p class="kd-meta kt-bc-ct__canh">' + esc(d.ghi_chu) + '</p>' : '')
+            + veBang(d) + veTrang(d, ky) + '</section>');
+        $('p-noi-dung').innerHTML = dauTrang
+          + phan(dn, 'ky_nay', 'Chứng từ kỳ này')
+          + phan(dt, 'ky_truoc', 'Chứng từ kỳ trước');
+      }
+      async function taiChiTiet(khoa, trang) {
+        khoaDangXem = khoa; trangDangXem = trang || 1;
+        $('p-noi-dung').innerHTML = KD.khoiCho ? KD.khoiCho() : '<p class="kd-meta">Đang tải…</p>';
+        try {
+          veChiTiet(await KD.api(c.chiTiet(khoa, khoang(), trangDangXem, cotDangXem)));
+        } catch (err) {
+          KD.khoiLoi($('p-noi-dung'), 'Không tải được chi tiết', err, () => taiChiTiet(khoa, trangDangXem));
+        }
+      }
+      $('tbody').addEventListener('click', (e) => {
+        const b = e.target.closest('.kt-bc__so, .kt-bc__ten'); if (!b) return;
+        const tr = b.closest('tr');
+        maDangXem = b.dataset.ma || ((tr && tr.querySelector('.kt-bc__ma')) || {}).textContent || '';
+        cotDangXem = b.dataset.cot || (c.cotChiTiet || 'ky_nay');
+        dongDangXem = ((du && du.dong) || []).find((x) => x.khoa === b.dataset.khoa) || null;
+        dongPanel.mo(tr);
+        if (cotDangXem === 'chenh') { veChenh(); return; }
+        taiChiTiet(b.dataset.khoa, 1);
+      });
+      $('p-noi-dung').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-trang]'); if (!b || b.disabled) return;
+        if (b.dataset.ky) { trangChenh[b.dataset.ky] = Number(b.dataset.trang) || 1; veChenh(true); return; }
+        taiChiTiet(khoaDangXem, Number(b.dataset.trang) || 1);
+      });
+    }
     if ($('in')) $('in').addEventListener('click', () => {   // inUrl → trang in chuẩn /ketoan/in; không có → in đúng màn đang xem
       if (c.inUrl) window.open(c.inUrl(khoang(), du), '_blank', 'noopener'); else window.print();
     });

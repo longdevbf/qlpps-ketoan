@@ -1,8 +1,11 @@
 /* kt-lctt.js — Lưu chuyển tiền tệ B03-DN (khung kt-bao-cao.js) + đủ số liệu màn cũ #cashflow.
    API thật (cùng màn cũ):
-   - GET /api/bao-cao/cashflow?from&to → {so_du_dau_ky, operating:{thu_kh,tra_ncc,tra_ads,tra_luong,chi_khac,net},
-     investing:{mua_ccdc,sua_chua,net}, financing:{vay_nh,tra_no_nh,net}, net_cashflow, so_du_cuoi_ky, daily, by_account}
-     (mỗi khoản mục có items = 5 giao dịch lớn nhất). Gọi 2 lần song song: kỳ này + kỳ liền trước cùng số ngày.
+   - GET /api/bao-cao/cashflow?from&to → {so_du_dau_ky, operating:{thu_kh,tra_ncc,tra_ads,tra_luong,tra_lai_vay,nop_thue_tndn,
+     thu_khac,chi_khac,net}, investing:{mua_ccdc,sua_chua,thanh_ly_tscd,chi_cho_vay,thu_hoi_cho_vay,chi_gop_von,thu_hoi_gop_von,
+     thu_lai,net}, financing:{nhan_von,tra_von,vay_nh,tra_no_nh,tra_goc_thue_tc,chia_co_tuc,net}, net_cashflow, so_du_cuoi_ky,
+     daily, by_account} (mỗi khoản mục có items = 5 giao dịch lớn nhất). Gọi 2 lần song song: kỳ này + kỳ liền trước cùng số ngày.
+     Bảng khoản mục KM bên dưới liệt kê ĐỦ mã số B03 như mẫu chính thức (dòng chưa có số hiện "—"); mã dòng tiền gắn vào
+     phiếu thu/chi khai ở một chỗ: app/services/phan_loai_cf.py.
    - GET /api/bao-cao/tinh-hinh-tai-chinh?as_of=<đến ngày> · /cong-no-ngam?from&to · /cashflow-validation?from&to
      (tải riêng sau bảng chính, lỗi khối nào báo khối đó).
    Tổng thu/chi và tỷ lệ thu/chi tính từ các khoản mục đã phân loại (API không trả tong_thu/tong_chi —
@@ -32,11 +35,24 @@
     ['02', 'Tiền chi trả cho người cung cấp hàng hoá, dịch vụ', 'operating', 'tra_ncc', -1, 'Trả NCC'],
     ['02', 'Tiền chi trả quảng cáo, marketing', 'operating', 'tra_ads', -1, 'Trả quảng cáo'],
     ['03', 'Tiền chi trả cho người lao động', 'operating', 'tra_luong', -1, 'Trả lương'],
+    ['04', 'Tiền chi trả lãi vay', 'operating', 'tra_lai_vay', -1, 'Trả lãi vay'],
+    ['05', 'Tiền chi nộp thuế thu nhập doanh nghiệp', 'operating', 'nop_thue_tndn', -1, 'Nộp thuế TNDN'],
+    ['06', 'Tiền thu khác từ hoạt động kinh doanh', 'operating', 'thu_khac', 1, 'Thu khác'],
     ['07', 'Tiền chi khác cho hoạt động kinh doanh', 'operating', 'chi_khac', -1, 'Chi khác'],
     ['21', 'Tiền chi mua sắm tài sản cố định, công cụ dụng cụ', 'investing', 'mua_ccdc', -1, 'Mua CCDC/TSCĐ'],
     ['21', 'Tiền chi sửa chữa lớn tài sản cố định', 'investing', 'sua_chua', -1, 'Sửa chữa lớn'],
+    ['22', 'Tiền thu từ thanh lý, nhượng bán tài sản cố định', 'investing', 'thanh_ly_tscd', 1, 'Thanh lý TSCĐ'],
+    ['23', 'Tiền chi cho vay, mua các công cụ nợ của đơn vị khác', 'investing', 'chi_cho_vay', -1, 'Chi cho vay'],
+    ['24', 'Tiền thu hồi cho vay, bán lại các công cụ nợ của đơn vị khác', 'investing', 'thu_hoi_cho_vay', 1, 'Thu hồi cho vay'],
+    ['25', 'Tiền chi đầu tư góp vốn vào đơn vị khác', 'investing', 'chi_gop_von', -1, 'Chi góp vốn'],
+    ['26', 'Tiền thu hồi đầu tư góp vốn vào đơn vị khác', 'investing', 'thu_hoi_gop_von', 1, 'Thu hồi góp vốn'],
+    ['27', 'Tiền thu lãi cho vay, cổ tức và lợi nhuận được chia', 'investing', 'thu_lai', 1, 'Thu lãi, cổ tức'],
+    ['31', 'Tiền thu từ phát hành cổ phiếu, nhận vốn góp của chủ sở hữu', 'financing', 'nhan_von', 1, 'Nhận vốn góp'],
+    ['32', 'Tiền trả lại vốn góp cho chủ sở hữu, mua lại cổ phiếu của doanh nghiệp đã phát hành', 'financing', 'tra_von', -1, 'Trả vốn góp'],
     ['33', 'Tiền thu từ đi vay', 'financing', 'vay_nh', 1, 'Vay ngân hàng'],
     ['34', 'Tiền trả nợ gốc, lãi vay', 'financing', 'tra_no_nh', -1, 'Trả nợ vay'],
+    ['35', 'Tiền trả nợ gốc thuê tài chính', 'financing', 'tra_goc_thue_tc', -1, 'Trả gốc thuê TC'],
+    ['36', 'Cổ tức, lợi nhuận đã trả cho chủ sở hữu', 'financing', 'chia_co_tuc', -1, 'Chia cổ tức'],
   ];
   const nhomKm = { operating: 'op', investing: 'inv', financing: 'fin' };
   const val = (d, n, k) => (d && d[n] && d[n][k] ? +d[n][k].total || 0 : 0);
@@ -48,17 +64,20 @@
       out.push({ ma: '', chi_tieu: ten, cap: 'nhom' });
       KM.filter((x) => x[2] === nhom).forEach(([ma, ten2, n, k, dau], i) => {
         const id = k, items = (c[n] && c[n][k] && c[n][k].items) || [];
-        out.push(dong(ma, ten2, 'muc', dau * val(c, n, k), P((x) => dau * val(x, n, k)), items.length ? { nhom_mo: id, gap: true, ghi_chu: KD.soDem(items.length) + ' giao dịch lớn nhất' } : {}));
+        // `khoa` = '<nhóm>.<khoá>' — khớp _NHAN_CF trong bao_cao_cashflow.py, để bấm vào
+        // số mở popup liệt kê ĐẦY ĐỦ phiếu (có phân trang), không chỉ 5 giao dịch lớn nhất.
+        out.push(dong(ma, ten2, 'muc', dau * val(c, n, k), P((x) => dau * val(x, n, k)),
+          Object.assign({ khoa: n + '.' + k }, items.length ? { nhom_mo: id, gap: true, ghi_chu: KD.soDem(items.length) + ' giao dịch lớn nhất' } : {})));
         items.forEach((it) => out.push(dong('', [KD.ngay(it.ngay), it.lien_quan, it.noi_dung, it.tai_khoan].filter(Boolean).join(' · '), 'con2', dau * (+it.so_tien || 0), null, { thuoc: id })));
       });
-      out.push(dong(maNet, tenNet, 'tong', c[nhom].net, P((x) => x[nhom].net)));
+      out.push(dong(maNet, tenNet, 'tong', c[nhom].net, P((x) => x[nhom].net), { khoa: nhom + '.net' }));
     };
     khoi('I. Lưu chuyển tiền từ hoạt động kinh doanh', 'operating', '20', 'Lưu chuyển tiền thuần từ hoạt động kinh doanh');
     khoi('II. Lưu chuyển tiền từ hoạt động đầu tư', 'investing', '30', 'Lưu chuyển tiền thuần từ hoạt động đầu tư');
     khoi('III. Lưu chuyển tiền từ hoạt động tài chính', 'financing', '40', 'Lưu chuyển tiền thuần từ hoạt động tài chính');
-    out.push(dong('50', 'Lưu chuyển tiền thuần trong kỳ', 'tong', c.net_cashflow, P((x) => x.net_cashflow)));
-    out.push(dong('60', 'Tiền và tương đương tiền đầu kỳ', 'muc', c.so_du_dau_ky, P((x) => x.so_du_dau_ky)));
-    out.push(dong('70', 'Tiền và tương đương tiền cuối kỳ', 'dam', c.so_du_cuoi_ky, P((x) => x.so_du_cuoi_ky)));
+    out.push(dong('50', 'Lưu chuyển tiền thuần trong kỳ', 'tong', c.net_cashflow, P((x) => x.net_cashflow), { khoa: 'net_cashflow' }));
+    out.push(dong('60', 'Tiền và tương đương tiền đầu kỳ', 'muc', c.so_du_dau_ky, P((x) => x.so_du_dau_ky), { khoa: 'so_du_dau_ky' }));
+    out.push(dong('70', 'Tiền và tương đương tiền cuối kỳ', 'dam', c.so_du_cuoi_ky, P((x) => x.so_du_cuoi_ky), { khoa: 'so_du_cuoi_ky' }));
     return out;
   }
   function thuChi(c) {
@@ -93,8 +112,18 @@
     cot: [{ key: 'ma' }, { key: 'ky_nay', num: true }, { key: 'ky_truoc', num: true }],
     lien: { '01': '131', '03': '334', '33': '341', '34': '341' },
     chuyen,
+    chiTiet: (khoa, k, trang, cot) => {
+      const kk = cot === 'ky_truoc' ? (bc.st.ss || previousRange(k.tu, k.den)) : { tu: k.tu, den: k.den };
+      return '/api/bao-cao/cashflow/chi-tiet?'
+        + KT.url.qs({ khoa: khoa, from: kk.tu, to: kk.den, trang: trang, so_dong: 50 });
+    },
     kpi: {
-      dau: (d) => Object.assign(kpiTien(d.c.so_du_dau_ky), { phu: 'Ngày ' + KD.ngay(d.ky.tu) + KD.tip('Tổng tiền mặt và tiền gửi ngân hàng') }),
+      /* `canh_bao_dau_ky` chỉ có khi kỳ xem bắt đầu TRƯỚC mốc số dư đầu kỳ sớm nhất đã khai —
+         khi đó "Tiền đầu kỳ" là số suy ngược, không phải số kiểm quỹ (xem _canh_bao_dau_ky
+         trong bao_cao_cashflow.py). Hiện rõ ở thẻ thay vì để người xem tin một số âm vô lý. */
+      dau: (d) => Object.assign(kpiTien(d.c.so_du_dau_ky), { phu: d.c.canh_bao_dau_ky
+        ? H.pill('warning', 'Số suy ngược') + KD.tip(d.c.canh_bao_dau_ky)
+        : 'Ngày ' + KD.ngay(d.ky.tu) + KD.tip('Tổng tiền mặt và tiền gửi ngân hàng') }),
       hdkd: (d) => Object.assign(kpiTien(d.c.operating.net), { phu: d.c.operating.net >= 0 ? H.pill('success', 'Kinh doanh tạo ra tiền') : H.pill('warning', 'Kinh doanh đang tiêu tiền') }),
       thuan: (d) => { const t = d.tc, tong = t.thu + t.chi;
         return Object.assign(kpiTien(d.c.net_cashflow), { phu: 'Thu ' + KD.tienGon(t.thu) + ' − Chi ' + KD.tienGon(t.chi) + (tong ? KD.tip('Thu/Chi = ' + (t.chi ? (t.thu / t.chi).toLocaleString('vi-VN', { maximumFractionDigits: 2 }) : '—') + ' (thu chiếm ' + KD.phanTram(t.thu / tong * 100) + ')') : '') }); },

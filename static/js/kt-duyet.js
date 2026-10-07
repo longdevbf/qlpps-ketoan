@@ -23,7 +23,7 @@
   const H = KT.H, $ = (id) => document.getElementById(id), u = KT.url.doc();
   const LOAI_CHI = { di_chuyen: 'Di chuyển / Xăng xe', van_phong: 'Văn phòng phẩm', tiep_thi: 'Tiếp thị / Quảng cáo', dao_tao: 'Đào tạo', khach_hang: 'Tiếp khách', khac: 'Chi phí khác' };
   const NGUON = { de_xuat_chi: ['Đề xuất chi', 'muted', 'bi-receipt'], de_nghi_tt: ['Đề nghị TT', 'info', 'bi-truck'], de_xuat_ncc: ['Trả NCC', 'brand', 'bi-building'] };
-  const VAI = { manager: 'Trưởng bộ phận', ketoan: 'Kế toán', ceo: 'Giám đốc' };
+  const VAI = { manager: 'Trưởng bộ phận', ketoan: 'Kế toán', ceo: 'Giám đốc', chi: 'Kế toán' };   // 'chi' = Kế toán từ chối ngoài cấp của mình / sau khi đã duyệt xong (de_xuat_chi_tu_choi.py)
   const THU_TU = { manager: 0, ketoan: 1, ceo: 2, done: 3, rejected: 3 };
   const KT_ROLES = ['manager', 'admin'];   // ai được KT duyệt cấp 1 DNTT / NCC — khớp _KT_ROLES của de_nghi_tt.py / ncc_de_xuat.py
   const TT = { cho_duyet: ['warning', 'Chờ duyệt'], cho_chi: ['info', 'Chờ chi'], da_chi: ['success', 'Đã chi'], tu_choi: ['danger', 'Bị từ chối'], hoan_tat: ['success', 'Hoàn tất'] };
@@ -35,9 +35,26 @@
     return (phu ? '<span class="kt-dc-tt">' + esc(phu) + '</span>' : '')
       + (r.qua_han_chi ? '<span class="kt-dc-tt">' + H.pill('danger', 'Quá hạn ' + KD.ngay(r.can_chi_truoc)) + '</span>' : '');
   };
-  /* Nút chính trên từng dòng: Duyệt (đang chờ mình) · Chi tiền (đã duyệt xong) · còn lại chỉ có ⋯ */
-  const nutDong = (r) => (r.cho_toi ? '<button type="button" class="kd-btn kd-btn--primary kt-dc-nut" data-nut="duyet" data-id="' + esc(r.id) + '"><i class="bi bi-check2" aria-hidden="true"></i>Duyệt</button>'
-    : chiDuoc(r) ? '<button type="button" class="kd-btn kd-btn--primary kt-dc-nut" data-nut="chi" data-id="' + esc(r.id) + '"><i class="bi bi-cash-coin" aria-hidden="true"></i>Chi tiền</button>' : '')
+  /* BẢN VÁ 30/09/2026 (giám đốc yêu cầu, ưu tiên #1): nút "Từ chối" phải HIỆN RÕ trên dòng (không
+     chỉ trong menu ⋯), ở CẢ tab Chờ duyệt lẫn Chờ chi. Bảng luồng × trạng thái → API từ chối:
+       · cho_toi (Chờ duyệt, đúng cấp của mình)  → CẢ 3 luồng: de_xuat_chi PUT /duyet {tu_choi}
+         (shared/routers/duyet_chi.py:519, có gate _can_approve_at theo ĐÚNG CẤP — không mở quá
+         quyền), de_nghi_tt/de_xuat_ncc POST .../kt-reject (chỉ cấp 1 cho_duyet, backend tự chặn).
+       · cho_chi (đã duyệt xong, CHƯA chi) → CHỈ de_nghi_tt + de_xuat_ncc, API MỚI
+         POST .../tu-choi-truoc-chi (CHI_ROLES, 409 nếu da_chi/da_chi_ngoai).
+         BỔ SUNG 01/10/2026 (giám đốc: "đơn chờ chi quá hạn cũng cần nút Từ chối"): de_xuat_chi cũng có nút ở tab này —
+         shared/routers/duyet_chi.py không có API từ chối sau khi duyệt xong và shared/ không deploy được, nên đường riêng
+         POST /api/de-xuat-chi/{id}/tu-choi-truoc-chi nằm ở app Kế toán (app/routers/de_xuat_chi_tu_choi.py), cùng cổng quyền với nút Chi. */
+  /* BỔ SUNG 01/10/2026 lần 2 (giám đốc: "anh Thành duyệt và từ chối được trong quyền của anh — ví dụ ứng lương"): Đề xuất chi còn
+     ĐANG CHỜ DUYỆT ở cấp không phải của mình (vd chờ Giám đốc sau khi Kế toán đã duyệt) cũng từ chối được — chỉ TỪ CHỐI, không phải
+     duyệt. Cùng đường API với từ chối chờ chi; cổng quyền khớp `_duoc_tu_choi` (de_xuat_chi_tu_choi.py). */
+  const DX_TC_ROLES = ['ceo', 'admin', 'assistant_ceo', 'manager', 'leader', 'kt'];
+  const tuChoiThem = (r) => (r.trang_thai === 'cho_chi' && chiDuoc(r))
+    || (r.nguon === 'de_xuat_chi' && r.trang_thai === 'cho_duyet' && !r.cho_toi && DX_TC_ROLES.includes(vaiTro));
+  const nutTuChoi = (r, grow) => '<button type="button" class="kd-btn' + (grow ? ' kd-btn--grow' : ' kt-dc-nut') + ' kd-btn--danger" data-nut="tu_choi" data-id="' + esc(r.id) + '"><i class="bi bi-x-lg" aria-hidden="true"></i>Từ chối</button>';
+  /* Nút chính trên từng dòng: Duyệt (đang chờ mình) · Chi tiền (đã duyệt xong) · Từ chối (rõ, cả 2 tab khi API cho) · còn lại chỉ có ⋯ */
+  const nutDong = (r) => (r.cho_toi ? '<button type="button" class="kd-btn kd-btn--primary kt-dc-nut" data-nut="duyet" data-id="' + esc(r.id) + '"><i class="bi bi-check2" aria-hidden="true"></i>Duyệt</button>' + nutTuChoi(r, false)
+    : chiDuoc(r) ? '<button type="button" class="kd-btn kd-btn--primary kt-dc-nut" data-nut="chi" data-id="' + esc(r.id) + '"><i class="bi bi-cash-coin" aria-hidden="true"></i>Chi tiền</button>' + (tuChoiThem(r) ? nutTuChoi(r, false) : '') : (tuChoiThem(r) ? nutTuChoi(r, false) : ''))
     + '<button type="button" class="kd-icon-btn" data-menu="' + esc(r.id) + '" aria-haspopup="menu" aria-expanded="false" aria-label="Thao tác khác với ' + esc(r.ma) + '"><i class="bi bi-three-dots" aria-hidden="true"></i></button>';
   const soNgay = (iso) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
 
@@ -256,12 +273,13 @@
       },
       sau: (el) => { const s = el.querySelector('.kd-stepper'); if (s) s.style.setProperty('--kd-buoc', s.dataset.buoc); },
       nut: (x) => (x.cho_toi ? '<button type="button" class="kd-btn kd-btn--primary kd-btn--grow" data-xl="duyet" data-id="' + esc(x.id) + '"><i class="bi bi-check2" aria-hidden="true"></i>Duyệt</button><button type="button" class="kd-btn kd-btn--grow" data-xl="tu_choi" data-id="' + esc(x.id) + '"><i class="bi bi-x-lg" aria-hidden="true"></i>Từ chối</button>'
-        : chiDuoc(x) ? '<button type="button" class="kd-btn kd-btn--primary kd-btn--grow" data-xl="chi" data-id="' + esc(x.id) + '"><i class="bi bi-cash-coin" aria-hidden="true"></i>Chi tiền</button>' : ''),
+        : chiDuoc(x) ? '<button type="button" class="kd-btn kd-btn--primary kd-btn--grow" data-xl="chi" data-id="' + esc(x.id) + '"><i class="bi bi-cash-coin" aria-hidden="true"></i>Chi tiền</button>' + (tuChoiThem(x) ? '<button type="button" class="kd-btn kd-btn--grow" data-xl="tu_choi" data-id="' + esc(x.id) + '"><i class="bi bi-x-lg" aria-hidden="true"></i>Từ chối</button>' : '') : (tuChoiThem(x) ? '<button type="button" class="kd-btn kd-btn--grow" data-xl="tu_choi" data-id="' + esc(x.id) + '"><i class="bi bi-x-lg" aria-hidden="true"></i>Từ chối</button>' : '')),
     },
     menu: (r) => [
       r.cho_toi ? { nhan: 'Duyệt', icon: 'bi-check2', onClick: () => moXl('duyet', r) } : null,
       r.cho_toi ? { nhan: 'Từ chối', icon: 'bi-x-lg', danger: true, onClick: () => moXl('tu_choi', r) } : null,
       chiDuoc(r) ? { nhan: 'Chi tiền', icon: 'bi-cash-coin', onClick: () => moChi(r) } : null,
+      tuChoiThem(r) ? { nhan: 'Từ chối', icon: 'bi-x-lg', danger: true, onClick: () => moXl('tu_choi', r) } : null,
       { nhan: 'Xem chi tiết', icon: 'bi-eye', onClick: () => { const tr = document.querySelector('#dc-tbody tr[data-id="' + CSS.escape(r.id) + '"]'); if (tr) tr.click(); } },
     ].filter(Boolean),
   });
@@ -277,9 +295,16 @@
   const SAU = { manager: 'Kế toán', ketoan: 'Giám đốc', ceo: 'Kế toán chi tiền' };
   function moXl(hd, r) {
     dang = r; hanhDong = hd; const tc = hd === 'tu_choi';
+    // BẢN VÁ 30/09/2026: từ chối khi dòng đang Ở "Chờ chi" (đã duyệt xong, r.cho_toi=false) là
+    // ĐƯỜNG MỚI (API tu-choi-truoc-chi), khác hẳn từ chối cấp 1 khi cho_toi=true (kt-reject) —
+    // đổi câu thông báo cho đúng ngữ cảnh, không nói "chờ cấp tiếp theo" khi thực ra đã xong hết.
+    const oChoChi = tc && !r.cho_toi && r.trang_thai === 'cho_chi';
+    const oCapKhac = tc && !r.cho_toi && r.trang_thai === 'cho_duyet';   // đang chờ cấp khác — từ chối thay
     $('dc-duyet-td').textContent = (tc ? 'Từ chối ' : 'Duyệt ') + r.ma + '?';
     const sau = r.nguon === 'de_xuat_chi' ? (SAU[r.cap] || 'cấp tiếp theo') : 'Giám đốc (duyệt ở app ' + r.bo_phan + ')';
-    $('dc-duyet-nd').textContent = tc ? 'Đề nghị trả về ' + r.nguoi_de_nghi + '. Họ sửa, bổ sung rồi gửi lại từ đầu.'
+    $('dc-duyet-nd').textContent = oChoChi ? 'Đề nghị ĐÃ ĐƯỢC DUYỆT, chưa chi. Từ chối sẽ trả về ' + (r.nguoi_de_nghi || 'người lập') + ' — họ sửa, bổ sung rồi gửi lại từ đầu.'
+      : oCapKhac ? 'Đề nghị đang chờ ' + ((r.buoc_hien_tai && r.buoc_hien_tai.vai) || 'cấp khác') + ' duyệt. Bạn từ chối thay thì đề nghị trả về ' + (r.nguoi_de_nghi || 'người lập') + ' — họ sửa, bổ sung rồi gửi lại từ đầu.'
+      : tc ? 'Đề nghị trả về ' + r.nguoi_de_nghi + '. Họ sửa, bổ sung rồi gửi lại từ đầu.'
       : KD.tienVnd(r.so_tien) + ' — ' + r.noi_dung + '. Sau bạn, đề nghị chuyển ' + sau + '.';
     $('dc-duyet-gc-nhan').innerHTML = tc ? 'Lý do từ chối <span class="kd-field__req" aria-hidden="true">*</span>' : 'Ghi chú (không bắt buộc)';
     $('dc-duyet-gc').value = ''; $('dc-duyet-ok').textContent = tc ? 'Từ chối' : 'Duyệt'; $('dc-duyet-ok').classList.toggle('kd-btn--danger', tc); $('dc-duyet-ok').classList.toggle('kd-btn--primary', !tc);
@@ -287,9 +312,13 @@
   }
   function goiDuyet(r, tc, gc) {
     const id = encodeURIComponent(r.goc);
+    if (r.nguon === 'de_xuat_chi' && tc && !r.cho_toi) return KD.api('/api/de-xuat-chi/' + id + '/tu-choi-truoc-chi', KD.JSON_POST({ ly_do: gc }));   // đã duyệt xong, chưa chi
     if (r.nguon === 'de_xuat_chi') return KD.api('/api/duyet-chi/' + id + '/duyet', Object.assign(KD.JSON_POST({ trang_thai: tc ? 'tu_choi' : 'da_duyet', nhan_xet_duyet: gc }), { method: 'PUT' }));
     const goc = r.nguon === 'de_nghi_tt' ? '/api/de-nghi-tt/' : '/api/ncc-de-xuat/';
-    return KD.api(goc + id + (tc ? '/kt-reject' : '/kt-approve'), KD.JSON_POST(tc ? { ly_do: gc } : { kt_ghi_chu: gc || null }));
+    // Từ chối khi đã ở "Chờ chi" (không phải cho_toi) → API MỚI tu-choi-truoc-chi, KHÁC kt-reject
+    // (kt-reject chỉ nhận trang_thai='cho_duyet', backend trả 409 nếu gọi nhầm lúc đã 'duyet').
+    const duong = tc && !r.cho_toi ? '/tu-choi-truoc-chi' : (tc ? '/kt-reject' : '/kt-approve');
+    return KD.api(goc + id + duong, KD.JSON_POST(tc ? { ly_do: gc } : { kt_ghi_chu: gc || null }));
   }
   $('dc-form-duyet').addEventListener('submit', async (e) => {
     e.preventDefault(); const gc = $('dc-duyet-gc').value.trim(), tc = hanhDong === 'tu_choi';
@@ -299,7 +328,7 @@
     catch (err) { KD.baoLoiHopThoai(dlg, err.message); } finally { nut.disabled = false; }
   });
 
-  /* ── Chi tiền — cả 3 API thật chỉ nhận {tai_khoan (TÊN TK tiền/ngân hàng), ghi_chu}; khoản mục hạch toán do backend tự chọn theo
+  /* ── Chi tiền — cả 3 API nhận {tai_khoan (TÊN TK tiền/ngân hàng), ngay_chi, ghi_chu}; khoản mục hạch toán do backend tự chọn theo
      luồng. Danh sách TK lấy từ GET /api/tai-khoan (TK ngân hàng/tiền mặt thật, đúng chuỗi mà sổ quỹ dùng), KHÔNG PHẢI mã TT200. ── */
   const dlgChi = $('dc-dlg-chi');
   let dsTk = null;
@@ -308,22 +337,26 @@
     dang = r; $('dc-chi-td').textContent = 'Chi tiền ' + r.ma;
     $('dc-chi-tt').innerHTML = '<dt>Nội dung</dt><dd>' + esc(r.noi_dung) + '</dd><dt>Người thụ hưởng</dt><dd>' + esc(r.thu_huong || '—') + '</dd><dt class="is-dam">Số tiền</dt><dd>' + KD.tienVnd(r.so_tien) + '</dd>';
     $('dc-chi-no').value = r.hach_toan; $('dc-chi-gc').value = '';
+    $('dc-chi-ngay').value = KD.iso(new Date());   // mặc định hôm nay, kế toán lùi được
     const sel = $('dc-chi-co');
     try { const tk = await napTk(); sel.innerHTML = '<option value="">— Chọn tài khoản —</option>' + tk.map((t) => '<option value="' + esc(t.ten_tk) + '">' + esc(t.ten_tk + (t.so_tk ? ' · ' + t.so_tk : '')) + '</option>').join(''); }
     catch (e) { sel.innerHTML = '<option value="">Không tải được danh sách tài khoản</option>'; }
     KD.moHopThoai(dlgChi);
   }
   $('dc-form-chi').addEventListener('submit', async (e) => {
-    e.preventDefault(); const tk = $('dc-chi-co').value;
+    e.preventDefault(); const tk = $('dc-chi-co').value, ngay = $('dc-chi-ngay').value;
     if (!tk) { $('dc-chi-co').focus(); return KD.baoLoiHopThoai(dlgChi, 'Chọn tài khoản chi tiền.'); }
+    if (!ngay) { $('dc-chi-ngay').focus(); return KD.baoLoiHopThoai(dlgChi, 'Nhập ngày chi.'); }
+    if (ngay > KD.iso(new Date())) { $('dc-chi-ngay').focus(); return KD.baoLoiHopThoai(dlgChi, 'Ngày chi không được ở tương lai.'); }
     const nut = $('dc-chi-ok'); nut.disabled = true;
     const goc = { de_xuat_chi: '/api/duyet-chi/', de_nghi_tt: '/api/de-nghi-tt/', de_xuat_ncc: '/api/ncc-de-xuat/' }[dang.nguon];
-    try { await KD.api(goc + encodeURIComponent(dang.goc) + '/chi', KD.JSON_POST({ tai_khoan: tk, ghi_chu: $('dc-chi-gc').value.trim() || null }));
+    try { await KD.api(goc + encodeURIComponent(dang.goc) + '/chi', KD.JSON_POST({ tai_khoan: tk, ngay_chi: ngay, ghi_chu: $('dc-chi-gc').value.trim() || null }));
       dlgChi.close(); ds.dongPanel(); window.showToast && window.showToast('ok', 'Đã chi ' + dang.ma + ' qua ' + tk + ' — đã lên sổ quỹ'); await taiLai(); }
     catch (err) { KD.baoLoiHopThoai(dlgChi, 'Chưa chi được: ' + err.message); } finally { nut.disabled = false; }
   });
   $('dc-tbody').addEventListener('click', (e) => { const b = e.target.closest('[data-nut]'); if (!b) return;
-    const r = ds.dsHien().find((x) => String(x.id) === b.dataset.id); if (!r) return; if (b.dataset.nut === 'chi') moChi(r); else moXl('duyet', r); });
+    const r = ds.dsHien().find((x) => String(x.id) === b.dataset.id); if (!r) return;
+    if (b.dataset.nut === 'chi') moChi(r); else if (b.dataset.nut === 'tu_choi') moXl('tu_choi', r); else moXl('duyet', r); });
   document.addEventListener('click', (e) => { const b = e.target.closest('#dc-p-nut [data-xl]'); if (!b) return; const r = ds.dsHien().find((x) => String(x.id) === b.dataset.id); if (!r) return; if (b.dataset.xl === 'chi') moChi(r); else moXl(b.dataset.xl, r); });
 
   /* ── Đã chi gần đây — thay tab "Đã chi" của màn cũ /chi-tap-trung: gộp 3 luồng, mới nhất trước, có phân trang + lọc luồng. ── */

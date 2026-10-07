@@ -43,6 +43,7 @@ from ..models.cai_dat_he_thong import CaiDatHeThong
 from ..models.journal_entry import JournalEntry
 from ..models.ky_ke_toan import KyKeToan
 from ..schemas.cai_dat import DanhSoRuleIn, DonViIn, KeToanSettingsIn
+from ..services.so_du_dau_ky_gl import NGAY_BAT_DAU_MAC_DINH
 from ._deps import _CEO_THUCHI_ROLES, require_ceo_thuchi, require_ketoan_user
 from .don_vi import don_vi_to_dict, get_or_seed_don_vi
 from .journal import _ROLES_POST as _JOURNAL_POST_ROLES
@@ -218,9 +219,9 @@ def get_cai_dat(
     st = _get_or_seed_settings(db)
     ke_toan = _ke_toan_to_dict(st)
     if not ke_toan["ngay_bat_dau_dung"]:
-        # Chưa khai báo → lấy ngày chứng từ sớm nhất trong sổ (số liệu thật).
-        dau = db.execute(select(func.min(JournalEntry.ngay))).scalar()
-        ke_toan["ngay_bat_dau_dung"] = dau.isoformat() if dau else None
+        # Chưa khai báo → mặc định 01/05/2026, giám đốc chốt ngày 01/10/2026 (cùng hằng với màn Số dư đầu kỳ). Trước đây lấy
+        # "chứng từ sớm nhất" = 30/11/2024 và ô này lại được gửi ngược lên khi bấm Lưu → ghi nhầm vào DB.
+        ke_toan["ngay_bat_dau_dung"] = NGAY_BAT_DAU_MAC_DINH.isoformat()
     return {
         # FE khoá ô nhập + ẩn nút Lưu khi False — PUT cũng chặn 403 ở server.
         "quyen_sua": user.role in _CEO_THUCHI_ROLES,

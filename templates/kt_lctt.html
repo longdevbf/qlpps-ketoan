@@ -11,7 +11,7 @@
 {% block head_extra %}
 <link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
 <link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
-<link rel="stylesheet" href="/static/css/kt-bao-cao.css?v=d4">
+<link rel="stylesheet" href="/static/css/kt-bao-cao.css?v=ct1005">
 <link rel="stylesheet" href="/static/css/kt-lctt.css?v=d4">
 {% endblock %}
 
@@ -26,7 +26,7 @@
   {{ ui.the_so('lc', [('dau', 'Tiền đầu kỳ', '', 'bi-safe'), ('hdkd', 'Lưu chuyển kinh doanh', 'success', 'bi-shop'),
                        ('thuan', 'Lưu chuyển thuần', 'info', 'bi-arrow-left-right'), ('cuoi', 'Tiền cuối kỳ', 'tim', 'bi-cash-stack')], nhan_vung='Dòng tiền trong kỳ') }}
 
-  {{ ui.the_bao_cao('lc', 'Báo cáo lưu chuyển tiền tệ', 'Mẫu B03-DN', [('Mã số', False), ('Kỳ này', True), ('Kỳ trước', True)]) }}
+  {{ ui.the_bao_cao('lc', 'Báo cáo lưu chuyển tiền tệ', 'Mẫu B03-DN', [('Mã số', False), ('Kỳ này', True), ('Kỳ trước', True)], panel='Nguồn gốc con số') }}
 
   {# Các khối phân tích phụ — thu gọn mặc định, mỗi khối một tab #}
   <details class="kd-card kt-gap" id="pt-khoi">
@@ -118,9 +118,9 @@
 
 {% block scripts %}
 <script src="/static/js/chart.umd.js?v=1"></script>
-<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kd-man-hinh.js?v=tien1001"></script>
 <script src="/static/js/kt-chung.js?v=tk0928b"></script>
 <script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
-<script src="/static/js/kt-bao-cao.js?v=loc0928b"></script>
-<script src="/static/js/kt-lctt.js?v=tk0928a"></script>
+<script src="/static/js/kt-bao-cao.js?v=ct1005"></script>
+<script src="/static/js/kt-lctt.js?v=ct1005"></script>
 {% endblock %}

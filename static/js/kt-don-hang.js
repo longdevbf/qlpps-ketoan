@@ -246,7 +246,7 @@
     $('dh-thu-tien-gy').textContent = 'Còn phải thu ' + KD.tienVnd(con) + (n > con ? ' — hệ thống chỉ ghi tối đa ' + KD.tienVnd(con) : n < con ? ' — thiếu ' + KD.tienVnd(con - n) + ' nằm lại ở "Còn thu"' : '');
     // Đúng như external.py mark_vanchuyen_completed: bút toán doanh thu Nợ 131 / Có 511 theo số thực thu (không tách 3331);
     // tiền thu chỉ vào Sổ quỹ của tài khoản đã chọn (máy chủ chưa ghi bút toán Nợ 111/112).
-    $('dh-thu-gy').innerHTML = '<i class="bi bi-journal-text" aria-hidden="true"></i> Sẽ ghi: ' + (ghi ? 'doanh thu Nợ 131 / Có 511 ' + KD.tienVnd(ghi) + ' · thu ' + KD.tienVnd(ghi) + ' vào "' + esc(tk) + '" (Sổ quỹ)' : 'không ghi doanh thu, không thu tiền') + ' · trừ tồn kho FIFO, ghi giá vốn · chuyển đơn sang Hoàn thành.';
+    $('dh-thu-gy').innerHTML = '<i class="bi bi-journal-text" aria-hidden="true"></i> Sẽ ghi: ' + (ghi ? 'doanh thu Nợ 131 / Có 511 ' + KD.tienVnd(ghi) + ' · thu ' + KD.tienVnd(ghi) + ' vào "' + esc(tk) + '" (Sổ quỹ)' : 'không ghi doanh thu, không thu tiền') + ' · không trừ kho (Mua hàng ghi phiếu xuất), chưa tự ghi giá vốn · chuyển đơn sang Hoàn thành.';
   }
   function moThu(r, cheDo, soTien, tk) {
     dangThu = { r, cheDo }; $('dh-thu-kq').hidden = true; $('dh-thu-than').hidden = false; $('dh-thu-chan').hidden = false; $('dh-thu-chan2').hidden = true;

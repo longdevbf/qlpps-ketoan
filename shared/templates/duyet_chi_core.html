@@ -511,6 +511,11 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
           <div class="dc-noi-chan"><button type="button" class="btn-link" onclick="dcXoaLoc()">Xoá bộ lọc</button></div>
         </div>
       </div>
+      <button type="button" class="dc-o" id="dc-nut-tai" onclick="dcTaiVe()"
+              title="Tải về file Excel (.xlsx) các đề xuất do chính bạn tạo, theo khoảng ngày, loại chi, trạng thái và ô tìm kiếm đang chọn">
+        <svg class="dc-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Tải về
+      </button>
     </div>
   </div>
 
@@ -909,6 +914,115 @@ function dcXoaLoc() {
   dcLoc();
 }
 document.addEventListener('click', e => { if (!e.target.closest('.dc-bat')) dcDongNoi(); });
+
+/* ── Tải về: đề xuất do CHÍNH MÌNH tạo, theo bộ lọc đang chọn ───────────────
+   Dùng lại đúng hai hàm lọc của bảng (khoảng ngày + loại/trạng thái/tìm kiếm) nên file
+   khớp với những gì đang thấy; riêng ô "Phạm vi" bị bỏ qua vì file luôn là của mình.
+   Tự dựng file .xlsx thật (một gói zip các tệp XML, không nén) — KHÔNG thêm thư viện.
+   Không dùng CSV: dòng `sep=;` làm Excel bỏ qua BOM nên chữ tiếng Việt vỡ, và Excel tự
+   đổi định dạng ngày. Ngày/tiền ghi thành số thật + định dạng ô, nên hiện đúng ở mọi máy. */
+function _dcTextTT(d) {
+  const n = _dcNhom(d);
+  if (n === 'tu_choi') return 'Từ chối';
+  if (n === 'xong') return d.da_chi ? 'Đã chi' : 'Hoàn tất';
+  return ({manager:'Chờ Manager', ketoan:'Chờ Kế Toán', ceo:'Chờ CEO'})[d.approval_level] || 'Chờ phê duyệt';
+}
+// [tên cột, độ rộng, kiểu ô]: 2 = chữ xuống dòng · 3 = chữ giữa · 4 = ngày · 5 = tiền
+const _DC_XLSX_COT = [['Mã đề nghị', 12, 3], ['Ngày đề nghị', 14, 4], ['Loại chi', 16, 3], ['Tiêu đề', 40, 2], ['Nội dung', 52, 2],
+                      ['Số tiền (VND)', 17, 5], ['Trạng thái', 15, 3], ['Hạn thanh toán', 15, 4], ['Ghi chú', 32, 2], ['Ngày chi', 14, 4]];
+function _dcXml(s) {
+  return String(s == null ? '' : s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function _dcSerial(s) {                       // '2026-09-30' → số ngày kiểu Excel (ô ngày thật)
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || ''));
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 86400000 + 25569 : null;
+}
+function _dcOXlsx(ref, kieu, v) {
+  if (kieu === 4 || kieu === 5) {
+    const so = kieu === 4 ? _dcSerial(v) : v;
+    return so == null || so === '' ? `<c r="${ref}" s="${kieu}"/>` : `<c r="${ref}" s="${kieu}"><v>${so}</v></c>`;
+  }
+  return v == null || v === '' ? `<c r="${ref}" s="${kieu}"/>`
+    : `<c r="${ref}" s="${kieu}" t="inlineStr"><is><t xml:space="preserve">${_dcXml(v)}</t></is></c>`;
+}
+const _DC_CRC = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+function _dcCrc(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = _DC_CRC[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function _dcZip(files) {                      // files = [[tên, chuỗi]] → Blob .zip (lưu trữ, không nén)
+  const enc = new TextEncoder(), phan = [], tam = []; let off = 0;
+  files.forEach(([ten, nd]) => {
+    const nm = enc.encode(ten), data = enc.encode(nd), crc = _dcCrc(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(12, 0x21, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, nm.length, true);
+    phan.push(lh, nm, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(14, 0x21, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, nm.length, true);
+    ch.setUint32(42, off, true);
+    tam.push(ch, nm);
+    off += 30 + nm.length + data.length;
+  });
+  const cd = tam.reduce((t, x) => t + x.byteLength, 0), end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, cd, true); end.setUint32(16, off, true);
+  return new Blob(phan.concat(tam, [end]), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+function _dcXlsx(ds) {
+  const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main', RS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const PR = 'http://schemas.openxmlformats.org/package/2006/relationships', COT = i => String.fromCharCode(65 + i);
+  const cuoi = _DC_XLSX_COT.length - 1, n = ds.length;
+  const dau = `<row r="1" ht="30" customHeight="1">` + _DC_XLSX_COT.map((c, i) => `<c r="${COT(i)}1" s="1" t="inlineStr"><is><t>${_dcXml(c[0])}</t></is></c>`).join('') + '</row>';
+  const dong = ds.map((d, k) => {
+    const v = ['#' + d.id, d.ngay_de_xuat, loaiLabel(d.loai_chi), d.tieu_de, d.muc_dich, Math.round(Number(d.so_tien) || 0),
+               _dcTextTT(d), d.han_thanh_toan, d.ghi_chu, d.da_chi ? d.ngay_chi : null];
+    return `<row r="${k + 2}">` + v.map((x, i) => _dcOXlsx(COT(i) + (k + 2), _DC_XLSX_COT[i][2], x)).join('') + '</row>';
+  }).join('');
+  const tong = ds.reduce((t, d) => t + Math.round(Number(d.so_tien) || 0), 0), r = n + 2;
+  const hangTong = `<row r="${r}"><c r="A${r}" s="6" t="inlineStr"><is><t>Tổng cộng</t></is></c><c r="F${r}" s="7"><f>SUM(F2:F${n + 1})</f><v>${tong}</v></c></row>`;
+  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="${NS}">`
+    + `<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`
+    + `<sheetFormatPr defaultRowHeight="15"/><cols>` + _DC_XLSX_COT.map((c, i) => `<col min="${i + 1}" max="${i + 1}" width="${c[1]}" customWidth="1"/>`).join('') + `</cols>`
+    + `<sheetData>${dau}${dong}${hangTong}</sheetData><autoFilter ref="A1:${COT(cuoi)}${n + 1}"/></worksheet>`;
+  const vien = '<border><left style="thin"><color rgb="FFD1D5DB"/></left><right style="thin"><color rgb="FFD1D5DB"/></right><top style="thin"><color rgb="FFD1D5DB"/></top><bottom style="thin"><color rgb="FFD1D5DB"/></bottom><diagonal/></border>';
+  const xf = (fmt, font, fill, vien1, canh) => `<xf numFmtId="${fmt}" fontId="${font}" fillId="${fill}" borderId="${vien1}" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">${canh}</xf>`;
+  const tren = '<alignment vertical="top" wrapText="1"/>', giua = '<alignment horizontal="center" vertical="top" wrapText="1"/>';
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="${NS}">`
+    + `<numFmts count="1"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/></numFmts>`
+    + `<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>`
+    + `<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2563EB"/><bgColor indexed="64"/></patternFill></fill></fills>`
+    + `<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>${vien}</borders>`
+    + `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>`
+    + `<cellXfs count="8">` + xf(0, 0, 0, 0, '') + xf(0, 1, 2, 1, '<alignment horizontal="center" vertical="center" wrapText="1"/>')
+    + xf(0, 0, 0, 1, tren) + xf(0, 0, 0, 1, giua) + xf(164, 0, 0, 1, giua) + xf(3, 0, 0, 1, '<alignment vertical="top"/>')
+    + xf(0, 2, 0, 1, '') + xf(3, 2, 0, 1, '') + `</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const khung = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  return _dcZip([
+    ['[Content_Types].xml', khung + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'
+      + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+      + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+    ['_rels/.rels', khung + `<Relationships xmlns="${PR}"><Relationship Id="rId1" Type="${RS}/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ['xl/workbook.xml', khung + `<workbook xmlns="${NS}" xmlns:r="${RS}"><sheets><sheet name="Đề xuất chi" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+    ['xl/_rels/workbook.xml.rels', khung + `<Relationships xmlns="${PR}"><Relationship Id="rId1" Type="${RS}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${RS}/styles" Target="styles.xml"/></Relationships>`],
+    ['xl/styles.xml', styles],
+    ['xl/worksheets/sheet1.xml', sheet]
+  ]);
+}
+function dcTaiVe() {
+  const ds = _dc.all.filter(d => d.username === MY_USERNAME && _dcTrongKhoang(d) && _dcKhopLoc(d));
+  if (!ds.length) { showToast('Không có đề xuất nào của bạn khớp bộ lọc để tải.', 'info'); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(_dcXlsx(ds));
+  a.download = 'de-xuat-chi-' + (MY_USERNAME || 'toi') + '-' + _dcHomNay().replace(/-/g, '') + '.xlsx';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  showToast('Đã tải ' + ds.length + ' đề xuất của bạn.', 'success');
+}
 
 function dcVe() {
   const nen = _dcNen();

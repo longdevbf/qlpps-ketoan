@@ -28,16 +28,104 @@
     khach_hang: ['Hoá đơn tiếp khách', 'Tên khách hàng / đối tác được tiếp'],
     khac: ['Hoá đơn hoặc chứng từ liên quan', 'Diễn giải rõ lý do chi'],
   };
-  let loai = 'khac', tep = [];   // tep: mảng File thật (upload SAU khi tạo đề nghị, API thật không nhận kèm lúc tạo)
+  let loai = 'khac', tep = [], loaiCp = '';
+  /* 6 `loai_chi` của model dùng chung chỉ là NHÓM thô để người duyệt lọc nhanh. Loại chi
+     phí THẬT nằm ở `ketoan.loai_chi_phi` (32 loại, màn Thu chi vẫn dùng) — trước 05/10/2026
+     form này không hỏi nên 57% đề xuất rơi vào "Khác" và sổ chi phí ghi tên loại không có
+     trong danh mục. Giờ hỏi cả hai: nhóm suy ra TỪ loại đã chọn, người dùng chỉ chọn 1 lần. */
+  const NHOM_SANG_LOAI = { ban_hang: 'tiep_thi', quan_ly: 'van_phong', tai_chinh: 'khac', khac: 'khac' };
+  let dsLoaiCp = [];   // [{ten, nhom_default}]
+
+  async function napLoaiChiPhi() {
+    const o = $('dn-lcp');
+    try {
+      dsLoaiCp = await KD.api('/api/loai-chi-phi?active_only=true');
+    } catch (err) {
+      // Danh mục không đọc được thì KHÔNG im lặng cho qua — người dùng cần biết vì sao
+      // chỉ còn vài lựa chọn, nếu không họ lại chọn "Khác" như cũ.
+      o.innerHTML = '<option value="">(không đọc được danh mục — tạm chọn nhóm bên dưới)</option>';
+      $('dn-lcp-m').textContent = 'Chưa đọc được danh mục Loại chi phí. Vẫn gửi được, nhưng kế toán sẽ phải gán loại lại sau.';
+      return;
+    }
+    const nhan = { ban_hang: 'Bán hàng', quan_ly: 'Quản lý', tai_chinh: 'Tài chính', khac: 'Khác' };
+    const theoNhom = {};
+    dsLoaiCp.forEach((l) => { (theoNhom[l.nhom_default || 'khac'] ||= []).push(l); });
+    o.innerHTML = '<option value="">— chọn loại chi phí —</option>'
+      + Object.keys(nhan).filter((k) => theoNhom[k]).map((k) => '<optgroup label="' + nhan[k] + '">'
+        + theoNhom[k].map((l) => '<option value="' + esc(l.ten) + '" data-nhom="' + esc(l.nhom_default || 'khac') + '">' + esc(l.ten) + '</option>').join('')
+        + '</optgroup>').join('');
+    $('dn-lcp-m').textContent = 'Lấy từ danh mục Loại chi phí của Kế toán (' + dsLoaiCp.length + ' loại).';
+    const sanCo = KT.url.doc().lcp;
+    if (sanCo && dsLoaiCp.some((l) => l.ten === sanCo)) {
+      o.value = sanCo;
+      o.dispatchEvent(new Event('change'));
+    }
+  }
+
+  async function napTaiKhoan() {
+    /* Danh sách tài khoản tiền/ngân hàng THẬT của công ty (cùng nguồn mà màn Ngân hàng và
+       hộp thoại Chi tiền dùng) — để không ai gõ sai tên ngân hàng. Vẫn là ô gõ được, vì
+       người thụ hưởng bên ngoài có thể dùng ngân hàng không nằm trong danh sách này. */
+    try {
+      const tk = (await KD.api('/api/tai-khoan')).filter((t) => t.active);
+      $('dn-nh-ds').innerHTML = tk.map((t) => '<option value="' + esc(t.ten_nh || t.ten_tk) + '">'
+        + esc(t.ten_tk + (t.so_tk ? ' · ' + t.so_tk : '')) + '</option>').join('');
+      $('dn-nh-m').textContent = 'Gõ để chọn trong ' + tk.length
+        + ' tài khoản của công ty, hoặc nhập ngân hàng khác của người thụ hưởng.';
+    } catch (err) {
+      $('dn-nh-m').textContent = 'Chưa đọc được danh sách tài khoản — nhập tay tên ngân hàng.';
+    }
+  }
+
+  async function napBoPhan(cua) {
+    /* Phòng ban quyết định ĐƯỜNG DUYỆT (phòng có trưởng thì qua trưởng trước). Trước đây ô này
+       khoá cứng theo người đăng nhập, nên ai chưa gắn phòng ban thì đề xuất nhảy thẳng lên Kế
+       toán. Giờ chọn được, mặc định vẫn là phòng của chính mình. */
+    const o = $('dn-bp');
+    let ds = [];
+    try {
+      const r = await KD.api('/api/external/departments');
+      ds = ((r && r.data) || []).map((x) => x.ten_phong_ban).filter(Boolean);
+    } catch (err) { /* không đọc được thì chỉ còn phòng của chính mình */ }
+    if (cua && !ds.includes(cua)) ds.unshift(cua);
+    o.innerHTML = '<option value="">— chọn bộ phận —</option>'
+      + ds.map((t) => '<option value="' + esc(t) + '">' + esc(t) + '</option>').join('');
+    o.value = cua || '';
+    o.disabled = false;
+    $('dn-bp-m').textContent = cua
+      ? 'Mặc định là phòng của bạn. Đổi nếu khoản chi thuộc bộ phận khác.'
+      : 'Bạn chưa được gắn phòng ban — chọn bộ phận chịu khoản chi này.';
+  }
+
+  async function napMaDon() {
+    // Gợi ý mã đơn để gắn đề xuất vào đơn hàng — gõ tay vẫn được, không chặn.
+    try {
+      // `quotes-list` là dropdown helper sẵn có, trả thẳng mã báo giá + tên khách và
+      // KHÔNG giới hạn vài ngày gần đây như `/don-hang`.
+      const r = await KD.api('/api/external/quotes-list?status=all');
+      const ds = (r && (r.data || r)) || [];
+      $('dn-ma-don-ds').innerHTML = ds.slice(0, 400)
+        .filter((d) => d.ma_bg)
+        .map((d) => '<option value="' + esc(d.ma_bg) + '">' + esc(d.customer_name || '') + '</option>')
+        .join('');
+    } catch (err) { /* chỉ là gợi ý — hỏng thì vẫn gõ tay được */ }
+  }   // tep: mảng File thật (upload SAU khi tạo đề nghị, API thật không nhận kèm lúc tạo)
   const LOAI_DAU = CAN[KT.url.doc().loai] ? KT.url.doc().loai : 'khac';
   const docSo = (el) => Number(String(el.value || '').replace(/[^\d]/g, '')) || 0;
 
+  /* 05/10/2026 bỏ dãy 6 nút ở đầu phiếu: người dùng chỉ chọn LOẠI CHI PHÍ thật (32 loại),
+     `loai_chi` của model dùng chung suy ra từ nhóm của loại đó — không bắt chọn hai lần. */
   function doiLoai(l) {
-    loai = l; $('dn-loai').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.loai === l)));
-    KT.url.ghi({ loai: l }, { loai: 'khac' });   // ?loai= đã được đọc lúc mở → giữ trên URL để F5 không mất loại đang chọn
+    loai = l;
+    KT.url.ghi({ loai: l }, { loai: 'khac' });   // giữ trên URL để F5 không mất
     ve();
   }
-  $('dn-loai').addEventListener('click', (e) => { const b = e.target.closest('[data-loai]'); if (b && b.dataset.loai !== loai) doiLoai(b.dataset.loai); });
+  $('dn-lcp').addEventListener('change', (e) => {
+    loaiCp = e.target.value;
+    const d = (e.target.selectedOptions[0] || {}).dataset;
+    KT.url.ghi({ lcp: loaiCp }, { lcp: '' });
+    doiLoai((d && NHOM_SANG_LOAI[d.nhom]) || 'khac');
+  });
   $('dn-tien').addEventListener('input', (e) => { const n = docSo(e.target); e.target.value = n ? KD.tien(n) : ''; ve(); });
   $('dn-ht').addEventListener('change', ve);
   $('dn-tep').addEventListener('change', (e) => { tep = tep.concat([...e.target.files]); e.target.value = ''; ve(); });
@@ -58,21 +146,28 @@
     const n = docSo($('dn-tien')), ck = $('dn-ht').value === 'ck';
     if (!$('dn-nd').value.trim()) { $('dn-nd').focus(); return baoLoi('Nhập nội dung đề nghị.'); }
     if (!n) { $('dn-tien').focus(); return baoLoi('Nhập số tiền.'); }
+    if (!loaiCp) { $('dn-lcp').focus(); return baoLoi('Chọn loại chi phí — kế toán cần biết khoản này vào mục nào.'); }
+    if (!$('dn-bp').value) { $('dn-bp').focus(); return baoLoi('Chọn bộ phận chịu khoản chi này.'); }
     if (!$('dn-th').value.trim()) { $('dn-th').focus(); return baoLoi('Nhập người/đơn vị thụ hưởng.'); }
     if (!$('dn-ly').value.trim()) { $('dn-ly').focus(); return baoLoi('Nhập diễn giải chi tiết — người duyệt cần biết căn cứ chi.'); }
     if (!tep.length) return baoLoi('Đính kèm ít nhất một chứng từ — người duyệt cần xem căn cứ chi.');
 
-    // Model thật không có cột thụ hưởng/STK/hình thức riêng — gộp vào muc_dich (text) để không mất thông tin.
-    let mucDich = $('dn-ly').value.trim() + '\nNgười thụ hưởng: ' + $('dn-th').value.trim();
-    if (ck && ($('dn-stk').value.trim() || $('dn-nh').value.trim())) mucDich += ' — STK ' + $('dn-stk').value.trim() + ' (' + $('dn-nh').value.trim() + ')';
-    mucDich += ck ? ' — Chuyển khoản' : ' — Tiền mặt';
+    // Từ 05/10/2026 các thứ này có CỘT THẬT (migration 0049) — không nhồi vào `muc_dich`
+    // nữa, nên kế toán lọc/đối chiếu được và sổ chi phí biết tiền trả cho ai, đơn nào.
+    const mucDich = $('dn-ly').value.trim();
 
     const nut = $('dn-gui'); nut.disabled = true;
     try {
       const r = await KD.api('/api/duyet-chi', KD.JSON_POST({
-        tieu_de: $('dn-nd').value.trim(), loai_chi: loai, so_tien: n,
+        tieu_de: $('dn-nd').value.trim(), loai_chi: loai, loai_chi_phi: loaiCp, so_tien: n,
         ngay_de_xuat: KD.iso(new Date()), han_thanh_toan: $('dn-han').value || null,
         muc_dich: mucDich, ghi_chu: '',
+        nguoi_thu_huong: $('dn-th').value.trim(),
+        so_tk_nhan: ck ? $('dn-stk').value.trim() : '',
+        ngan_hang_nhan: ck ? $('dn-nh').value.trim() : '',
+        hinh_thuc: ck ? 'ck' : 'tm',
+        ma_don: $('dn-ma-don').value.trim(),
+        phong_ban: $('dn-bp').value,
       }));
       const ket = await Promise.allSettled(tep.map((f) => { const fd = new FormData(); fd.append('file', f); return KD.api('/api/duyet-chi/' + r.id + '/chung-tu', { method: 'POST', body: fd }); }));
       const loiTep = ket.filter((k) => k.status === 'rejected').length;
@@ -86,12 +181,11 @@
     $('dn-tt').innerHTML = KD.KHUNG_TAI; $('dn-than').hidden = true; $('dn-thanh').hidden = true;
     try {
       const p = await KD.api('/api/profile');
-      $('dn-bp').innerHTML = '<option>' + esc(p.phong_ban || '(Chưa gắn phòng ban)') + '</option>';
-      $('dn-bp').disabled = true;   // backend tự lấy phòng ban theo người tạo — ô này chỉ để xem
-      $('dn-bp-meta').textContent = p.phong_ban || '(Chưa gắn phòng ban)';   // cùng chữ với ô Bộ phận
+      $('dn-bp-meta').textContent = p.phong_ban || '(Chưa gắn phòng ban)';
       $('dn-nguoi').textContent = p.ho_ten || p.username;
       const h = new Date(); h.setDate(h.getDate() + 7); $('dn-han').value = KD.iso(h);
       $('dn-tt').innerHTML = ''; $('dn-than').hidden = false; $('dn-thanh').hidden = false; doiLoai(LOAI_DAU);
+      napLoaiChiPhi(); napMaDon(); napTaiKhoan(); napBoPhan(p.phong_ban || '');
     } catch (e) { KD.khoiLoi($('dn-tt'), 'Không mở được mẫu đề nghị', e, tai); }
   }
   tai();

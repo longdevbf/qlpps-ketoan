@@ -22,6 +22,7 @@ không tạo trùng, vì lần 2 dòng KT đã tồn tại nên rơi vào nhánh
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import date as date_cls
 from decimal import Decimal
@@ -35,6 +36,8 @@ from shared.auth import JWTPayload
 from ..models import CongNo
 from .cong_no_dong_bo import PO_TRANG_THAI_GHI_NO, _ma_don_co_dong_tay
 from .id_gen import next_cong_no_id
+
+logger = logging.getLogger(__name__)
 
 REF_SOURCE_MUAHANG = "muahang"
 LOAI_CHI_TIET = "Công Nợ NCC"
@@ -302,8 +305,15 @@ def ap_dung_de_xuat(
                         "ngay": str(ngay_dong), "so_tien": str(dx.mh_so_tien),
                     },
                 })
-        except Exception as ex:  # fail-hard nghiệp vụ nhưng KHÔNG chặn các dòng khác
+        except Exception:  # fail-hard nghiệp vụ nhưng KHÔNG chặn các dòng khác
+            # SỬA (bản vá 30/09/2026 mục 6): str(ex) có thể lộ nguyên câu SQL (IntegrityError/
+            # OperationalError in kèm statement) ra client — log chi tiết phía server, trả thông
+            # báo chung tiếng Việt cho client.
             db.rollback()
-            kq.loi.append({**dx.to_dict(), "ly_do_loi": str(ex)})
+            logger.exception(
+                "doi_chieu_mh: ap dung that bai po_id=%s ncc_id=%s loai=%s",
+                dx.po_id, dx.ncc_id, dx.loai,
+            )
+            kq.loi.append({**dx.to_dict(), "ly_do_loi": "Không áp dụng được, đã ghi log — báo quản trị"})
 
     return kq

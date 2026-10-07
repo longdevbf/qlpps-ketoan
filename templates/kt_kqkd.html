@@ -12,7 +12,7 @@
 {% block head_extra %}
 <link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
 <link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
-<link rel="stylesheet" href="/static/css/kt-bao-cao.css?v=d4">
+<link rel="stylesheet" href="/static/css/kt-bao-cao.css?v=ct1005">
 {% endblock %}
 
 {% block content %}
@@ -26,7 +26,7 @@
   {{ ui.the_so('kq', [('dt', 'Doanh thu thuần', 'info', 'bi-graph-up-arrow'), ('ln_gop', 'Lợi nhuận gộp', 'success', 'bi-bar-chart'),
                        ('ln_tt', 'Lợi nhuận trước thuế', 'tim', 'bi-calculator'), ('ln_st', 'Lợi nhuận sau thuế', '', 'bi-piggy-bank')], nhan_vung='Chỉ tiêu chính của kỳ') }}
 
-  {{ ui.the_bao_cao('kq', 'Báo cáo kết quả hoạt động kinh doanh', 'Mẫu B02-DN', [('Mã số', False), ('Kỳ này', True), ('Kỳ trước', True), ('Chênh lệch', True)]) }}
+  {{ ui.the_bao_cao('kq', 'Báo cáo kết quả hoạt động kinh doanh', 'Mẫu B02-DN', [('Mã số', False), ('Kỳ này', True), ('Kỳ trước', True), ('Chênh lệch', True)], panel='Nguồn gốc con số') }}
 
   <details class="kd-card kt-gap" id="dc-khoi">
     <summary class="kt-gap__dau">
@@ -60,10 +60,10 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kd-man-hinh.js?v=tien1001"></script>
 <script src="/static/js/kt-chung.js?v=tk0928b"></script>
 <script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
-<script src="/static/js/kt-bao-cao.js?v=loc0928b"></script>
+<script src="/static/js/kt-bao-cao.js?v=ct1005"></script>
 <script src="/static/js/kt-kqkd-tinh.js?v=loc0928"></script>
-<script src="/static/js/kt-kqkd.js?v=loc0928"></script>
+<script src="/static/js/kt-kqkd.js?v=ct1005"></script>
 {% endblock %}

@@ -9,7 +9,7 @@
 {% block head_extra %}
 <link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
 <link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
-<link rel="stylesheet" href="/static/css/kt-bao-cao.css?v=d4">
+<link rel="stylesheet" href="/static/css/kt-bao-cao.css?v=ct1005">
 {% endblock %}
 
 {% block content %}
@@ -23,7 +23,7 @@
   {{ ui.the_so('cd', [('ts', 'Tổng tài sản', 'info', 'bi-building'), ('no', 'Nợ phải trả', 'danger', 'bi-credit-card'),
                        ('vcsh', 'Vốn chủ sở hữu', 'success', 'bi-person-badge'), ('kiem', 'Kiểm tra cân đối', 'tim', 'bi-check2-square')], nhan_vung='Tổng hợp tại ngày chọn') }}
 
-  {{ ui.the_bao_cao('cd', 'Báo cáo tình hình tài chính', 'Mẫu B01-DN', [('Mã số', False), ('Số cuối kỳ', True), ('Số đầu năm', True)]) }}
+  {{ ui.the_bao_cao('cd', 'Báo cáo tình hình tài chính', 'Mẫu B01-DN', [('Mã số', False), ('Số cuối kỳ', True), ('Số đầu năm', True)], panel='Nguồn gốc con số') }}
 
   <details class="kd-card kt-gap" id="cc-khoi" hidden>
     <summary class="kt-gap__dau">
@@ -45,9 +45,9 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kd-man-hinh.js?v=tien1001"></script>
 <script src="/static/js/kt-chung.js?v=tk0928b"></script>
 <script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
-<script src="/static/js/kt-bao-cao.js?v=loc0928b"></script>
-<script src="/static/js/kt-cdkt.js?v=d5"></script>
+<script src="/static/js/kt-bao-cao.js?v=ct1005"></script>
+<script src="/static/js/kt-cdkt.js?v=ct1005"></script>
 {% endblock %}

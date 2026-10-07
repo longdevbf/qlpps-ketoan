@@ -3547,13 +3547,15 @@ function onMonthChange() {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-const fmt = n => new Intl.NumberFormat('vi-VN').format(Math.round(n||0)) + ' đ';
-const fmtShort = n => {
-  n = Math.round(n||0);
-  if (Math.abs(n) >= 1e9) return (n/1e9).toFixed(1) + ' tỷ';
-  if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(1) + ' tr';
-  return new Intl.NumberFormat('vi-VN').format(n) + ' đ';
-};
+// Sổ kế toán khớp đến hào: có phần lẻ hiện đủ 2 chữ số, tròn đồng thì không
+// thêm ",00". KHÔNG rút gọn tỷ/triệu (người dùng chốt 01/10/2026).
+const _NF_VN   = new Intl.NumberFormat('vi-VN');
+const _NF_HAO  = new Intl.NumberFormat('vi-VN', {minimumFractionDigits:2, maximumFractionDigits:2});
+const _soTien  = n => { const v = Number(n)||0;
+  return Math.round(v*100) % 100 === 0 ? _NF_VN.format(v) : _NF_HAO.format(v); };
+const fmt = n => _soTien(n) + ' đ';
+// Giữ tên fmtShort để 33 điểm gọi không phải sửa — nay trả số đầy đủ.
+const fmtShort = n => fmt(n);
 
 function toast(msg, type='success') {
   const t = document.getElementById('toast');
@@ -4877,9 +4879,11 @@ function renderLuong(data) {
   const num = v => Number(v || 0);
   tbody.innerHTML = data.map(r => {
     const tn = num(r.luong_thuc_nhan) || num(r.luong_thuc_linh);
-    // Trả M5 = lương cứng + ăn trưa − BHXH − ứng lương − đoàn phí; Trả M15 = còn lại
-    const m5 = num(r.luong_theo_cong) + num(r.an_trua) - num(r.bhxh_tru) - num(r.ung_luong) - num(r.doan_phi_tru);
-    const m15 = tn - m5;
+    // Trả M5 / M15 lấy THẲNG số máy chủ (payroll.py): mọi khoản trừ gồm phạt vắng, khấu trừ
+    // đã dồn vào M5, M15 = phần thưởng (≥ 0) — KHÔNG bao giờ âm. Fallback cũ nếu máy chủ chưa trả.
+    const m5 = (r.luong_m5 != null) ? num(r.luong_m5)
+      : num(r.luong_theo_cong) + num(r.an_trua) - num(r.bhxh_tru) - num(r.ung_luong) - num(r.doan_phi_tru);
+    const m15 = (r.luong_m15 != null) ? num(r.luong_m15) : (tn - m5);
     const dm = num(r.di_muon_so_lan) ? `${r.di_muon_so_lan}${r.di_muon_tru_pct ? ` (−${r.di_muon_tru_pct}%)` : ''}` : '0';
     const cong = (typeof r.so_ngay_cong === 'number') ? r.so_ngay_cong.toFixed(2) : (r.so_ngay_cong || 0);
     return `<tr>
@@ -8157,13 +8161,9 @@ function renderSoQuyTable(data) {
 // MODULE 1 — CÂN ĐỐI TÀI CHÍNH
 // ════════════════════════════════════════════════════════════════════════════
 // AGENT_CAN_DOI_JS_START
-function cd_fmt(n) { return Number(n||0).toLocaleString('vi-VN') + ' đ'; }
-function cd_fmtShort(n) {
-  const v = Number(n||0);
-  if (Math.abs(v) >= 1e9) return (v/1e9).toFixed(2).replace(/\.?0+$/,'') + ' tỷ';
-  if (Math.abs(v) >= 1e6) return (v/1e6).toFixed(1).replace(/\.0$/,'') + ' tr';
-  return v.toLocaleString('vi-VN') + ' đ';
-}
+function cd_fmt(n) { return _soTien(n) + ' đ'; }
+// KHÔNG rút gọn nữa (người dùng chốt 01/10/2026) — số đầy đủ, có hào hiện hào.
+function cd_fmtShort(n) { return cd_fmt(n); }
 function cd_esc(s) {
   if (s == null) return '';
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

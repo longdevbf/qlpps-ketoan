@@ -1214,8 +1214,48 @@ def list_products_with_inventory(
 
 
 # ============================================================================
-# TỒN KHO từ MUA HÀNG — đọc trực tiếp muahang.ton_kho_items + sửa giá nhập
+# TỒN KHO từ MUA HÀNG — đọc Kho mới (muahang.kho_sp + kho_movement), CHỈ ĐỌC
 # ============================================================================
+# Giám đốc chốt 01/10/2026: tồn kho lấy Mua hàng làm gốc, phiếu xuất do Mua hàng ghi.
+# Công thức phải khớp view `muahang.v_kho_ton_tong` (đặc tả v2 §4) và màn Kho của Mua hàng:
+# chỉ SKU active; nhap cộng, xuat trừ, loại khác (dieu_chinh) cộng nguyên số có dấu;
+# giá trị = tồn × kho_sp.don_gia_nhap. Khi view có thật thì đổi sang đọc view.
+_KHO_MOI_TON_SQL = """
+    WITH mv AS (
+        SELECT ma_sp,
+               SUM(CASE loai WHEN 'nhap' THEN so_luong WHEN 'xuat' THEN -so_luong
+                   ELSE so_luong END) AS ton,
+               SUM(CASE WHEN loai = 'nhap' THEN so_luong ELSE 0 END) AS sl_nhap,
+               MAX(created_at) FILTER (WHERE loai = 'nhap') AS ngay_nhap
+        FROM muahang.kho_movement
+        GROUP BY ma_sp
+    )
+    SELECT s.id, s.ma_sp, s.ten_sp, s.nhom AS danh_muc,
+           s.thuoc_tinh->>'phan_khuc' AS phan_khuc,
+           s.thuoc_tinh->>'kich_thuoc' AS kich_thuoc,
+           s.thuoc_tinh->>'vat_lieu' AS vat_lieu,
+           s.thuoc_tinh->>'mau_sac' AS mau_sac,
+           s.thuoc_tinh->>'hinh_anh' AS hinh_anh,
+           s.dvt, s.ncc_name, s.ncc_id, mv.ngay_nhap,
+           COALESCE(mv.ton, 0) AS so_luong,
+           COALESCE(mv.sl_nhap, 0) AS so_luong_nhap,
+           COALESCE(s.don_gia_nhap, 0) AS gia_nhap,
+           COALESCE(mv.ton, 0) * COALESCE(s.don_gia_nhap, 0) AS thanh_tien,
+           -- 61/66 SKU mang dấu kỹ thuật của đợt migrate 24/08 ("Chuyen tu Ton Kho cu (V1)"),
+           -- không có nghĩa với Kế toán → ẩn, chỉ giữ ghi chú do người viết.
+           CASE WHEN s.ghi_chu ILIKE 'Chuyen tu Ton Kho cu%' THEN NULL
+                ELSE NULLIF(TRIM(s.ghi_chu), '') END AS ghi_chu,
+           s.created_by AS nguoi_nhap, s.created_at,
+           sp.id AS product_master_id,
+           COALESCE(sp.gia_co_ban, 0) AS gia_ban_hien_tai
+    FROM muahang.kho_sp s
+    LEFT JOIN mv ON mv.ma_sp = s.ma_sp
+    LEFT JOIN shared.products sp ON sp.ma_sp = s.ma_sp
+    WHERE {where}
+    ORDER BY mv.ngay_nhap DESC NULLS LAST, s.id DESC
+    LIMIT 500
+"""
+
 
 @router.get("/ton-kho-mh")
 def list_ton_kho_from_muahang(
@@ -1224,39 +1264,41 @@ def list_ton_kho_from_muahang(
     q: Optional[str] = Query(None),
     danh_muc: Optional[str] = Query(None),
     ncc: Optional[str] = Query(None),
-    only_remaining: bool = Query(False, description="Chỉ dòng so_luong > 0"),
+    only_remaining: bool = Query(False, description="Chỉ mã hàng còn tồn > 0"),
 ):
-    """Đọc tồn kho từ phòng Mua Hàng (`muahang.ton_kho_items`) — mỗi dòng = 1 lô nhập."""
-    where = ["1=1"]
+    """Tồn kho theo Kho mới của Mua hàng — mỗi dòng = 1 mã hàng (SKU), không còn theo lô.
+
+    Giữ tên field cũ (`so_luong`, `gia_nhap`, `thanh_tien`, `ngay_nhap`, `danh_muc`…) để
+    màn /ketoan/tồn-kho và SPA cũ không vỡ. `ngay_nhap` = ngày phiếu nhập gần nhất.
+    """
+    where = ["s.active IS TRUE"]
     params: dict[str, Any] = {}
     # q + ncc: 2 ô tìm của màn Tồn kho — không phân biệt dấu + hoa/thường.
     if q and q.strip():
-        where.append(sql_khop(("t.ma_sp", "t.ten_sp")))
+        where.append(sql_khop(("s.ma_sp", "s.ten_sp")))
         params["kw"] = mau_like(q)
     if danh_muc:
-        where.append("t.danh_muc = :dm")
+        where.append("s.nhom = :dm")
         params["dm"] = danh_muc
     if ncc and ncc.strip():
-        where.append(sql_khop(("t.ncc_name",), "ncc"))
+        where.append(sql_khop(("s.ncc_name",), "ncc"))
         params["ncc"] = mau_like(ncc)
     if only_remaining:
-        where.append("t.so_luong > 0")
+        where.append("COALESCE(mv.ton, 0) > 0")
 
-    sql = f"""
-        SELECT t.id, t.ma_sp, t.ten_sp, t.danh_muc, t.phan_khuc, t.kich_thuoc,
-               t.vat_lieu, t.mau_sac, t.loai_son, t.phong_cach,
-               t.ncc_name, t.ncc_id, t.ngay_nhap,
-               t.so_luong, t.don_gia AS gia_nhap, t.thanh_tien,
-               t.hinh_anh, t.ghi_chu, t.nguoi_nhap, t.created_at,
-               sp.id AS product_master_id,
-               COALESCE(sp.gia_co_ban, 0) AS gia_ban_hien_tai
-        FROM muahang.ton_kho_items t
-        LEFT JOIN shared.products sp ON sp.ma_sp = t.ma_sp
-        WHERE {' AND '.join(where)}
-        ORDER BY t.ngay_nhap DESC NULLS LAST, t.id DESC
-        LIMIT 500
-    """
-    return {"data": _safe_rows(db, sql, **params)}
+    sql = _KHO_MOI_TON_SQL.format(where=" AND ".join(where))
+    # Cố ý KHÔNG dùng `_safe_rows`: truy vấn hỏng mà trả [] trông y hệt "kho trống".
+    try:
+        rows = db.execute(text(sql), params).mappings().all()
+    except (ProgrammingError, OperationalError):
+        db.rollback()
+        import logging
+        logging.getLogger(__name__).exception("ton-kho-mh: không đọc được Kho mới Mua hàng")
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Chưa đọc được Kho của Mua hàng. Thử lại sau hoặc báo bộ phận kỹ thuật.",
+        )
+    return {"data": [dict(r) for r in rows]}
 
 
 # NOTE: KHÔNG có endpoint PATCH giá nhập — giá nhập là việc của Mua Hàng,
@@ -1309,7 +1351,7 @@ def update_gia_ban_by_ma_sp(
 ):
     """KT đặt giá bán theo ma_sp — auto-tạo `shared.products` nếu chưa có.
 
-    Lấy ten_sp/danh_muc/dvt/hinh_anh từ dòng `muahang.ton_kho_items` mới nhất.
+    Lấy ten_sp/nhóm/kích thước/màu/ảnh từ SKU Kho mới `muahang.kho_sp` (chỉ đọc).
     """
     sp = db.execute(
         text("SELECT id, ma_sp, ten_sp, gia_co_ban FROM shared.products WHERE ma_sp = :ma LIMIT 1"),
@@ -1326,13 +1368,16 @@ def update_gia_ban_by_ma_sp(
         created = False
         ten_sp = sp["ten_sp"]
     else:
-        # Auto-create từ ton_kho_items mới nhất
+        # Auto-create từ SKU Kho mới của Mua hàng
         tk = db.execute(
             text("""
-                SELECT ma_sp, ten_sp, danh_muc, kich_thuoc, vat_lieu, mau_sac, hinh_anh
-                FROM muahang.ton_kho_items
+                SELECT ma_sp, ten_sp, nhom AS danh_muc,
+                       thuoc_tinh->>'kich_thuoc' AS kich_thuoc,
+                       thuoc_tinh->>'mau_sac' AS mau_sac,
+                       thuoc_tinh->>'hinh_anh' AS hinh_anh
+                FROM muahang.kho_sp
                 WHERE ma_sp = :ma
-                ORDER BY ngay_nhap DESC NULLS LAST, id DESC LIMIT 1
+                LIMIT 1
             """),
             {"ma": ma_sp},
         ).mappings().first()
@@ -1376,154 +1421,6 @@ def update_gia_ban_by_ma_sp(
     return {
         "ok": True, "id": product_id, "ma_sp": ma_sp,
         "old_gia": old_gia, "new_gia": gia_ban, "created": created,
-    }
-
-
-def _deduct_inventory_fifo(db: Session, ma_don: str) -> dict:
-    """Trừ tồn kho FIFO trên `muahang.ton_kho_items` theo từng item trong đơn.
-
-    Match SP loose: `quote_items.product_name` ↔ `ton_kho_items.ten_sp` (ILIKE).
-    FIFO theo `ngay_nhap ASC` (lô cũ trừ trước).
-
-    Returns:
-        {
-          "deducted": [...],        # detailed per-item lots
-          "warnings": [...],        # missing inventory etc.
-          "cost_summary": {          # Phase 4: dùng để sinh COGS movement + journal
-              product_name: {
-                  "total_qty": float,
-                  "total_cost": float,        # SUM(lot.don_gia × take)
-                  "weighted_avg_don_gia": float,
-              }
-          },
-          "total_cogs": float,       # SUM(total_cost) — dùng cho journal Nợ 632 / Có 156
-        }
-    """
-    if not ma_don:
-        return {
-            "deducted": [], "warnings": ["Không có ma_don"],
-            "cost_summary": {}, "total_cogs": 0.0,
-        }
-
-    # 1. Lấy quote_id từ ma_don
-    q = db.execute(
-        text("SELECT id FROM baogia.quotes WHERE quote_number = :mn LIMIT 1"),
-        {"mn": ma_don},
-    ).first()
-    if not q:
-        return {
-            "deducted": [], "warnings": [f"Không tìm thấy báo giá {ma_don}"],
-            "cost_summary": {}, "total_cogs": 0.0,
-        }
-    quote_id = q[0]
-
-    # 2. Lấy items của báo giá
-    items = db.execute(
-        text("""
-            SELECT id, product_name, so_luong
-            FROM baogia.quote_items
-            WHERE quote_id = :qid AND product_name IS NOT NULL AND so_luong > 0
-        """),
-        {"qid": quote_id},
-    ).mappings().all()
-    if not items:
-        return {
-            "deducted": [], "warnings": [f"Báo giá {ma_don} không có item"],
-            "cost_summary": {}, "total_cogs": 0.0,
-        }
-
-    deducted: list[dict] = []
-    warnings: list[str] = []
-    cost_summary: dict[str, dict] = {}  # product_name → {total_qty, total_cost}
-
-    # 3. Cho mỗi item → trừ FIFO
-    for it in items:
-        product_name = (it["product_name"] or "").strip()
-        qty_remain = int(it["so_luong"] or 0)
-        if not product_name or qty_remain <= 0:
-            continue
-
-        # FIFO lô tồn của SP này
-        lots = db.execute(
-            text("""
-                SELECT id, ma_sp, ten_sp, so_luong, don_gia, ngay_nhap
-                FROM muahang.ton_kho_items
-                WHERE ten_sp ILIKE :name AND so_luong > 0
-                ORDER BY ngay_nhap ASC NULLS LAST, id ASC
-            """),
-            {"name": f"%{product_name}%"},
-        ).mappings().all()
-
-        if not lots:
-            warnings.append(f"⚠️ Không tìm thấy tồn kho cho '{product_name}'")
-            continue
-
-        deducted_for_item = []
-        item_total_qty = 0.0
-        item_total_cost = 0.0
-        for lot in lots:
-            if qty_remain <= 0:
-                break
-            available = float(lot["so_luong"] or 0)
-            take = min(available, qty_remain)
-            don_gia = float(lot["don_gia"] or 0)
-            cost_for_take = take * don_gia
-            new_qty = available - take
-            new_thanh_tien = new_qty * don_gia
-            db.execute(
-                text("""
-                    UPDATE muahang.ton_kho_items
-                    SET so_luong = :nq, thanh_tien = :tt, updated_at = NOW()
-                    WHERE id = :i
-                """),
-                {"nq": new_qty, "tt": new_thanh_tien, "i": lot["id"]},
-            )
-            deducted_for_item.append({
-                "lot_id": lot["id"],
-                "ma_sp": lot["ma_sp"],
-                "ten_sp": lot["ten_sp"],
-                "deducted": take,
-                "don_gia": don_gia,
-                "cost": cost_for_take,
-                "remaining": new_qty,
-                "ngay_nhap": str(lot["ngay_nhap"]) if lot["ngay_nhap"] else None,
-            })
-            qty_remain -= take
-            item_total_qty += take
-            item_total_cost += cost_for_take
-
-        if qty_remain > 0:
-            warnings.append(
-                f"⚠️ '{product_name}' thiếu {qty_remain} (đơn cần {it['so_luong']}, "
-                f"đã trừ {it['so_luong'] - qty_remain})"
-            )
-        deducted.append({
-            "product_name": product_name,
-            "qty_ordered": int(it["so_luong"]),
-            "qty_deducted": item_total_qty,
-            "cost": item_total_cost,
-            "lots": deducted_for_item,
-        })
-
-        # Cumulate cost_summary (1 SP có thể xuất hiện nhiều dòng quote_item)
-        if product_name not in cost_summary:
-            cost_summary[product_name] = {"total_qty": 0.0, "total_cost": 0.0}
-        cost_summary[product_name]["total_qty"] += item_total_qty
-        cost_summary[product_name]["total_cost"] += item_total_cost
-
-    # Tính weighted_avg per product
-    total_cogs = 0.0
-    for name, agg in cost_summary.items():
-        q = agg["total_qty"]
-        c = agg["total_cost"]
-        agg["weighted_avg_don_gia"] = (c / q) if q > 0 else 0.0
-        total_cogs += c
-
-    return {
-        "deducted": deducted,
-        "warnings": warnings,
-        "cost_summary": cost_summary,
-        "total_cogs": round(total_cogs, 2),
     }
 
 
@@ -1606,13 +1503,11 @@ def mark_vanchuyen_completed(
     Tác vụ (Phase 4 Revenue Recognition — 2026-04-28):
       1. Update vanchuyen.trang_thai = 'hoan_thanh' + push stage JSONB
       2. Sync baogia.quotes.tien_trinh_mh = 'Hoàn Thành'
-      3. Trừ tồn kho FIFO trên muahang.ton_kho_items theo quote_items
+      3. (Bỏ 03/10/2026) KHÔNG trừ tồn kho — Mua hàng ghi phiếu xuất ở Kho mới
       4. Sinh `ketoan.doanh_thu` (DT thuần = tong_chua_thue × (1 - discount/100))
-      5. Sinh `ketoan.inventory_movement loai='xuat'` mỗi product (giá nhập FIFO)
-      6. Sinh journal kép:
-           - DT: Nợ 131 / Có 511, so_tien = dt_thuan
-           - COGS: Nợ 632 / Có 156, so_tien = total_cogs (nếu > 0)
-      7. Audit log
+      5. Sinh journal DT: Nợ 131 / Có 511, so_tien = tiền thực nhận.
+         Giá vốn 632/156 theo FIFO đã bỏ; chờ đọc phiếu xuất Mua hàng (đặc tả v2 K2′).
+      6. Audit log
     """
     # Validate VC exists + status
     row = db.execute(
@@ -1661,10 +1556,15 @@ def mark_vanchuyen_completed(
             {"ma_don": ma_don},
         )
 
-    # 3. Trừ tồn kho FIFO + thu thập cost_summary
-    inv_result = _deduct_inventory_fifo(db, ma_don)
-    total_cogs = float(inv_result.get("total_cogs", 0) or 0)
-    cost_summary: dict = inv_result.get("cost_summary", {}) or {}
+    # 3. KHÔNG còn trừ tồn kho ở đây (giám đốc chốt 01/10/2026): tồn kho lấy Kho mới của
+    # Mua hàng làm gốc và Mua hàng tự ghi phiếu xuất. Bản trước trừ FIFO trên bảng cũ
+    # muahang.ton_kho_items theo TÊN GẦN GIỐNG (ILIKE) — ghi vào schema app khác và trừ nhầm lô.
+    # Giá vốn hàng lấy từ kho (Nợ 632 / Có 156) sẽ đọc phiếu xuất Mua hàng gắn mã đơn
+    # (đặc tả v2 K2′) khi Mua hàng làm xong bảng phiếu (gói G2). Giữ shape `inventory` cho SPA cũ.
+    inv_result: dict = {
+        "deducted": [], "warnings": [], "cost_summary": {}, "total_cogs": 0.0,
+        "ghi_chu": "Kế toán không trừ kho — Mua hàng ghi phiếu xuất ở Kho.",
+    }
 
     # 4. Sinh ketoan.doanh_thu (1 dòng cho cả đơn)
     revenue_info: dict = {"created": False}
@@ -1733,100 +1633,59 @@ def mark_vanchuyen_completed(
             # TK sổ quỹ do KT CHỌN khi đối chiếu (tiền mặt / ngân hàng nào); mặc định Tiền Mặt
             _tk_sq = (tai_khoan or "").strip() or "Tiền Mặt"
 
-            # 4a. Ghi doanh thu phần CÒN LẠI + đẩy SỔ QUỸ (idempotent qua
-            # ma_don + loai_thanh_toan='Thanh Toán').
+            # 4a. Ghi doanh thu phần CÒN LẠI + đẩy SỔ QUỸ.
+            # Chống ghi trùng: cap theo `con_lai` + guard trạng thái VC (xem dưới).
             if so_ghi_nhan > 0:
-                # Idempotent: đơn đã có Thanh Toán (KHÔNG phân biệt hoa/thường —
-                # 'Thanh toán' vs 'Thanh Toán') → không ghi thêm (tránh đối chiếu 2 lần).
-                existed = db.execute(text("""
-                    SELECT id FROM ketoan.doanh_thu
-                    WHERE ma_don = :mn AND loai_thanh_toan ILIKE 'thanh toán' LIMIT 1
-                """), {"mn": ma_don}).first()
-                if not existed:
-                    from ..models import DoanhThu as _DoanhThu
-                    from ..services.so_quy_auto import sync_so_quy_from_doanh_thu as _sync_sq
-                    from decimal import Decimal as _Dec
-                    _dt = _DoanhThu(
-                        ngay=today,
-                        loai=loai_dt,
-                        so_tien=_Dec(str(so_ghi_nhan)),
-                        nv_kinh_doanh=q["salesperson"],
-                        ma_don=ma_don,
-                        nguon="kd",
-                        ngan_hang=_tk_sq,
-                        loai_thanh_toan="Thanh Toán",
-                        ghi_chu=(
-                            f"Đơn hoàn thành {ma_don} — KH: {q['customer_name'] or '?'} "
-                            f"— NV: {q['salesperson'] or '?'} (tiền thực nhận KT xác nhận)"
-                        ),
-                        created_by=user.username,
-                    )
-                    db.add(_dt)
-                    db.flush()
-                    try:
-                        _sync_sq(db, _dt)  # → ketoan.so_quy (thu), so_tien=so_ghi_nhan, tai_khoan=_tk_sq
-                    except Exception:
-                        pass
-                    revenue_info = {
-                        "created": True, "id": _dt.id, "so_tien": so_ghi_nhan,
-                        "ma_don": ma_don, "loai": loai_dt,
-                        "coc_da_tru": coc_da_ghi, "tai_khoan": _tk_sq,
-                        "dt_thuan_bao_gia": dt_thuan, "con_lai_bao_gia": con_lai,
-                    }
-                else:
-                    revenue_info = {
-                        "created": False, "skipped_existing_id": existed[0],
-                        "ma_don": ma_don,
-                    }
+                # BỎ guard "đơn đã có Thanh Toán" (02/10/2026 — anh Quang báo đơn
+                # NV26010-26-00007 ấn hoàn thành mà tiền không lên sổ quỹ BIDV).
+                #
+                # Guard cũ: SELECT id FROM doanh_thu WHERE ma_don=:mn AND
+                # loai_thanh_toan ILIKE 'thanh toán' → có thì BỎ QUA, không ghi.
+                # Nó chặn VĨNH VIỄN lần thu thứ 2 của đơn khách trả NHIỀU LẦN:
+                # NV26010-26-00007 đã ghi 153.600.000 ngày 26/05, nên khi VC hoàn
+                # thành 30/09 (KT xác nhận thu 92.324.800) thì bị bỏ qua IM LẶNG.
+                # Quét production 02/10: 29 đơn, 795.190.487đ bị chặn kiểu này.
+                #
+                # Chống ghi trùng KHÔNG cần guard đó — đã có 2 lớp chắc hơn:
+                #   (1) so_ghi_nhan bị CAP ≤ con_lai = tong_don − tổng đã ghi (mọi
+                #       loại, kể cả cọc). Ghi đủ rồi → con_lai=0 → so_ghi_nhan=0 →
+                #       không vào nhánh này.
+                #   (2) Endpoint chỉ chạy ĐƯỢC 1 LẦN mỗi VC: đầu hàm có
+                #       `if row["trang_thai"] != "da_giao": raise 400` rồi set
+                #       'hoan_thanh'. Gọi lại lần 2 trả 400, không tới đây.
+                from ..models import DoanhThu as _DoanhThu
+                from ..services.so_quy_auto import sync_so_quy_from_doanh_thu as _sync_sq
+                from decimal import Decimal as _Dec
+                _dt = _DoanhThu(
+                    ngay=today,
+                    loai=loai_dt,
+                    so_tien=_Dec(str(so_ghi_nhan)),
+                    nv_kinh_doanh=q["salesperson"],
+                    ma_don=ma_don,
+                    nguon="kd",
+                    ngan_hang=_tk_sq,
+                    loai_thanh_toan="Thanh Toán",
+                    ghi_chu=(
+                        f"Đơn hoàn thành {ma_don} — KH: {q['customer_name'] or '?'} "
+                        f"— NV: {q['salesperson'] or '?'} (tiền thực nhận KT xác nhận)"
+                    ),
+                    created_by=user.username,
+                )
+                db.add(_dt)
+                db.flush()
+                try:
+                    _sync_sq(db, _dt)  # → ketoan.so_quy (thu), so_tien=so_ghi_nhan, tai_khoan=_tk_sq
+                except Exception:
+                    pass
+                revenue_info = {
+                    "created": True, "id": _dt.id, "so_tien": so_ghi_nhan,
+                    "ma_don": ma_don, "loai": loai_dt,
+                    "coc_da_tru": coc_da_ghi, "tai_khoan": _tk_sq,
+                    "dt_thuan_bao_gia": dt_thuan, "con_lai_bao_gia": con_lai,
+                }
 
-            # 5. Sinh inventory_movement loai='xuat' mỗi product
-            if cost_summary:
-                for product_name, agg in cost_summary.items():
-                    qty = float(agg.get("total_qty", 0) or 0)
-                    cost = float(agg.get("total_cost", 0) or 0)
-                    avg_dg = float(agg.get("weighted_avg_don_gia", 0) or 0)
-                    if qty <= 0:
-                        continue
-                    # Resolve ketoan.product.id qua ten_sp ILIKE
-                    p_row = db.execute(text("""
-                        SELECT id FROM ketoan.product
-                        WHERE ten_sp ILIKE :n LIMIT 1
-                    """), {"n": product_name}).first()
-                    if not p_row:
-                        # SP chưa có trong M1 inventory master — skip movement,
-                        # chỉ log warning. KHÔNG fail.
-                        movements_info["skipped"] += 1
-                        inv_result.setdefault("warnings", []).append(
-                            f"⚠️ COGS movement skipped: SP '{product_name}' "
-                            f"chưa có trong ketoan.product"
-                        )
-                        continue
-                    db.execute(text("""
-                        INSERT INTO ketoan.inventory_movement
-                          (ngay, product_id, loai, so_luong, don_gia, thanh_tien,
-                           source_app, source_doc_id, ghi_chu, created_by)
-                        VALUES
-                          (:ngay, :pid, 'xuat', :sl, :dg, :tt,
-                           'saleadmin', :sd, :gc, :by)
-                    """), {
-                        "ngay": today, "pid": p_row[0],
-                        "sl": qty, "dg": avg_dg, "tt": cost,
-                        "sd": f"{ma_vh}-COGS",
-                        "gc": f"COGS đơn {ma_don} hoàn thành (FIFO from muahang.ton_kho_items)",
-                        "by": user.username,
-                    })
-                    # Trừ tồn kho KT (inventory_balance). Trước 25/09/2026 chỉ INSERT phiếu xuất
-                    # mà không trừ tồn → kho KT dư đúng số đã bán. Không dùng apply_movement():
-                    # hàm đó ghi đè giá xuất = giá BQ, lệch với bút toán 632 ghi theo giá FIFO.
-                    # Giá vốn BQ giữ nguyên khi xuất; cho phép âm để không chặn hoàn thành đơn.
-                    from ..services.inventory_avg import get_or_create_balance
-                    bal = get_or_create_balance(db, p_row[0])
-                    bal.so_luong_ton = (bal.so_luong_ton or Decimal(0)) - Decimal(str(qty))
-                    # Giữ bất biến của inventory_avg: gia_tri_ton = so_luong_ton × gia_von_bq.
-                    bal.gia_tri_ton = bal.so_luong_ton * (bal.gia_von_bq or Decimal(0))
-                    movements_info["created"] += 1
-
-            # 6. Sinh journal kép — DT (Nợ 131 / Có 511) + COGS (Nợ 632 / Có 156)
+            # 5. Sinh journal kép — DT (Nợ 131 / Có 511). Giá vốn 632/156 theo FIFO đã bỏ
+            # 03/10/2026 (xem mục 3); bút toán giá vốn sẽ ghi theo phiếu xuất Mua hàng (K2′).
             try:
                 from ..services.journal import post_journal
                 journal_lines = []
@@ -1853,30 +1712,6 @@ def mark_vanchuyen_completed(
                     )
                     journal_lines.append({"id": je_dt.id, "ma_but_toan": je_dt.ma_but_toan,
                                           "type": "DT"})
-                if total_cogs > 0:
-                    # ref_id phải INT — dùng quote_id thay vì ma_vh string
-                    quote_id_row = db.execute(text(
-                        "SELECT id FROM baogia.quotes WHERE quote_number = :mn LIMIT 1"
-                    ), {"mn": ma_don}).first()
-                    quote_int_id = int(quote_id_row[0]) if quote_id_row else None
-                    je_cogs = post_journal(
-                        db, ngay=today,
-                        mo_ta=f"Ghi nhận GVHB đơn {ma_don} hoàn thành (VC {ma_vh})",
-                        source_type="vc_hoan_thanh", source_id=ma_vh,
-                        by_user=user.username,
-                        lines=[
-                            {"loai": "no", "account_code": "632",
-                             "ref_table": "baogia.quotes", "ref_id": quote_int_id,
-                             "so_tien": round(total_cogs, 2),
-                             "ghi_chu": f"GVHB — {ma_don} (VC {ma_vh})"},
-                            {"loai": "co", "account_code": "156",
-                             "ref_table": "baogia.quotes", "ref_id": quote_int_id,
-                             "so_tien": round(total_cogs, 2),
-                             "ghi_chu": f"Xuất kho — {ma_don} (VC {ma_vh})"},
-                        ],
-                    )
-                    journal_lines.append({"id": je_cogs.id, "ma_but_toan": je_cogs.ma_but_toan,
-                                          "type": "COGS"})
                 journal_info = {"created": len(journal_lines) > 0, "entries": journal_lines}
             except Exception as e:  # noqa: BLE001
                 # Fail-soft: journal post lỗi không nên block hoàn thành VC.

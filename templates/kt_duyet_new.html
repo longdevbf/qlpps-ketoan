@@ -104,7 +104,8 @@
     <div class="kd-dialog__body">
       <dl class="kt-tq" id="dc-chi-tt"></dl>
       <div class="kd-field"><label class="kd-field__label" for="dc-chi-co">Chi từ tài khoản <span class="kd-field__req" aria-hidden="true">*</span></label><select class="kd-input" id="dc-chi-co"><option value="">— Chọn tài khoản —</option></select></div>
-      <div class="kd-field"><label class="kd-field__label" for="dc-chi-no">Hạch toán vào <button type="button" class="kd-tip" data-tip="Tự ghi sổ quỹ chi ngày hôm nay; chặn nếu số dư tài khoản không đủ." aria-label="Ghi sổ tự động"><i class="bi bi-info-circle" aria-hidden="true"></i></button></label><input class="kd-input" id="dc-chi-no" readonly tabindex="-1"></div>
+      <div class="kd-field"><label class="kd-field__label" for="dc-chi-ngay">Ngày chi <span class="kd-field__req" aria-hidden="true">*</span><button type="button" class="kd-tip" data-tip="Ngày tiền thực sự ra khỏi tài khoản — dùng làm ngày ghi sổ quỹ. Mặc định hôm nay; lùi lại nếu đã chuyển tiền từ hôm trước." aria-label="Về ngày chi"><i class="bi bi-info-circle" aria-hidden="true"></i></button></label><input class="kd-input" type="date" id="dc-chi-ngay"></div>
+      <div class="kd-field"><label class="kd-field__label" for="dc-chi-no">Hạch toán vào <button type="button" class="kd-tip" data-tip="Tự ghi sổ quỹ chi theo Ngày chi ở trên; chặn nếu số dư tài khoản không đủ." aria-label="Ghi sổ tự động"><i class="bi bi-info-circle" aria-hidden="true"></i></button></label><input class="kd-input" id="dc-chi-no" readonly tabindex="-1"></div>
       <div class="kd-field"><label class="kd-field__label" for="dc-chi-gc">Ghi chú (không bắt buộc)</label><input class="kd-input" id="dc-chi-gc" maxlength="200" autocomplete="off" placeholder="VD: đã chuyển khoản cho NCC"></div>
       <p class="kd-form-err" role="alert" hidden></p>
     </div>
@@ -113,4 +114,4 @@
 </dialog>
 {% endblock %}
 
-{% block scripts %}{{ ui.js('kt-duyet', v='tk0928a') }}{% endblock %}
+{% block scripts %}{{ ui.js('kt-duyet', v='ngay1007') }}{% endblock %}

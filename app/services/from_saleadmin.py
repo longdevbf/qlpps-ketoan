@@ -96,7 +96,14 @@ def sync_so_quy_chi_phi_from_denghitt(
         sq = db.execute(
             select(SoQuy).where(SoQuy.ref_dntt == ref)
         ).scalar_one_or_none()
-        noi_dung = f"Trả ĐVVC {dntt.don_vi_vc or ''} - đơn {dntt.ma_don or ''}".strip()
+        # Đề nghị TT là BẢN SAO của đề xuất trả NCC bên Mua Hàng (ref_congno) thì đây là tiền trả NCC, KHÔNG phải
+        # cước vận chuyển: ghi nhãn "Chi trả NCC" và KHÔNG sinh chi phí Vận chuyển. 30/09/2026: 70.000.000 trả
+        # Chiến Phương bị ghi nhầm thành chi phí Vận chuyển → chi phí thừa 70tr, nợ NCC không giảm.
+        ref_ncc = getattr(dntt, "ref_congno", None)
+        if ref_ncc:
+            noi_dung = f"Chi trả NCC {dntt.don_vi_vc or ''} — đề xuất {ref_ncc} (qua Đề nghị TT {dntt.id})".strip()
+        else:
+            noi_dung = f"Trả ĐVVC {dntt.don_vi_vc or ''} - đơn {dntt.ma_don or ''}".strip()
         if sq is None:
             sq = SoQuy(
                 ref_dntt=ref,
@@ -118,6 +125,10 @@ def sync_so_quy_chi_phi_from_denghitt(
             if tai_khoan:
                 sq.tai_khoan = tai_khoan
         out["so_quy"] = sq
+
+        if ref_ncc:   # tiền trả NCC không phải chi phí — chỉ ghi sổ quỹ
+            sp.commit()
+            return out
 
         # 2. ChiPhí phai_tra ĐVVC
         cp = db.execute(

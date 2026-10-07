@@ -27,6 +27,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func as sqlfunc, select, text as sql_text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from shared.auth import JWTPayload, current_user
@@ -61,6 +62,38 @@ _LOAI_CHI_LABELS = {
     "khach_hang": "Tiếp Khách",
     "khac": "Chi Phí Khác",
 }
+
+
+def _danh_muc_loai_chi(db: Session) -> dict[str, str]:
+    """{tên loại: nhóm} từ `ketoan.loai_chi_phi` — danh mục thật, 32 loại.
+
+    Fail-soft: app nào chạy mà chưa có schema ketoan thì coi như danh mục rỗng, luồng
+    duyệt chi vẫn chạy với 6 mã cũ. Không cache: danh mục sửa được trong giao diện,
+    cache sai thì người dùng vừa thêm loại xong lại bị báo "không hợp lệ".
+    """
+    try:
+        rows = db.execute(sql_text(
+            "SELECT ten, COALESCE(nhom_default, 'khac') FROM ketoan.loai_chi_phi "
+            "WHERE active IS TRUE"
+        )).all()
+    except SQLAlchemyError:
+        db.rollback()
+        return {}
+    return {r[0]: r[1] for r in rows if r[0]}
+
+
+def _loai_chi_sang_ke_toan(db: Session, rec) -> tuple[str, str]:
+    """(tên loại chi phí, nhóm) để ghi vào `ketoan.chi_phi_phat_sinh` khi bấm Chi.
+
+    Ưu tiên `loai_chi_phi` (tên thật trong danh mục) — khi đó dòng chi phí gộp đúng
+    với các khoản cùng loại trên báo cáo. Không có thì về 6 tên cũ như trước.
+    """
+    ten = (getattr(rec, "loai_chi_phi", None) or "").strip()
+    if ten:
+        nhom = _danh_muc_loai_chi(db).get(ten)
+        if nhom:
+            return ten, nhom
+    return _LOAI_CHI_MAP.get((rec.loai_chi or "").strip(), ("Chi phí khác", "khac"))
 
 
 # ── Helpers RBAC ──────────────────────────────────────────────────────────────
@@ -216,6 +249,15 @@ class ExpenseCreate(BaseModel):
     han_thanh_toan: Optional[date] = None
     muc_dich: str
     ghi_chu: str = ""
+    # Thêm 05/10/2026 — đều optional vì 7 app còn lại vẫn gửi đúng bộ cũ.
+    loai_chi_phi: Optional[str] = None
+    nguoi_thu_huong: Optional[str] = None
+    so_tk_nhan: Optional[str] = None
+    ngan_hang_nhan: Optional[str] = None
+    hinh_thuc: Optional[str] = None
+    ma_don: Optional[str] = None
+    # Người tạo chọn bộ phận chịu khoản chi; bỏ trống → lấy phòng ban của chính họ.
+    phong_ban: Optional[str] = None
 
 
 class ExpenseReview(BaseModel):
@@ -244,10 +286,16 @@ class ExpenseOut(BaseModel):
     app_name: str
     tieu_de: str
     loai_chi: str
+    loai_chi_phi: Optional[str] = None
     so_tien: Decimal
     ngay_de_xuat: date
     han_thanh_toan: Optional[date] = None
     muc_dich: str
+    nguoi_thu_huong: Optional[str] = None
+    so_tk_nhan: Optional[str] = None
+    ngan_hang_nhan: Optional[str] = None
+    hinh_thuc: Optional[str] = None
+    ma_don: Optional[str] = None
     ghi_chu: Optional[str]
     chung_tu_url: Optional[str] = None
     chung_tu_urls: List[str] = []
@@ -440,6 +488,20 @@ def create_expense_request(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             f"Loại chi không hợp lệ: {body.loai_chi}",
         )
+    # Loại chi phí chi tiết (danh mục thật) — chỉ nhận tên ĐANG có và còn active, để
+    # không sinh ra tên lạ rồi báo cáo không gộp được.
+    loai_cp = (body.loai_chi_phi or "").strip() or None
+    if loai_cp and loai_cp not in _danh_muc_loai_chi(db):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Loại chi phí không có trong danh mục: {loai_cp}",
+        )
+    hinh_thuc = (body.hinh_thuc or "").strip().lower() or None
+    if hinh_thuc and hinh_thuc not in ("ck", "tm"):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Hình thức chỉ nhận 'ck' (chuyển khoản) hoặc 'tm' (tiền mặt)",
+        )
     if not body.tieu_de.strip():
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Tiêu đề không được để trống")
     if not body.muc_dich.strip():
@@ -448,6 +510,10 @@ def create_expense_request(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Số tiền phải > 0")
 
     ho_ten, phong_ban, _, _, _ = _lookup_user_info(user.username)
+    # Bộ phận do người tạo chọn (ô "Bộ phận" trên form) được ưu tiên — nó quyết định đường
+    # duyệt. Bỏ trống thì giữ nguyên phòng ban của người đăng nhập như trước.
+    if (body.phong_ban or "").strip():
+        phong_ban = body.phong_ban.strip()
     host = request.headers.get("host", "")
     app_name = host.split(".")[0] if "." in host else (host or "internal")
 
@@ -462,6 +528,12 @@ def create_expense_request(
         app_name=app_name,
         tieu_de=body.tieu_de.strip(),
         loai_chi=body.loai_chi,
+        loai_chi_phi=loai_cp,
+        nguoi_thu_huong=(body.nguoi_thu_huong or "").strip() or None,
+        so_tk_nhan=(body.so_tk_nhan or "").strip() or None,
+        ngan_hang_nhan=(body.ngan_hang_nhan or "").strip() or None,
+        hinh_thuc=hinh_thuc,
+        ma_don=(body.ma_don or "").strip() or None,
         so_tien=body.so_tien,
         ngay_de_xuat=body.ngay_de_xuat,
         han_thanh_toan=body.han_thanh_toan,
@@ -884,9 +956,35 @@ _LOAI_CHI_MAP = {
 }
 
 
+def _ngay_ghi_so(ngay, mac_dinh):
+    """Ngày ghi sổ cho khoản chi — kiểm cho chắc trước khi đụng vào sổ.
+
+    Chặn ngày tương lai (chi chưa xảy ra mà đã lên sổ) và ngày lùi quá 1 năm (gõ nhầm
+    năm là hỏng cả báo cáo kỳ cũ). Bỏ trống → dùng mặc định của từng luồng.
+    """
+    from datetime import date as _d, timedelta as _td
+    if ngay is None:
+        return mac_dinh
+    hom_nay = _d.today()
+    if ngay > hom_nay:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Ngày chi không được ở tương lai.",
+        )
+    if ngay < hom_nay - _td(days=365):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Ngày chi lùi quá 1 năm — kiểm tra lại năm.",
+        )
+    return ngay
+
+
 class ChiBody(BaseModel):
     tai_khoan: str
     ghi_chu: Optional[str] = None
+    # Ngày ghi sổ khoản chi. Bỏ trống = hôm nay. Kế toán cần lùi ngày khi tiền đã
+    # chuyển đi từ hôm trước mà giờ mới bấm trên hệ thống.
+    ngay_chi: Optional[date] = None
 
 
 def _can_chi(user: JWTPayload, db: Session) -> bool:
@@ -934,13 +1032,13 @@ def chi_expense(
     # CHẶN chi làm số dư TK âm (anh Quang 2026-08-27)
     assert_du_chi(db, tk, rec.so_tien)
 
-    loai_ten, nhom = _LOAI_CHI_MAP.get((rec.loai_chi or "").strip(),
-                                       ("Chi phí khác", "khac"))
+    ngay_ghi = _ngay_ghi_so(body.ngay_chi, date.today())
+    loai_ten, nhom = _loai_chi_sang_ke_toan(db, rec)
     _gc = f"Chi đề xuất #{rec.id} • {rec.username}"
     if body.ghi_chu:
         _gc += f" • {body.ghi_chu.strip()}"
     cp = ChiPhiPhatSinh(
-        ngay=date.today(),
+        ngay=ngay_ghi,
         so_tien=rec.so_tien,
         loai_chi_phi=loai_ten,
         ten_khoan=(rec.tieu_de or "")[:255],
@@ -948,6 +1046,7 @@ def chi_expense(
         phong_ban=rec.phong_ban,
         nguoi_chi=rec.ho_ten,
         ngan_hang=tk,
+        ma_don=getattr(rec, "ma_don", None),
         mo_ta=rec.muc_dich,
         ghi_chu=_gc,
         created_by=user.username,

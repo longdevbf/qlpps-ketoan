@@ -8,7 +8,7 @@ from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import String, Numeric, DateTime, Date, Integer, Text, Index
+from sqlalchemy import String, Numeric, DateTime, Date, Integer, Text, Index, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -24,6 +24,10 @@ class SoQuy(Base):
         Index("ix_sq_ref_vc", "ref_vc"),
         Index("ix_sq_nv", "nhan_vien_id"),
         Index("ix_sq_ma_don", "ma_don"),
+        # q14 (01/10/2026): phiếu lập tay theo nghiệp vụ — lọc / đếm 3388; chống bấm Lưu hai lần.
+        Index("ix_sq_ma_dinh_khoan", "ma_dinh_khoan", postgresql_where=text("ma_dinh_khoan IS NOT NULL")),
+        Index("ux_sq_nhap_tay_ref", "ref_id", unique=True,
+              postgresql_where=text("lien_quan = 'nhap_tay' AND ref_id IS NOT NULL")),
         {"schema": "ketoan"},
     )
 
@@ -38,9 +42,8 @@ class SoQuy(Base):
     tai_khoan: Mapped[Optional[str]] = mapped_column(String(128))      # FK loose ketoan.tai_khoan_nh.ten_tk
     noi_dung: Mapped[Optional[str]] = mapped_column(Text)
     lien_quan: Mapped[Optional[str]] = mapped_column(String(128))      # module liên quan (chi_phi/doanh_thu/cong_no)
-    # Phân loại dòng tiền cho Báo Cáo Cashflow chuẩn TT200:
-    # thu_kh / tra_ncc / nap_ads / tra_luong / mua_ccdc / sua_chua_lon
-    # / vay_nh / tra_nh / khac. Yêu cầu chọn cho mọi giao dịch mới (UI dropdown).
+    # Phân loại dòng tiền = mã số báo cáo lưu chuyển tiền tệ (B03). Danh sách mã khai ở MỘT chỗ:
+    # app/services/phan_loai_cf.py (không liệt kê lại ở đây). NULL = dòng cũ / bridge tự sinh chưa gắn mã.
     phan_loai_cf: Mapped[Optional[str]] = mapped_column(String(32), index=True)
     ref_id: Mapped[Optional[str]] = mapped_column(String(128))         # snapshot id liên quan
     # Anh Quang 2026-06-06: Link giao dịch tới đơn báo giá (quote_number).
@@ -59,6 +62,15 @@ class SoQuy(Base):
     # Nhân viên (NV của Papasan thực hiện hoặc đối tác trong giao dịch)
     nhan_vien_id: Mapped[Optional[int]] = mapped_column(Integer)        # soft FK hcns.employees.id
     nhan_vien_ten: Mapped[Optional[str]] = mapped_column(String(255))   # cache tên hiển thị
+
+    # Nghiệp vụ của phiếu lập tay (migration q14, 01/10/2026). Lưu KHOÁ nghiệp vụ, không lưu số tài khoản — cặp
+    # Nợ/Có tra ở app/services/nghiep_vu_so_quy.py theo chế độ TT133/TT99. NULL = dòng cũ / cầu nối tự ghi.
+    ma_dinh_khoan: Mapped[Optional[str]] = mapped_column(String(40))
+    doi_tuong_loai: Mapped[Optional[str]] = mapped_column(String(20))   # 'khach' | 'ncc' | 'nv'
+    doi_tuong_ma: Mapped[Optional[str]] = mapped_column(String(64))     # NCC: muahang.suppliers.id · NV: ma_nv
+    doi_tuong_ten: Mapped[Optional[str]] = mapped_column(String(255))
+    ky: Mapped[Optional[str]] = mapped_column(String(7))                # YYYY-MM: kỳ lương, bảo hiểm, thuế
+    tk_doi_ung: Mapped[Optional[str]] = mapped_column(String(40))       # TÊN LOGIC — chỉ giai đoạn 2 ("Khác")
 
     created_by: Mapped[Optional[str]] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(

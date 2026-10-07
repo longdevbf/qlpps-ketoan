@@ -2,9 +2,9 @@
 
 [Phase 4 Revenue Recognition — 2026-04-28] DISABLED.
 ─────────────────────────────────────────────────────────────────────────────
-Logic xuất kho đã được di chuyển vào `routers/external.py:mark_vanchuyen_completed`
-(`_deduct_inventory_fifo`) — trừ tồn FIFO trên `muahang.ton_kho_items` khi VC
-`hoan_thanh` (kế toán đối chiếu thu/chi xong). Bridge cũ này (xuất kho khi
+Logic xuất kho từng chuyển vào `routers/external.py:mark_vanchuyen_completed`
+(FIFO trên `muahang.ton_kho_items`). Từ 03/10/2026 FIFO đó cũng đã BỎ: Kế toán không
+trừ kho nữa, Mua hàng ghi phiếu xuất ở Kho mới (giám đốc chốt 01/10/2026). Bridge cũ này (xuất kho khi
 VC `da_giao`) đã bị no-op để:
   - Tránh double-count xuất kho.
   - Đảm bảo ghi nhận COGS đúng timing (chỉ khi đã đối chiếu).
@@ -69,8 +69,8 @@ def on_vc_delivered(db: Session, vc, *, created_by: Optional[str] = None) -> dic
     """[DISABLED — Phase 4 Rev Rec, 2026-04-28] Bridge xuất kho khi VC `da_giao`.
 
     No-op. Logic xuất kho đã chuyển vào
-    `ketoan/app/routers/external.py:mark_vanchuyen_completed` — trừ tồn FIFO
-    trên `muahang.ton_kho_items` khi VC `hoan_thanh` (kế toán đối chiếu).
+    `ketoan/app/routers/external.py:mark_vanchuyen_completed`; từ 03/10/2026 Kế toán
+    không trừ kho nữa — Mua hàng ghi phiếu xuất ở Kho mới.
     Function này được giữ lại để các caller cũ (vd
     `saleadmin/app/routers/vanchuyen.py:_bridge_inventory_safe`) không vỡ.
 
@@ -82,7 +82,7 @@ def on_vc_delivered(db: Session, vc, *, created_by: Optional[str] = None) -> dic
         "skipped": 0,
         "errors": [],
         "disabled": True,
-        "note": "Phase 4 Rev Rec: logic moved to mark_vanchuyen_completed (FIFO).",
+        "note": "Không trừ kho ở Kế toán — Mua hàng ghi phiếu xuất ở Kho mới (từ 03/10/2026).",
     }
 
 

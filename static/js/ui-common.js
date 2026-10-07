@@ -60,6 +60,17 @@
    * ─────────────────────────────────────────────────────────────────────── */
 
   var NF_VN = new Intl.NumberFormat('vi-VN');
+  /* Kế toán phải khớp đến hào: có phần lẻ thì hiện ĐỦ 2 chữ số, tròn đồng thì
+     không thêm ",00" cho đỡ nhiễu (người dùng chốt 01/10/2026). */
+  var NF_VN_HAO = new Intl.NumberFormat('vi-VN', {
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  });
+
+  /** Số tiền theo đúng giá trị thật, KHÔNG làm tròn giấu hào. */
+  function _soTien(n) {
+    var v = Number(n) || 0;
+    return Math.round(v * 100) % 100 === 0 ? NF_VN.format(v) : NF_VN_HAO.format(v);
+  }
 
   /** Rỗng thật sự? null/undefined/'' → hiện gạch ngang, KHÔNG hiện "0 đ". */
   function _trong(n) {
@@ -67,12 +78,13 @@
   }
 
   /**
-   * Tiền đầy đủ, dùng cho BẢNG CHI TIẾT: 1250000 → "1.250.000 đ".
-   * Làm tròn về đồng — hệ không hiển thị hào.
+   * Tiền đầy đủ: 1250000 → "1.250.000 đ", 18699999.5 → "18.699.999,50 đ".
+   * KHÔNG làm tròn — sổ kế toán phải khớp đến hào (người dùng chốt 01/10/2026;
+   * bản cũ Math.round() giấu phần lẻ của 28 dòng cong_no và 67 đơn báo giá).
    */
   function fmtVnd(n) {
     if (_trong(n)) return '—';
-    return NF_VN.format(Math.round(Number(n) || 0)) + ' đ';
+    return _soTien(n) + ' đ';
   }
 
   /* Tối đa 2 chữ số thập phân, tự bỏ số 0 thừa: 1,25 / 2,1 / 3 (không "3,00"). */
@@ -90,12 +102,10 @@
    * Dưới 1 triệu thì rút gọn không còn nghĩa → trả về dạng đầy đủ.
    */
   function fmtShort(n) {
-    if (_trong(n)) return '—';
-    var v = Math.round(Number(n) || 0);
-    var abs = Math.abs(v);
-    if (abs >= 1e9) return NF_VN_2.format(v / 1e9) + ' tỷ';
-    if (abs >= 1e6) return NF_VN_2.format(v / 1e6) + ' tr';
-    return fmtVnd(v);
+    /* KHÔNG rút gọn nữa (người dùng chốt 01/10/2026): "2,11 tỷ" / "29 tr" gây
+       hiểu nhầm và mất độ phân giải. Giữ tên hàm để ~160 điểm gọi không phải
+       sửa; mọi nơi giờ hiện số đầy đủ. */
+    return fmtVnd(n);
   }
 
   /**

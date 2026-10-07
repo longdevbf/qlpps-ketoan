@@ -537,7 +537,7 @@ function _blVeLuong(p, thang) {
     ['Hoa hồng', p.hoa_hong, ''],
     ['OT ca gãy', p.ot_ca_gay, p.ot_so_gio ? `${_blSo(p.ot_so_gio)} giờ` : ''],
     ['Trực tối', p.truc_toi, p.truc_toi_so_buoi ? `${_blSo(p.truc_toi_so_buoi)} buổi` : ''],
-    ['Tối ưu KD', p.toi_uu_kd, '']
+    ['Tối ưu KD', p.toi_uu_kd, p.phi_cham_cong_da_tru ? `Đã trừ ${_blSo(p.phi_cham_cong_da_tru)}đ phí đề xuất chấm công (${_blSo(p.phi_cham_cong_so_luot)} lượt)` : '']
   ];
   const tru = [
     ['BHXH (10,5%)', p.bhxh_tru, ''],

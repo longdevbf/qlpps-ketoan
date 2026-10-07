@@ -9,7 +9,7 @@
 {% block head_extra %}
 <link rel="stylesheet" href="/static/css/kd-man-hinh.css?v=popup0928d">
 <link rel="stylesheet" href="/static/css/kt-chung.css?v=popup0928c">
-<link rel="stylesheet" href="/static/css/kt-luong.css?v=h6">
+<link rel="stylesheet" href="/static/css/kt-luong.css?v=cot1005">
 {% endblock %}
 
 {% block content %}
@@ -41,7 +41,9 @@
 
   {% set dau_the %}
     <div class="kt-lg-bat">
-      <label class="kt-check"><input type="checkbox" id="lg-ct"> <span>Hiện thêm cột: lương cơ bản, theo công, phụ cấp, hoa hồng</span></label>
+      <label class="kt-check"><input type="checkbox" id="lg-ct"> <span>Chi tiết thu nhập: lương cơ bản, theo công, ăn ca, trách nhiệm, công tác, trực tối, tối ưu, hoa hồng, OT</span></label>
+      <label class="kt-check"><input type="checkbox" id="lg-cg"> <span>Chi tiết công: hợp đồng, công thử việc / chính thức, lễ, phép, vắng ca, đi muộn, giờ OT, buổi trực</span></label>
+      <label class="kt-check"><input type="checkbox" id="lg-kt"> <span>Chi tiết khấu trừ: đoàn phí, ứng lương, khấu trừ khác, phạt vắng, phạt chậm đơn</span></label>
     </div>
   {% endset %}
   {% call ui.the_bang('lg', 'Bảng lương nhân viên', panel='Phiếu lương', phan_trang=False, dau_the=dau_the) %}
@@ -52,8 +54,8 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/kd-man-hinh.js?v=q0928b"></script>
+<script src="/static/js/kd-man-hinh.js?v=tien1001"></script>
 <script src="/static/js/kt-chung.js?v=tk0928b"></script>
 <script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
-<script src="/static/js/kt-luong.js?v=loc0928"></script>
+<script src="/static/js/kt-luong.js?v=cot1005"></script>
 {% endblock %}

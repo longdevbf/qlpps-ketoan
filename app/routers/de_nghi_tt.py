@@ -6,7 +6,8 @@ Sau khi `kt_duyet`, CEO duyệt cấp 2 ở app saleadmin để hoàn tất + au
 
 Cùng DB nên đọc/ghi `saleadmin.denghitt` trực tiếp qua ORM (lazy import).
 """
-from datetime import datetime, timezone
+import logging
+from datetime import date as date_cls, datetime, timezone
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -17,7 +18,12 @@ from sqlalchemy.orm import Session
 from shared.audit import log_action
 from shared.auth import JWTPayload, require_app
 from shared.db import get_db
+from shared.routers.duyet_chi import _ngay_ghi_so
 
+from ..services.ban_sao_de_nghi import tu_choi_de_xuat_kem
+
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 _REQ = require_app("ketoan")
@@ -38,6 +44,9 @@ class KTRejectBody(BaseModel):
 class ChiBody(BaseModel):
     tai_khoan: Optional[str] = None
     ghi_chu: Optional[str] = None
+    # Ngày ghi sổ khoản chi (kế toán nhập trong hộp thoại Chi tiền). Bỏ trống = giữ
+    # hành vi cũ: lấy ngày CEO duyệt, không có thì ngày đề nghị.
+    ngay_chi: Optional[date_cls] = None
 
 
 _CHI_ROLES = ("manager", "admin", "ceo", "assistant_ceo")
@@ -229,13 +238,65 @@ def kt_reject(
     e.kt_duyet_boi = user.username
     e.kt_duyet_luc = datetime.now(tz=timezone.utc)
     e.kt_ghi_chu = body.ly_do
+    # Đề nghị TT này là bản sao của đề xuất trả NCC bên Mua Hàng (ref_congno) thì từ chối luôn, cùng giao dịch.
+    kem = tu_choi_de_xuat_kem(db, congno_id=getattr(e, "ref_congno", None), ly_do=body.ly_do, username=user.username)
     db.commit()
     db.refresh(e)
     log_action(
         db, app="ketoan", action="kt_reject_denghitt", user=user, request=request,
-        resource=f"denghitt:{did}", payload={"ly_do": body.ly_do},
+        resource=f"denghitt:{did}", payload={"ly_do": body.ly_do, "tu_choi_kem": kem},
     )
-    return _denghitt_to_dict(e, _build_name_map(db, [e]))
+    return {**_denghitt_to_dict(e, _build_name_map(db, [e])), "tu_choi_kem": kem}
+
+
+@router.post("/api/de-nghi-tt/{did}/tu-choi-truoc-chi")
+def tu_choi_truoc_chi(
+    did: str,
+    body: KTRejectBody,
+    request: Request,
+    user: Annotated[JWTPayload, Depends(_REQ)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Từ chối DNTT ĐÃ DUYỆT XONG (trang_thai='duyet', CEO đã duyệt cấp 2 ở Sale
+    Admin) NHƯNG CHƯA CHI — giám đốc yêu cầu 30/09/2026 (màn Duyệt chi tab "Chờ
+    chi" thiếu nút Từ chối). Trước đây chỉ từ chối được ở cấp 1 (cho_duyet →
+    kt_tu_choi, kt_reject phía trên) hoặc cấp 2 bên Sale Admin (kt_duyet → tu_choi,
+    saleadmin/app/routers/denghitt.py:292 reject_denghitt — CHỈ ĐỌC, không sửa).
+
+    duyet → tu_choi — CÙNG trạng thái cuối 'tu_choi' đã có sẵn trong pipeline DNTT
+    (models/denghitt.py:68: cho_duyet → kt_duyet → duyet | kt_tu_choi | tu_choi),
+    không phải trạng thái mới. Ghi field GIỐNG HỆT reject_denghitt bên Sale Admin
+    (nguoi_duyet/ngay_duyet/ly_do) để nếu sau này Sale Admin có màn "sửa & gửi
+    lại" cho tu_choi, dữ liệu đã đúng khuôn — không cần chờ họ đổi gì.
+    """
+    if user.role not in _CHI_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Chỉ Kế Toán/CEO được từ chối")
+    e = _get_or_404(db, did)
+    if (e.trang_thai or "") != "duyet":
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"DNTT trạng thái {e.trang_thai!r} — chỉ từ chối khi ĐÃ DUYỆT XONG, chưa chi",
+        )
+    if getattr(e, "da_chi", False):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Đề nghị này đã chi rồi — không thể từ chối")
+    if getattr(e, "da_chi_ngoai", False):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Khoản này đã được chi ở trang Duyệt ĐX Trả NCC — không từ chối được nữa",
+        )
+    e.trang_thai = "tu_choi"
+    e.nguoi_duyet = user.username
+    e.ngay_duyet = datetime.now(tz=timezone.utc)
+    e.ly_do = body.ly_do
+    # Bản sao của đề xuất trả NCC (ref_congno) → từ chối luôn đề xuất Mua Hàng, không thì nó vẫn chi được.
+    kem = tu_choi_de_xuat_kem(db, congno_id=getattr(e, "ref_congno", None), ly_do=body.ly_do, username=user.username)
+    db.commit()
+    db.refresh(e)
+    log_action(
+        db, app="ketoan", action="tu_choi_truoc_chi_denghitt", user=user, request=request,
+        resource=f"denghitt:{did}", payload={"ly_do": body.ly_do, "tu_choi_kem": kem},
+    )
+    return {**_denghitt_to_dict(e, _build_name_map(db, [e])), "tu_choi_kem": kem}
 
 
 @router.post("/api/de-nghi-tt/{did}/chi")
@@ -297,7 +358,24 @@ def chi_denghitt(
     if not getattr(e, "da_chi", False):
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Chi chưa ghi được")
 
-    # Nối NCC: DNTT từ đề xuất trả NCC → giảm công nợ NCC (đánh dấu congno.da_chi).
+    # Nối NCC: DNTT từ đề xuất trả NCC → giảm công nợ NCC ở CẢ HAI sổ.
+    #
+    # BỔ SUNG 02/10/2026 — `ketoan.cong_no`. Trước đây khối này chỉ đặt
+    # `muahang.congno.da_chi = TRUE`, mà `da_chi` chỉ làm giảm công nợ bên MUA HÀNG
+    # (muahang/app/routers/congno.py ~435). Sổ CHUẨN là `ketoan.cong_no` và nó
+    # KHÔNG hề giảm — đúng điều docstring hàm này hứa ("giảm công nợ NCC luôn") mà
+    # chưa làm, và đúng điều comment trong from_saleadmin.py:99-101 đã ghi nhận
+    # ("nợ NCC không giảm") nhưng lần vá 30/09 chỉ xử phần chi phí trùng.
+    #
+    # Ca thật: DNTT-2026-0042 → phiếu quỹ #859, CHIẾN PHƯƠNG 70.000.000đ ngày
+    # 16/09 — tiền ra khỏi quỹ, công nợ Kế toán đứng im, phải vá tay bằng bút toán
+    # V04 ngày 01/10. Và vì `da_chi` đã TRUE, trang "Duyệt ĐX Trả NCC" sau đó trả
+    # 409 "Đề xuất này đã chi rồi" → KHÔNG bù lại được bằng giao diện.
+    #
+    # Dùng CHUNG service với cửa chi kia (ncc_de_xuat.py::chi_ncc), khoá idempotent
+    # `ref_id='mh-dexuat-{ref_congno}'` → trả bằng cửa nào thì cửa còn lại cũng
+    # không ghi trùng. Ghi trong CÙNG transaction với lệnh UPDATE Mua hàng: hai sổ
+    # cùng giảm hoặc cùng không, không bao giờ lệch nhau nửa bước.
     _ref_cn = getattr(e, "ref_congno", None)
     if _ref_cn:
         try:
@@ -307,9 +385,31 @@ def chi_denghitt(
                          WHERE id = :c AND da_chi = FALSE"""),
                 {"tk": tk, "c": _ref_cn},
             )
+            from ketoan.app.services.giam_cong_no_ncc import ghi_giam_cong_no_ncc
+            ghi_giam_cong_no_ncc(
+                db,
+                ma_de_xuat_mh=_ref_cn,
+                ncc_ten=(e.don_vi_vc or ""),
+                so_tien=e.so_tien,
+                by=user.username,
+                # Ngày phiếu quỹ, KHÔNG phải ngày bấm — sync_so_quy_chi_phi_from_denghitt
+                # lấy `ngay_duyet` làm ngày phiếu, nếu đây dùng today() thì khoản của
+                # tháng trước rơi sang tháng này và lệch báo cáo theo tháng.
+                ngay=_ngay_ghi_so(
+                    body.ngay_chi,
+                    (e.ngay_duyet.date() if getattr(e, "ngay_duyet", None)
+                     else getattr(e, "ngay_de_nghi", None)),
+                ),
+                nguon=f"nút Chi trang Đề nghị TT {e.id}",
+            )
             db.commit()
         except Exception:
             db.rollback()
+            logger.exception(
+                "chi_denghitt: giam cong no NCC that bai (dntt=%s, de_xuat=%s) — "
+                "TIEN DA RA KHOI QUY, can vao Cong no NCC ghi tay dong giam no",
+                did, _ref_cn,
+            )
 
     log_action(
         db, app="ketoan", action="chi_denghitt", user=user, request=request,

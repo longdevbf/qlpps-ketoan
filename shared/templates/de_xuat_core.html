@@ -280,6 +280,9 @@ body{font-family:'Inter','Segoe UI',-apple-system,Arial,sans-serif;min-height:10
   <!-- Tab loại đề xuất -->
   <div class="dx-loai-bar" role="tablist" aria-label="Loại đề xuất" id="dx-loai-bar"></div>
 
+  {# Loại "Chấm công lại" — bảng + luồng duyệt riêng, ẩn form/danh sách chung khi mở (tab thứ 6) #}
+  {% include "_de_xuat_cham_cong_panel.html" %}
+
   <div class="dx-tren">
     <!-- Form tạo -->
     <section class="card" aria-labelledby="dx-form-ten">
@@ -542,9 +545,11 @@ async function _dxApi(url, opts) {
 function dxVeTabs() {
   document.getElementById('dx-loai-bar').innerHTML = Object.entries(_DX_LOAI).map(([k, c]) =>
     `<button type="button" role="tab" class="dx-tab${_dx.loai === k ? ' is-chon' : ''}" aria-selected="${_dx.loai === k}"
-       onclick="dxChonLoai('${k}')">${_dxSvg(c.bieu_tuong)}${_dxE(c.ten.replace('Tạo đề xuất ', '').replace(/^./, m => m.toUpperCase()))}</button>`).join('');
+       onclick="dxChonLoai('${k}')">${_dxSvg(c.bieu_tuong)}${_dxE(c.ten.replace('Tạo đề xuất ', '').replace(/^./, m => m.toUpperCase()))}</button>`).join('')
+    + (typeof xccTabHtml === 'function' ? xccTabHtml() : '');
 }
 function dxChonLoai(k) {
+  if (typeof xccDong === 'function') xccDong();
   _dx.loai = k; const c = _DX_LOAI[k];
   dxVeTabs();
   document.getElementById('dx-form-ten').textContent = c.ten;
@@ -557,7 +562,8 @@ function dxChonLoai(k) {
   document.getElementById('dx-hl-nhan').innerHTML = _dxE(c.nhan_hl) + ' <span class="bat-buoc">*</span>';
   document.getElementById('dx-ly-do-nhan').innerHTML = _dxE(c.nhan_ly_do) + ' <span class="bat-buoc">*</span>';
   document.getElementById('dx-o-tieu-de').hidden = false;
-  dxVeLuuY(); dxTaiNguoiDuyet();
+  dxVeLuuY();
+  return dxTaiPhongBan();    // danh sách phòng/NV phụ thuộc loại (xem dxTaiPhongBan)
 }
 function dxVeLuuY() {
   const c = _DX_LOAI[_dx.loai], ds = [];
@@ -571,12 +577,20 @@ function dxVeLuuY() {
 
 /* ── Nguồn cho form ──────────────────────────────────────────────────────── */
 async function dxTaiPhongBan() {
+  /* Tải LẠI mỗi lần đổi loại: "Lên chính thức" chỉ liệt kê phòng có NV đang thử việc (số trong
+     ngoặc cũng chỉ đếm họ), loại khác liệt kê như cũ. Danh sách đọc thẳng hcns.employees nên
+     luôn là dữ liệu hiện tại của Hành chính nhân sự. */
+  const sel = document.getElementById('dx-pb');
   try {
-    const ds = await _dxApi('/api/de-xuat/phong-ban');
-    const sel = document.getElementById('dx-pb');
-    sel.innerHTML = '<option value="">— Chọn phòng ban —</option>' +
+    const ds = await _dxApi('/api/de-xuat/phong-ban?loai=' + encodeURIComponent(_dx.loai));
+    const rong = _dx.loai === 'len_chinh_thuc' ? '— Chưa có nhân viên nào đang thử việc —' : '— Chọn phòng ban —';
+    sel.innerHTML = `<option value="">${(ds || []).length ? '— Chọn phòng ban —' : rong}</option>` +
       (ds || []).map(p => `<option value="${_dxE(p.ten)}">${_dxE(p.ten)} (${p.so_nv})</option>`).join('');
   } catch (e) { /* không có schema hcns → để trống, người dùng vẫn gửi được loại không cần NV */ }
+  _dx.nv = null; _dx.dsNv = [];
+  document.getElementById('dx-nv-the').hidden = true;
+  document.getElementById('dx-nv').innerHTML = '<option value="">— Chọn nhân viên —</option>';
+  dxTaiNguoiDuyet();
 }
 async function dxDoiPhongBan() {
   const pb = document.getElementById('dx-pb').value, sel = document.getElementById('dx-nv');
@@ -584,7 +598,8 @@ async function dxDoiPhongBan() {
   sel.innerHTML = '<option value="">— Chọn nhân viên —</option>';
   if (pb) {
     try {
-      const ds = await _dxApi('/api/de-xuat/nhan-vien?phong_ban=' + encodeURIComponent(pb));
+      const ds = await _dxApi('/api/de-xuat/nhan-vien?phong_ban=' + encodeURIComponent(pb)
+        + '&loai=' + encodeURIComponent(_dx.loai));
       _dx.dsNv = ds || [];
       sel.innerHTML += (ds || []).map(n =>
         `<option value="${_dxE(n.username || '')}">${_dxE(n.ho_ten || n.username)}${n.ma_nv ? ' - ' + _dxE(n.ma_nv) : ''}</option>`).join('');
@@ -851,9 +866,9 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') dxDongModal(
   document.getElementById('dx-pv-pb').hidden = !DX_QUAN_LY;
   document.getElementById('dx-pv-all').hidden = !DX_SUPER;
   document.getElementById('dx-ngay-dx').value = _dxISO(new Date());
-  dxChonLoai('len_chinh_thuc');
-  await dxTaiPhongBan();
+  await dxChonLoai('len_chinh_thuc');
   dxTaiDs(1);
+  if (location.hash === '#cham-cong' && typeof xccMo === 'function') xccMo();
 })();
 </script>
 </body>

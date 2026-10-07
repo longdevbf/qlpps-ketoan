@@ -105,6 +105,7 @@ def cache_get_or_set(key: str, ttl: int, compute_fn):
 import baogia.app.models  # noqa: F401
 import ketoan.app.models  # noqa: F401
 from shared.routers.xin_nghi import router as xin_nghi_router
+from shared.routers.de_xuat_cham_cong import router as de_xuat_cham_cong_router
 from shared.routers.duyet_chi import router as duyet_chi_router
 from shared.routers.de_xuat import router as de_xuat_router
 from shared.routers.tai_lieu import router as tai_lieu_router
@@ -165,6 +166,8 @@ from .routers import (
     de_nghi_tt,
     # KT duyệt cấp 1 Đề Xuất Trả NCC từ muahang.congno
     ncc_de_xuat,
+    # KT từ chối Đề xuất chi đã duyệt xong, chưa chi (shared/ không deploy được nên đặt ở app Kế toán)
+    de_xuat_chi_tu_choi,
     # SePay webhook — thu tiền auto qua QR CK
     sepay,
     # Giao diện Kế toán mới (2026-09-25) — 9 batch, 42 màn, prefix /ketoan
@@ -388,6 +391,7 @@ app.include_router(coc_bo_sung.router, tags=["coc_bo_sung"])
 app.include_router(bao_cao_duyet_chi.router, tags=["bao_cao_duyet_chi"])
 app.include_router(de_nghi_tt.router, tags=["de_nghi_tt"])
 app.include_router(ncc_de_xuat.router, tags=["ncc_de_xuat"])
+app.include_router(de_xuat_chi_tu_choi.router, tags=["de_xuat_chi_tu_choi"])
 
 # Giao diện Kế toán mới (2026-09-25) — 9 batch, 42 màn, tất cả tại prefix /ketoan
 app.include_router(ui_ketoan_dot1.router, tags=["ui_ketoan"])
@@ -501,6 +505,7 @@ app.include_router(uploads.router, tags=["uploads"])
 app.include_router(product_files_router, tags=["product_files"])
 # Xin Nghỉ — cross-app leave request system
 app.include_router(xin_nghi_router, prefix="/api/xin-nghi", tags=["xin-nghi"])
+app.include_router(de_xuat_cham_cong_router, prefix="/api/de-xuat-cham-cong", tags=["de-xuat-cham-cong"])
 # Duyệt Chi — cross-app expense request system
 app.include_router(duyet_chi_router, prefix="/api/duyet-chi", tags=["duyet-chi"])
 app.include_router(de_xuat_router, prefix="/api/de-xuat", tags=["de-xuat"])

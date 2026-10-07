@@ -13,16 +13,27 @@
   const thangChu = (m) => m.slice(5, 7) + '/' + m.slice(0, 4);
   const nhanKy = (ds) => (ds.length === 1 ? 'tháng ' + thangChu(ds[0]) : 'tháng ' + thangChu(ds[0]) + ' – ' + thangChu(ds[ds.length - 1]));
 
+  /* Các dòng có popup "nguồn gốc con số" — PHẢI khớp bảng KHOAN trong
+     app/services/pl_chi_tiet.py. Dòng tổng (doanh thu thuần, lợi nhuận…) cố ý không
+     bấm được: chúng là phép cộng của các dòng trên, không có chứng từ riêng. */
+  /* Mọi dòng dựng từ một đường dẫn trong kết quả /api/bao-cao/pl đều bấm được —
+     backend có bảng KHOAN tương ứng (app/services/pl_chi_tiet.py), gồm cả dòng TỔNG
+     (hiện công thức + số hạng thay vì chứng từ). Khoá nào backend chưa khai thì API
+     trả 404 kèm thông báo rõ, không ra số sai. Các dòng ads tách theo nhóm hàng
+     (dựng từ object, không phải chuỗi) vẫn không bấm được — chúng không có khoá. */
+
   /* ── Dòng B02 (mã số theo mẫu B02-DN; chi tiết lấy đúng các khoản mục màn P&L cũ) ── */
   function dongTu(c, p) {
     const g = (o, path) => path.split('.').reduce((x, k) => (x == null ? null : x[k]), o);
     const v = (path) => ({ ky_nay: g(c, path) || 0, ky_truoc: p ? g(p, path) || 0 : null });
-    const r = (ma, chi_tieu, cap, path, them) => Object.assign({ ma, chi_tieu, cap }, typeof path === 'string' ? v(path) : path, them || {});
+    const r = (ma, chi_tieu, cap, path, them) => Object.assign({ ma, chi_tieu, cap },
+      typeof path === 'string' ? v(path) : path,
+      typeof path === 'string' ? { khoa: path } : {}, them || {});
     const hieu = (fa, fb) => ({ ky_nay: fa(c) - fb(c), ky_truoc: p ? fa(p) - fb(p) : null });
     const nhomAds = Object.keys(Object.assign({}, g(c, 'cp_ban_hang.bien_phi.ads_by_nhom'), p ? g(p, 'cp_ban_hang.bien_phi.ads_by_nhom') : {}));
     return [
       r('01', 'Doanh thu bán hàng và cung cấp dịch vụ', 'muc', 'doanh_thu.dt_thuc_hien', { ghi_chu: 'Giá trị đơn hoàn thành trong kỳ, chưa VAT' }),
-      r('02', 'Các khoản giảm trừ doanh thu', 'muc', { ky_nay: c.doanh_thu.chiet_khau + c.doanh_thu.giam_tru, ky_truoc: p ? p.doanh_thu.chiet_khau + p.doanh_thu.giam_tru : null }, { nhom_mo: 'gt' }),
+      r('02', 'Các khoản giảm trừ doanh thu', 'muc', { ky_nay: c.doanh_thu.chiet_khau + c.doanh_thu.giam_tru, ky_truoc: p ? p.doanh_thu.chiet_khau + p.doanh_thu.giam_tru : null }, { nhom_mo: 'gt', khoa: 'doanh_thu.giam_tru_tong' }),
       r('', 'Chiết khấu thương mại', 'con', 'doanh_thu.chiet_khau', { thuoc: 'gt' }),
       r('', 'Hoàn tiền khách (đơn đã ghi doanh thu)', 'con', 'doanh_thu.giam_tru', { thuoc: 'gt' }),
       r('10', 'Doanh thu thuần về bán hàng và cung cấp dịch vụ', 'tong', 'dt_thuan'),
@@ -38,7 +49,7 @@
       r('', 'Hoa hồng', 'con2', 'cp_ban_hang.bien_phi.hoa_hong', { thuoc: 'bh bhbp', ghi_chu: 'Bảng lương KD/MKT' }),
       r('', 'Lương làm thêm KD/MKT', 'con2', 'cp_ban_hang.bien_phi.luong_ot', { thuoc: 'bh bhbp' }),
       r('', 'Quảng cáo, marketing', 'con2', 'cp_ban_hang.bien_phi.ads', { thuoc: 'bh bhbp', ghi_chu: g(c, 'cp_ban_hang.bien_phi.ads_source') ? 'Nguồn: ' + g(c, 'cp_ban_hang.bien_phi.ads_source') : '' }),
-      ...nhomAds.map((n) => r('', '· Quảng cáo nhóm ' + (n === 'no_match' ? 'chưa gán nhóm hàng' : n), 'con2', { ky_nay: g(c, 'cp_ban_hang.bien_phi.ads_by_nhom')?.[n] || 0, ky_truoc: p ? (g(p, 'cp_ban_hang.bien_phi.ads_by_nhom')?.[n] || 0) : null }, { thuoc: 'bh bhbp' })),
+      ...nhomAds.map((n) => r('', '· Quảng cáo nhóm ' + (n === 'no_match' ? 'chưa gán nhóm hàng' : n), 'con2', { ky_nay: g(c, 'cp_ban_hang.bien_phi.ads_by_nhom')?.[n] || 0, ky_truoc: p ? (g(p, 'cp_ban_hang.bien_phi.ads_by_nhom')?.[n] || 0) : null }, { thuoc: 'bh bhbp', khoa: 'cp_ban_hang.bien_phi.ads_by_nhom.' + n })),
       r('', 'Vận chuyển', 'con2', 'cp_ban_hang.bien_phi.van_chuyen', { thuoc: 'bh bhbp' }),
       r('', 'Khuyến mãi', 'con2', 'cp_ban_hang.bien_phi.khuyen_mai', { thuoc: 'bh bhbp' }),
       r('', 'Biến phí bán hàng khác', 'con2', 'cp_ban_hang.bien_phi.khac', { thuoc: 'bh bhbp' }),
@@ -65,7 +76,7 @@
       r('30', 'Lợi nhuận thuần từ hoạt động kinh doanh', 'tong', 'ln_thuan_hdkd'),
       r('31', 'Thu nhập khác', 'muc', 'thu_nhap_khac', { ghi_chu: 'TK 711, vd lãi thanh lý TSCĐ' }),
       r('32', 'Chi phí khác', 'muc', 'cp_khac', { ghi_chu: 'TK 811 và chi phí nhóm khác' }),
-      r('40', 'Lợi nhuận khác', 'tong', hieu((x) => x.thu_nhap_khac, (x) => x.cp_khac)),
+      r('40', 'Lợi nhuận khác', 'tong', hieu((x) => x.thu_nhap_khac, (x) => x.cp_khac), { khoa: 'ln_khac' }),
       r('50', 'Tổng lợi nhuận kế toán trước thuế', 'tong', 'ln_truoc_thue'),
       r('51', 'Chi phí thuế TNDN hiện hành (' + KT.kqkd.THUE_SUAT_TNDN * 100 + '% nếu có lãi)', 'muc', 'thue_tndn'),
       r('60', 'Lợi nhuận sau thuế thu nhập doanh nghiệp', 'dam', 'lnst'),
@@ -95,6 +106,16 @@
     cot: [{ key: 'ma' }, { key: 'ky_nay', num: true }, { key: 'ky_truoc', num: true }, { key: 'chenh', num: true }],
     lien: { '01': '511', '11': '632', '21': '515', '22': '635', '25': '641', '26': '642', '31': '711', '32': '811', '51': '821' },
     chuyen,
+    /* Cột kỳ trước lấy ĐÚNG dãy tháng mà kt-kqkd-tinh.js đã dùng để dựng số kỳ trước
+       (KT.kqkd.ke -> .truoc), không tự đoán lại — lệch là popup nói sai kỳ. */
+    chiTiet: (khoa, k, trang, cot) => {
+      const kk = KT.kqkd.ke(k.tu, k.den, bc.st.ss && bc.st.ss.thang);
+      const ths = (cot === 'ky_truoc' ? kk.truoc : kk.nay);
+      const cuoi = ths[ths.length - 1];
+      const d = new Date(+cuoi.slice(0, 4), +cuoi.slice(5, 7), 0);
+      const den = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      return '/api/bao-cao/pl/chi-tiet?' + KT.url.qs({ khoa: khoa, tu: ths[0] + '-01', den: den, trang: trang, so_dong: 50 });
+    },
     kpi: {
       dt: (d) => Object.assign(tienKpi(d.c.dt_thuan), { phu: phuKpi(soSanhNgan(d.c.dt_thuan, d.p.dt_thuan), d.c.dt_thuan, d.p.dt_thuan) }),
       ln_gop: (d) => Object.assign(tienKpi(d.c.ln_gop), { phu: phuKpi('Biên gộp ' + KD.phanTram(bien(d.c.ln_gop, d.c.dt_thuan)), d.c.ln_gop, d.p.ln_gop) }),

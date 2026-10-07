@@ -1,0 +1,279 @@
+{# ═══════════════════════════════════════════════════════════════════════════
+   ĐỀ XUẤT CHẤM CÔNG LẠI — một "loại đề xuất" nằm trong màn Đề xuất (05/10/2026).
+   Include trong `de_xuat_core.html` (ngay dưới thanh tab loại đề xuất). Khác 5 loại kia ở chỗ
+   có bảng + luồng duyệt riêng (`shared.de_xuat_cham_cong`, API /api/de-xuat-cham-cong),
+   nên khi chọn tab này màn Đề xuất ẩn form + danh sách chung và hiện thẻ này.
+
+   Nhân viên gửi (ngày · giờ đến thực tế · lý do); giờ hệ thống tự lấy từ bảng chấm công.
+   Quản lý duyệt → CEO duyệt cuối. Mức phí là số cố định HCNS đặt (không nhập tay); tiền CHỈ
+   bị trừ vào Tối ưu KD khi CEO duyệt và đồng ý (CEO chọn trừ hay không + trừ bao nhiêu).
+   VIỆC DUYỆT nằm ở màn Phê duyệt (mục Đề xuất, `phe_duyet_core.html` nguồn `cc`) — tab này chỉ để
+   gửi đề xuất và xem lại đề xuất của mình (+ "Tất cả" cho HCNS/CEO, chỉ xem).
+   Mọi tên class/id có tiền tố `xcc-` và script nằm trong IIFE để không đụng `dx-*` / `_dx`.
+   Mở thẳng bằng `/de-xuat#cham-cong`.
+   ═══════════════════════════════════════════════════════════════════════════ #}
+<div class="xcc" id="xcc" hidden>
+<style>
+.xcc[hidden]{display:none}
+.xcc-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-8);align-items:start;margin-bottom:var(--sp-8)}
+@media(min-width:1100px){.xcc-grid{grid-template-columns:420px minmax(0,1fr)}}
+.xcc .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);overflow:hidden;min-width:0}
+.xcc .card-header{display:flex;align-items:center;gap:var(--sp-5) var(--sp-6);flex-wrap:wrap;padding:var(--sp-8) var(--sp-9)}
+.xcc .card-header h2{font-size:var(--fs-h);font-weight:700;color:var(--text-1);line-height:var(--lh-tight)}
+.xcc .card-body{padding:0 var(--sp-9) var(--sp-9)}
+
+.xcc .btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);
+     min-height:40px;padding:0 var(--sp-10);border-radius:var(--r);font:inherit;font-size:var(--fs-body);font-weight:600;cursor:pointer;white-space:nowrap}
+.xcc .btn-primary{background:var(--brand);color:var(--text-on-brand);border:1px solid var(--brand)}
+.xcc .btn-primary:hover{background:var(--brand-hover);border-color:var(--brand-hover)}
+.xcc .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+.xcc button:focus-visible{outline:0;box-shadow:var(--focus-ring)}
+
+.xcc .form-field{margin-bottom:var(--sp-8);min-width:0}
+.xcc .form-field > label{display:block;margin-bottom:var(--sp-3);font-size:var(--fs-body);font-weight:500;color:var(--text-1)}
+.xcc .form-field input,.xcc .form-field textarea{width:100%;min-height:40px;padding:var(--sp-4) var(--sp-6);border:1px solid var(--border);
+     border-radius:var(--r);background:var(--bg-card);color:var(--text-1);font:inherit;font-size:var(--fs-body);outline:none}
+.xcc .form-field textarea{min-height:96px;resize:vertical;line-height:var(--lh-body)}
+.xcc .form-field input:focus,.xcc .form-field textarea:focus{border-color:var(--brand);box-shadow:var(--focus-ring)}
+.xcc .form-field input[readonly]{background:var(--bg-page)}
+.xcc-2cot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 var(--sp-6)}
+.xcc-goi-y{margin-top:var(--sp-2);font-size:var(--fs-meta);color:var(--text-3)}
+.xcc-loi{display:none;margin-bottom:var(--sp-6);padding:var(--sp-5) var(--sp-7);border-radius:var(--r);background:var(--danger-soft);color:var(--danger-fg)}
+.xcc-loi.is-hien{display:block}
+
+.xcc-tabs{display:flex;gap:var(--sp-3);flex-wrap:wrap;padding:0 var(--sp-9) var(--sp-6)}
+.xcc-tab{display:inline-flex;align-items:center;gap:var(--sp-3);min-height:34px;padding:0 var(--sp-7);border:1px solid var(--border);border-radius:var(--r-full);
+     background:var(--bg-card);color:var(--text-2);font:inherit;font-size:var(--fs-body);font-weight:600;cursor:pointer}
+.xcc-tab.is-active{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-hover)}
+.xcc-tab b{min-width:20px;padding:0 var(--sp-3);border-radius:var(--r-full);background:var(--danger);color:var(--text-on-brand);font-size:var(--fs-micro);text-align:center}
+.xcc-bang{overflow-x:auto}
+.xcc-duyet-o{margin:0 var(--sp-9) var(--sp-5)}
+.xcc table{width:100%;border-collapse:collapse;font-size:var(--fs-body)}
+.xcc th{padding:var(--sp-4) var(--sp-6);text-align:left;font-size:var(--fs-meta);font-weight:600;color:var(--text-3);background:var(--bg-band);white-space:nowrap}
+.xcc td{padding:var(--sp-5) var(--sp-6);border-top:1px solid var(--border);color:var(--text-1);vertical-align:top}
+.xcc td.num,.xcc th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.xcc td.xcc-ly-do{max-width:280px;overflow-wrap:anywhere}
+.xcc td small{display:block;margin-top:2px;color:var(--text-3)}
+.xcc-trong{padding:var(--sp-12) var(--sp-8);text-align:center;color:var(--text-3)}
+.xcc-the{display:inline-block;padding:2px var(--sp-5);border-radius:var(--r-full);font-size:var(--fs-meta);font-weight:600;white-space:nowrap}
+.xcc-the.cho{background:var(--warning-soft);color:var(--warning-fg)}
+.xcc-the.xong{background:var(--success-soft);color:var(--success-fg)}
+.xcc-the.tuchoi{background:var(--danger-soft);color:var(--danger-fg)}
+</style>
+
+  <div class="xcc-grid">
+
+    <section class="card" aria-labelledby="xcc-tao-tieu-de">
+      <div class="card-header"><h2 id="xcc-tao-tieu-de">Gửi đề xuất chấm công lại</h2></div>
+      <div class="card-body">
+        <div class="xcc-loi" id="xcc-loi" role="alert"></div>
+        <form id="xcc-form" novalidate>
+          <div class="form-field">
+            <label for="xcc-ngay">Ngày chấm công</label>
+            <input type="date" id="xcc-ngay" required>
+          </div>
+          <div class="xcc-2cot">
+            <div class="form-field">
+              <label for="xcc-gio-ht">Giờ trên hệ thống</label>
+              <input type="text" id="xcc-gio-ht" readonly value="—">
+              <div class="xcc-goi-y" id="xcc-gio-ht-goi-y" hidden>Hệ thống chưa ghi nhận giờ chấm ngày này — bạn vẫn gửi được, chỉ cần nhập giờ đến thực tế.</div>
+            </div>
+            <div class="form-field">
+              <label for="xcc-gio-tt">Giờ đến thực tế</label>
+              <input type="time" id="xcc-gio-tt" required>
+            </div>
+          </div>
+          <div class="form-field">
+            <label for="xcc-ly-do">Lý do</label>
+            <textarea id="xcc-ly-do" maxlength="1000" required placeholder="Vì sao giờ trên hệ thống khác giờ đến thực tế?"></textarea>
+          </div>
+          <button type="submit" class="btn-primary" id="xcc-gui">Gửi đề xuất</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="xcc-ds-tieu-de">
+      <div class="card-header"><h2 id="xcc-ds-tieu-de">Danh sách đề xuất chấm công lại</h2></div>
+      <div class="xcc-tabs" role="tablist" id="xcc-tabs">
+        <button type="button" class="xcc-tab is-active" role="tab" data-phan="cua_toi">Của tôi</button>
+        <button type="button" class="xcc-tab" role="tab" data-phan="tat_ca" id="xcc-tab-tat-ca" hidden>Tất cả</button>
+      </div>
+      <p class="xcc-goi-y xcc-duyet-o" id="xcc-duyet-o" hidden>Bạn duyệt đề xuất ở màn <a href="/phe-duyet">Phê duyệt</a>, mục Đề xuất.</p>
+      <div class="xcc-bang"><div id="xcc-ds"><div class="xcc-trong">Đang tải…</div></div></div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+(function () {
+const API = '/api/de-xuat-cham-cong';
+const HASH = '#cham-cong';
+const $ = id => document.getElementById(id);
+const TRANG_THAI = {
+  cho_quan_ly: ['Chờ quản lý duyệt', 'cho'],
+  cho_ceo:     ['Chờ CEO duyệt', 'cho'],
+  da_duyet:    ['Đã duyệt', 'xong'],
+  tu_choi:     ['Bị từ chối', 'tuchoi']
+};
+const _xcc = { info: null, phan: 'cua_toi', daKhoiTao: false, dangMo: false };
+const NHAN_CAP = { quan_ly: 'quản lý', ceo: 'CEO' };
+// Hai khối của màn Đề xuất chung bị ẩn khi tab này mở (ẩn bằng style vì `.dx-tren` đặt display riêng).
+const KHOI_CHUNG = '.dx-tren, .dx-bang';
+const ICON_TAB = '<svg class="dx-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>';
+
+function esc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const tien = n => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
+const gio = t => t ? String(t).slice(0, 5) : '—';
+const ngayVN = d => d ? d.split('-').reverse().join('/') : '—';
+const thoiGian = s => s ? new Date(s).toLocaleString('vi-VN', {timeZone:'Asia/Ho_Chi_Minh', hour12:false, day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
+const ngayISO = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
+async function goi(url, opt){
+  const r = await fetch(url, Object.assign({credentials:'include'}, opt));
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const ct = d.detail;
+    throw new Error(Array.isArray(ct) ? ct.map(x => x.msg).join('; ') : (ct || ('Lỗi ' + r.status)));
+  }
+  return d;
+}
+function baoLoi(msg){ const e = $('xcc-loi'); e.textContent = msg || ''; e.classList.toggle('is-hien', !!msg); }
+
+async function napThongTin(ngay){
+  const d = await goi(API + '/thong-tin' + (ngay ? '?ngay=' + ngay : ''));
+  _xcc.info = d;
+  return d;
+}
+
+function datGioiHanNgay(){
+  const i = _xcc.info;
+  const tu = new Date(i.hom_nay + 'T00:00:00'); tu.setDate(tu.getDate() - i.so_ngay_toi_da);
+  $('xcc-ngay').max = i.hom_nay;
+  $('xcc-ngay').min = ngayISO(tu);
+}
+
+async function doiNgay(){
+  const ngay = $('xcc-ngay').value;
+  $('xcc-gio-ht').value = '—';
+  $('xcc-gio-ht-goi-y').hidden = true;
+  if (!ngay) return;
+  try {
+    const d = await napThongTin(ngay);
+    $('xcc-gio-ht').value = d.gio_he_thong ? gio(d.gio_he_thong) : 'Chưa ghi nhận';
+    $('xcc-gio-ht-goi-y').hidden = !!d.gio_he_thong;
+    baoLoi('');
+  } catch (e) { baoLoi(e.message); }
+}
+
+async function guiDeXuat(ev){
+  ev.preventDefault();
+  baoLoi('');
+  const ngay = $('xcc-ngay').value, gioTt = $('xcc-gio-tt').value, ly = $('xcc-ly-do').value.trim();
+  if (!ngay || !gioTt || !ly) return baoLoi('Vui lòng điền đủ ngày, giờ đến thực tế và lý do.');
+  if (!confirm('Mức phí ' + tien(_xcc.info.phi_moi_luot) + ' chỉ bị trừ vào thưởng Tối ưu KD khi CEO duyệt và đồng ý trừ. Gửi đề xuất?')) return;
+  $('xcc-gui').disabled = true;
+  try {
+    await goi(API, {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ngay, gio_thuc_te: gioTt, ly_do: ly})});
+    $('xcc-form').reset();
+    $('xcc-gio-ht').value = '—';
+    $('xcc-gio-ht-goi-y').hidden = true;
+    datGioiHanNgay();
+    await veDanhSach();
+  } catch (e) { baoLoi(e.message); }
+  finally { $('xcc-gui').disabled = false; }
+}
+
+function veTrangThai(r){
+  const [nhan, lop] = TRANG_THAI[r.trang_thai] || [r.trang_thai, 'cho'];
+  const boi = r.trang_thai === 'tu_choi' ? ' (' + (NHAN_CAP[r.tu_choi_boi] || '') + ')' : '';
+  return '<span class="xcc-the ' + lop + '">' + esc(nhan + boi) + '</span>';
+}
+function veTien(r){
+  let kq = '';
+  if (r.trang_thai === 'da_duyet') kq = '<small>' + (Number(r.phi_tru) > 0 ? 'Đã trừ ' + tien(r.phi_tru) : 'Không trừ thưởng') + '</small>';
+  return tien(r.phi) + kq;
+}
+function veDuyet(r){
+  const dong = [];
+  if (r.ho_ten_quan_ly) dong.push('QL: ' + esc(r.ho_ten_quan_ly) + (r.quan_ly_nhan_xet ? ' — ' + esc(r.quan_ly_nhan_xet) : ''));
+  if (r.ho_ten_ceo) dong.push('CEO: ' + esc(r.ho_ten_ceo) + (r.ceo_nhan_xet ? ' — ' + esc(r.ceo_nhan_xet) : ''));
+  return dong.length ? '<small>' + dong.join('<br>') + '</small>' : '';
+}
+
+async function veDanhSach(){
+  const box = $('xcc-ds');
+  box.innerHTML = '<div class="xcc-trong">Đang tải…</div>';
+  let ds;
+  try { ds = await goi(API + '?phan=' + _xcc.phan); }
+  catch (e) { box.innerHTML = '<div class="xcc-trong">' + esc(e.message) + '</div>'; return; }
+  if (!ds.length) { box.innerHTML = '<div class="xcc-trong">Chưa có đề xuất nào.</div>'; return; }
+  const nhieuNguoi = _xcc.phan !== 'cua_toi';
+  box.innerHTML = '<table><thead><tr>' + (nhieuNguoi ? '<th>Nhân viên</th>' : '') +
+    '<th>Ngày</th><th>Hệ thống → Thực tế</th><th class="num">Mức phí</th><th>Lý do</th><th>Trạng thái</th>' +
+    '</tr></thead><tbody>' + ds.map(r =>
+    '<tr>' +
+    (nhieuNguoi ? '<td>' + esc(r.ho_ten) + '<small>' + esc(r.phong_ban || '') + '</small></td>' : '') +
+    '<td>' + ngayVN(r.ngay) + '<small>Gửi ' + thoiGian(r.created_at) + '</small></td>' +
+    '<td>' + gio(r.gio_he_thong) + ' → <b>' + gio(r.gio_thuc_te) + '</b>' +
+      (r.gio_truoc_khi_sua ? '<small>Đã sửa từ ' + gio(r.gio_truoc_khi_sua) + '</small>' : '') + '</td>' +
+    '<td class="num">' + veTien(r) + '</td>' +
+    '<td class="xcc-ly-do">' + esc(r.ly_do) + '</td>' +
+    '<td>' + veTrangThai(r) + veDuyet(r) + '</td>' +
+    '</tr>').join('') + '</tbody></table>';
+}
+
+function chonTab(phan){
+  _xcc.phan = phan;
+  document.querySelectorAll('.xcc-tab').forEach(b => {
+    const dang = b.dataset.phan === phan;
+    b.classList.toggle('is-active', dang);
+    b.setAttribute('aria-selected', dang);
+  });
+  veDanhSach();
+}
+
+// Chỉ nạp dữ liệu lần đầu mở tab — các lần vào Đề xuất khác không tốn thêm request.
+async function khoiTao(){
+  _xcc.daKhoiTao = true;
+  $('xcc-ngay').addEventListener('change', doiNgay);
+  $('xcc-form').addEventListener('submit', guiDeXuat);
+  $('xcc-tabs').addEventListener('click', e => { const b = e.target.closest('.xcc-tab'); if (b) chonTab(b.dataset.phan); });
+  try {
+    const d = await napThongTin();
+    datGioiHanNgay();
+    const q = d.quyen_duyet;
+    $('xcc-duyet-o').hidden = !(q.cap1 || q.ceo);
+    $('xcc-tab-tat-ca').hidden = !q.xem_tat_ca;
+  } catch (e) { baoLoi(e.message); $('xcc-gui').disabled = true; }
+  veDanhSach();
+}
+
+function datHienKhoiChung(hien){
+  document.querySelectorAll(KHOI_CHUNG).forEach(el => { el.style.display = hien ? '' : 'none'; });
+}
+
+// Hai hàm này được `de_xuat_core.html` gọi.
+window.xccTabHtml = function () {
+  return '<button type="button" role="tab" class="dx-tab' + (_xcc.dangMo ? ' is-chon' : '') + '" aria-selected="' + _xcc.dangMo +
+    '" onclick="xccMo()">' + ICON_TAB + 'Chấm công lại</button>';
+};
+window.xccMo = function () {
+  _xcc.dangMo = true;
+  if (typeof _dx !== 'undefined') _dx.loai = null;   // không tab loại chung nào đang được chọn
+  $('xcc').hidden = false;
+  datHienKhoiChung(false);
+  if (typeof dxVeTabs === 'function') dxVeTabs();
+  if (location.hash !== HASH) history.replaceState(null, '', HASH);
+  if (!_xcc.daKhoiTao) khoiTao();
+};
+window.xccDong = function () {
+  if (!_xcc.dangMo) return;
+  _xcc.dangMo = false;
+  $('xcc').hidden = true;
+  datHienKhoiChung(true);
+  if (location.hash === HASH) history.replaceState(null, '', location.pathname + location.search);
+};
+})();
+</script>

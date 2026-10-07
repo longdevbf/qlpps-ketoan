@@ -17,6 +17,7 @@ from .notification import Notification
 from .push_subscription import PushSubscription
 from .mobile_device import MobileDevice
 from .leave_request import LeaveRequest
+from .de_xuat_cham_cong import DeXuatChamCong
 from .expense_request import ExpenseRequest
 from .de_xuat import DeXuat
 from .de_xuat_chi_tiet import DeXuatChiTiet
@@ -45,7 +46,7 @@ __all__ = [
     "ProductOpportunity", "OpportunityNote", "OpportunityScorecard",
     "Product", "ProductAddon", "ProductAttribute",
     "Notification", "PushSubscription", "MobileDevice",
-    "LeaveRequest", "ExpenseRequest", "DeXuat", "DeXuatChiTiet", "TaiLieuMeta",
+    "LeaveRequest", "DeXuatChamCong", "ExpenseRequest", "DeXuat", "DeXuatChiTiet", "TaiLieuMeta",
     "TaiLieuTep", "TaiLieuLuot", "DaoTaoNoiDung", "DaoTaoTuongTac",
     "CalendarEvent", "EventParticipant", "EventAttachment",
     "MorningBrief", "AIChatMessage",

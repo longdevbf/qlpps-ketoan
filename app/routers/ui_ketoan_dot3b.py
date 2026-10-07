@@ -52,7 +52,11 @@ _User = Annotated[JWTPayload, Depends(_require_user_redirect)]
 
 @router.get("/so-quy", response_class=HTMLResponse, name="kt_so_quy")
 def so_quy_page(request: Request, user: _User):
-    """Sổ quỹ tiền mặt (TK 111). Dữ liệu thật: /api/so-quy, /api/so-quy/summary."""
+    """Sổ quỹ — MỌI quỹ đang hoạt động (tiền mặt TK 111 + ngân hàng TK 112).
+
+    Mở phạm vi 02/10/2026: trước đó màn chỉ hiện tài khoản `loai='tien_mat'`.
+    Dữ liệu thật: /api/so-quy, /api/so-quy/summary, /api/tai-khoan.
+    """
     return templates.TemplateResponse(
         "kt_so_quy.html", {"request": request, "user": user_ctx(user)}
     )

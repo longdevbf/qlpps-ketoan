@@ -284,15 +284,19 @@ def _sum_lai_vay(db: Session, tu: date, den: date) -> float:
     """, tu=tu, den=den)
 
 
-def _sum_cp_phat_sinh_filter(
-    db: Session, tu: date, den: date,
+def _where_cp_phat_sinh(
+    tu: date, den: date,
     nhom: Optional[str] = None,
     name_like: Optional[str] = None,        # ILIKE pattern
     name_like_any: Optional[list[str]] = None,  # multi ILIKE OR
     exclude_name_like: Optional[list[str]] = None,
     also_ten_khoan: bool = False,           # khớp cả ten_khoan (mô tả), không chỉ loai_chi_phi
-) -> float:
-    """SUM chi_phi_phat_sinh.so_tien with flexible filters.
+) -> tuple[str, dict[str, Any]]:
+    """Dựng mệnh đề WHERE cho `chi_phi_phat_sinh` — DÙNG CHUNG cho số tổng và chi tiết.
+
+    Tách ra từ `_sum_cp_phat_sinh_filter` ngày 05/10/2026 để popup "nguồn gốc con số"
+    lọc ĐÚNG tập dòng mà số tổng đã cộng. Nếu viết hai câu truy vấn riêng rồi mong
+    chúng khớp thì sớm muộn cũng lệch — đúng loại lỗi đang phải đi dọn ở báo cáo.
 
     `also_ten_khoan=True`: name_like_any/exclude_name_like khớp trên CẢ
     `loai_chi_phi` LẪN `ten_khoan` (nhiều khoản ghi từ khoá ở mô tả ten_khoan,
@@ -334,12 +338,50 @@ def _sum_cp_phat_sinh_filter(
             params[k] = p.lower()
         if ors:
             where.append("(" + " AND ".join(ors) + ")")
-    sql = f"""
+    return " AND ".join(where), params
+
+
+def _sum_cp_phat_sinh_filter(db: Session, tu: date, den: date, **loc: Any) -> float:
+    """SUM chi_phi_phat_sinh.so_tien theo bộ lọc — xem `_where_cp_phat_sinh`."""
+    where, params = _where_cp_phat_sinh(tu, den, **loc)
+    return _safe_scalar(db, f"""
         SELECT COALESCE(SUM(so_tien), 0)
         FROM ketoan.chi_phi_phat_sinh
-        WHERE {' AND '.join(where)}
+        WHERE {where}
+    """, **params)
+
+
+def rows_cp_phat_sinh(
+    db: Session, tu: date, den: date,
+    offset: int = 0, limit: int = 50, **loc: Any,
+) -> dict[str, Any]:
+    """Các dòng `chi_phi_phat_sinh` làm nên số tổng — cho popup nguồn gốc.
+
+    CÙNG mệnh đề WHERE với `_sum_cp_phat_sinh_filter` nên `tong` ở đây luôn bằng số
+    hiển thị trên báo cáo. `tong` và `so_dong` tính trên TOÀN BỘ tập khớp, không theo
+    trang — phân trang chỉ cắt phần hiển thị.
     """
-    return _safe_scalar(db, sql, **params)
+    where, params = _where_cp_phat_sinh(tu, den, **loc)
+    tt = db.execute(text(f"""
+        SELECT COALESCE(SUM(so_tien), 0) AS tong, COUNT(*) AS so_dong
+        FROM ketoan.chi_phi_phat_sinh WHERE {where}
+    """), params).mappings().first()
+    rows = db.execute(text(f"""
+        SELECT id, ngay, so_tien, COALESCE(loai_chi_phi, '') AS loai_chi_phi,
+               COALESCE(ten_khoan, '') AS ten_khoan, COALESCE(nhom_chi_phi, '') AS nhom_chi_phi,
+               COALESCE(nguoi_chi, '') AS nguoi_chi, COALESCE(ma_don, '') AS ma_don,
+               COALESCE(ghi_chu, '') AS ghi_chu, COALESCE(ref_vc, '') AS ref_vc
+        FROM ketoan.chi_phi_phat_sinh
+        WHERE {where}
+        ORDER BY ngay DESC, id DESC
+        OFFSET :_off LIMIT :_lim
+    """), {**params, "_off": max(0, offset), "_lim": max(1, min(limit, 200))}).mappings().all()
+    return {
+        "nguon": "ketoan.chi_phi_phat_sinh",
+        "tong": float(tt["tong"] or 0) if tt else 0.0,
+        "so_dong": int(tt["so_dong"] or 0) if tt else 0,
+        "dong": [dict(r) for r in rows],
+    }
 
 
 def _sum_co_dinh_phan_bo(
@@ -829,21 +871,22 @@ def dinh_phi_phan_bo_khoang(db: Session, tu: date, den: date) -> float:
     return round(tong, 2)
 
 
-def _sum_co_dinh_duong_thang_method_only(
+def rows_co_dinh_duong_thang(
     db: Session, thang: str, nhom: str,
     name_like_any: Optional[list[str]] = None,
-) -> float:
-    """Phase 5C dispatcher helper — duong_thang chỉ rows có method='duong_thang'.
+) -> list[dict[str, Any]]:
+    """Từng dòng chi phí cố định (method='duong_thang') KÈM phần phân bổ vào `thang`.
 
-    Logic giống `_sum_co_dinh_phan_bo` (5A) nhưng filter thêm phuong_phap_phan_bo.
-    KHÔNG sửa hàm 5A — chỉ duplicate logic tối thiểu cho dispatcher.
+    Tách ra 05/10/2026 để popup "nguồn gốc con số" của các dòng định phí chạy trên
+    CHÍNH vòng lặp đã cộng nên số tổng — `_sum_co_dinh_duong_thang_method_only` giờ
+    chỉ còn là tổng của danh sách này. Viết hai vòng lặp song song rồi mong chúng
+    khớp là cách chắc chắn nhất để sinh lệch.
+
+    Mỗi dòng trả thêm `phan_bo` (số thực sự vào tháng này) và `cach_phan_bo` (vì sao).
     """
     rows = _query_co_dinh_rows_by_method(db, nhom, "duong_thang")
-    if not rows:
-        return 0.0
-    total = 0.0
+    out: list[dict[str, Any]] = []
     for r in rows:
-        # Apply name filter
         if name_like_any:
             loai = (r.get("loai_chi_phi") or "").lower()
             ten = (r.get("ten_khoan") or "").lower()
@@ -857,6 +900,7 @@ def _sum_co_dinh_duong_thang_method_only(
         if not t_start or st <= 0:
             continue
         start_ym = t_start.strftime("%Y-%m")
+        phan_bo, cach = 0.0, ""
         if n_phan_bo > 1:
             ystart, mstart = int(start_ym[:4]), int(start_ym[5:])
             mend = mstart + n_phan_bo - 1
@@ -864,14 +908,31 @@ def _sum_co_dinh_duong_thang_method_only(
             mend = ((mend - 1) % 12) + 1
             end_ym = f"{yend:04d}-{mend:02d}"
             if start_ym <= thang <= end_ym:
-                total += st / n_phan_bo
+                phan_bo = st / n_phan_bo
+                cach = f"Chia đều {n_phan_bo} tháng ({start_ym} → {end_ym})"
         elif lap_lai:
             if start_ym <= thang:
-                total += st
+                phan_bo = st
+                cach = f"Lặp lại hằng tháng từ {start_ym}"
         else:
             if start_ym == thang:
-                total += st
-    return total
+                phan_bo = st
+                cach = f"Chỉ tháng {start_ym}"
+        if phan_bo:
+            out.append({**r, "thang": thang, "phan_bo": phan_bo, "cach_phan_bo": cach})
+    return out
+
+
+def _sum_co_dinh_duong_thang_method_only(
+    db: Session, thang: str, nhom: str,
+    name_like_any: Optional[list[str]] = None,
+) -> float:
+    """Phase 5C dispatcher helper — duong_thang chỉ rows có method='duong_thang'.
+
+    `float(...)`: `sum()` của danh sách rỗng trả int 0, làm JSON ra `0` thay vì `0.0`
+    — đổi kiểu dữ liệu API trả về dù số không đổi.
+    """
+    return float(sum(r["phan_bo"] for r in rows_co_dinh_duong_thang(db, thang, nhom, name_like_any)))
 
 
 def _sum_co_dinh_prorated_method_only(
