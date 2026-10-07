@@ -41,7 +41,7 @@
     {{ ui.the_so('dt', [('tong', 'Tiền thu từ khách', 'success', 'bi-graph-up-arrow'), ('so_dong', 'Số phiếu', 'info', 'bi-receipt'),
                          ('dat_coc', 'Đặt cọc', '', 'bi-piggy-bank'), ('thanh_toan', 'Thanh toán', 'tim', 'bi-cash-stack')], kieu='strip') }}
     {% call ui.the_bang('dt', 'Tiền thu từ khách', panel='Chi tiết doanh thu') %}
-      {{ ui.o_tim('dt', 'tim', 'Tìm', 'Mã đơn, nhân viên, tài khoản…') }}
+      {{ ui.o_tim('dt', 'tim', 'Tìm', 'Mã đơn, người nộp, nhân viên…') }}
       {{ ui.o_chon('dt', 'loai', 'Loại doanh thu', [('', 'Tất cả')]) }}
       {{ ui.o_chon('dt', 'ht', 'Hình thức TT', [('', 'Tất cả'), ('coc', 'Đặt cọc'), ('tt', 'Thanh toán'), ('khac', 'Khác')]) }}
     {% endcall %}
@@ -105,7 +105,11 @@
         <div class="kd-field"><label class="kd-field__label" for="tc-dt-tk">Tài khoản nhận {{ sao() }}</label><select class="kd-input" id="tc-dt-tk"></select></div>
         <div class="kd-field"><label class="kd-field__label" for="tc-dt-nv">NV kinh doanh</label><select class="kd-input" id="tc-dt-nv"></select></div>
       </div>
-      <div class="kd-field"><label class="kd-field__label" for="tc-dt-ma">Mã đơn</label><input class="kd-input" id="tc-dt-ma" maxlength="64" placeholder="VD: 10221" autocomplete="off"></div>
+      {# Người nộp đứng cạnh Mã đơn: gõ mã đơn xong, kt-thu-chi.js điền sẵn tên khách của đơn (sửa được, không đè chữ đã gõ). #}
+      <div class="kd-row2">
+        <div class="kd-field"><label class="kd-field__label" for="tc-dt-ma">Mã đơn</label><input class="kd-input" id="tc-dt-ma" maxlength="64" placeholder="VD: 10221" autocomplete="off"></div>
+        <div class="kd-field"><label class="kd-field__label" for="tc-dt-nop">Người nộp{{ tip('Người nộp tiền — khách hoặc người nộp thay. Nhập Mã đơn thì tự điền tên khách của đơn bên Báo giá; sửa được, đã tự gõ thì không bị ghi đè.', 'kd-tip--trai') }}</label><input class="kd-input" id="tc-dt-nop" maxlength="128" placeholder="VD: Nguyễn Văn A" autocomplete="off" aria-describedby="tc-dt-nop-gy"><p class="kt-tc-goi-y" id="tc-dt-nop-gy" aria-live="polite"></p></div>
+      </div>
       <div class="kd-field"><label class="kd-field__label" for="tc-dt-gc">Ghi chú</label><textarea class="kd-input" id="tc-dt-gc" rows="2" placeholder="Ghi chú thêm…"></textarea></div>
       <p class="kd-form-err" role="alert" hidden></p>
     </div>
@@ -220,5 +224,5 @@
 <script src="/static/js/kd-man-hinh.js?v=tien1001"></script>
 <script src="/static/js/kt-chung.js?v=tk0928b"></script>
 <script src="/static/js/kt-danh-sach.js?v=loc0928b"></script>
-<script src="/static/js/kt-thu-chi.js?v=ct1007a"></script>
+<script src="/static/js/kt-thu-chi.js?v=ct1007b"></script>
 {% endblock %}

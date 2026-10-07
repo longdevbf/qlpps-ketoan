@@ -29,6 +29,10 @@ class DoanhThu(Base):
     nguon: Mapped[Optional[str]] = mapped_column(String(32))           # 'kd' | 'online' | 'khac'
     nv_kinh_doanh: Mapped[Optional[str]] = mapped_column(String(128))
     ma_don: Mapped[Optional[str]] = mapped_column(String(64))          # ref baogia.quotes.quote_number (loose)
+    # Người nộp tiền (khách hoặc người nộp thay) — gõ ở hộp "Ghi nhận doanh thu"; có Mã đơn thì
+    # giao diện điền sẵn tên khách của đơn. Thêm ở migration q16 nên dòng cũ để NULL.
+    # Khác nv_kinh_doanh: đó là nhân viên được tính doanh số, không phải người đưa tiền.
+    nguoi_nop: Mapped[Optional[str]] = mapped_column(String(128))
     # ref muahang.purchase_orders.id — NULL nếu không từ PO. Partial UNIQUE ở DB
     # để đảm bảo 1 PO chỉ ghi 1 entry doanh thu (idempotent auto-create).
     ref_order_id: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)

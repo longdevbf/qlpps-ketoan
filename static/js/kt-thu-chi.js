@@ -107,6 +107,7 @@
   function veChiTietDt(d) {
     const k = d.khach;
     let doiTuong = H.kv([
+      ['Người nộp', oChu(d.nguoi_nop)],
       k && ['Khách hàng', oChu(k.customer_name)],
       k && ['Điện thoại', oChu(k.customer_phone)],
       k && ['Địa chỉ', oChu(k.customer_address)],
@@ -124,7 +125,7 @@
       + H.khoi('bi-cash-stack', 'Tiền', H.kv([
         ['Số tiền', esc(KD.tienVnd(d.so_tien)), true], ['Hình thức thanh toán', oChu(d.loai_thanh_toan)], ['Tài khoản nhận', oChu(d.ngan_hang)],
       ]))
-      + H.khoi('bi-person', 'Khách hàng', doiTuong)
+      + H.khoi('bi-person', 'Khách hàng và người nộp', doiTuong)
       + H.khoi('bi-diagram-3', 'Nguồn gốc', H.kv([
         ['Nguồn', d.nguon_hien ? esc(NGUON_DT[d.nguon_hien] || d.nguon_hien) : 'Kế toán tự nhập'],
         coGt(d.nguon) && ['Kênh', nhanTu(KENH_DT, d.nguon, 'Kênh doanh thu')],
@@ -223,7 +224,7 @@
       if (!q.loai) loaiDt = [...new Set(list.map((r) => r.loai).filter(Boolean))].sort();
       if (q.ht) list = list.filter((r) => htTT(r) === q.ht);
       xep(list, q.sort);
-      const p = phanTrangTim(list, q, (r) => [r.ma_don, r.mo_ta, r.ghi_chu, r.loai, r.nv_kinh_doanh, r.ngan_hang, r.nguon_hien]);
+      const p = phanTrangTim(list, q, (r) => [r.ma_don, r.nguoi_nop, r.mo_ta, r.ghi_chu, r.loai, r.nv_kinh_doanh, r.ngan_hang, r.nguon_hien]);
       const S = (f) => list.reduce((s, r) => s + f(r), 0);
       // Cùng quy tắc với /api/doanh-thu/by-month (ILIKE '%cọc%' / ILIKE 'thanh toán' — không phân biệt hoa thường).
       const dat_coc = S((r) => (htTT(r) === 'coc' ? Number(r.so_tien || 0) : 0));
@@ -500,13 +501,38 @@
     datChon($('tc-dt-tk'), r ? r.ngan_hang : (coChon($('tc-dt-tk'), nho.doc('tk_thu')) ? nho.doc('tk_thu') : ''));
     datChon($('tc-dt-nv'), r ? r.nv_kinh_doanh : '');
     $('tc-dt-ma').value = (r && r.ma_don) || '';
+    $('tc-dt-nop').value = (r && r.nguoi_nop) || ''; nopTuDien = ''; $('tc-dt-nop-gy').textContent = '';
     $('tc-dt-gc').value = (r && r.ghi_chu) || '';
     KD.moHopThoai(dlgDt);
+    if (r && r.ma_don && !r.nguoi_nop) goiYNguoiNop();   // phiếu cũ có mã đơn mà chưa ghi người nộp → gợi ý luôn, vẫn sửa được
   }
+  /* Người nộp: gõ Mã đơn → điền sẵn tên khách của đơn (GET /api/doanh-thu/khach-theo-don, đọc baogia.quotes).
+     Chỉ điền khi ô đang trống hoặc còn giữ đúng chữ lần trước tự điền — người dùng đã tự gõ thì KHÔNG ghi đè.
+     luotNop: gõ nhanh nhiều mã thì chỉ nhận kết quả của lần tra cuối (kết quả cũ về muộn bị bỏ). */
+  let nopTuDien = '', luotNop = 0;
+  async function goiYNguoiNop() {
+    const o = $('tc-dt-nop'), gy = $('tc-dt-nop-gy'), ma = $('tc-dt-ma').value.trim(), l = ++luotNop;
+    const daTuGo = () => o.value.trim() !== '' && o.value !== nopTuDien;
+    if (daTuGo()) return;
+    if (!ma) { o.value = nopTuDien = ''; gy.textContent = ''; return; }
+    gy.textContent = 'Đang tìm khách của đơn ' + ma + '…';
+    try {
+      const d = await KD.api('/api/doanh-thu/khach-theo-don?' + KT.url.qs({ ma_don: ma }));
+      if (l !== luotNop || daTuGo()) return;
+      const ten = d.khach && coGt(d.khach.customer_name) ? d.khach.customer_name.trim() : '';
+      o.value = nopTuDien = ten;   // không có tên → xoá luôn tên tự điền của mã đơn trước
+      gy.textContent = ten ? 'Tự điền theo khách của đơn ' + ma + ' — sửa được.'
+        : !d.doc_duoc ? 'Chưa đọc được dữ liệu Báo giá — gõ tay người nộp.'
+          : d.khach ? 'Đơn ' + ma + ' chưa ghi tên khách — gõ tay người nộp.' : 'Không thấy đơn ' + ma + ' bên Báo giá — gõ tay người nộp nếu cần.';
+    } catch (e) { if (l === luotNop) gy.textContent = 'Chưa tra được khách của đơn ' + ma + ': ' + e.message; }
+  }
+  $('tc-dt-ma').addEventListener('input', KD.debounce(goiYNguoiNop, 400));
+  // Gõ vào ô Người nộp → câu "Tự điền theo…" không còn đúng nữa thì ẩn đi.
+  $('tc-dt-nop').addEventListener('input', () => { if ($('tc-dt-nop').value !== nopTuDien) $('tc-dt-nop-gy').textContent = ''; });
   $('tc-dt-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const s = suaDt, body = { ngay: $('tc-dt-ngay').value, loai: $('tc-dt-loai').value, so_tien: tienSua($('tc-dt-tien'), s && s.so_tien),
-      nv_kinh_doanh: giaTri('tc-dt-nv'), ma_don: giaTri('tc-dt-ma'), ngan_hang: giaTri('tc-dt-tk'), loai_thanh_toan: giaTri('tc-dt-ht'), ghi_chu: giaTri('tc-dt-gc') };
+      nv_kinh_doanh: giaTri('tc-dt-nv'), ma_don: giaTri('tc-dt-ma'), nguoi_nop: giaTri('tc-dt-nop'), ngan_hang: giaTri('tc-dt-tk'), loai_thanh_toan: giaTri('tc-dt-ht'), ghi_chu: giaTri('tc-dt-gc') };
     const loi = (id, msg) => { $(id).focus(); KD.baoLoiHopThoai(dlgDt, msg); };
     if (!body.ngay) return loi('tc-dt-ngay', 'Chọn ngày.');
     if (!body.loai) return loi('tc-dt-loai', 'Chọn loại doanh thu.');
